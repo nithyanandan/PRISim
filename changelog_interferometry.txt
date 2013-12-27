@@ -1,0 +1,7 @@
+from v1.2 of python-trials:
+==========================
+
+In baseline_delay_horizon.py,
+
+(*) changed global c (speed of light) to FCNST.c where FCNST is the
+scipy.constants module
