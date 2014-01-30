@@ -4,12 +4,13 @@ import matplotlib.pyplot as PLT
 import matplotlib.animation as MOV
 import baseline_delay_horizon as DLY
 import geometry as GEOM
+import interferometry as RI
 
 # antenna_file = 'c:/Users/Regular/My Documents/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt'
 antenna_file = '/Users/t_nithyanandan/Downloads/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt'
 
 ant_locs = NP.loadtxt(antenna_file, skiprows=6, comments='#', usecols=(1,2,3))
-bl = GEOM.baseline_generator(ant_locs, auto=False, conjugate=False)
+bl = RI.baseline_generator(ant_locs, auto=False, conjugate=False)
 bl_lengths = NP.sqrt(NP.sum(bl**2,axis=1))
 
 decl = -27.0 # in degrees

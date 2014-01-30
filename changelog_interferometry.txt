@@ -1,3 +1,53 @@
+from v1.0 of interferometry:
+===========================
+
+In interferometry.py,
+
+(*) Added a member function band_averaged_noise_estimate() to class
+Interferometer.
+(*) Corrected the thermal noise rms formula. It was missing a square root for 
+the observing time and frequency width
+(*) Added docstring to the class Interferometer and all its member functions
+(*) Removed unused attrbute obs_catalog
+(*) Remove unused attribute pb
+(*) Ensured that input parameter skymodel to member function observe() of class
+Interferometer is an instance of class Catalog.
+(*) Remove unused input pb_min to member function observe() of class 
+Interferometer
+(*) In member function observe(), made a correction to the geometric
+transformation from Alt-Az coordinates to HA-Dec by using LST only for the HA
+and not on Dec after the altaz2hadec() transformation in the geometry module
+(*) Added a member function observing_run() that can simulate an observing run 
+in drift or tracking mode.
+(*) Added a member function save() to save the interferometer information onto 
+a FITS file on disk
+(*) Modified attribute tobs to t_acc (accumulation time) and added t_obs to 
+denote observing run duration
+(*) Added attribute n_acc to denote the number of accumulations
+(*) Inserted initializing statements for t_acc, t_obs, and n_acc
+(*) Corrected a 'and' to 'or' in the implementation of frequency scale when 
+given in Hz.
+(*) In call to primary_beam_generator(), also added an argument to specify phase
+center (refer to changes in isotropic_radiators_array_field_pattern() in 
+primary_beams.py)
+(*) Moved the routine baseline_generator from geometry.py to interferometry.py
+
+In primary_beams.py,
+
+(*) Added docstring to all functions
+(*) Made corrections to validation of direction cosines in function 
+isotropic_radiators_array_field_pattern()
+(*) Added capability to include a phase center and compute primary beams 
+relative to this phase center. Correspondingly, added another keyword input
+phase_center to isotropic_radiators_array_field_pattern() and to
+primary_beam_generator()
+
+In baseline_delay_horizon.py,
+
+(*) Changed explanation of the returned variable delaymatrix in the docstring
+of delay_envelope() to remove ambiguity
+
+--------------------------------------------------------------------------------
 from v1.2 of python-trials:
 ==========================
 

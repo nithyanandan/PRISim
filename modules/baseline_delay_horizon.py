@@ -2,7 +2,10 @@ import numpy as NP
 import geometry as GEOM
 import scipy.constants as FCNST
 
+#################################################################################
+
 def delay_envelope(bl, dircos, units='mks'):
+
     """
     ---------------------------------------------------------------------------
     Estimates the delay envelope determined by the sky horizon for given 
@@ -20,9 +23,13 @@ def delay_envelope(bl, dircos, units='mks'):
 
     Outputs:
     
-    delaymatrix: NxMx2 matrix. delaymatrix[:,:,0] contains the maximum delay.
+    delaymatrix: NxMx2 matrix. delaymatrix[:,:,0] contains the maximum delay if
+                 there was no shift due to non-zenith phase center.
                  delaymatrix[:,:,1] contains the delay shift. To determine the 
-                 minimum delay, use delaymatrix[:,:,1]-delaymatrix[:,:,0] 
+                 minimum delay, use delaymatrix[:,:,1]-delaymatrix[:,:,0]. To 
+                 determine effective maximum delay, use
+                 delaymatrix[:,:,1]+delaymatrix[:,:,0]. Minimum delay without
+                 shift is -delaymatrix[:,:,0]
 
     ---------------------------------------------------------------------------
     """
@@ -87,10 +94,11 @@ def delay_envelope(bl, dircos, units='mks'):
 
     return delaymatrix
 
-##########################################################################
+#################################################################################
 
 def geometric_delay(baselines, skypos, altaz=False, dircos=False, hadec=True,
                     units='mks', latitude=None):
+
     """
     ---------------------------------------------------------------------
     Estimates the geometric delays matrix for different baselines from 

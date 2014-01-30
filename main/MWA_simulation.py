@@ -1,4 +1,4 @@
-import numpy as NP
+import numpy as NP 
 from astropy.io import fits
 from astropy.io import ascii
 import scipy.constants as FCNST
@@ -10,8 +10,8 @@ import catalog as CTLG
 import constants as CNST
 import my_DSP_modules as DSP 
 
-# catalog_file = '/data3/t_nithyanandan/project_MWA/mwacs_b1_131016.csv'
-catalog_file = '/Users/t_nithyanandan/Downloads/mwacs_b1_131016.csv'
+catalog_file = '/data3/t_nithyanandan/project_MWA/mwacs_b1_131016.csv'
+# catalog_file = '/Users/t_nithyanandan/Downloads/mwacs_b1_131016.csv'
 
 catdata = ascii.read(catalog_file, data_start=1, delimiter=',')
 
@@ -22,18 +22,18 @@ ferr = catdata['e_S150_fit']
 spindex = catdata['Sp+Index']
 freq_catalog = 0.150 # in GHz
 freq_resolution = 40.0 # in kHz
-nchan = 1024
+nchan = 512
 chans = freq_catalog + (NP.arange(nchan) - 0.5 * nchan) * freq_resolution * 1e3 / 1e9
 
 bpass = 1.0*NP.ones(nchan)
 
 # Do the following next few lines only for MWA
 notch_interval = NP.round(1.28e6 / (freq_resolution * 1e3))
-bpass[::notch_interval] = 0.0
+# bpass[::notch_interval] = 0.0
 # bpass[1::notch_interval] = 0.0
 # bpass[2::notch_interval] = 0.0
 
-oversampling_factor = 4.0
+oversampling_factor = 1.0
 # window = DSP.shaping(nchan, 1/oversampling_factor*CNST.rect_bnw_ratio, shape='bnw', peak=1.0)
 window = DSP.shaping(nchan, 1/oversampling_factor, shape='rect', peak=1.0)
 bpass *= window
@@ -41,18 +41,18 @@ bpass *= window
 ctlgobj = CTLG.Catalog(freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fpeak)
 
 skymod = CTLG.SkyModel(ctlgobj)
-  
+   
 A_eff = 16.0 * (0.5 * FCNST.c / (freq_catalog * 1e9))**2
 
 intrfrmtr = RI.Interferometer('B1', [1000.0, 0.0, 0.0], chans, telescope='mwa',
                               latitude=-26.701, A_eff=A_eff, freq_scale='GHz')
 
 Tsys = 440.0 # in Kelvin
-t_snap = 20 * 60.0 # in seconds
+t_snap = 40 * 60.0 # in seconds
 # ha_range = 15.0*NP.arange(-1.0, t_snap/3.6e3, 1.0)
 n_snaps = 16
 lst_obs = (0.0 + (t_snap / 3.6e3) * NP.arange(n_snaps)) * 15.0 # in degrees
-ha_obs = 1.0 * NP.zeros(n_snaps)
+ha_obs = NP.zeros(n_snaps)
 dec_obs = intrfrmtr.latitude + NP.zeros(n_snaps)
 
 for i in xrange(n_snaps):
@@ -64,6 +64,8 @@ vis_lag = intrfrmtr.vis_lag
 if oversampling_factor > 1.0:
     lags = DSP.downsampler(intrfrmtr.lags, oversampling_factor)
     vis_lag = DSP.downsampler(intrfrmtr.vis_lag, oversampling_factor)
+
+noise_info = intrfrmtr.band_averaged_noise_estimate(filter_method='hpf')
 
 fig = PLT.figure(figsize=(14,14))
 ax1 = fig.add_subplot(211)
@@ -132,9 +134,9 @@ def update(i, interferometer, eta, delay_spectra, line1, line2, t1, t2):
 
 anim = MOV.FuncAnimation(fig, update, fargs=(intrfrmtr, lags, vis_lag, l1, l2, txt1, txt2), frames=vis_lag.shape[0], interval=400, blit=False)
 PLT.show()
-# anim.save('/data3/t_nithyanandan/project_MWA/delay_spectrum_animation.gif', fps=2.5, writer='imagemagick')
-anim.save('/Users/t_nithyanandan/Downloads/delay_spectrum_animation_10MHz_1_notch_RECT.gif', fps=2.5, writer='imagemagick')
-# anim.save('/Users/t_nithyanandan/Downloads/delay_spectrum_animation.mp4', fps=2.5, writer='ffmpeg')
-anim.save('/Users/t_nithyanandan/Downloads/delay_spectrum_animation_10MHz_1_notch_RECT.mp4', fps=2.5, writer='ffmpeg')
+# # anim.save('/data3/t_nithyanandan/project_MWA/delay_spectrum_animation.gif', fps=2.5, writer='imagemagick')
+# anim.save('/Users/t_nithyanandan/Downloads/delay_spectrum_animation_10MHz_1_notch_RECT.gif', fps=2.5, writer='imagemagick')
+# # anim.save('/Users/t_nithyanandan/Downloads/delay_spectrum_animation.mp4', fps=2.5, writer='ffmpeg')
+# anim.save('/Users/t_nithyanandan/Downloads/delay_spectrum_animation_10MHz_1_notch_RECT.mp4', fps=2.5, writer='ffmpeg')
 
 
