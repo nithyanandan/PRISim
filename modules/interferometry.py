@@ -12,6 +12,7 @@ import baseline_delay_horizon as DLY
 import constants as CNST
 import my_DSP_modules as DSP
 import catalog as CTLG
+import pdb as PDB
 
 ################################################################################
 
@@ -168,15 +169,15 @@ class Interferometer:
     latitude    [Scalar] Latitude of the interferometer's location. Default
                 is 34.0790 degrees North corresponding to that of the VLA.
 
-    lst         [list] List of LST for each timestamp
+    lst         [list] List of LST (in degrees) for each timestamp
 
     n_acc       [scalar] Number of accumulations
 
     obs_catalog_indices
                 [list of lists] Each element in the top list corresponds to a
                 timestamp. Inside each top list is a list of indices of sources
-                from the catalog which are observed inside the field of view.
-                This is computed inside member function observe(). 
+                from the catalog which are observed inside the region of 
+                interest. This is computed inside member function observe(). 
 
     pointing_center
                 [2-column numpy array] Pointing center (latitude and 
@@ -194,18 +195,18 @@ class Interferometer:
                 Accepted values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 
                 'altaz' (Altitude-Azimuth). Default = 'radec'.
     
-    skyvis_freq [numpy array] Complex visibility due to sky emission (in Jy) 
+    skyvis_freq [numpy array] Complex visibility due to sky emission (in Jy or K) 
                 along frequency axis estimated from the specified external
                 catalog. Same size as vis_freq. Used in the member function
                 observe(). Read its docstring for more details. 
 
-    skyvis_lag  [numpy array] Complex visibility due to sky emission (in Jy Hz)
-                along the delay axis obtained by FFT of skyvis_freq along 
+    skyvis_lag  [numpy array] Complex visibility due to sky emission (in Jy Hz or
+                K Hz) along the delay axis obtained by FFT of skyvis_freq along 
                 frequency axis. Same size as vis_freq. Created in the member
                 function delay_transform(). Read its docstring for more details. 
 
     telescope   [string] The name of the telescope facility. Accepted values
-                are 'vla', 'gmrt' and 'mwa'. Default = 'vla'
+                are 'vla', 'gmrt', 'mwa_dipole' and 'mwa'. Default = 'vla'
 
     timestamp   [list] List of timestamps during the observation
 
@@ -215,38 +216,40 @@ class Interferometer:
 
     Tsys        [scalar] System temperature in Kelvin
 
-    vis_freq    [numpy array] The simulated complex visibility (in Jy) observed 
-                by the interferometer along frequency axis for each timestamp of 
-                observation per frequency channel. It is the sum of skyvis_freq 
-                and vis_noise_freq. It can be either directly initialized or
-                simulated in observe(). 
+    vis_freq    [numpy array] The simulated complex visibility (in Jy or K) 
+                observed by the interferometer along frequency axis for each 
+                timestamp of observation per frequency channel. It is the sum of 
+                skyvis_freq and vis_noise_freq. It can be either directly 
+                initialized or simulated in observe(). 
 
-    vis_lag     [numpy array] The simulated complex visibility (in Jy Hz) along
-                delay axis obtained by FFT of vis_freq along frequency axis.
-                Same size as vis_noise_lag and skyis_lag. It is evaluated in
-                member function delay_transform(). 
+    vis_lag     [numpy array] The simulated complex visibility (in Jy Hz or K Hz) 
+                along delay axis obtained by FFT of vis_freq along frequency 
+                axis. Same size as vis_noise_lag and skyis_lag. It is evaluated 
+                in member function delay_transform(). 
 
     vis_noise_freq
-                [numpy array] Complex visibility noise (in Jy) generated using 
-                an rms of vis_rms_freq along frequency axis which is then added 
-                to the generated sky visibility. Same size as vis_freq. Used in
-                the member function observe(). Read its docstring for more
-                details. 
+                [numpy array] Complex visibility noise (in Jy or K) generated 
+                using an rms of vis_rms_freq along frequency axis which is then 
+                added to the generated sky visibility. Same size as vis_freq. 
+                Used in the member function observe(). Read its docstring for 
+                more details. 
 
     vis_noise_lag
-                [numpy array] Complex visibility noise (in Jy Hz) along delay
-                axisgenerated using an FFT of vis_noise_freq along frequency 
-                axis. Same size as vis_noise_freq. Created in the member function
-                delay_transform(). Read its docstring for more details. 
+                [numpy array] Complex visibility noise (in Jy Hz or K Hz) along 
+                delay axis generated using an FFT of vis_noise_freq along 
+                frequency axis. Same size as vis_noise_freq. Created in the 
+                member function delay_transform(). Read its docstring for more 
+                details. 
 
     vis_rms_freq
-                [list of float] Theoretically estimated thermal noise rms (in Jy) 
-                in visibility measurements. Same size as vis_freq. This will be 
-                estimated and used to inject simulated noise when a call to 
-                member function observe() is made. Read the  docstring of 
+                [list of float] Theoretically estimated thermal noise rms (in Jy
+                or K) in visibility measurements. Same size as vis_freq. This 
+                will be estimated and used to inject simulated noise when a call 
+                to member function observe() is made. Read the  docstring of 
                 observe() for more details. The noise rms is estimated from the 
                 instrument parameters as:
-                (2 k T_sys / (A_eff x sqrt(channel_width x t_obs))) / Jy
+                (2 k T_sys / (A_eff x sqrt(2 x channel_width x t_acc))) / Jy, or
+                T_sys / sqrt(2 x channel_width x t_acc)
 
     Member functions:
 
@@ -262,7 +265,8 @@ class Interferometer:
                        delay (time) axis using an FFT.
 
     noise_estimate():  Given the attribute vis_freq, compute the thermal noise 
-                       estimate (in Jy) in the data in each frequency channel
+                       estimate (in Jy or K) in the data in each frequency
+                       channel
 
     ----------------------------------------------------------------------------
     """
@@ -281,7 +285,7 @@ class Interferometer:
 
         Class attributes initialized are:
         label, baseline, channels, telescope, latitude, skycoords, eff_Q, A_eff,
-        pointing_coords, baseline_coords, freq_scale, baseline_length, channels,
+        pointing_coords, baseline_coords, baseline_length, channels,
         bp, freq_resolution, lags, lst, obs_catalog_indices, pointing_center,
         skyvis_freq, skyvis_lag, timestamp, t_acc, Tsys, vis_freq, vis_lag, 
         t_obs, n_acc, vis_noise_freq, vis_noise_lag, vis_rms_freq,
@@ -314,6 +318,7 @@ class Interferometer:
 
         self.bp = NP.asarray(NP.ones(self.channels.size)).reshape(1,-1)
         self.Tsys = []
+        self.flux_unit = 'JY'
         self.timestamp = []
         self.t_acc = []
         self.t_obs = 0.0
@@ -331,6 +336,7 @@ class Interferometer:
         self.vis_lag = None
         self.obs_catalog_indices = []
         self.geometric_delays = []
+        self.sample_density = 1.0
 
         if (pointing_coords == 'radec') or (pointing_coords == 'hadec') or (pointing_coords == 'altaz'):
             self.pointing_coords = pointing_coords
@@ -347,17 +353,19 @@ class Interferometer:
         else:
             raise ValueError('Baseline coordinates must be "equatorial" or "local". Check inputs.')
 
-    ############################################################################
+    #############################################################################
 
     def observe(self, timestamp, Tsys, bandpass, pointing_center, skymodel,
-                t_acc, fov_radius=None, lst=None):
+                t_acc, brightness_units=None, roi_radius=None, roi_center=None,
+                lst=None):
 
         """
-        ------------------------------------------------------------------------
-        Simulate an observation of the sky in the form of an external catalog
-        by an instance of the Interferometer class. The simulation generates
-        visibilities observed by the interferometer for the specified parameters.
-        
+        -------------------------------------------------------------------------
+        Simulate a snapshot observation, by an instance of the Interferometer
+        class, of the sky when a sky catalog is provided. The simulation 
+        generates visibilities observed by the interferometer for the specified
+        parameters. See member function observing_run() for simulating an 
+        extended observing run in 'track' or 'drift' mode.
 
         Inputs:
         
@@ -382,15 +390,25 @@ class Interferometer:
                      densities, their positions, and spectral indices. Read 
                      class SkyModel docstring for more information.
 
-        t_acc         [scalar] Accumulation time corresponding to timestamp
+        t_acc        [scalar] Accumulation time (sec) corresponding to timestamp
+
+        brightness_units
+                     [string] Units of flux density in the catalog and for the 
+                     generated visibilities. Accepted values are 'Jy' (Jansky) 
+                     and 'K' (Kelvin for temperature). If None set, it defaults 
+                     to 'Jy'
 
         Keyword Inputs:
 
-        fov_radius   [scalar] Radius of the field of view (degrees) inside which 
-                     sources are to be observed. Default = 90 degrees, which is
-                     the entire horizon.
+        roi_radius   [scalar] Radius of the region of interest (degrees) inside 
+                     which sources are to be observed. Default = 90 degrees, 
+                     which is the entire horizon.
 
-        lst          [scalar] LST associated with the timestamp
+        roi_center   [string] Center of the region of interest around which
+                     roi_radius is used. Accepted values are 'pointing_center'
+                     and 'zenith'. If set to None, it defaults to 'zenith'. 
+
+        lst          [scalar] LST (in degrees) associated with the timestamp
         ------------------------------------------------------------------------
         """
 
@@ -398,7 +416,16 @@ class Interferometer:
             raise ValueError('bandpass length does not match.')
 
         self.Tsys = self.Tsys + [Tsys]
-        self.vis_rms_freq = self.vis_rms_freq + [2.0*FCNST.k*Tsys/self.A_eff/self.eff_Q/NP.sqrt(2.0 * t_acc * self.freq_resolution)/CNST.Jy]
+
+        if (brightness_units is None) or (brightness_units=='Jy') or (brightness_units=='JY') or (brightness_units=='jy'):
+            self.vis_rms_freq = self.vis_rms_freq + [2.0*FCNST.k*Tsys/self.A_eff/self.eff_Q/NP.sqrt(2.0 * t_acc * self.freq_resolution)/CNST.Jy]
+            self.flux_unit = 'JY'
+        elif (brightness_units=='K') or (brightness_units=='k'):
+            self.vis_rms_freq = self.vis_rms_freq + [Tsys/self.eff_Q/NP.sqrt(2.0 * t_acc * self.freq_resolution)]
+            self.flux_unit = 'K'
+        else:
+            raise ValueError('Invalid brightness temperature units specified.')
+
         self.t_acc = self.t_acc + [t_acc]
         self.t_obs = t_acc
         self.n_acc = 1
@@ -457,68 +484,77 @@ class Interferometer:
         if self.baseline_coords == 'equatorial':
             baseline_in_local_frame = GEOM.xyz2enu(self.baseline, self.latitude, 'degrees')
 
-        ptmp = self.pointing_center[-1,:] # Convert pointing center to Alt-Az coordinates
+        pc_altaz = self.pointing_center[-1,:] # Convert pointing center to Alt-Az coordinates
         if self.pointing_coords == 'hadec':
-            ptmp = GEOM.hadec2altaz(self.pointing_center[-1,:], self.latitude,
-                                    units='degrees')
+            pc_altaz = GEOM.hadec2altaz(self.pointing_center[-1,:], self.latitude,
+                                        units='degrees')
         elif self.pointing_coords == 'radec':
             if lst is not None:
-                ptmp = GEOM.hadec2altaz(NP.asarray([lst-self.pointing_center[-1,0], self.pointing_center[-1,1]]), self.latitude, units='degrees')
+                pc_altaz = GEOM.hadec2altaz(NP.asarray([lst-self.pointing_center[-1,0], self.pointing_center[-1,1]]), self.latitude, units='degrees')
             else:
                 raise ValueError('LST must be provided. Sky coordinates are in Alt-Az format while pointing center is in RA-Dec format.')
 
-        ptmp = GEOM.altaz2dircos(ptmp, 'degrees') # Convert pointing center to direction cosine coordinates
-        pointing_phase = 2.0 * NP.pi * NP.dot(baseline_in_local_frame.reshape(1,-1), ptmp.reshape(-1,1))*self.channels.reshape(1,-1)/FCNST.c
+        pc_dircos = GEOM.altaz2dircos(pc_altaz, 'degrees') # Convert pointing center to direction cosine coordinates
+        pointing_phase = 2.0 * NP.pi * NP.dot(baseline_in_local_frame.reshape(1,-1), pc_dircos.reshape(-1,1))*self.channels.reshape(1,-1)/FCNST.c
 
         if not isinstance(skymodel, CTLG.SkyModel):
             raise TypeError('skymodel should be an instance of class SkyModel.')
 
-        if fov_radius is None:
-            fov_radius = 90.0
+        if roi_radius is None:
+            roi_radius = 90.0
 
-        m1, m2, d12 = GEOM.spherematch(pointing_lon, pointing_lat, skymodel.catalog.location[:,0], skymodel.catalog.location[:,1], fov_radius, maxmatches=0)
+        if roi_center is None:
+            roi_center = 'zenith'
+        elif (roi_center != 'zenith') and (roi_center != 'pointing_center'):
+            raise ValueError('Center of region of interest, roi_center, must be set to "zenith" or "pointing_center".')
 
-        # if fov_radius is not None:
-        #     m1, m2, d12 = GEOM.spherematch(pointing_lon, pointing_lat, skymodel.catalog.location[:,0], skymodel.catalog.location[:,1], fov_radius, maxmatches=0)
+        if roi_center == 'pointing_center':
+            m1, m2, d12 = GEOM.spherematch(pointing_lon, pointing_lat, skymodel.catalog.location[:,0], skymodel.catalog.location[:,1], roi_radius, maxmatches=0)
+        else: # roi_center = 'zenith'
+            if self.skycoords == 'hadec':
+                skypos_altaz = GEOM.hadec2altaz(skymodel.catalog.location, self.latitude, units='degrees')
+            elif self.skycoords == 'radec':
+                skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.catalog.location[:,0]).reshape(-1,1), skymodel.catalog.location[:,1].reshape(-1,1))), self.latitude, units='degrees')
+            m2 = NP.arange(skypos_altaz.shape[0])
+            m2 = m2[NP.where(skypos_altaz[:,0] >= 90.0-roi_radius)] # select sources whose altitude (angle above horizon) is 90-roi_radius
+
+        # if roi_radius is not None:
+        #     m1, m2, d12 = GEOM.spherematch(pointing_lon, pointing_lat, skymodel.catalog.location[:,0], skymodel.catalog.location[:,1], roi_radius, maxmatches=0)
         # else:
         #     m1 = [0] * skymodel.catalog.location.shape[0]
         #     m2 = xrange(skymodel.catalog.location.shape[0])
         #     d12 = GEOM.sphdist(NP.empty(skymodel.catalog.shape[0]).fill(pointing_lon), NP.empty(skymodel.catalog.shape[0]).fill(pointing_lat), skymodel.catalog.location[:,0], skymodel.catalog.location[:,1])
 
-        if len(d12) != 0:
-            pb = NP.empty((len(d12), len(self.channels)))
-            fluxes = NP.empty((len(d12), len(self.channels)))
+        if len(m2) != 0:
+            pb = NP.empty((len(m2), len(self.channels)))
+            fluxes = NP.empty((len(m2), len(self.channels)))
             
-            if self.skycoords == 'altaz':
-                source_positions = skymodel.catalog.location[m2,:]
-            elif self.skycoords == 'radec':
-                source_positions = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.catalog.location[m2,0]).reshape(-1,1), skymodel.catalog.location[m2,1].reshape(-1,1))), self.latitude, 'degrees')
+            if roi_center != 'zenith':
+                if self.skycoords == 'altaz':
+                    skypos_altaz_roi = skymodel.catalog.location[m2,:]
+                elif self.skycoords == 'radec':
+                    skypos_altaz_roi = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.catalog.location[m2,0]).reshape(-1,1), skymodel.catalog.location[m2,1].reshape(-1,1))), self.latitude, 'degrees')
+                else:
+                    skypos_altaz_roi = GEOM.hadec2altaz(skymodel.catalog.location[m2,:], self.latitude, 'degrees')
             else:
-                source_positions = GEOM.hadec2altaz(skymodel.catalog.location[m2,:], self.latitude, 'degrees')
-                
+                skypos_altaz_roi = skypos_altaz[m2,:]
             coords_str = 'altaz'
 
-            if self.pointing_coords == 'altaz':
-                phase_center = pointing_center
-            elif self.pointing_coords == 'radec':
-                phase_center = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-self.pointing_center[-1,0]).reshape(-1,1), self.pointing_center[-1,1].reshape(-1,1))), self.latitude, 'degrees')
-            else:
-                phase_center = GEOM.hadec2altaz(self.pointing_center[-1,:], self.latitude, 'degrees')
+            # for i in xrange(len(self.channels)):
+            #     pb[:,i] = PB.primary_beam_generator(skypos_altaz_roi, self.channels[i]/1.0e9, skyunits='altaz', telescope=self.telescope, phase_center=pc_altaz)
+            #     fluxes[:,i] = skymodel.catalog.flux_density[m2] * (self.channels[i]/skymodel.catalog.frequency)**skymodel.catalog.spectral_index[m2]
 
-            for i in xrange(len(self.channels)):
-                # pb[:,i] = PB.primary_beam_generator(d12, self.channels[i]/1.0e9, 'degrees', self.telescope)
-                pb[:,i] = PB.primary_beam_generator(source_positions, self.channels[i]/1.0e9, skyunits='altaz', telescope=self.telescope, phase_center=phase_center)
-                fluxes[:,i] = skymodel.catalog.flux_density[m2] * (self.channels[i]/skymodel.catalog.frequency)**skymodel.catalog.spectral_index[m2]
+            pb = PB.primary_beam_generator(skypos_altaz_roi, self.channels/1.0e9, skyunits='altaz', telescope=self.telescope, phase_center=pc_altaz)
+            fluxes = NP.repeat(skymodel.catalog.flux_density[m2].reshape(-1,1), self.channels.size, axis=1) * (NP.repeat(self.channels.reshape(1,-1), len(m2), axis=0)/skymodel.catalog.frequency)**NP.repeat(skymodel.catalog.spectral_index[m2].reshape(-1,1), self.channels.size, axis=1)
+            geometric_delays = DLY.geometric_delay(baseline_in_local_frame, skypos_altaz_roi, altaz=(coords_str=='altaz'), hadec=(coords_str=='hadec'), latitude=self.latitude)
+            self.geometric_delays = self.geometric_delays + [geometric_delays.reshape(len(m2))]
 
-            geometric_delays = DLY.geometric_delay(baseline_in_local_frame, source_positions, altaz=(coords_str=='altaz'), hadec=(coords_str=='hadec'), latitude=self.latitude)
-            self.geometric_delays = self.geometric_delays + [geometric_delays.reshape(len(source_positions))]
+            phase_matrix = 2.0 * NP.pi * NP.repeat(geometric_delays.reshape(-1,1),len(self.channels),axis=1) * NP.repeat(self.channels.reshape(1,-1),len(m2),axis=0) - NP.repeat(pointing_phase, len(m2), axis=0)
 
-            phase_matrix = 2.0 * NP.pi * NP.repeat(geometric_delays.reshape(-1,1),len(self.channels),axis=1) * NP.repeat(self.channels.reshape(1,-1),len(d12),axis=0) - NP.repeat(pointing_phase, len(d12), axis=0)
-
-            skyvis = NP.sum(pb * fluxes * NP.repeat(NP.asarray(bandpass).reshape(1,-1),len(d12),axis=0) * NP.exp(-1j*phase_matrix), axis=0)
-            if fov_radius is not None:
-                self.obs_catalog_indices = self.obs_catalog_indices + [m2]
-                # self.obs_catalog = self.obs_catalog + [skymodel.catalog.subset(m2)]
+            skyvis = NP.sum(pb * fluxes * NP.repeat(NP.asarray(bandpass).reshape(1,-1),len(m2),axis=0) * NP.exp(-1j*phase_matrix), axis=0)
+            # if roi_radius is not None:
+            self.obs_catalog_indices = self.obs_catalog_indices + [m2]
+            # self.obs_catalog = self.obs_catalog + [skymodel.catalog.subset(m2)]
         else:
             print 'No sources found in the catalog within matching radius. Simply populating the observed visibilities with noise.'
             skyvis = NP.zeros( (1, len(self.channels)) )
@@ -537,8 +573,91 @@ class Interferometer:
     ############################################################################
 
     def observing_run(self, pointing_init, skymodel, t_acc, duration, channels, 
-                      bpass, Tsys, lst_init, fov_radius=None, mode='track', 
-                      pointing_coords=None, freq_scale=None, verbose=True):
+                      bpass, Tsys, lst_init, roi_radius=None, roi_center=None,
+                      mode='track', pointing_coords=None, freq_scale=None,
+                      brightness_units=None, verbose=True):
+
+        """
+        -------------------------------------------------------------------------
+        Simulate an extended observing run in 'track' or 'drift' mode, by an
+        instance of the Interferometer class, of the sky when a sky catalog is
+        provided. The simulation generates visibilities observed by the
+        interferometer for the specified parameters. Uses member function
+        observe() and builds the observation from snapshots. The timestamp for
+        each snapshot is the current time at which the snapshot is generated.
+
+        Inputs:
+        
+        pointing_init [2-element list or numpy array] The inital pointing
+                      of the telescope at the start of the observing run. 
+                      This is where the telescopes will be initially phased up to
+                      as reference. Coordinate system for the pointing_center is 
+                      specified by the input pointing_coords 
+
+        skymodel      [instance of class SkyModel] It consists of source flux
+                      densities, their positions, and spectral indices. Read 
+                      class SkyModel docstring for more information.
+
+        t_acc         [scalar] Accumulation time (sec) corresponding to timestamp
+
+        brightness_units
+                      [string] Units of flux density in the catalog and for the 
+                      generated visibilities. Accepted values are 'Jy' (Jansky) 
+                      and 'K' (Kelvin for temperature). If None set, it defaults 
+                      to 'Jy'
+
+        duration      [scalar] Duration of observation in seconds
+
+        channels      [list or numpy vector] frequency channels in units as 
+                      specified in freq_scale
+
+        bpass         [list, list of lists or numpy array] Bandpass weights in
+                      the form of M x N array or list of N-element lists. N must
+                      equal the number of channels. If M=1, the same bandpass
+                      will be used in all the snapshots for the entire
+                      observation, otherwise M must equal the number of
+                      snapshots which is int(duration/t_acc)
+
+        Tsys          [scalar, list or numpy array] System temperature (in K). If
+                      a scalar is provided, the same Tsys will be used in all the
+                      snapshots for the duration of the observation. If a list or
+                      numpy array is provided, the number of elements must equal 
+                      the number of snapshots which is int(duration/t_int)
+
+        lst_init      [scalar] Initial LST (in degrees) at the beginning of the 
+                      observing run corresponding to pointing_init
+
+        Keyword Inputs:
+
+        roi_radius    [scalar] Radius of the region of interest (degrees) inside 
+                      which sources are to be observed. Default = 90 degrees, 
+                      which is the entire horizon.
+                      
+        roi_center    [string] Center of the region of interest around which
+                      roi_radius is used. Accepted values are 'pointing_center'
+                      and 'zenith'. If set to None, it defaults to 'zenith'. 
+
+        freq_scale    [string] Units of frequencies specified in channels. 
+                      Accepted values are 'Hz', 'hz', 'khz', 'kHz', 'mhz',
+                      'MHz', 'GHz' and 'ghz'. If None provided, defaults to 'Hz'
+
+        mode          [string] Mode of observation. Accepted values are 'track'
+                      and 'drift'. If using 'track', pointing center is fixed to
+                      a specific point on the sky coordinate frame. If using 
+                      'drift', pointing center is fixed to a specific point on
+                      the antenna's reference frame. 
+
+        pointing_coords
+                      [string] Coordinate system for pointing_init. Accepted 
+                      values are 'radec', 'hadec' and 'altaz'. If None provided,
+                      default is set based on observing mode. If mode='track', 
+                      pointing_coords defaults to 'radec', and if mode='drift', 
+                      it defaults to 'hadec'
+
+        verbose       [boolean] If set to True, prints progress and diagnostic 
+                      messages. Default = True
+        ------------------------------------------------------------------------
+        """
 
         if verbose:
             print 'Preparing an observing run...\n'
@@ -675,7 +794,10 @@ class Interferometer:
             if (verbose) and (i in milestones):
                 print '\t\tObserving run {0:.1f} % complete...'.format(100.0*i/n_acc)
             timestamp = str(DT.datetime.now())
-            self.observe(timestamp, Tsys[i], bpass[i,:], pointing, skymodel, t_acc, fov_radius, lst[i])
+            self.observe(timestamp, Tsys[i], bpass[i,:], pointing, skymodel,
+                         t_acc, brightness_units=brightness_units,
+                         roi_radius=roi_radius, roi_center=roi_center,
+                         lst=lst[i])
 
         if verbose:
             print '\t\tObserving run 100 % complete.'
@@ -1028,6 +1150,7 @@ class Interferometer:
         # hdulist[0].header['t_acc'] = (self.t_acc[0], 'Accumulation interval (s)')
         hdulist[0].header['t_obs'] = (self.t_obs, 'Observing duration (s)')
         hdulist[0].header['n_acc'] = (self.n_acc, 'Number of accumulations')        
+        hdulist[0].header['flux_unit'] = (self.flux_unit, 'Unit of flux density')
         hdulist[0].header.set('EXTNAME', 'Interferometer ({0})'.format(self.label))
 
         if verbose:
@@ -1044,12 +1167,12 @@ class Interferometer:
         if verbose:
             print '\tCreated spectral information table.'
 
-        if not self.t_acc:
+        if self.t_acc:
             hdulist += [fits.ImageHDU(self.t_acc, name='t_acc')]
             if verbose:
                 print '\tCreated an extension for accumulation times.'
 
-        if not self.vis_rms_freq:
+        if self.vis_rms_freq:
             hdulist += [fits.ImageHDU(self.vis_rms_freq, name='freq_channel_noise_rms_visibility')]
             if verbose:
                 print '\tCreated an extension for simulated visibility noise rms per channel.'

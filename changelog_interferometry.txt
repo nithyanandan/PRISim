@@ -1,3 +1,78 @@
+from v1.01 of interferometry:
+============================
+
+In primary_beams.py,
+
+(*) Vectorized the routines so a vector of frequencies/wavelengths can be handled
+all at once.
+(*) Changed docstrings to reflect the vectorized capabilities
+(*) Modified isotropic_radiators_array_field_pattern() so it can handle well
+numerically angles very close to zero.
+(*) Modified primary_beam_generator() to include a telescope system where only a
+MWA dipole is used ignoring the dipole array pattern in a tile. 
+
+In interferometry.py,
+
+(*) In member functions observe() and observing_run() of class Interferometer,
+renamed the input parameter fov_radius to roi_radius.
+(*) In member functions observe() and observing_run() of class Interferometer,
+added a new input parameter roi_center which defines the center around which
+roi_radius is to be used.
+(*) In member function observe() of class Interferometer, replaced temporary
+variable ptmp which changes reference from Alt-Az to direction cosines with
+two meaningful variables pc_altaz and pc_dircos.
+(*) In member function observe() of class Interferometer, replaced usage of 
+len(d12) with len(m2) for an easy accommodation of cases where
+roi_center='zenith'
+(*) In member function observe() of class Interferometer, replaced usage of 
+internal variable phase_center with pc_altaz because they are identical and
+removed the redundant definition of phase_center
+(*) In member function observe() of class Interferometer, replaced usage of 
+source_positions with skypos_altaz_roi
+(*) In member function observe() of class Interferometer, if input parameter
+roi_center is set to 'zenith', the source positions in the catalog are converted
+to Alt-Az coordinates and numpy's where() function selects sources in the region
+of interest instead of using computationally expensive spherematch() function 
+from geometry module. However, in such a scenario, if the catalog's coordinates
+are not in Alt-Az coordinate system, every call of observe() will invoke a 
+conversion of the entire catalog to Alt-Az coordinate system.
+(*) Modified the docstring of member function observe() of class Interferometer
+(*) Added docstring to member function observing_run() of class Interferometer
+(*) Modified certain parts inside member function observe() of class
+interferometer to take advantage of the vectorized primary_beam codes
+(*) Added input parameter brightness_temperature to member functions observe()
+and observing_run() of class Interferometer to denote the units of flux density
+which can now be 'K' (Kelvin) or 'Jy' (Jansky)
+(*) Added an attribute flux_unit for class Interferometer which denotes the unit 
+of flux density (either 'K' for Kelvin or 'Jy' for Jansky)
+(*) Member function save() of class Interferometer saves the attribute flux_unit
+onto the header of the output FITS file.
+(*) Fixed save() member function of class Interferometer to write out t_acc and
+vis_rms_freq by modifying the criterion checking for empty lists
+(*) Modified docstring of class Interferometer to indicate that the telescope 
+attribute can also be set to 'mwa_dipole' in addition to the already existing
+options such as 'vla', 'gmrt', and 'mwa'.
+
+In VLA_simulation.py,
+
+(*) Replaced the occurrence of fov_radius with roi_radius
+
+In MWA_simulation.py,
+
+(*) Replaced the occurrence of fov_radius with roi_radius
+
+In MWA_observing_run_simulation.py,
+
+(*) Replaced the occurrence of fov_radius with roi_radius
+(*) Ensured that catalog frequency and observing frequency are passed to the 
+observing member function(s) in class Interferometer in the same units
+
+Created a new file observing_run_test_cases.py which simulates many test cases
+sampling different parameters such as observing parameters, foreground models, 
+etc.
+
+
+---------------------------------------------------------------------------------
 from v1.0 of interferometry:
 ===========================
 

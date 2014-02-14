@@ -56,7 +56,7 @@ ha_obs = NP.zeros(n_snaps)
 dec_obs = intrfrmtr.latitude + NP.zeros(n_snaps)
 
 for i in xrange(n_snaps):
-    intrfrmtr.observe(str(lst_obs[i]), Tsys, bpass, [ha_obs[i], dec_obs[i]], skymod, t_snap, fov_radius=30.0, lst=lst_obs[i])
+    intrfrmtr.observe(str(lst_obs[i]), Tsys, bpass, [ha_obs[i], dec_obs[i]], skymod, t_snap, roi_radius=30.0, lst=lst_obs[i])
 
 intrfrmtr.delay_transform()
 lags = intrfrmtr.lags

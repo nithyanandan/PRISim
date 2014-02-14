@@ -1,8 +1,9 @@
 import numpy as NP
 import geometry as GEOM
 import scipy.constants as FCNST
+import pdb as PDB
 
-##########################################################################
+#################################################################################
 
 def primary_beam_generator(skypos, frequency, telescope='vla', freq_scale='GHz',
                            skyunits='degrees', east2ax1=0.0, phase_center=None):
@@ -24,11 +25,15 @@ def primary_beam_generator(skypos, frequency, telescope='vla', freq_scale='GHz',
                 N = 2 (if skyunits = altaz denoting Alt-Az coordinates), or N = 3
                 (if skyunits = dircos denoting direction cosine coordinates)
 
-    frequency   [scalar] frequency at which the power pattern is to be estimated.
-                Units can be GHz, MHz or kHz (see input freq_scale)
+    frequency   [list or numpy vector] frequencies at which the power pattern is 
+                to be estimated. Units can be GHz, MHz or kHz (see input
+                freq_scale)
 
     telescope   [scalar] String specifying the name of the telescope. Currently
-                accepted values are 'vla', 'gmrt', and 'mwa'. Default = 'vla'
+                accepted values are 'vla', 'gmrt', 'mwa_dipole' and 'mwa'.
+                Default = 'vla'. In case of 'mwa_dipole', the array layout of
+                dipoles in a tile is ignored power pattern only due to the dipole
+                is considered.
 
     freq_scale  [scalar] string specifying the units of frequency. Accepted
                 values are 'GHz', 'MHz' and 'Hz'. Default = 'GHz'
@@ -87,6 +92,14 @@ def primary_beam_generator(skypos, frequency, telescope='vla', freq_scale='GHz',
             pb = NP.abs(dp * irap)**2 # Power pattern is square of the field pattern
         else:
             raise ValueError('skyunits must be in Alt-Az or direction cosine coordinates for MWA.')
+    elif telescope == 'mwa_dipole':
+        if (skyunits == 'altaz') or (skyunits == 'dircos'):
+            dp = dipole_field_pattern(1.1, skypos, dipole_coords='dircos',
+                                      dipole_orientation=NP.asarray([1.0,0.0,0.0]).reshape(1,-1),
+                                      skycoords=skyunits, wavelength=FCNST.c/frequency)
+            pb = NP.abs(dp)**2 # Power pattern is square of the field pattern
+        else:
+            raise ValueError('skyunits must be in Alt-Az or direction cosine coordinates for MWA dipole.')
 
     return pb
     
@@ -104,11 +117,12 @@ def VLA_primary_beam_PBCOR(skypos, frequency, skyunits='degrees'):
     skypos      [list or numpy vector] Sky positions at which the power pattern 
                 is to be estimated. Size is M x N where M is the number of 
                 locations and N = 1 (if skyunits = degrees), N = 2 (if
-                skyunits = altaz denoting Alt-Az coordinates), or N = 4 (if
+                skyunits = altaz denoting Alt-Az coordinates), or N = 3 (if
                 skyunits = dircos denoting direction cosine coordinates)
 
-    frequency   [scalar] frequency (in GHz) at which the power pattern is to be
-                estimated.
+    frequency   [list or numpy vector] frequencies (in GHz) at which the power 
+                pattern is to be estimated. Frequencies differing by too much
+                and extending over the usual bands cannot be given. 
 
     skyunits    [string] string specifying the coordinate system of the sky 
                 positions. Accepted values are 'degrees', 'altaz', and 'dircos'.
@@ -126,6 +140,8 @@ def VLA_primary_beam_PBCOR(skypos, frequency, skyunits='degrees'):
     except NameError:
         raise NameError('skypos and frequency are required in VLA_primary_beam_PBCOR().')
 
+    frequency = NP.asarray(frequency).ravel()
+
     freq_ref = NP.asarray([0.0738, 0.3275, 1.465, 4.885, 8.435, 14.965, 22.485, 43.315]).reshape(-1,1)
     parms_ref = NP.asarray([[-0.897,   2.71,  -0.242], 
                             [-0.935,   3.23,  -0.378], 
@@ -136,18 +152,18 @@ def VLA_primary_beam_PBCOR(skypos, frequency, skyunits='degrees'):
                             [-1.417,  7.332,  -1.352], 
                             [-1.321,  6.185,  -0.983]])
     
-    idx = NP.argmin(NP.abs(freq_ref - frequency)) # Index of closest value
+    idx = NP.argmin(NP.abs(freq_ref - frequency[0])) # Index of closest value
 
     skypos = NP.asarray(skypos)
 
     if skyunits == 'degrees':
-        x = (skypos*60.0*frequency)**2
+        x = (NP.repeat(skypos.reshape(-1,1), frequency.size, axis=1) * 60.0 * NP.repeat(frequency.reshape(1,-1), skypos.size, axis=0))**2
     elif skyunits == 'altaz':
-        x = ((90.0-skypos[:,0])*60.0*frequency)**2
+        x = ((90.0-NP.repeat(skypos[:,0].reshape(-1,1), frequency.size, axis=1)) * 60.0 * NP.repeat(frequency.reshape(1,-1), skypos.size, axis=0))**2
     elif skyunits == 'dircos':
-        x = (NP.degrees(NP.arccos(skypos[:,-1]))*60.0*frequency)**2
+        x = (NP.degrees(NP.arccos(NP.repeat(skypos[:,-1].reshape(-1,1), frequency.size, axis=1))) * 60.0 * NP.repeat(frequency.reshape(1,-1), skypos.size, axis=0))**2
     else:
-        raise ValueError('skyunits must be "degrees", "altaz" or "dircos" in VLA_primary_beam_PBCOR().')
+        raise ValueError('skyunits must be "degrees", "altaz" or "dircos" in GMRT_primary_beam().')
 
     pb = 1.0 + parms_ref[idx,0]*x/1e3 + parms_ref[idx,1]*(x**2)/1e7 + \
          parms_ref[idx,2]*(x**3)/1e10
@@ -168,11 +184,12 @@ def GMRT_primary_beam(skypos, frequency, skyunits='degrees'):
     skypos      [list or numpy vector] Sky positions at which the power pattern 
                 is to be estimated. Size is M x N where M is the number of 
                 locations and N = 1 (if skyunits = degrees), N = 2 (if
-                skyunits = altaz denoting Alt-Az coordinates), or N = 4 (if
+                skyunits = altaz denoting Alt-Az coordinates), or N = 3 (if
                 skyunits = dircos denoting direction cosine coordinates)
 
-    frequency   [scalar] frequency (in GHz) at which the power pattern is to be
-                estimated.
+    frequency   [list or numpy vector] frequencies (in GHz) at which the power 
+                pattern is to be estimated. Frequencies differing by too much
+                and extending over the usual bands cannot be given. 
 
     skyunits    [string] string specifying the coordinate system of the sky 
                 positions. Accepted values are 'degrees', 'altaz', and 'dircos'.
@@ -190,22 +207,24 @@ def GMRT_primary_beam(skypos, frequency, skyunits='degrees'):
     except NameError:
         raise NameError('skypos and frequency are required in GMRT_primary_beam().')
 
+    frequency = NP.asarray(frequency).ravel()
+
     freq_ref = NP.asarray([0.235, 0.325, 0.610, 1.420]).reshape(-1,1)
     parms_ref = NP.asarray([[-3.366  , 46.159 , -29.963 ,  7.529  ], 
                             [-3.397  , 47.192 , -30.931 ,  7.803  ], 
                             [-3.486  , 47.749 , -35.203 , 10.399  ], 
                             [-2.27961, 21.4611,  -9.7929,  1.80153]])
     
-    idx = NP.argmin(NP.abs(freq_ref - frequency)) # Index of closest value
+    idx = NP.argmin(NP.abs(freq_ref - frequency[0])) # Index of closest value
 
     skypos = NP.asarray(skypos)
 
     if skyunits == 'degrees':
-        x = (skypos*60.0*frequency)**2
+        x = (NP.repeat(skypos.reshape(-1,1), frequency.size, axis=1) * 60.0 * NP.repeat(frequency.reshape(1,-1), skypos.size, axis=0))**2
     elif skyunits == 'altaz':
-        x = ((90.0-skypos[:,0])*60.0*frequency)**2
+        x = ((90.0-NP.repeat(skypos[:,0].reshape(-1,1), frequency.size, axis=1)) * 60.0 * NP.repeat(frequency.reshape(1,-1), skypos.size, axis=0))**2
     elif skyunits == 'dircos':
-        x = (NP.degrees(NP.arccos(skypos[:,-1]))*60.0*frequency)**2
+        x = (NP.degrees(NP.arccos(NP.repeat(skypos[:,-1].reshape(-1,1), frequency.size, axis=1))) * 60.0 * NP.repeat(frequency.reshape(1,-1), skypos.size, axis=0))**2
     else:
         raise ValueError('skyunits must be "degrees", "altaz" or "dircos" in GMRT_primary_beam().')
 
@@ -214,7 +233,7 @@ def GMRT_primary_beam(skypos, frequency, skyunits='degrees'):
 
     return pb
 
-##########################################################################
+#################################################################################
 
 def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None, 
                          dipole_orientation=None, wavelength=1.0, angle_units=None, 
@@ -259,8 +278,9 @@ def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None,
                      'dircos'. Default = 'degrees'. If 'dircos', the direction 
                      cosines are aligned with the local East, North, and Up
 
-    wavelength       [scalar] Wavelength at which the field dipole pattern is to
-                     be estimated. Must be in the same units as the dipole length
+    wavelength       [scalar, list or numpy vector] Wavelengths at which the field 
+                     dipole pattern is to be estimated. Must be in the same units as 
+                     the dipole length
 
     angle_units      [string] Units of angles used when Alt-Az coordinates are 
                      used in case of skypos or dipole_orientation. Accepted 
@@ -277,8 +297,9 @@ def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None,
 
     Output:
 
-    Dipole Electric field pattern, size equal to the number of sky positions 
-    (which is equal to the number of rows in skypos)
+    Dipole Electric field pattern, a numpy array with number of rows equal to the
+    number of sky positions (which is equal to the number of rows in skypos) and
+    number of columns equal to number of wavelengths specified. 
     -----------------------------------------------------------------------------
     """
 
@@ -293,11 +314,15 @@ def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None,
     if length <= 0.0:
         raise ValueError('Dipole length should be positive.')
 
-    if not isinstance(wavelength, (int,float)):
-        raise TypeError('Wavelength should be a scalar.')
+    if isinstance(wavelength, list):
+        wavelength = NP.asarray(wavelength)
+    elif isinstance(wavelength, (int, float)):
+        wavelength = NP.asarray(wavelength).reshape(-1)
+    elif not isinstance(wavelength, NP.ndarray):
+        raise TypeError('Wavelength should be a scalar, list or numpy array.')
  
-    if wavelength <= 0.0:
-        raise ValueError('Wavelength should be positive.')
+    if NP.any(wavelength <= 0.0):
+        raise ValueError('Wavelength(s) should be positive.')
 
     if ground_plane is not None:
         if not isinstance(ground_plane, (int,float)):
@@ -423,12 +448,12 @@ def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None,
 
     k = 2 * NP.pi / wavelength
     h = 0.5 * length
-    
     dot_product = NP.dot(dipole_orientation_dircos, skypos_dircos.T)
     angles = NP.arccos(dot_product)
 
     eps = 1.e-10
     zero_angles_ind = NP.abs(NP.abs(dot_product) - 1.0) < eps
+    n_zero_angles = NP.sum(zero_angles_ind)
     reasonable_angles_ind = NP.abs(NP.abs(dot_product) - 1.0) > eps
 
     # field_pattern = NP.empty_like(angles)
@@ -436,16 +461,25 @@ def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None,
     max_pattern = 1.0 # Normalization factor
     if half_wave_dipole_approx:
         field_pattern = NP.cos(0.5 * NP.pi * NP.cos(angles)) / NP.sin(angles)
+        field_pattern = NP.repeat(field_pattern.reshape(-1,1), wavelength.size, axis=1) # new stuff
     else:
-        max_pattern = 1.0 - NP.cos(k * h) # Maximum occurs at angles = NP.pi / 2
-        field_pattern = (NP.cos(k * h * NP.cos(angles)) - NP.cos(k * h)) / NP.sin(angles)
+        max_pattern = 1.0 - NP.cos(k * h) # Maximum occurs at angle = NP.pi / 2
+        max_pattern = NP.repeat(max_pattern.reshape(1,-1), angles.size, axis=0)
+        arg1 = NP.repeat(k.reshape(1,-1), angles.size, axis=0) * h 
+        arg2 = NP.repeat(angles.reshape(-1,1), k.size, axis=1)
+        field_pattern = (NP.cos(arg1*arg2) - NP.cos(arg1)) / NP.sin(arg2) # new stuff
+        # field_pattern = (NP.cos(k * h * NP.cos(angles)) - NP.cos(k * h)) / NP.sin(angles) # old stuff
 
-    field_pattern[zero_angles_ind] = k * h * NP.tan(0.5 * angles[zero_angles_ind]) * NP.sin(0.5 * k * h * (1.0 + NP.cos(angles[zero_angles_ind])))
-    # field_pattern[zero_angles_ind] = 0.0
+    # field_pattern[zero_angles_ind] = k * h * NP.tan(0.5 * angles[zero_angles_ind]) * NP.sin(0.5 * k * h * (1.0 + NP.cos(angles[zero_angles_ind]))) # old stuff L'Hospital rule
+    if n_zero_angles > 0:
+        field_pattern[zero_angles_ind, :] = NP.repeat(k.reshape(1,-1), n_zero_angles, axis=0) * h * NP.tan(0.5 * NP.repeat(angles[zero_angles_ind].reshape(-1,1), k.size, axis=1)) * NP.sin(0.5 * NP.repeat(k.reshape(1,-1), n_zero_angles, axis=0) * h * (1.0 + NP.cos(NP.repeat(angles[zero_angles_ind].reshape(-1,1), k.size, axis=1)))) # new stuff L'Hospital rule
+    
+    # # field_pattern[zero_angles_ind] = 0.0
 
     if ground_plane is not None: # Ground plane formulas to be verified. Use with caution
         skypos_altaz = GEOM.dircos2altaz(skypos_dircos, 'radians')
-        ground_pattern = 2 * NP.cos(k * ground_plane * NP.sin(skypos_altaz[:,0]))
+        # ground_pattern = 2 * NP.cos(k * ground_plane * NP.sin(skypos_altaz[:,0])) # old stuff
+        ground_pattern = 2 * NP.cos(NP.repeat(k.reshape(1,-1), angles.size, axis=0) * ground_plane * NP.sin(NP.repeat(skypos_altaz[:,0].reshape(-1,1), k.size, axis=1))) # new stuff
     else:
         ground_pattern = 1.0
 
@@ -491,8 +525,9 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
                   'dircos'. Default = 'degrees'. If 'dircos', the direction 
                   cosines are aligned with the local East, North, and Up
 
-    wavelength    [scalar] Wavelength at which the field dipole pattern is to
-                  be estimated. Must be in the same units as the dipole length
+    wavelength    [scalar, list or numpy vector] Wavelengths at which the field 
+                  dipole pattern is to be estimated. Must be in the same units as 
+                  the dipole length
 
     east2ax1      [scalar] Angle (in degrees) the primary axis of the array makes 
                   with the local East (positive anti-clockwise). 
@@ -505,9 +540,10 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
 
     Output:
 
-    Array Electric field pattern, size equal to the number of sky positions 
-    (which is equal to the number of rows in skypos). The array pattern is the
-    product of the array patterns along each axis.
+    Array Electric field pattern, number of rows equal to the number of sky 
+    positions (which is equal to the number of rows in skypos), and number of 
+    columns equal to the number of wavelengths. The array pattern is the product 
+    of the array patterns along each axis.
     -----------------------------------------------------------------------------
     """
 
@@ -537,10 +573,20 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
     if sep2 is None:
         sep2 = sep1
 
-    if not isinstance(wavelength, (int,float)):
-        raise TypeError('wavelength must be a positive scalar.')
-    elif wavelength <= 0:
-        raise ValueError('wavelength must be a positive value.')
+    if isinstance(wavelength, list):
+        wavelength = NP.asarray(wavelength)
+    elif isinstance(wavelength, (int, float)):
+        wavelength = NP.asarray(wavelength).reshape(-1)
+    elif not isinstance(wavelength, NP.ndarray):
+        raise TypeError('Wavelength should be a scalar, list or numpy array.')
+ 
+    if NP.any(wavelength <= 0.0):
+        raise ValueError('Wavelength(s) should be positive.')
+
+    # if not isinstance(wavelength, (int,float)):
+    #     raise TypeError('wavelength must be a positive scalar.')
+    # elif wavelength <= 0:
+    #     raise ValueError('wavelength must be a positive value.')
 
     if not isinstance(east2ax1, (int,float)):
         raise TypeError('east2ax1 must be a scalar.')
@@ -653,13 +699,25 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
             skypos_dircos_rotated = skypos
         skypos_dircos_relative = skypos_dircos - NP.repeat(phase_center_dircos, skypos.shape[0], axis=0)
 
-    phi = 2 * NP.pi * sep1 * skypos_dircos_relative[:,0] / wavelength 
-    psi = 2 * NP.pi * sep2 * skypos_dircos_relative[:,1] / wavelength 
+    phi = 2 * NP.pi * sep1 * NP.repeat(skypos_dircos_relative[:,0].reshape(-1,1), wavelength.size, axis=1) / NP.repeat(wavelength.reshape(1,-1), skypos.shape[0], axis=0) 
+    psi = 2 * NP.pi * sep2 * NP.repeat(skypos_dircos_relative[:,1].reshape(-1,1), wavelength.size, axis=1) / NP.repeat(wavelength.reshape(1,-1), skypos.shape[0], axis=0) 
 
-    pb = NP.sin(0.5*nax1*phi)/NP.sin(0.5*phi) * NP.sin(0.5*nax2*psi)/NP.sin(0.5*psi) / (nax1*nax2)
+    eps = 1.0e-10
+    zero_phi = NP.abs(phi) < eps
+    zero_psi = NP.abs(psi) < eps
+
+    term1 = NP.sin(0.5*nax1*phi) / NP.sin(0.5*phi) / nax1
+    term1_zero_phi = NP.cos(0.5*nax1*phi[zero_phi]) / NP.cos(0.5*phi[zero_phi]) # L'Hospital rule
+    term1[zero_phi] = term1_zero_phi.ravel()
+
+    term2 = NP.sin(0.5*nax1*psi) / NP.sin(0.5*psi) / nax1
+    term2_zero_psi = NP.cos(0.5*nax1*psi[zero_psi]) / NP.cos(0.5*psi[zero_psi]) # L'Hospital rule
+    term2[zero_psi] = term2_zero_psi.ravel()
+
+    pb =  term1 * term2
     return pb
 
-##########################################################################
+#################################################################################
 
     
     
