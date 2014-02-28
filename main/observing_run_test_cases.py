@@ -17,32 +17,43 @@ import baseline_delay_horizon as DLY
 
 ## Observation parameters
 
-telescope = 'mwa_dipole'
+telescope = 'mwa'
 freq = 150.0 * 1e6 # foreground center frequency in Hz
 freq_resolution = 40.0 # in kHz
 latitude = -26.701
 A_eff = 16.0 * (0.5 * FCNST.c / freq)**2
 obs_mode = 'drift'
 Tsys = 440.0 # in Kelvin
-t_snap = 2*60.0 # in seconds 
-t_obs = 3600.0 # in seconds
+noise_flag = False
+if noise_flag:
+    noise_flag_str = ''
+else:
+    noise_flag_str = '_noiseless'
+t_snap = 5.0 * 60.0 # in seconds 
+t_obs = 2.5 * 3600.0 # in seconds
 pointing_init = [0.0, latitude] # in degrees
 lst_init = 0.0 # in hours
 n_channels = 256
-bpass_shape = 'rect' 
-oversampling_factor = 4.0
+bpass_shape = 'bnw' 
+oversampling_factor = 2.0
 eff_bw_ratio = 1.0
 if bpass_shape == 'bnw':
-    eff_bw_ratio = CNST.rect_bnw_ratio
-n_pad = NP.round(oversampling_factor * n_channels) - NP.round(n_channels * eff_bw_ratio)
+    eff_bw_ratio = CNST.rect_bnw_ratio 
+# n_pad = NP.round(oversampling_factor * n_channels) - NP.round(n_channels * eff_bw_ratio)
+# n_pad = NP.round(oversampling_factor * n_channels) - n_channels 
+n_pad = 0
 # elif bpass_shape == 'rect':
 #     oversampling_factor = 1.0
-nchan = NP.round(n_channels * oversampling_factor)
+# nchan = NP.round(n_channels * oversampling_factor)
+nchan = n_channels
 base_bpass = 1.0*NP.ones(nchan)
+bandpass_shape = base_bpass
 chans = (freq + (NP.arange(nchan) - 0.5 * nchan) * freq_resolution * 1e3 )/ 1e9 # in GHz
 # window = DSP.shaping(nchan, 1/oversampling_factor*eff_bw_ratio, shape=bpass_shape, peak=1.0)
-window = DSP.windowing(NP.round(n_channels * eff_bw_ratio), shape=bpass_shape, pad_width=n_pad, centering=True)
-bpass = base_bpass * window
+# window = DSP.windowing(NP.round(n_channels * eff_bw_ratio), shape=bpass_shape, pad_width=n_pad, centering=True) 
+# bandpass_shape = DSP.PFB_empirical(nchan, 32, 0.25, 0.25)
+window = n_channels * DSP.windowing(n_channels, shape=bpass_shape, pad_width=n_pad, centering=True, area_normalize=True) 
+bpass = base_bpass * bandpass_shape
 n_snaps = int(t_obs/t_snap)
 lst = (lst_init + (t_snap/3.6e3) * NP.arange(n_snaps)) * 15.0 # in degrees
 if obs_mode == 'track':
@@ -63,13 +74,11 @@ baseline_vect = baseline_length * NP.asarray([NP.cos(NP.radians(baseline_orienta
 baseline_orientation_str = '{0:.1f}'.format(baseline_orientation)
 baseline_length_str = '{0:.1f}'.format(baseline_length)
 
-intrfrmtr = RI.Interferometer('B1', baseline_vect, chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz')
-
 ## Foreground parameters
 
 use_GSM = False
-use_GLEAM = True
-use_PS = False
+use_GLEAM = False
+use_PS = True
 use_other = False
 
 use_FG_model = use_GSM + use_GLEAM + use_PS + use_other
@@ -85,12 +94,13 @@ spindex = 0.0
 if use_GSM:
     gsm_file = '/data3/t_nithyanandan/project_MWA/foregrounds/gsmdata.fits'
     hdulist = fits.open(gsm_file)
-    flux_unit = 'K'
+    pixres = hdulist[0].header['PIXAREA']
     gsm_table = hdulist[1].data
     ra_deg = gsm_table['RA']
     dec_deg = gsm_table['DEC']
-    fluxes = gsm_table['f_{0:.0f}'.format(freq/1e6)]
-    spindex = gsm_table['spindex']
+    temperatures = gsm_table['T_{0:.0f}'.format(freq/1e6)]
+    fluxes = temperatures * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
+    spindex = gsm_table['spindex'] + 2.0
     ctlgobj = CTLG.Catalog(freq_catalog*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex)
     fg_str = 'gsm'
 elif use_GLEAM:
@@ -122,27 +132,34 @@ elif use_other:
 
 skymod = CTLG.SkyModel(ctlgobj)
 
-## Animation parameters
-
-backdrop_xsize = 100
-bitrate = 128
-fps = 2.5
-interval = 100
-
 ## Start the observing run
 
+intrfrmtr = RI.Interferometer('B1', baseline_vect, chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz')
 intrfrmtr.observing_run(pointing_init, skymod, t_snap, t_obs, chans, bpass, Tsys, lst_init, mode=obs_mode, freq_scale='GHz', brightness_units=flux_unit)
 
-intrfrmtr.delay_transform()
+intrfrmtr.delay_transform(oversampling_factor-1.0, freq_wts=window)
 lags = intrfrmtr.lags
-vis_lag = intrfrmtr.skyvis_lag
-if oversampling_factor > 1.0:
-    lags = DSP.downsampler(intrfrmtr.lags, oversampling_factor)
-    vis_lag = DSP.downsampler(intrfrmtr.skyvis_lag, oversampling_factor)
+if noise_flag:
+    vis_freq = intrfrmtr.vis_freq
+    vis_lag = intrfrmtr.vis_lag
+else:
+    vis_freq = intrfrmtr.skyvis_freq
+    vis_lag = intrfrmtr.skyvis_lag
+
+# if oversampling_factor > 1.0: 
+#     lags = DSP.downsampler(intrfrmtr.lags, oversampling_factor)
+#     if noise_flag:
+#         vis_lag = DSP.downsampler(intrfrmtr.vis_lag, oversampling_factor)
+#     else:
+#         vis_lag = DSP.downsampler(intrfrmtr.skyvis_lag, oversampling_factor)        
+
+# if bpass_shape == 'bnw':
+#     lags = DSP.downsampler(lags, eff_bw_ratio)
+#     vis_lag = DSP.downsampler(vis_lag, eff_bw_ratio)
 
 band_avg_noise_info = intrfrmtr.band_averaged_noise_estimate(filter_method='hpf')
 
-outfile = '/data3/t_nithyanandan/project_MWA/obs_data_'+telescope+'_'+obs_mode+'_baseline_'+baseline_length_str+'m_'+baseline_orientation_str+'_deg_FG_model_'+fg_str+'_'+bpass_shape+'{0:.1f}'.format(oversampling_factor)
+outfile = '/data3/t_nithyanandan/project_MWA/obs_data_'+telescope+'_'+obs_mode+'_baseline_'+baseline_length_str+'m_'+baseline_orientation_str+'_deg_FG_model_'+fg_str+'_{0:.1f}_MHz_'.format(nchan*freq_resolution/1e3)+bpass_shape+'{0:.1f}'.format(oversampling_factor)
 
 intrfrmtr.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
 
@@ -228,22 +245,61 @@ for i in xrange(n_snaps):
             overlay['pbeam'] = pb.reshape(backdrop_xsize, backdrop_xsize)
     overlays += [overlay]
 
-## Animation set up
+## Animation parameters and set up
+
+backdrop_xsize = 100
+bitrate = 128
+fps = n_snaps/30.0
+interval = 100
 
 fig = PLT.figure(figsize=(14,14))
-ax1 = fig.add_subplot(211)
-ax1.set_xlabel(r'$\eta$ [$\mu$s]', fontsize=18)
+ax1a = fig.add_subplot(211)
+ax1a.set_xlabel(r'$\eta$ [$\mu$s]', fontsize=18)
 if flux_unit == 'Jy':
-    ax1.set_ylabel('Amplitude [Jy Hz]', fontsize=18)    
+    ax1a.set_ylabel('Amplitude [Jy Hz]', fontsize=18)    
 elif flux_unit == 'K':
-    ax1.set_ylabel('Amplitude [K Hz]', fontsize=18)
-ax1.set_title('Delay Spectrum', fontsize=18, weight='semibold')
-ax1.set_yscale('log')
-ax1.set_xlim(1e6*NP.amin(lags)-1.0, 1e6*NP.amax(lags)+1.0)
-ax1.set_ylim(0.5*NP.amin(NP.abs(vis_lag)),2.0*NP.amax(NP.abs(vis_lag)))
-l1 = ax1.plot([], [], 'k+', [], [], 'k-', [], [], 'k-', [], [], 'k:', [], [], 'k:', markersize=10)
-ax1.tick_params(which='major', length=12, labelsize=18)
-ax1.tick_params(which='minor', length=6)
+    ax1a.set_ylabel('Amplitude [K Hz]', fontsize=18)
+# ax1a.set_title('Delay Spectrum', fontsize=18, weight='semibold')
+ax1a.set_yscale('log')
+ax1a.set_xlim(1e6*NP.amin(lags)-1.0, 1e6*NP.amax(lags)+1.0)
+if noise_flag:
+    ax1a.set_ylim(0.5*NP.amin(NP.abs(vis_lag)), 2.0*NP.amax(NP.abs(vis_lag)))
+else:
+    ax1a.set_ylim(1.0, 2.0*NP.amax(NP.abs(vis_lag)))
+l1a = ax1a.plot([], [], 'k-', [], [], 'k-', [], [], 'k-', [], [], 'k:', [], [], 'k:', markersize=2)
+ax1a.yaxis.tick_left()
+ax1a.yaxis.set_label_position('left')
+ax1a.xaxis.tick_bottom()
+ax1a.xaxis.set_label_position('bottom')
+ax1a.tick_params(which='major', length=12, labelsize=18)
+ax1a.tick_params(which='minor', length=6)
+txt1a = ax1a.text(0.7, 0.85, 'Delay Spectrum', transform=ax1a.transAxes, fontsize=18, weight='semibold', color='black')
+
+ax1b = fig.add_subplot(211, frameon=False)
+ax1b.set_xlabel('Frequency [MHz]', fontsize=18, color='r')
+if flux_unit == 'Jy':
+    ax1b.set_ylabel('Amplitude [Jy]', fontsize=18, color='r')    
+elif flux_unit == 'K':
+    ax1b.set_ylabel('Amplitude [K]', fontsize=18, color='r')
+ax1b.set_yscale('log')
+ax1b.set_xlim(1e3*NP.amin(chans), 1e3*NP.amax(chans))
+if noise_flag:
+    ax1b.set_ylim(0.2*NP.amin(bpass*window*NP.abs(vis_freq)), 5.0*NP.amax(bpass*window*NP.abs(vis_freq)))
+else:
+    ax1b.set_ylim(1.0e-4, 5.0*NP.amax(bpass*window*NP.abs(vis_freq)))
+ax1b.yaxis.tick_right()
+ax1b.yaxis.set_label_position('right')
+ax1b.xaxis.tick_top()
+ax1b.xaxis.set_label_position('top')
+ax1b.tick_params(which='major', length=12, labelsize=18, color='r')
+ax1b.tick_params(which='minor', length=6, color='r')
+for tl in ax1b.get_xticklabels():
+    tl.set_color('r')
+for tl in ax1b.get_yticklabels():
+    tl.set_color('r')
+l1b, = ax1b.plot([], [], 'r-', markersize=2)
+txt1b = ax1b.text(0.7, 0.9, 'Frequency Spectrum', transform=ax1b.transAxes, fontsize=18, weight='semibold', color='red')
+l1b.set_markeredgecolor('red')
 
 ax2 = fig.add_subplot(212)
 if backdrop_coords == 'radec':
@@ -281,29 +337,32 @@ else:
 
 l2 = ax2.plot([], [], 'w.', [], [])
 
-txt1 = ax1.text(0.05, 0.9, '', transform=ax1.transAxes, fontsize=18)
+txt1 = ax1a.text(0.05, 0.9, '', transform=ax1a.transAxes, fontsize=18)
 txt2 = ax2.text(0.25, 0.8, '', transform=ax2.transAxes, fontsize=18)
 
-def update(i, pointing_radec, lst ,obsmode, telescope, backdrop_coords, lags, vis_lag, delaymatrix, overlays, xv, yv, xv_uniq, yv_uniq, line1, line2, t1, t2):
-    line1[0].set_xdata(1e6*lags)
-    line1[0].set_ydata(NP.abs(vis_lag[i,:]))
+def update(i, pointing_radec, lst ,obsmode, telescope, backdrop_coords, lags, chans, bpass, freq_wts, vis_lag, vis_freq, delaymatrix, overlays, xv, yv, xv_uniq, yv_uniq, line1a, line1b, line2, t1, t2):
+    line1a[0].set_xdata(1e6*lags)
+    line1a[0].set_ydata(NP.abs(vis_lag[i,:]))
 
     delay_ranges = NP.hstack((delaymatrix[:,:,1] - delaymatrix[:,:,0], delaymatrix[:,:,1] + delaymatrix[:,:,0]))
     delay_horizon = NP.hstack((-delaymatrix[:,:,0], delaymatrix[:,:,0]))
 
-    line1[1].set_xdata(1e6*delay_ranges[i,0]+NP.zeros(2))
-    line1[1].set_ydata(NP.asarray([NP.amin(NP.abs(vis_lag[i,:])), NP.max(NP.abs(vis_lag[i,:]))]))
+    line1a[1].set_xdata(1e6*delay_ranges[i,0]+NP.zeros(2))
+    line1a[1].set_ydata(NP.asarray([NP.amin(NP.abs(vis_lag[i,:])), NP.max(NP.abs(vis_lag[i,:]))]))
 
-    line1[2].set_xdata(1e6*delay_ranges[i,1]+NP.zeros(2))
-    line1[2].set_ydata(NP.asarray([NP.amin(NP.abs(vis_lag[i,:])), NP.amax(NP.abs(vis_lag[i,:]))]))
+    line1a[2].set_xdata(1e6*delay_ranges[i,1]+NP.zeros(2))
+    line1a[2].set_ydata(NP.asarray([NP.amin(NP.abs(vis_lag[i,:])), NP.amax(NP.abs(vis_lag[i,:]))]))
 
-    line1[3].set_xdata(1e6*delay_horizon[i,0]+NP.zeros(2))
-    line1[3].set_ydata(NP.asarray([NP.amin(NP.abs(vis_lag[i,:])), NP.max(NP.abs(vis_lag[i,:]))]))
+    line1a[3].set_xdata(1e6*delay_horizon[i,0]+NP.zeros(2))
+    line1a[3].set_ydata(NP.asarray([NP.amin(NP.abs(vis_lag[i,:])), NP.max(NP.abs(vis_lag[i,:]))]))
 
-    line1[4].set_xdata(1e6*delay_horizon[i,1]+NP.zeros(2))
-    line1[4].set_ydata(NP.asarray([NP.amin(NP.abs(vis_lag[i,:])), NP.amax(NP.abs(vis_lag[i,:]))]))
+    line1a[4].set_xdata(1e6*delay_horizon[i,1]+NP.zeros(2))
+    line1a[4].set_ydata(NP.asarray([NP.amin(NP.abs(vis_lag[i,:])), NP.amax(NP.abs(vis_lag[i,:]))]))
 
-    label_str = r' $\alpha$ = {0[0]:+.3f} deg, $\delta$ = {0[1]:+.2f} deg'.format(pointing_radec[i,:]) + '\nLST = {0:.1f} deg'.format(lst[i])
+    line1b.set_xdata(1e3*chans)
+    line1b.set_ydata(bpass*freq_wts*NP.abs(vis_freq[i,:]))
+
+    label_str = r' $\alpha$ = {0[0]:+.3f} deg, $\delta$ = {0[1]:+.2f} deg'.format(pointing_radec[i,:]) + '\nLST = {0:.2f} deg'.format(lst[i])
 
     if backdrop_coords == 'radec':
         pbi = griddata(NP.hstack((xv[overlays[i]['roi_obj_inds']].reshape(-1,1),yv[overlays[i]['roi_obj_inds']].reshape(-1,1))), overlays[i]['pbeam'], NP.hstack((xv.reshape(-1,1),yv.reshape(-1,1))), method='nearest')
@@ -325,8 +384,8 @@ def update(i, pointing_radec, lst ,obsmode, telescope, backdrop_coords, lags, vi
     # # t2.set_text(label_str)
     t2.set_text('')
 
-    return line1, line2, t1, t2
+    return line1a, line1b, line2, t1, t2
 
-anim = MOV.FuncAnimation(fig, update, fargs=(pointings_radec, lst, obs_mode, telescope, backdrop_coords, lags, vis_lag, delay_matrix, overlays, xvect, yvect, xgrid[0,:], ygrid[:,0], l1, l2, txt1, txt2), frames=len(overlays), interval=interval, blit=False)
+anim = MOV.FuncAnimation(fig, update, fargs=(pointings_radec, lst, obs_mode, telescope, backdrop_coords, lags, chans, bpass, window, vis_lag, vis_freq, delay_matrix, overlays, xvect, yvect, xgrid[0,:], ygrid[:,0], l1a, l1b, l2, txt1, txt2), frames=len(overlays), interval=interval, blit=False)
 PLT.show()
-anim.save(outfile+'.mp4', fps=fps, codec='x264')
+anim.save(outfile+noise_flag_str+'.mp4', fps=fps, codec='x264')

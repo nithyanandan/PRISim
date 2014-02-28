@@ -1,3 +1,65 @@
+from v1.02 of interferometry:
+============================
+
+In interferometry.py,
+
+(*) In member function observe() of class Interferometer, removed the product by
+the bandpass function in determining the sky visibilities and subsequently the
+measured visibilities. Instead bandpass is kept seprate and can be modified or
+applied as per need.
+(*) In member function delay_transform() of class Interferometer, bandpass shape
+is multiplied to the visibilities in the frequency domain before computing the
+delay transform.
+(*) In member function save() of class Interferometer, the bandpass shapes as a
+function of snapshot instance and frequency are saved in an extension as an
+array.
+(*) In member function save() of class Interferometer, the LST and pointing
+centers are stored as an extension table
+(*) In class Interferometer, added description of member function observing_run()
+to the docstring. Renamed mention of noise_estimate() in the docstring of class
+Interferometer to band_averaged_noise_estimate()
+(*) In class Interferometer, modified the description of class attribute bp in 
+the docstring
+(*) In class Interferometer's __init__() and observing_run() member functions, 
+changed from 'channels *= ...' to 'channels = channels * ...' because the former
+modifies the original input argument as well. 
+(*) In member function observing_run() of class Interferometer, commented the
+usage of milestones and printing of progress percentage and replaced it with use
+of the progressbar module.
+(*) In member function delay_transform() of class Interferometer, added input 
+arguments, namely, pad and verbose to the function. pad provides a padding before
+the delay transform and also determines the downsampling factor of the delay
+spectrum after the delay transform. Setting verbose prints diagnostic and
+progress messages.
+(*) Added a new attribute bp_wts to class Interferometer. This attribute is to
+serve the purpose of any additional frequency weighting on top of the inherent
+bandpass shape, represented by the attribute bp.
+(*) Added an input parameter 'freq_wts' to member function delay_transform() of
+class Interferometer which denotes the additional frequency weighting to be
+applied in additional to the inherent bandpass shape while performing the delay
+transform. The attribute bp_wts is assigned with this freq_wts.
+(*) Modified member function __init__() of class Interferometer to intialize the
+newly included attribute bp_wts
+(*) Modified member function observe() of class Interferometer to build a default
+set of frequency weights (all unity) and assigned to the attribute bp_wts
+(*) Modified the docstrings of class Interferometer to note the inclusion of this
+new attribute bp_wts.
+(*) Modified member function observe() of class Interferometer to incorporate more
+of python numpy concept of broadcasting of arrays 
+
+(*) Added a new class InterferometerArray which is a significant enhancement over
+the class Interferometer. The former can handle multiple baselines whereas the 
+latter can handle only one baseline at a time. The former also has some memory
+optimization strategies built in including the efficient numpy broadcasting of
+arrays. In addition, this class is not limited to compact foreground models but
+can also handle extended structures by approximating them with circular gaussian
+profiles in the image domain and corresponding visibility weights in the aperture 
+plane.
+
+(*) From here on, class InterferometerArray supercedes the functionality of class
+Interferoemter and hence, the latter will not be developed any further. 
+
+---------------------------------------------------------------------------------
 from v1.01 of interferometry:
 ============================
 
