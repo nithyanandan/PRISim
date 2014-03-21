@@ -559,13 +559,9 @@ class Interferometer:
                 skypos_altaz_roi = skypos_altaz[m2,:]
             coords_str = 'altaz'
 
-            # for i in xrange(len(self.channels)):
-            #     pb[:,i] = PB.primary_beam_generator(skypos_altaz_roi, self.channels[i]/1.0e9, skyunits='altaz', telescope=self.telescope, phase_center=pc_altaz)
-            #     fluxes[:,i] = skymodel.catalog.flux_density[m2] * (self.channels[i]/skymodel.catalog.frequency)**skymodel.catalog.spectral_index[m2]
-
             pb = PB.primary_beam_generator(skypos_altaz_roi, self.channels/1.0e9, skyunits='altaz', telescope=self.telescope, phase_center=pc_altaz)
             # fluxes = NP.repeat(skymodel.catalog.flux_density[m2].reshape(-1,1), self.channels.size, axis=1) * (NP.repeat(self.channels.reshape(1,-1), len(m2), axis=0)/skymodel.catalog.frequency)**NP.repeat(skymodel.catalog.spectral_index[m2].reshape(-1,1), self.channels.size, axis=1)
-            fluxes = skymodel.catalog.flux_density[m2].reshape(-1,1) * (self.channels.reshape(1,-1)/skymodel.catalog.frequency)**skymodel.catalog.spectral_index[m2].reshape(-1,1)
+            fluxes = skymodel.catalog.flux_density[m2].reshape(-1,1) * (self.channels.reshape(1,-1)/skymodel.catalog.frequency[m2].reshape(-1,1))**skymodel.catalog.spectral_index[m2].reshape(-1,1)  # numpy array broadcasting 
             geometric_delays = DLY.geometric_delay(baseline_in_local_frame, skypos_altaz_roi, altaz=(coords_str=='altaz'), hadec=(coords_str=='hadec'), latitude=self.latitude)
             self.geometric_delays = self.geometric_delays + [geometric_delays.reshape(len(m2))]
             # phase_matrix = 2.0 * NP.pi * NP.repeat(geometric_delays.reshape(-1,1),len(self.channels),axis=1) * NP.repeat(self.channels.reshape(1,-1),len(m2),axis=0) - NP.repeat(pointing_phase, len(m2), axis=0)
@@ -1463,13 +1459,22 @@ class InterferometerArray:
 
     Member functions:
 
-    __init__():        Initializes an instance of class Interferometer
+    __init__():        Initializes an instance of class InterferometerArray
 
     observe():         Simulates an observing run with the interferometer
                        specifications and an external sky catalog thus producing
                        visibilities. The simulation generates visibilities
                        observed by the interferometer for the specified
                        parameters.
+
+    observing_run():   Simulate an extended observing run in 'track' or 'drift'
+                       mode, by an instance of the InterferometerArray class, of
+                       the sky when a sky catalog is provided. The simulation
+                       generates visibilities observed by the interferometer
+                       array for the specified parameters. Uses member function
+                       observe() and builds the observation from snapshots. The
+                       timestamp for each snapshot is the current time at which
+                       the snapshot is generated.
 
     delay_transform(): Transforms the visibilities from frequency axis onto 
                        delay (time) axis using an FFT.
@@ -1484,7 +1489,7 @@ class InterferometerArray:
     def __init__(self, labels, baselines, channels, telescope='vla', eff_Q=0.89,
                  latitude=34.0790, skycoords='radec', A_eff=NP.pi*(25.0/2)**2, 
                  pointing_coords='hadec', baseline_coords='localenu',
-                 freq_scale=None):
+                 freq_scale=None, init_file=None):
         
         """
         ------------------------------------------------------------------------
@@ -1503,6 +1508,166 @@ class InterferometerArray:
         attributes.
         ------------------------------------------------------------------------
         """
+
+        argument_init = False
+        init_file_success = False
+        if init_file is not None:
+            try:
+                hdulist = fits.open(init_file)
+            except IOError:
+                argument_init = True
+                print '\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...'
+
+            extnames = [hdu.header['EXTNAME'] for hdul in hdulist]
+            try:
+                self.freq_resolution = hdulist[0].header['freq_resolution']
+            except KeyError:
+                hdulist.close()
+                raise KeyError('Keyword "freq_resolution" not found in header.')
+
+            try:
+                self.latitude = hdulist[0].header['latitude']
+            except KeyError:
+                print '\tKeyword "latitude" not found in header. Assuming 34.0790 degrees for attribute latitude.'
+                self.latitude = 34.0790
+                
+            try:
+                self.telescope = hdulist[0].header['telescope']
+            except KeyError:
+                print '\tKeyword "telescope" not found in header. Assuming "vla" for attribute telescope.'
+                self.telescope = 'vla'
+
+            try:
+                self.baseline_coords = hdulist[0].header['baseline_coords']
+            except KeyError:
+                print '\tKeyword "baseline_coords" not found in header. Assuming "localenu" for attribute baseline_coords.'
+                self.baseline_coords = 'localenu'
+
+            try:
+                self.pointing_coords = hdulist[0].header['pointing_coords']
+            except KeyError:
+                print '\tKeyword "pointing_coords" not found in header. Assuming "hadec" for attribute pointing_coords.'
+                self.pointing_coords = 'hadec'
+
+            try:
+                self.skycoords = hdulist[0].header['skycoords']
+            except KeyError:
+                print '\tKeyword "skycoords" not found in header. Assuming "radec" for attribute skycoords.'
+                self.skycoords = 'radec'
+
+            try:
+                self.flux_unit = hdulist[0].header['flux_unit']
+            except KeyError:
+                print '\tKeyword "flux_unit" not found in header. Assuming "jy" for attribute flux_unit.'
+                self.skycoords = 'JY'
+
+            if 'POINTING INFO' not in extnames:
+                raise KeyError('No extension table found containing pointing information.')
+            else:
+                self.lst = hdulist['POINTING INFO'].data['LST'].tolist()
+                self.pointing_center = NP.hstack((hdulist['POINTING INFO'].data['pointing_longitude'].reshape(-1,1), hdulist['POINTING INFO'].data['pointing_latitude'].reshape(-1,1)))
+
+            if 'baselines' in extnames:
+                self.baselines = hdulist['baselines'].data.reshape(-1,3)
+                self.baseline_lengths = NP.sqrt(NP.sum(self.baselines**2, axis=1))
+            else:
+                raise KeyError('Extension named "baselines" not found in init_file.')
+
+            if 'labels' in extnames:
+                self.labels = hdulist['labels'].data.tolist()
+            else:
+                self.labels = ['B{0:0d}'.format(i+1) for i in range(self.baseline_lengths.size)]
+
+            if 'Effective area' in extnames:
+                self.A_eff = hdulist['Effective area'].data
+            else:
+                raise KeyError('Extension named "Effective area" not found in init_file.')
+
+            if 'Interferometer efficiency' in extnames:
+                self.eff_Q = hdulist['Interferometer efficiency'].data
+            else:
+                raise KeyError('Extension named "Interferometer efficiency" not found in init_file.')
+
+            if 'SPECTRAL INFO' not in extnames:
+                raise KeyError('No extension table found containing spectral information.')
+            else:
+                self.channels = hdulist['SPECTRAL INFO'].data['frequency']
+                try:
+                    self.lags = hdulist['SPECTRAL INFO'].data['lag']
+                except KeyError:
+                    self.lags = None
+
+            if 'bandpass' in extnames:
+                self.bp = hdulist['bandpass'].data
+            else:
+                raise KeyError('Extension named "bandpass" not found in init_file.')
+
+            if 'bandpass_weights' in extnames:
+                self.bp_wts = hdulist['bandpass_weights'].data
+            else:
+                self.bp_wts = NP.ones_like(self.bp)
+
+            if 't_acc' in extnames:
+                self.t_acc = hdulist['t_acc'].data.tolist()
+                self.n_acc = len(self.t_acc)
+                self.t_obs = sum(self.t_acc)
+            else:
+                raise KeyError('Extension named "t_acc" not found in init_file.')
+            
+            if 'freq_channel_noise_rms_visibility' in extnames:
+                self.vis_rms_freq = hdulist['freq_channel_noise_rms_visibility'].data
+            else:
+                raise KeyError('Extension named "freq_channel_noise_rms_visibility" not found in init_file.')
+
+            if 'real_freq_obs_visibility' in extnames:
+                self.vis_freq = hdulist['real_freq_obs_visibility'].data
+                if 'imag_freq_obs_visibility' in extnames:
+                    self.vis_freq += 1j * hdulist['imag_freq_obs_visibility'].data
+            else:
+                raise KeyError('Extension named "real_freq_obs_visibility" not found in init_file.')
+
+            if 'real_freq_sky_visibility' in extnames:
+                self.skyvis_freq = hdulist['real_freq_sky_visibility'].data
+                if 'imag_freq_sky_visibility' in extnames:
+                    self.skyvis_freq += 1j * hdulist['imag_freq_sky_visibility'].data
+            else:
+                raise KeyError('Extension named "real_freq_sky_visibility" not found in init_file.')
+
+            if 'real_freq_noise_visibility' in extnames:
+                self.vis_noise_freq = hdulist['real_freq_noise_visibility'].data
+                if 'imag_freq_noise_visibility' in extnames:
+                    self.vis_noise_freq += 1j * hdulist['imag_freq_noise_visibility'].data
+            else:
+                raise KeyError('Extension named "real_freq_noise_visibility" not found in init_file.')
+
+            if 'real_lag_obs_visibility' in extnames:
+                self.vis_lag = hdulist['real_lag_obs_visibility'].data
+                if 'imag_lag_obs_visibility' in extnames:
+                    self.vis_lag += 1j * hdulist['imag_lag_obs_visibility'].data
+            else:
+                self.vis_lag = None
+
+            if 'real_lag_sky_visibility' in extnames:
+                self.skyvis_lag = hdulist['real_lag_sky_visibility'].data
+                if 'imag_lag_sky_visibility' in extnames:
+                    self.skyvis_lag += 1j * hdulist['imag_lag_sky_visibility'].data
+            else:
+                self.skyvis_lag = None
+
+            if 'real_lag_noise_visibility' in extnames:
+                self.vis_noise_lag = hdulist['real_lag_noise_visibility'].data
+                if 'imag_lag_noise_visibility' in extnames:
+                    self.vis_noise_lag += 1j * hdulist['imag_lag_noise_visibility'].data
+            else:
+                self.vis_noise_lag = None
+
+            hdulist.close()
+            init_file_success = True
+        else:
+            argument_init = True
+            
+        if (not argument_init) and (not init_file_success):
+            raise ValueError('Initialization failed with the use of init_file.')
 
         self.baselines = NP.asarray(baselines)
         if len(self.baselines.shape) == 1:
@@ -1887,13 +2052,9 @@ class InterferometerArray:
                 skypos_altaz_roi = skypos_altaz[m2,:]
             coords_str = 'altaz'
 
-            # for i in xrange(len(self.channels)):
-            #     pb[:,i] = PB.primary_beam_generator(skypos_altaz_roi, self.channels[i]/1.0e9, skyunits='altaz', telescope=self.telescope, phase_center=pc_altaz)
-            #     fluxes[:,i] = skymodel.catalog.flux_density[m2] * (self.channels[i]/skymodel.catalog.frequency)**skymodel.catalog.spectral_index[m2]
-
             pb = PB.primary_beam_generator(skypos_altaz_roi, self.channels/1.0e9, skyunits='altaz', telescope=self.telescope, phase_center=pc_altaz)
             # fluxes = NP.repeat(skymodel.catalog.flux_density[m2].reshape(-1,1), self.channels.size, axis=1) * (NP.repeat(self.channels.reshape(1,-1), len(m2), axis=0)/skymodel.catalog.frequency)**NP.repeat(skymodel.catalog.spectral_index[m2].reshape(-1,1), self.channels.size, axis=1)
-            fluxes = skymodel.catalog.flux_density[m2].reshape(-1,1) * (self.channels.reshape(1,-1)/skymodel.catalog.frequency)**skymodel.catalog.spectral_index[m2].reshape(-1,1)
+            fluxes = skymodel.catalog.flux_density[m2].reshape(-1,1) * (self.channels.reshape(1,-1)/skymodel.catalog.frequency[m2].reshape(-1,1))**skymodel.catalog.spectral_index[m2].reshape(-1,1) # numpy array broadcasting
             pbfluxes = pb * fluxes
             geometric_delays = DLY.geometric_delay(baselines_in_local_frame, skypos_altaz_roi, altaz=(coords_str=='altaz'), hadec=(coords_str=='hadec'), latitude=self.latitude)
 
@@ -1973,13 +2134,13 @@ class InterferometerArray:
             # self.skyvis_freq = NP.expand_dims(skyvis, axis=2)
             self.skyvis_freq = skyvis[:,:,NP.newaxis]
             # self.vis_noise_freq = NP.expand_dims(self.vis_rms_freq[:,:,-1] / NP.sqrt(2.0) * (NP.random.randn(self.baselines.shape[0], self.channels.size) + 1j * NP.random.randn(self.baselines.shape[0], self.channels.size)), axis=2) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts
-            self.vis_noise_freq = self.vis_rms_freq[:,:,-1] / NP.sqrt(2.0) * (NP.random.randn(self.baselines.shape[0], self.channels.size, 1) + 1j * NP.random.randn(self.baselines.shape[0], self.channels.size, 1)) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts
+            self.vis_noise_freq = self.vis_rms_freq / NP.sqrt(2.0) * (NP.random.randn(self.baselines.shape[0], self.channels.size, 1) + 1j * NP.random.randn(self.baselines.shape[0], self.channels.size, 1)) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts
             self.vis_freq = self.skyvis_freq + self.vis_noise_freq
         else:
             # self.skyvis_freq = NP.dstack((self.skyvis_freq, NP.expand_dims(skyvis, axis=2)))
             self.skyvis_freq = NP.dstack((self.skyvis_freq, skyvis[:,:,NP.newaxis]))
-            self.vis_noise_freq = NP.dstack((self.vis_noise_freq, self.vis_rms_freq[:,:,-1] / NP.sqrt(2.0) * (NP.random.randn(self.baselines.shape[0], self.channels.size, 1) + 1j * NP.random.randn(self.baselines.shape[0], self.channels.size, 1)) )) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts 
-            self.vis_freq = NP.dstack((self.vis_freq, self.skyvis_freq[:,:,-1] + self.vis_noise_freq[:,:,-1]))
+            self.vis_noise_freq = NP.dstack((self.vis_noise_freq, NP.expand_dims(self.vis_rms_freq[:,:,-1],axis=2) / NP.sqrt(2.0) * (NP.random.randn(self.baselines.shape[0], self.channels.size, 1) + 1j * NP.random.randn(self.baselines.shape[0], self.channels.size, 1)) )) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts 
+            self.vis_freq = NP.dstack((self.vis_freq, NP.expand_dims(self.skyvis_freq[:,:,-1] + self.vis_noise_freq[:,:,-1], axis=2)))
 
         self.timestamp = self.timestamp + [timestamp]
 
@@ -2430,7 +2591,7 @@ class InterferometerArray:
         try:
             file
         except NameError:
-            raise NameError('No filename provided. Aborting Interferometer.save()...')
+            raise NameError('No filename provided. Aborting InterferometerArray.save()...')
 
         filename = file + '.fits' 
 
@@ -2444,6 +2605,7 @@ class InterferometerArray:
         hdulist[0].header['baseline_coords'] = (self.baseline_coords, 'Baseline coordinate system')
         hdulist[0].header['freq_resolution'] = (self.freq_resolution, 'Frequency Resolution (Hz)')
         hdulist[0].header['pointing_coords'] = (self.pointing_coords, 'Pointing coordinate system')
+        hdulist[0].header['skycoords'] = (self.skycoords, 'Sky coordinate system')
         hdulist[0].header['telescope'] = (self.telescope, 'Telescope')
         hdulist[0].header['t_obs'] = (self.t_obs, 'Observing duration (s)')
         hdulist[0].header['n_acc'] = (self.n_acc, 'Number of accumulations')        
@@ -2463,6 +2625,15 @@ class InterferometerArray:
         hdulist += [tbhdu]
         if verbose:
             print '\tCreated pointing information table.'
+
+        cols = []
+        cols += [fits.Column(name='labels', format='A', array=NP.asarray(self.labels))]
+        columns = fits.ColDefs(cols, tbtype=tabtype)
+        tbhdu = fits.new_table(columns)
+        tbhdu.header.set('EXTNAME', 'LABELS')
+        hdulist += [tbhdu]
+        if verbose:
+            print '\tCreated extension table containing baseline labels.'
 
         hdulist += [fits.ImageHDU(self.baselines, name='baselines')]
         if verbose:
@@ -2519,6 +2690,10 @@ class InterferometerArray:
         if verbose:
             print '\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape)
 
+        hdulist += [fits.ImageHDU(self.bp_wts, name='bandpass_weights')]
+        if verbose:
+            print '\tCreated an extension for bandpass weights of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp_wts.shape)
+
         if self.vis_lag is not None:
             hdulist += [fits.ImageHDU(self.vis_lag.real, name='real_lag_visibility')]
             hdulist += [fits.ImageHDU(self.vis_lag.imag, name='imag_lag_visibility')]
@@ -2544,6 +2719,6 @@ class InterferometerArray:
         hdu.writeto(filename, clobber=overwrite)
 
         if verbose:
-            print '\tInterferometer information written successfully to FITS file on disk:\n\t\t{0}\n'.format(filename)
+            print '\tInterferometer array information written successfully to FITS file on disk:\n\t\t{0}\n'.format(filename)
 
 #################################################################################

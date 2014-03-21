@@ -6,7 +6,6 @@ from astropy import units
 import foregrounds as FG
 
 freqs = [140.0e6, 150.0e6, 160.0e6] # frequencies in Hz
-outfile = '/data3/t_nithyanandan/project_MWA/foregrounds/gsmdata.fits'
 
 nsides = []
 for i in xrange(len(freqs)):
@@ -32,6 +31,7 @@ radec = gc.fk5
 ra = radec.ra.degree
 dec = radec.dec.degree
 
+outfile = '/data3/t_nithyanandan/project_MWA/foregrounds/gsmdata{0:0d}.fits'.format(nsides[0])
 hdulist = []
 hdulist += [fits.PrimaryHDU()]
 hdulist[0].header['NSIDE'] = (nsides[0], 'NSIDE')

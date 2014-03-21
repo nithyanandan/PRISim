@@ -1,3 +1,34 @@
+from v1.03 of interferometry:
+============================
+
+In interferometery.py,
+
+(*) Added docstring in class InterferometerArray describing the member function
+observing_run()
+(*) Made minor corrections in print statements and docstrings inside the class
+InterferometerArray to indicate they belong to that class and not the class
+Interferoemter.
+(*) Enabled __init__() member function of class InterferometerArray to initialize
+from data in a file through the input parameter init_file which may have been 
+created using the save() member function
+(*) In member function save() of class InterferometerArray, now save the
+attribute skycoords as a keyword in the primary header.
+(*) In member function save() of class InterferometerArray, now save the
+attribute keywords bp_wts and labels as separate extensions
+(*) Following up with the change in the nature of attribute frequency in class
+Catalog in the module catalog.py under the class of "general" modules, its usage
+is now modified to reflect its nature as an array in both classes Interferometer
+and InterferometerArray
+(*) Modified error checking in __init__() member function of class
+InterferometerArray to be compatible with initializing from input arguments or 
+from init_file
+(*) Tweaked a few places in member function observe() of class 
+InterferoemterArray to have numpy array broadcasting compatibility
+(*) In member function save() of class InterferometerArray, the baseline labels 
+are now saved as a binary table extension instead of an image table used before
+because the labels are strings.
+
+---------------------------------------------------------------------------------
 from v1.02 of interferometry:
 ============================
 
@@ -22,7 +53,7 @@ Interferometer to band_averaged_noise_estimate()
 the docstring
 (*) In class Interferometer's __init__() and observing_run() member functions, 
 changed from 'channels *= ...' to 'channels = channels * ...' because the former
-modifies the original input argument as well. 
+modifies the original input argument as well due to passing by reference 
 (*) In member function observing_run() of class Interferometer, commented the
 usage of milestones and printing of progress percentage and replaced it with use
 of the progressbar module.

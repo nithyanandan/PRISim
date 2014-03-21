@@ -107,11 +107,11 @@ pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
 
 ## Foreground parameters
 
-use_GSM = True
+use_GSM = False
 use_SUMSS = False
 use_MSS = False
 use_GLEAM = False
-use_PS = False
+use_PS = True
 use_other = False
 
 use_FG_model = use_GSM + use_SUMSS + use_GLEAM + use_PS + use_other
@@ -201,7 +201,7 @@ elif use_PS:
     fmajax = NP.ones(n_src)
     fminax = fmajax
     fpa = NP.zeros(n_src)
-    ctlgobj = CTLG.Catalog(freq_catalog*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fpeak, spectral_index=spindex, src_shape=NP.hstack((fmajax.reshape(-1,1),fminax.reshape(-1,1),fpa.reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    ctlgobj = CTLG.Catalog('PS', freq_catalog*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fpeak, spectral_index=spindex, src_shape=NP.hstack((fmajax.reshape(-1,1),fminax.reshape(-1,1),fpa.reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     fg_str = 'point'
 elif use_other:
     n_src = 2
@@ -224,7 +224,7 @@ interval = 100
 ## Start the observation
 
 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=40).start()
-for i in range(35,min(40,len(baseline_bin_indices))):
+for i in range(0,min(40,len(baseline_bin_indices))):
     outfile = '/data3/t_nithyanandan/project_MWA/multi_baseline_visibilities_'+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[i]],bl_length[min(baseline_bin_indices[i]+baseline_chunk_size-1,total_baselines-1)])+'FG_model_'+fg_str+'_'+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
     ia = RI.InterferometerArray(labels[baseline_bin_indices[i]:min(baseline_bin_indices[i]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[i]:min(baseline_bin_indices[i]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz')    
     ts = time.time()
