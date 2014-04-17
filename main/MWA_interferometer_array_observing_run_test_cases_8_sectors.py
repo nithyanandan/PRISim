@@ -38,7 +38,7 @@ bl[neg_bl_orientation_ind,:] = -1.0 * bl[neg_bl_orientation_ind,:]
 bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
 total_baselines = bl_length.size
 # used_baselines = int(NP.sum(bl_length <= 50.0))
-baseline_chunk_size = 100
+baseline_chunk_size = 25
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
 # if used_baselines > total_baselines:
 #     raise ValueError('Used number of baselines found to exceed total number of baselines')
@@ -60,8 +60,9 @@ Tsys = 440.0 # in Kelvin
 t_snap = 5.0 * 60.0 # in seconds 
 t_obs = 2.5 * 3.6e3 # in seconds
 # t_obs = 5.0 * 3600.0 # in seconds
-pointing_init = [0.0, latitude] # in degrees
-lst_init = 0.0 # in hours
+# pointing_init = [0.0, latitude] # in degrees
+pointing_init = [266.25, -29.0] # in degrees
+lst_init = pointing_init[0]/15.0 # in hours
 n_channels = 256
 bpass_shape = 'rect' 
 oversampling_factor = 2.0
@@ -79,7 +80,7 @@ base_bpass = 1.0*NP.ones(nchan)
 chans = (freq + (NP.arange(nchan) - 0.5 * nchan) * freq_resolution * 1e3 )/ 1e9 # in GHz
 # window = DSP.shaping(nchan, 1/oversampling_factor*eff_bw_ratio, shape=bpass_shape, peak=1.0)
 # window = DSP.windowing(NP.round(n_channels * eff_bw_ratio), shape=bpass_shape, pad_width=n_pad, centering=True) 
-window = n_channels * DSP.windowing(n_channels, shape=bpass_shape, pad_width=n_pad, centering=True, area_normalize=True) 
+# window = n_channels * DSP.windowing(n_channels, shape=bpass_shape, pad_width=n_pad, centering=True, area_normalize=True) 
 pfb_method = 'theoretical'
 if pfb_method == 'empirical':
     bandpass_shape = DSP.PFB_empirical(nchan, 32, 0.25, 0.25)
@@ -147,7 +148,7 @@ fg_str = ''
 flux_unit = 'Jy'
 freq_catalog = freq/1e9 # in GHz
 spindex = 0.0
-nside = 128
+nside = 64
 
 if use_GSM:
     fg_str = 'asm'
@@ -352,36 +353,36 @@ interval = 100
 
 ## Start the observation
 
-# progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=20).start()
-# for i in range(0,min(20,len(baseline_bin_indices))):
+# progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=1).start()
+# for i in range(0,min(1,len(baseline_bin_indices))):
 #     outfile = '/data3/t_nithyanandan/project_MWA/multi_baseline_visibilities_'+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[i]],bl_length[min(baseline_bin_indices[i]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
 #     ia = RI.InterferometerArray(labels[baseline_bin_indices[i]:min(baseline_bin_indices[i]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[i]:min(baseline_bin_indices[i]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz')    
 #     ts = time.time()
 #     ia.observing_run(pointing_init, skymod, t_snap, t_obs, chans, bpass, Tsys, lst_init, mode=obs_mode, freq_scale='GHz', brightness_units=flux_unit, memsave=True)
 #     print 'The last chunk of {0:0d} baselines required {1:.1f} minutes'.format(baseline_chunk_size, (time.time()-ts)/60.0)
 #     ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
-#     ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
+#     # ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
 #     progress.update(i+1)
 # progress.finish()
 
-# lags = None
-# skyvis_lag = None
-# vis_lag = None
-# progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=20).start()
-# for i in range(0, min(20,len(baseline_bin_indices))):
-#     infile = '/data3/t_nithyanandan/project_MWA/multi_baseline_visibilities_'+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[i]],bl_length[min(baseline_bin_indices[i]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
-#     hdulist = fits.open(infile+'.fits')
-#     # extnames = [hdu.header['EXTNAME'] for hdu in hdulist]
-#     if i == 0:
-#         lags = hdulist['SPECTRAL INFO'].data.field('lag')
-#         vis_lag = hdulist['real_lag_visibility'].data + 1j * hdulist['imag_lag_visibility'].data
-#         skyvis_lag = hdulist['real_lag_sky_visibility'].data + 1j * hdulist['imag_lag_sky_visibility'].data
-#     else:
-#         vis_lag = NP.vstack((vis_lag, hdulist['real_lag_visibility'].data + 1j * hdulist['imag_lag_visibility'].data))
-#         skyvis_lag = NP.vstack((skyvis_lag, hdulist['real_lag_sky_visibility'].data + 1j * hdulist['imag_lag_sky_visibility'].data))
-#     hdulist.close()
-#     progress.update(i+1)
-# progress.finish()
+lags = None
+skyvis_lag = None
+vis_lag = None
+progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=80).start()
+for i in range(0, min(80,len(baseline_bin_indices))):
+    infile = '/data3/t_nithyanandan/project_MWA/multi_baseline_visibilities_'+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[i]],bl_length[min(baseline_bin_indices[i]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+    hdulist = fits.open(infile+'.fits')
+    # extnames = [hdu.header['EXTNAME'] for hdu in hdulist]
+    if i == 0:
+        lags = hdulist['SPECTRAL INFO'].data.field('lag')
+        vis_lag = hdulist['real_lag_visibility'].data + 1j * hdulist['imag_lag_visibility'].data
+        skyvis_lag = hdulist['real_lag_sky_visibility'].data + 1j * hdulist['imag_lag_sky_visibility'].data
+    else:
+        vis_lag = NP.vstack((vis_lag, hdulist['real_lag_visibility'].data + 1j * hdulist['imag_lag_visibility'].data))
+        skyvis_lag = NP.vstack((skyvis_lag, hdulist['real_lag_sky_visibility'].data + 1j * hdulist['imag_lag_sky_visibility'].data))
+    hdulist.close()
+    progress.update(i+1)
+progress.finish()
 
 small_delays_ind = NP.abs(lags) <= 2.5e-6
 lags = lags[small_delays_ind]
@@ -394,7 +395,7 @@ delay_matrix = DLY.delay_envelope(bl, pointings_dircos, units='mks')
 
 ## Binning baselines by orientation
 
-blo = bl_orientation[:min(20*baseline_chunk_size, total_baselines)]
+blo = bl_orientation[:min(80*baseline_chunk_size, total_baselines)]
 # blo[blo < -0.5*360.0/n_bins_baseline_orientation] = 360.0 - NP.abs(blo[blo < -0.5*360.0/n_bins_baseline_orientation])
 bloh, bloe, blon, blori = OPS.binned_statistic(blo, statistic='count', bins=n_bins_baseline_orientation, range=[(-0.5*180.0/n_bins_baseline_orientation, 180.0-0.5*180.0/n_bins_baseline_orientation)])
 
@@ -622,7 +623,7 @@ def update(i, pointing_radec, lst, obsmode, telescope, backdrop_coords, bll, blo
 
 anim = MOV.FuncAnimation(fig, update, fargs=(pointings_radec, lst, obs_mode, telescope, backdrop_coords, bl_length, blori, lags, skyvis_lag, delay_matrix, overlays, xvect, yvect, xgrid[0,:], ygrid[:,0], axs, tpc), frames=len(overlays), interval=interval, blit=False)
 PLT.show()
-animation_file = '/data3/t_nithyanandan/project_MWA/multi_baseline_noiseless_visibilities_'+obs_mode+'_'+'{0:0d}'.format(20*baseline_chunk_size)+'_baselines_{0:0d}_orientations_'.format(n_bins_baseline_orientation)+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_8_sectors'
+animation_file = '/data3/t_nithyanandan/project_MWA/multi_baseline_noiseless_visibilities_'+obs_mode+'_'+'{0:0d}'.format(80*baseline_chunk_size)+'_baselines_{0:0d}_orientations_'.format(n_bins_baseline_orientation)+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_8_sectors'
 anim.save(animation_file+'.mp4', fps=fps, codec='x264')
 
 

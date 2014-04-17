@@ -1,6 +1,7 @@
 import numpy as NP
 import geometry as GEOM
 import scipy.constants as FCNST
+import ipdb as PDB
 
 #################################################################################
 
@@ -513,10 +514,10 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
 
     skypos        [numpy array] Sky positions at which the field pattern is to be
                   estimated. Size is M x N where M is the number of locations and 
-                  N = 1 (if skyunits = degrees, for azimuthally symmetric
+                  N = 1 (if skycoords = degrees, for azimuthally symmetric
                   telescopes such as VLA and GMRT which have parabolic dishes), 
-                  N = 2 (if skyunits = altaz denoting Alt-Az coordinates), or 
-                  N = 3 (if skyunits = dircos denoting direction cosine
+                  N = 2 (if skycoords = altaz denoting Alt-Az coordinates), or 
+                  N = 3 (if skycoords = dircos denoting direction cosine
                   coordinates)
 
     skycoords     [string] string specifying the coordinate system of the sky 
@@ -533,8 +534,8 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
                   
     phase_center  [list or numpy array] coordinates of phase center (in the same
                   coordinate system as that of sky coordinates specified by
-                  skyunits). 2-element vector if skyunits='altaz'. 2- or 
-                  3-element vector if skyunits='dircos'. Only used with phased 
+                  skycoords). 2-element vector if skycoords='altaz'. 2- or 
+                  3-element vector if skycoords='dircos'. Only used with phased 
                   array primary beams. 
 
     Output:
@@ -718,6 +719,67 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
 
 #################################################################################
 
+def array_beamformer(element_pos, gains=None, delays=None, skypos=None,
+                     skycoords='altaz', wavelength=1.0):
+
+    """
+    -----------------------------------------------------------------------------
+    Under testing
+    -----------------------------------------------------------------------------
+    """
+
+    try:
+        element_pos
+    except NameError:
+        raise NameError('element_pos must be provided for array_beamformer().')
+        
+    if skypos is None:
+        raise NameError('skypos must be specified in Alt-Az or direction cosine units as a Numpy array. Check inputs.')
+
+    if not isinstance(skypos, NP.ndarray):
+        raise TypeError('skypos must be a Numpy array.')
+    
+    if skycoords is not None:
+        if (skycoords != 'altaz') and (skycoords != 'dircos'):
+            raise ValueError('skycoords must be "altaz" or "dircos" or None (default).')
+        elif skycoords == 'altaz':
+            if skypos.ndim < 2:
+                if skypos.size == 2:
+                    skypos = NP.asarray(skypos).reshape(1,2)
+                else:
+                    raise ValueError('skypos must be a Nx2 Numpy array.')
+            elif skypos.ndim > 2:
+                raise ValueError('skypos must be a Nx2 Numpy array.')
+            else:
+                if skypos.shape[1] != 2:
+                    raise ValueError('skypos must be a Nx2 Numpy array.')
+                elif NP.any(skypos[:,0] < 0.0) or NP.any(skypos[:,0] > 90.0):
+                    raise ValueError('Altitudes in skypos have to be positive and <= 90 degrees')
+        else:
+            if skypos.ndim < 2:
+                if (skypos.size == 2) or (skypos.size == 3):
+                    skypos = NP.asarray(skypos).reshape(1,-1)
+                else:
+                    raise ValueError('skypos must be a Nx2 Nx3 Numpy array.')
+            elif skypos.ndim > 2:
+                raise ValueError('skypos must be a Nx2 or Nx3 Numpy array.')
+            else:
+                if (skypos.shape[1] < 2) or (skypos.shape[1] > 3):
+                    raise ValueError('skypos must be a Nx2 or Nx3 Numpy array.')
+                elif skypos.shape[1] == 2:
+                    if NP.any(NP.sum(skypos**2, axis=1) > 1.0):
+                        raise ValueError('skypos in direction cosine coordinates are invalid.')
+                
+                    skypos = NP.hstack((skypos, NP.sqrt(1.0-NP.sum(skypos**2, axis=1)).reshape(-1,1)))
+                else:
+                    eps = 1.0e-10
+                    if NP.any(NP.abs(NP.sum(skypos**2, axis=1) - 1.0) > eps) or NP.any(skypos[:,2] < 0.0):
+                        if verbose:
+                            print '\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                        skypos[:,2] = NP.sqrt(1.0 - NP.sum(skypos[:2]**2, axis=1))
+    else:
+        raise ValueError('skycoords has not been set.')
+    
     
     
 

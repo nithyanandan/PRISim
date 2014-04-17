@@ -353,7 +353,6 @@ class Interferometer:
         self.vis_lag = None
         self.obs_catalog_indices = []
         self.geometric_delays = []
-        self.sample_density = 1.0
 
         if (pointing_coords == 'radec') or (pointing_coords == 'hadec') or (pointing_coords == 'altaz'):
             self.pointing_coords = pointing_coords
@@ -1391,8 +1390,20 @@ class InterferometerArray:
                 Coordinate system for the pointing_center is specified by another 
                 attribute pointing_coords.
 
+    phase_center
+                [2-column numpy array] Phase center (latitude and 
+                longitude) of the observation at a given timestamp. This is 
+                where the telescopes will be phased up to as reference. 
+                Coordinate system for the phase_center is specified by another 
+                attribute phase_center_coords.
+
     pointing_coords
                 [string] Coordinate system for telescope pointing. Accepted 
+                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz' 
+                (Altitude-Azimuth). Default = 'hadec'.
+
+    phase_center_coords
+                [string] Coordinate system for array phase center. Accepted 
                 values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz' 
                 (Altitude-Azimuth). Default = 'hadec'.
 
@@ -1518,7 +1529,7 @@ class InterferometerArray:
                 argument_init = True
                 print '\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...'
 
-            extnames = [hdu.header['EXTNAME'] for hdul in hdulist]
+            extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,len(hdulist))]
             try:
                 self.freq_resolution = hdulist[0].header['freq_resolution']
             except KeyError:
@@ -1550,6 +1561,12 @@ class InterferometerArray:
                 self.pointing_coords = 'hadec'
 
             try:
+                self.phase_center_coords = hdulist[0].header['phase_center_coords']
+            except KeyError:
+                print '\tKeyword "phase_center_coords" not found in header. Assuming "hadec" for attribute phase_center_coords.'
+                self.phase_center_coords = 'hadec'
+
+            try:
                 self.skycoords = hdulist[0].header['skycoords']
             except KeyError:
                 print '\tKeyword "skycoords" not found in header. Assuming "radec" for attribute skycoords.'
@@ -1561,32 +1578,38 @@ class InterferometerArray:
                 print '\tKeyword "flux_unit" not found in header. Assuming "jy" for attribute flux_unit.'
                 self.skycoords = 'JY'
 
-            if 'POINTING INFO' not in extnames:
+            if 'POINTING AND PHASE CENTER INFO' not in extnames:
                 raise KeyError('No extension table found containing pointing information.')
             else:
-                self.lst = hdulist['POINTING INFO'].data['LST'].tolist()
-                self.pointing_center = NP.hstack((hdulist['POINTING INFO'].data['pointing_longitude'].reshape(-1,1), hdulist['POINTING INFO'].data['pointing_latitude'].reshape(-1,1)))
+                self.lst = hdulist['POINTING AND PHASE CENTER INFO'].data['LST'].tolist()
+                self.pointing_center = NP.hstack((hdulist['POINTING AND PHASE CENTER INFO'].data['pointing_longitude'].reshape(-1,1), hdulist['POINTING AND PHASE CENTER INFO'].data['pointing_latitude'].reshape(-1,1)))
+                self.phase_center = NP.hstack((hdulist['POINTING AND PHASE CENTER INFO'].data['phase_center_longitude'].reshape(-1,1), hdulist['POINTING AND PHASE CENTER INFO'].data['phase_center_latitude'].reshape(-1,1)))
 
-            if 'baselines' in extnames:
-                self.baselines = hdulist['baselines'].data.reshape(-1,3)
+            if 'TIMESTAMPS' in extnames:
+                self.timestamp = hdulist['TIMESTAMPS'].data['timestamps'].tolist()
+            else:
+                raise KeyError('Extension named "TIMESTAMPS" not found in init_file.')
+
+            if 'BASELINES' in extnames:
+                self.baselines = hdulist['BASELINES'].data.reshape(-1,3)
                 self.baseline_lengths = NP.sqrt(NP.sum(self.baselines**2, axis=1))
             else:
-                raise KeyError('Extension named "baselines" not found in init_file.')
+                raise KeyError('Extension named "BASELINES" not found in init_file.')
 
-            if 'labels' in extnames:
-                self.labels = hdulist['labels'].data.tolist()
+            if 'LABELS' in extnames:
+                self.labels = hdulist['LABELS'].data.tolist()
             else:
                 self.labels = ['B{0:0d}'.format(i+1) for i in range(self.baseline_lengths.size)]
 
-            if 'Effective area' in extnames:
-                self.A_eff = hdulist['Effective area'].data
+            if 'EFFECTIVE AREA' in extnames:
+                self.A_eff = hdulist['EFFECTIVE AREA'].data
             else:
-                raise KeyError('Extension named "Effective area" not found in init_file.')
+                raise KeyError('Extension named "EFFECTIVE AREA" not found in init_file.')
 
-            if 'Interferometer efficiency' in extnames:
-                self.eff_Q = hdulist['Interferometer efficiency'].data
+            if 'INTERFEROMETER EFFICIENCY' in extnames:
+                self.eff_Q = hdulist['INTERFEROMETER EFFICIENCY'].data
             else:
-                raise KeyError('Extension named "Interferometer efficiency" not found in init_file.')
+                raise KeyError('Extension named "INTERFEROMETER EFFICIENCY" not found in init_file.')
 
             if 'SPECTRAL INFO' not in extnames:
                 raise KeyError('No extension table found containing spectral information.')
@@ -1597,72 +1620,79 @@ class InterferometerArray:
                 except KeyError:
                     self.lags = None
 
-            if 'bandpass' in extnames:
-                self.bp = hdulist['bandpass'].data
+            if 'BANDPASS' in extnames:
+                self.bp = hdulist['BANDPASS'].data
             else:
-                raise KeyError('Extension named "bandpass" not found in init_file.')
+                raise KeyError('Extension named "BANDPASS" not found in init_file.')
 
-            if 'bandpass_weights' in extnames:
-                self.bp_wts = hdulist['bandpass_weights'].data
+            if 'BANDPASS_WEIGHTS' in extnames:
+                self.bp_wts = hdulist['BANDPASS_WEIGHTS'].data
             else:
                 self.bp_wts = NP.ones_like(self.bp)
 
-            if 't_acc' in extnames:
+            if 'T_ACC' in extnames:
                 self.t_acc = hdulist['t_acc'].data.tolist()
                 self.n_acc = len(self.t_acc)
                 self.t_obs = sum(self.t_acc)
             else:
-                raise KeyError('Extension named "t_acc" not found in init_file.')
+                raise KeyError('Extension named "T_ACC" not found in init_file.')
             
-            if 'freq_channel_noise_rms_visibility' in extnames:
+            if 'FREQ_CHANNEL_NOISE_RMS_VISIBILITY' in extnames:
                 self.vis_rms_freq = hdulist['freq_channel_noise_rms_visibility'].data
             else:
-                raise KeyError('Extension named "freq_channel_noise_rms_visibility" not found in init_file.')
+                raise KeyError('Extension named "FREQ_CHANNEL_NOISE_RMS_VISIBILITY" not found in init_file.')
 
-            if 'real_freq_obs_visibility' in extnames:
+            if 'REAL_FREQ_OBS_VISIBILITY' in extnames:
                 self.vis_freq = hdulist['real_freq_obs_visibility'].data
-                if 'imag_freq_obs_visibility' in extnames:
+                if 'IMAG_FREQ_OBS_VISIBILITY' in extnames:
+                    self.vis_freq = self.vis_freq.astype(NP.complex64)
                     self.vis_freq += 1j * hdulist['imag_freq_obs_visibility'].data
             else:
-                raise KeyError('Extension named "real_freq_obs_visibility" not found in init_file.')
+                raise KeyError('Extension named "REAL_FREQ_OBS_VISIBILITY" not found in init_file.')
 
-            if 'real_freq_sky_visibility' in extnames:
+            if 'REAL_FREQ_SKY_VISIBILITY' in extnames:
                 self.skyvis_freq = hdulist['real_freq_sky_visibility'].data
-                if 'imag_freq_sky_visibility' in extnames:
+                if 'IMAG_FREQ_SKY_VISIBILITY' in extnames:
+                    self.skyvis_freq = self.skyvis_freq.astype(NP.complex64)
                     self.skyvis_freq += 1j * hdulist['imag_freq_sky_visibility'].data
             else:
-                raise KeyError('Extension named "real_freq_sky_visibility" not found in init_file.')
+                raise KeyError('Extension named "REAL_FREQ_SKY_VISIBILITY" not found in init_file.')
 
-            if 'real_freq_noise_visibility' in extnames:
+            if 'REAL_FREQ_NOISE_VISIBILITY' in extnames:
                 self.vis_noise_freq = hdulist['real_freq_noise_visibility'].data
-                if 'imag_freq_noise_visibility' in extnames:
+                if 'IMAG_FREQ_NOISE_VISIBILITY' in extnames:
+                    self.vis_noise_freq = self.vis_noise_freq.astype(NP.complex64)
                     self.vis_noise_freq += 1j * hdulist['imag_freq_noise_visibility'].data
             else:
-                raise KeyError('Extension named "real_freq_noise_visibility" not found in init_file.')
+                raise KeyError('Extension named "REAL_FREQ_NOISE_VISIBILITY" not found in init_file.')
 
-            if 'real_lag_obs_visibility' in extnames:
-                self.vis_lag = hdulist['real_lag_obs_visibility'].data
-                if 'imag_lag_obs_visibility' in extnames:
-                    self.vis_lag += 1j * hdulist['imag_lag_obs_visibility'].data
+            if 'REAL_LAG_VISIBILITY' in extnames:
+                self.vis_lag = hdulist['real_lag_visibility'].data
+                if 'IMAG_LAG_VISIBILITY' in extnames:
+                    self.vis_lag = self.vis_lag.astype(NP.complex64)
+                    self.vis_lag += 1j * hdulist['imag_lag_visibility'].data
             else:
                 self.vis_lag = None
 
-            if 'real_lag_sky_visibility' in extnames:
+            if 'REAL_LAG_SKY_VISIBILITY' in extnames:
                 self.skyvis_lag = hdulist['real_lag_sky_visibility'].data
-                if 'imag_lag_sky_visibility' in extnames:
+                if 'IMAG_LAG_SKY_VISIBILITY' in extnames:
+                    self.skyvis_lag = self.skyvis_lag.astype(NP.complex64)
                     self.skyvis_lag += 1j * hdulist['imag_lag_sky_visibility'].data
             else:
                 self.skyvis_lag = None
 
-            if 'real_lag_noise_visibility' in extnames:
+            if 'REAL_LAG_NOISE_VISIBILITY' in extnames:
                 self.vis_noise_lag = hdulist['real_lag_noise_visibility'].data
-                if 'imag_lag_noise_visibility' in extnames:
+                if 'IMAG_LAG_NOISE_VISIBILITY' in extnames:
+                    self.vis_noise_lag = self.vis_noise_lag.astype(NP.complex64)
                     self.vis_noise_lag += 1j * hdulist['imag_lag_noise_visibility'].data
             else:
                 self.vis_noise_lag = None
 
             hdulist.close()
             init_file_success = True
+            return
         else:
             argument_init = True
             
@@ -1722,6 +1752,7 @@ class InterferometerArray:
         self.t_obs = 0.0
         self.n_acc = 0
         self.pointing_center = NP.empty([1,2])
+        self.phase_center = NP.empty([1,2])
         self.lst = []
 
         if isinstance(eff_Q, (int, float)):
@@ -1773,10 +1804,10 @@ class InterferometerArray:
         self.vis_lag = None
         self.obs_catalog_indices = []
         self.geometric_delays = []
-        self.sample_density = 1.0
 
         if (pointing_coords == 'radec') or (pointing_coords == 'hadec') or (pointing_coords == 'altaz'):
             self.pointing_coords = pointing_coords
+            self.phase_center_coords = pointing_coords
         else:
             raise ValueError('Pointing center of the interferometer must be "radec", "hadec" or "altaz". Check inputs.')
 
@@ -1923,20 +1954,20 @@ class InterferometerArray:
         else:
             raise TypeError('Tsys should be a scalar, list, tuple, or numpy array')
 
-        if (brightness_units is None) or (brightness_units=='Jy') or (brightness_units=='JY') or (brightness_units=='jy'):
-            if self.vis_rms_freq is None:
-                self.vis_rms_freq = 2.0 * FCNST.k / NP.sqrt(2.0*t_acc*self.freq_resolution) * NP.expand_dims(self.Tsys[:,:,-1]/self.A_eff/self.eff_Q, axis=2) / CNST.Jy
-            elif len(self.vis_rms_freq.shape) == 3:
-                self.vis_rms_freq = NP.dstack((self.vis_rms_freq, 2.0 * FCNST.k / NP.sqrt(2.0*t_acc*self.freq_resolution) * NP.expand_dims(self.Tsys[:,:,-1]/self.A_eff/self.eff_Q, axis=2)/CNST.Jy))
-            self.flux_unit = 'JY'
-        elif (brightness_units=='K') or (brightness_units=='k'):
-            if len(self.vis_rms_freq.shape) == 2:
-                self.vis_rms_freq = 1 / NP.sqrt(2.0*t_acc*self.freq_resolution) * NP.expand_dims(self.Tsys[:,:,-1]/self.eff_Q, axis=2)
-            elif len(self.vis_rms_freq.shape) == 3:
-                self.vis_rms_freq = NP.dstack((self.vis_rms_freq, 1 / NP.sqrt(2.0*t_acc*self.freq_resolution) * NP.expand_dims(self.Tsys[:,:,-1]/self.eff_Q, axis=2)))
-            self.flux_unit = 'K'
-        else:
-            raise ValueError('Invalid brightness temperature units specified.')
+        # if (brightness_units is None) or (brightness_units=='Jy') or (brightness_units=='JY') or (brightness_units=='jy'):
+        #     if self.vis_rms_freq is None:
+        #         self.vis_rms_freq = 2.0 * FCNST.k / NP.sqrt(2.0*t_acc*self.freq_resolution) * NP.expand_dims(self.Tsys[:,:,-1]/self.A_eff/self.eff_Q, axis=2) / CNST.Jy
+        #     elif len(self.vis_rms_freq.shape) == 3:
+        #         self.vis_rms_freq = NP.dstack((self.vis_rms_freq, 2.0 * FCNST.k / NP.sqrt(2.0*t_acc*self.freq_resolution) * NP.expand_dims(self.Tsys[:,:,-1]/self.A_eff/self.eff_Q, axis=2)/CNST.Jy))
+        #     self.flux_unit = 'JY'
+        # elif (brightness_units=='K') or (brightness_units=='k'):
+        #     if len(self.vis_rms_freq.shape) == 2:
+        #         self.vis_rms_freq = 1 / NP.sqrt(2.0*t_acc*self.freq_resolution) * NP.expand_dims(self.Tsys[:,:,-1]/self.eff_Q, axis=2)
+        #     elif len(self.vis_rms_freq.shape) == 3:
+        #         self.vis_rms_freq = NP.dstack((self.vis_rms_freq, 1 / NP.sqrt(2.0*t_acc*self.freq_resolution) * NP.expand_dims(self.Tsys[:,:,-1]/self.eff_Q, axis=2)))
+        #     self.flux_unit = 'K'
+        # else:
+        #     raise ValueError('Invalid brightness temperature units specified.')
 
         self.t_acc = self.t_acc + [t_acc]
         self.t_obs = t_acc
@@ -1945,8 +1976,10 @@ class InterferometerArray:
 
         if not self.timestamp:
             self.pointing_center = NP.asarray(pointing_center).reshape(1,-1)
+            self.phase_center = NP.asarray(pointing_center).reshape(1,-1)
         else:
             self.pointing_center = NP.vstack((self.pointing_center, NP.asarray(pointing_center).reshape(1,-1)))
+            self.phase_center = NP.vstack((self.phase_center, NP.asarray(pointing_center).reshape(1,-1)))
 
         pointing_lon = self.pointing_center[-1,0]
         pointing_lat = self.pointing_center[-1,1]
@@ -1994,8 +2027,7 @@ class InterferometerArray:
 
         pc_altaz = self.pointing_center[-1,:] # Convert pointing center to Alt-Az coordinates
         if self.pointing_coords == 'hadec':
-            pc_altaz = GEOM.hadec2altaz(self.pointing_center[-1,:], self.latitude,
-                                        units='degrees')
+            pc_altaz = GEOM.hadec2altaz(self.pointing_center[-1,:], self.latitude, units='degrees')
         elif self.pointing_coords == 'radec':
             if lst is not None:
                 pc_altaz = GEOM.hadec2altaz(NP.asarray([lst-self.pointing_center[-1,0], self.pointing_center[-1,1]]), self.latitude, units='degrees')
@@ -2055,6 +2087,7 @@ class InterferometerArray:
             pb = PB.primary_beam_generator(skypos_altaz_roi, self.channels/1.0e9, skyunits='altaz', telescope=self.telescope, phase_center=pc_altaz)
             # fluxes = NP.repeat(skymodel.catalog.flux_density[m2].reshape(-1,1), self.channels.size, axis=1) * (NP.repeat(self.channels.reshape(1,-1), len(m2), axis=0)/skymodel.catalog.frequency)**NP.repeat(skymodel.catalog.spectral_index[m2].reshape(-1,1), self.channels.size, axis=1)
             fluxes = skymodel.catalog.flux_density[m2].reshape(-1,1) * (self.channels.reshape(1,-1)/skymodel.catalog.frequency[m2].reshape(-1,1))**skymodel.catalog.spectral_index[m2].reshape(-1,1) # numpy array broadcasting
+
             pbfluxes = pb * fluxes
             geometric_delays = DLY.geometric_delay(baselines_in_local_frame, skypos_altaz_roi, altaz=(coords_str=='altaz'), hadec=(coords_str=='hadec'), latitude=self.latitude)
 
@@ -2085,12 +2118,14 @@ class InterferometerArray:
 
             if memsave:
                 skyvis = NP.zeros((self.baselines.shape[0], self.channels.size), dtype=NP.complex64)
-                memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 4.0 * 2 * 2 # bytes, 4 bytes per float, factor 2 is because the phase involves complex values and another factor 2 for visibility weights
+                memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 4.0 * 2 # bytes, 4 bytes per float, factor 2 is because the phase involves complex values
+                # memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 4.0 * 2 * 2 # bytes, 4 bytes per float, factor 2 is because the phase involves complex values and another factor 2 for visibility weights
             else:
                 skyvis = NP.zeros((self.baselines.shape[0], self.channels.size), dtype=NP.complex_)
-                memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 8.0 * 2 * 2 # bytes, 8 bytes per float, factor 2 is because the phase involves complex values and another factor 2 for visibility weights
+                # memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 8.0 * 2 * 2 # bytes, 8 bytes per float, factor 2 is because the phase involves complex values and another factor 2 for visibility weights
+                memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 8.0 * 2 # bytes, 8 bytes per float, factor 2 is because the phase involves complex values
 
-            memory_available = OS.popen("free -b").readlines()[1].split()[3]
+            memory_available = OS.popen("free -b").readlines()[2].split()[3]
             if float(memory_available) > memory_required:
                 if memsave:
                     # phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float32) * NP.repeat(NP.expand_dims(self.geometric_delays[-1] - NP.repeat(pc_delay_offsets, len(m2), axis=0), axis=2), self.channels.size, axis=2) * NP.repeat(NP.expand_dims(NP.repeat(self.channels.astype(NP.float32).reshape(1,-1), self.baselines.shape[0], axis=0), axis=0), len(m2), axis=0)).astype(NP.complex64)
@@ -2111,7 +2146,8 @@ class InterferometerArray:
                         skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix), axis=0) # Don't apply bandpass here    
             else:
                 print '\t\tDetecting memory shortage. Enforcing single precision computations.'
-                downsize_factor = 2*NP.ceil(memory_required/float(memory_available))
+                # downsize_factor = 2*NP.ceil(memory_required/float(memory_available))
+                downsize_factor = NP.ceil(memory_required/float(memory_available))
                 n_src_stepsize = int(len(m2)/downsize_factor)
                 src_indices = range(0,len(m2),n_src_stepsize)
                 for i in xrange(len(src_indices)):
@@ -2131,16 +2167,13 @@ class InterferometerArray:
             skyvis = NP.zeros( (self.baselines.shape[0], self.channels.size) )
 
         if self.timestamp == []:
-            # self.skyvis_freq = NP.expand_dims(skyvis, axis=2)
             self.skyvis_freq = skyvis[:,:,NP.newaxis]
-            # self.vis_noise_freq = NP.expand_dims(self.vis_rms_freq[:,:,-1] / NP.sqrt(2.0) * (NP.random.randn(self.baselines.shape[0], self.channels.size) + 1j * NP.random.randn(self.baselines.shape[0], self.channels.size)), axis=2) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts
-            self.vis_noise_freq = self.vis_rms_freq / NP.sqrt(2.0) * (NP.random.randn(self.baselines.shape[0], self.channels.size, 1) + 1j * NP.random.randn(self.baselines.shape[0], self.channels.size, 1)) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts
-            self.vis_freq = self.skyvis_freq + self.vis_noise_freq
+            # self.vis_noise_freq = self.vis_rms_freq / NP.sqrt(2.0) * (NP.random.randn(self.baselines.shape[0], self.channels.size, 1) + 1j * NP.random.randn(self.baselines.shape[0], self.channels.size, 1)) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts
+            # self.vis_freq = self.skyvis_freq + self.vis_noise_freq
         else:
-            # self.skyvis_freq = NP.dstack((self.skyvis_freq, NP.expand_dims(skyvis, axis=2)))
             self.skyvis_freq = NP.dstack((self.skyvis_freq, skyvis[:,:,NP.newaxis]))
-            self.vis_noise_freq = NP.dstack((self.vis_noise_freq, NP.expand_dims(self.vis_rms_freq[:,:,-1],axis=2) / NP.sqrt(2.0) * (NP.random.randn(self.baselines.shape[0], self.channels.size, 1) + 1j * NP.random.randn(self.baselines.shape[0], self.channels.size, 1)) )) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts 
-            self.vis_freq = NP.dstack((self.vis_freq, NP.expand_dims(self.skyvis_freq[:,:,-1] + self.vis_noise_freq[:,:,-1], axis=2)))
+            # self.vis_noise_freq = NP.dstack((self.vis_noise_freq, NP.expand_dims(self.vis_rms_freq[:,:,-1],axis=2) / NP.sqrt(2.0) * (NP.random.randn(self.baselines.shape[0], self.channels.size, 1) + 1j * NP.random.randn(self.baselines.shape[0], self.channels.size, 1)) )) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts 
+            # self.vis_freq = NP.dstack((self.vis_freq, NP.expand_dims(self.skyvis_freq[:,:,-1] + self.vis_noise_freq[:,:,-1], axis=2)))
 
         self.timestamp = self.timestamp + [timestamp]
 
@@ -2354,6 +2387,7 @@ class InterferometerArray:
             else:
                 raise ValueError('pointing_coords can only be set to "hadec", "radec" or "altaz".')
             self.pointing_coords = 'radec'
+            self.phase_center_coords = 'radec'
         elif mode == 'drift':
             if pointing_coords == 'radec':
                 pointing = NP.asarray([lst_init - pointing_init[0], pointing_init[1]])
@@ -2364,6 +2398,7 @@ class InterferometerArray:
             else:
                 raise ValueError('pointing_coords can only be set to "hadec", "radec" or "altaz".')
             self.pointing_coords = 'hadec'
+            self.phase_center_coords = 'hadec'
 
         if verbose:
             print '\tPreparing to observe in {0} mode'.format(mode)
@@ -2396,12 +2431,211 @@ class InterferometerArray:
 
     #############################################################################
 
+    def generate_noise(self):
+        
+        """
+        -------------------------------------------------------------------------
+        Generates thermal noise from attributes that describe system parameters 
+        which can be added to sky visibilities
+        -------------------------------------------------------------------------
+        """
+
+        eff_Q = self.eff_Q
+        A_eff = self.A_eff
+        t_acc = NP.asarray(self.t_acc)
+
+        if len(eff_Q.shape) == 2:
+            eff_Q = eff_Q[:,:,NP.newaxis]
+        if len(A_eff.shape) == 2:
+            A_eff = A_eff[:,:,NP.newaxis]
+        t_acc = t_acc[NP.newaxis,NP.newaxis,:]
+
+        if (self.flux_unit == 'JY') or (self.flux_unit == 'jy') or (self.flux_unit == 'Jy'):
+            self.vis_rms_freq = 2.0 * FCNST.k / NP.sqrt(2.0*t_acc*self.freq_resolution) * (self.Tsys/A_eff/eff_Q) / CNST.Jy
+        elif (self.flux_unit == 'K') or (self.flux_unit == 'k'):
+            self.vis_rms_freq = 1 / NP.sqrt(2.0*t_acc*self.freq_resolution) * self.Tsys/eff_Q
+        else:
+            raise ValueError('Flux density units can only be in Jy or K.')
+
+        self.vis_noise_freq = self.vis_rms_freq / NP.sqrt(2.0) * (NP.random.randn(self.baselines.shape[0], self.channels.size, len(self.timestamp)) + 1j * NP.random.randn(self.baselines.shape[0], self.channels.size, len(self.timestamp))) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts
+
+    #############################################################################
+
+    def add_noise(self):
+
+        """
+        -------------------------------------------------------------------------
+        Adds the thermal noise generated in member function generate_noise() to
+        the sky visibilities
+        -------------------------------------------------------------------------
+        """
+        
+        self.vis_freq = self.skyvis_freq + self.vis_noise_freq
+
+    #############################################################################
+
+    def phase_centering(self, phase_center=None, phase_center_coords=None, verbose=True):
+
+        """
+        -------------------------------------------------------------------------
+        Centers the phase of visibilities around any given phase center.
+
+        Inputs:
+        
+        phase_center  [numpy array] Mx2 or Mx3 numpy array specifying phase
+                      centers for each timestamp in the observation. Deafault is 
+                      None (No phase rotation of visibilities). M can be 1 
+                      or equal to the number of timestamps in the observation. If
+                      M=1, the same phase center is assumed for all the
+                      timestamps in the observation and visibility phases are
+                      centered accordingly. If M = number of timestamps, each 
+                      timestamp is rotated by the corresponding phase center. If
+                      phase center coordinates are specified in 'altaz', 'hadec'
+                      or 'radec' coordinates, it is a 2-column array. If
+                      specified in 'dircos' coordinates, it can be a 2-column or 
+                      3-column array following rules of direction cosines. If a
+                      2-column array of direction cosines is provided, the third
+                      column is automatically generated. The coordinates of phase
+                      center are provided by the other input phase_center_coords.
+        
+        phase_center_coords
+                      [string scalar] Coordinate system of phase cneter. It can 
+                      be 'altaz', 'radec', 'hadec' or 'dircos'. Default = None.
+                      phase_center_coords must be provided.
+
+        verbose:      [boolean] If set to True (default), prints progress and
+                      diagnostic messages.
+        -------------------------------------------------------------------------
+        """
+
+        if phase_center is None:
+            print 'No Phase center provided.'
+            return
+        elif not isinstance(phase_center, NP.ndarray):
+            raise TypeError('Phase center must be a numpy array')
+        elif phase_center.shape[0] == 1:
+            phase_center = NP.repeat(phase_center, len(self.lst), axis=0)
+        elif phase_center.shape[0] != len(self.lst):
+            raise ValueError('One phase center must be provided for every timestamp.')
+
+        phase_center_current = self.phase_center + 0.0
+        phase_center_new = phase_center + 0.0
+        phase_center_coords_current = self.phase_center_coords + ''
+        phase_center_coords_new = phase_center_coords + ''
+        phase_center_temp = phase_center_new + 0.0
+        phase_center_coords_temp = phase_center_coords_new + ''
+
+        if phase_center_coords_new is None:
+            raise NameError('Coordinates of phase center not provided.')
+        elif phase_center_coords_new == 'dircos':
+            if (phase_center_new.shape[1] < 2) or (phase_center_new.shape[1] > 3):
+                raise ValueError('Dimensions incompatible for direction cosine positions')
+            if NP.any(NP.sqrt(NP.sum(phase_center_new**2, axis=1)) > 1.0):
+                raise ValueError('direction cosines found to be exceeding unit magnitude.')
+            if phase_center_new.shape[1] == 2:
+                n = 1.0 - NP.sqrt(NP.sum(phase_center_new**2, axis=1))
+                phase_center_new = NP.hstack((phase_center_new, n.reshape(-1,1)))
+            phase_center_temp = phase_center_new + 0.0
+            phase_center_coords_temp = 'dircos'
+            if phase_center_coords_temp != phase_center_coords_current:
+                phase_center_temp = GEOM.dircos2altaz(phase_center_temp, units='degrees')
+                phase_center_coords_temp = 'altaz'
+            if phase_center_coords_temp != phase_center_coords_current:
+                phase_center_temp = GEOM.altaz2hadec(phase_center_temp, self.latitude, units='degrees')
+                phase_center_coords_temp = 'hadec'
+            if phase_center_coords_temp != phase_center_coords_current:
+                phase_center_temp[:,0] = self.lst - phase_center_temp[:,0]
+                phase_center_coords_temp = 'hadec'
+            if phase_center_coords_temp != phase_center_coords_current:
+                phase_center_temp[:,0] = self.lst - phase_center_temp[:,0]
+                phase_center_coords_temp = 'radec'
+            if phase_center_coords_temp != phase_center_coords_current:
+                raise ValueError('Pointing coordinates of interferometer array instance invalid.')
+        elif phase_center_coords_new == 'altaz':
+            phase_center_temp = phase_center_new + 0.0
+            phase_center_coords_temp = 'altaz'
+            if phase_center_coords_temp != phase_center_coords_current:
+                phase_center_temp = GEOM.altaz2hadec(phase_center_temp, self.latitude, units='degrees')
+                phase_center_coords_temp = 'hadec'
+            if phase_center_coords_temp != phase_center_coords_current:
+                phase_center_temp[:,0] = self.lst - phase_center_temp[:,0]
+                phase_center_coords_temp = 'radec'
+            if phase_center_coords_temp != phase_center_coords_current:
+                raise ValueError('Pointing coordinates of interferometer array instance invalid.')
+            phase_center_coords_temp = phase_center_coords_current + ''
+            phase_center_new = GEOM.altaz2dircos(phase_center_new, units='degrees')
+        elif phase_center_coords_new == 'hadec':
+            phase_center_temp = phase_center_new + 0.0
+            phase_center_coords_temp = 'hadec'
+            if phase_center_coords_temp != phase_center_coords_current:
+                if self.pointing_coords == 'radec':
+                    phase_center_temp[:,0] = self.lst - phase_center_temp[:,0]
+                    phase_center_coords_temp = 'radec'
+                else:
+                    phase_center_temp = GEOM.hadec2altaz(phase_center_temp, self.latitude, units='degrees')
+                    phase_center_coords_temp = 'altaz'
+                    if phase_center_coords_temp != phase_center_coords_current:
+                        phase_center_temp = GEOM.altaz2dircos(phase_center_temp, units='degrees')
+                        phase_center_coords_temp = 'dircos'
+                        if phase_center_coords_temp != phase_center_coords_current:
+                            raise ValueError('Pointing coordinates of interferometer array instance invalid.')
+            phase_center_new = GEOM.hadec2altaz(phase_center_new, self.latitude, units='degrees')
+            phase_center_new = GEOM.altaz2dircos(phase_center_new, units='degrees')
+        elif phase_center_coords_new == 'radec':
+            phase_center_temp = phase_center_new + 0.0
+            if phase_center_coords_temp != phase_center_coords_current:
+                phase_center_temp[:,0] = self.lst - phase_center_temp[:,0]
+                phase_center_coords_temp = 'hadec'
+
+            if phase_center_coords_temp != phase_center_coords_current:
+                phase_center_temp = GEOM.hadec2altaz(phase_center_temp, self.latitude, units='degrees')
+                phase_center_coords_temp = 'altaz'
+
+            if phase_center_coords_temp != phase_center_coords_current:
+                phase_center_temp = GEOM.altaz2dircos(phase_center_temp, units='degrees')
+                phase_center_coords_temp = 'dircos'
+
+            if phase_center_coords_temp != phase_center_coords_current:
+                raise ValueError('Pointing coordinates of interferometer array instance invalid.')
+
+            phase_center_new[:,0] = self.lst - phase_center_new[:,0]
+            phase_center_new = GEOM.hadec2altaz(phase_center_new, self.latitude, units='degrees')
+            phase_center_new = GEOM.altaz2dircos(phase_center_new, units='degrees')
+        else:
+            raise ValueError('Invalid phase center coordinate system specified')
+
+        phase_center_current_temp = phase_center_current + 0.0
+        phase_center_coords_current_temp = phase_center_coords_current + ''
+        if phase_center_coords_current_temp == 'radec':
+            phase_center_current_temp[:,0] = self.lst - phase_center_current_temp[:,0]
+            phase_center_coords_current_temp = 'hadec'
+        if phase_center_coords_current_temp == 'hadec':
+            phase_center_current_temp = GEOM.hadec2altaz(phase_center_current_temp, self.latitude, units='degrees')
+            phase_center_coords_current_temp = 'altaz'
+        if phase_center_coords_current_temp == 'altaz':
+            phase_center_current_temp = GEOM.altaz2dircos(phase_center_current_temp, units='degrees')
+            phase_center_coords_current_temp = 'dircos'
+
+        pos_diff_dircos = phase_center_current_temp - phase_center_new 
+        b_dot_l = NP.dot(self.baselines, pos_diff_dircos.T)
+
+        self.phase_center = phase_center_temp + 0.0
+        self.phase_center_coords = phase_center_coords_temp + ''
+
+        self.vis_freq = self.vis_freq * NP.exp(-1j * 2 * NP.pi * b_dot_l[:,NP.newaxis,:] * self.channels.reshape(1,-1,1) / FCNST.c)
+        self.skyvis_freq = self.skyvis_freq * NP.exp(-1j * 2 * NP.pi * b_dot_l[:,NP.newaxis,:] * self.channels.reshape(1,-1,1) / FCNST.c)
+        self.vis_noise_freq = self.vis_noise_freq * NP.exp(-1j * 2 * NP.pi * b_dot_l[:,NP.newaxis,:] * self.channels.reshape(1,-1,1) / FCNST.c)
+        self.delay_transform()
+        print 'Running delay_transform() with defaults inside phase_centering() after rotating visibility phases. Run delay_transform() again with appropriate inputs.'
+
+    #############################################################################
+
     def delay_transform(self, pad=1.0, freq_wts=None, verbose=True):
 
         """
         ------------------------------------------------------------------------
         Transforms the visibilities from frequency axis onto delay (time) axis
-        using an FFT. This is performed for noiseless sky visibilities, thermal
+        using an IFFT. This is performed for noiseless sky visibilities, thermal
         noise in visibilities, and observed visibilities. 
 
         Inputs:
@@ -2442,13 +2676,13 @@ class InterferometerArray:
 
         if freq_wts is not None:
             if freq_wts.size == self.channels.size:
-                freq_wts = NP.repeat(NP.expand_dims(NP.repeat(freq_wts.reshape(1,-1), self.baselines.shape[0], axis=0), axis=2), len(self.timestamp), axis=2)
-            elif freq_wts.size == self.channels.size * len(self.timestamp):
+                freq_wts = NP.repeat(NP.expand_dims(NP.repeat(freq_wts.reshape(1,-1), self.baselines.shape[0], axis=0), axis=2), self.n_acc, axis=2)
+            elif freq_wts.size == self.channels.size * self.n_acc:
                 freq_wts = NP.repeat(NP.expand_dims(freq_wts.reshape(self.channels.size, -1), axis=0), self.baselines.shape[0], axis=0)
             elif freq_wts.size == self.channels.size * self.baselines.shape[0]:
-                freq_wts = NP.repeat(NP.expand_dims(freq_wts.reshape(-1, self.channels.size), axis=2), len(self.timestamp), axis=2)
-            elif freq_wts.size == self.channels.size * self.baselines.shape[0] * len(self.timestamp):
-                freq_wts = freq_wts.reshape(self.baselines.shape[0], self.channels.size, len(self.timestamp))
+                freq_wts = NP.repeat(NP.expand_dims(freq_wts.reshape(-1, self.channels.size), axis=2), self.n_acc, axis=2)
+            elif freq_wts.size == self.channels.size * self.baselines.shape[0] * self.n_acc:
+                freq_wts = freq_wts.reshape(self.baselines.shape[0], self.channels.size, self.n_acc)
             else:
                 raise ValueError('window shape dimensions incompatible with number of channels and/or number of tiemstamps.')
             self.bp_wts = freq_wts
@@ -2460,21 +2694,21 @@ class InterferometerArray:
             
         self.lags = DSP.spectral_axis(self.channels.size, delx=self.freq_resolution, use_real=False, shift=True)
         if pad == 0.0:
-            self.vis_lag = DSP.FT1D(self.vis_freq * self.bp * self.bp_wts, ax=1, use_real=False, shift=True) * self.freq_resolution
-            self.skyvis_lag = DSP.FT1D(self.skyvis_freq * self.bp * self.bp_wts, ax=1, use_real=False, shift=True) * self.freq_resolution
-            self.vis_noise_lag = DSP.FT1D(self.vis_noise_freq * self.bp * self.bp_wts, ax=1, use_real=False, shift=True) * self.freq_resolution
+            self.vis_lag = DSP.FT1D(self.vis_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True)
+            self.skyvis_lag = DSP.FT1D(self.skyvis_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True)
+            self.vis_noise_lag = DSP.FT1D(self.vis_noise_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True)
             if verbose:
                 print '\tDelay transform computed without padding.'
         else:
             npad = int(self.channels.size * pad)
-            self.vis_lag = DSP.FT1D(NP.pad(self.vis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, use_real=False, shift=True) * self.freq_resolution
-            self.skyvis_lag = DSP.FT1D(NP.pad(self.skyvis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, use_real=False, shift=True) * self.freq_resolution
-            self.vis_noise_lag = DSP.FT1D(NP.pad(self.vis_noise_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, use_real=False, shift=True) * self.freq_resolution
+            self.vis_lag = DSP.FT1D(NP.pad(self.vis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True)
+            self.skyvis_lag = DSP.FT1D(NP.pad(self.skyvis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True)
+            self.vis_noise_lag = DSP.FT1D(NP.pad(self.vis_noise_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True)
             if verbose:
                 print '\tDelay transform computed with padding fraction {0:.1f}'.format(pad)
-            self.vis_lag = DSP.downsampler(self.vis_lag, 1+pad, axis=1)
-            self.skyvis_lag = DSP.downsampler(self.skyvis_lag, 1+pad, axis=1)
-            self.vis_noise_lag = DSP.downsampler(self.vis_noise_lag, 1+pad, axis=1)
+            self.vis_lag = (1+npad*1.0/self.channels.size) * DSP.downsampler(self.vis_lag, 1+pad, axis=1)
+            self.skyvis_lag = (1+npad*1.0/self.channels.size) * DSP.downsampler(self.skyvis_lag, 1+pad, axis=1)
+            self.vis_noise_lag = (1+npad*1.0/self.channels.size) * DSP.downsampler(self.vis_noise_lag, 1+pad, axis=1)
             if verbose:
                 print '\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad)
                 print 'delay_transform() completed successfully.'
@@ -2497,7 +2731,7 @@ class InterferometerArray:
         axis         [scalar] Axis along which visibility data sets are to be
                      concatenated. Accepted values are 0 (concatenate along
                      baseline axis), 1 (concatenate frequency channels), or 2 
-                     (concatenate along time/snapshot axis)
+                     (concatenate along time/snapshot axis). Default=None
         -------------------------------------------------------------------------
         """
 
@@ -2516,7 +2750,7 @@ class InterferometerArray:
         elif not isinstance(other, InterferometerArray):
             raise TypeError('The interferometer array data to be concatenated must be an instance of class InterferometerArray or a list of such instances')
             
-        if not isisntance(axis, int):
+        if not isinstance(axis, int):
             raise TypeError('axis must be an integer')
 
         self_shape = self.skyvis_freq.shape
@@ -2525,7 +2759,7 @@ class InterferometerArray:
             raise ValueError('Specified axis not found in the visibility data.')
         elif axis == -1:
             axis = len(self_shape) - 1
-        else:
+        elif axis < -1:
             raise ValueError('Specified axis not found in the visibility data.')
 
         self.skyvis_freq = NP.concatenate(tuple([elem.skyvis_freq for elem in loo]), axis=axis)
@@ -2533,7 +2767,8 @@ class InterferometerArray:
         self.vis_noise_freq = NP.concatenate(tuple([elem.vis_noise_freq for elem in loo]), axis=axis)
         self.vis_rms_freq  = NP.concatenate(tuple([elem.vis_rms_freq for elem in loo]), axis=axis)
         self.bp = NP.concatenate(tuple([elem.bp for elem in loo]), axis=axis)
-        self.Tsys = NP.concatenate(tuple([elem.Tsys for elem in loo]), axis=axis)
+        self.bp_wts = NP.concatenate(tuple([elem.bp_wts for elem in loo]), axis=axis)
+        # self.Tsys = NP.concatenate(tuple([elem.Tsys for elem in loo]), axis=axis)
         if axis != 1:
             self.skyvis_lag = NP.concatenate(tuple([elem.skyvis_lag for elem in loo]), axis=axis)
             self.vis_lag = NP.concatenate(tuple([elem.vis_lag for elem in loo]), axis=axis)
@@ -2553,15 +2788,17 @@ class InterferometerArray:
             self.channels = NP.hstack(tuple([elem.channels for elem in loo]))
             self.A_eff = NP.hstack(tuple([elem.A_eff for elem in loo]))
             self.eff_Q = NP.hstack(tuple([elem.eff_Q for elem in loo]))
-            self.delay_transform()
+            # self.delay_transform()
         elif axis == 2: # time axis
             self.timestamp = [timestamp for elem in loo for timestamp in elem.timestamp]
             self.t_acc = [t_acc for elem in loo for t_acc in elem.t_acc]
             self.n_acc = len(self.t_acc)
             self.t_obs = sum(self.t_acc)
             self.pointing_center = NP.vstack(tuple([elem.pointing_center for elem in loo]))
+            self.phase_center = NP.vstack(tuple([elem.phase_center for elem in loo]))
             self.lst = [lst for elem in loo for lst in elem.lst]
-            self.obs_catalog_indices = [elem.obs_catalog_indices for elem in loo]
+            self.timestamp = [timestamp for elem in loo for timestamp in elem.timestamp]
+            # self.obs_catalog_indices = [elem.obs_catalog_indices for elem in loo]
 
     #############################################################################
 
@@ -2605,6 +2842,7 @@ class InterferometerArray:
         hdulist[0].header['baseline_coords'] = (self.baseline_coords, 'Baseline coordinate system')
         hdulist[0].header['freq_resolution'] = (self.freq_resolution, 'Frequency Resolution (Hz)')
         hdulist[0].header['pointing_coords'] = (self.pointing_coords, 'Pointing coordinate system')
+        hdulist[0].header['phase_center_coords'] = (self.phase_center_coords, 'Phase center coordinate system')
         hdulist[0].header['skycoords'] = (self.skycoords, 'Sky coordinate system')
         hdulist[0].header['telescope'] = (self.telescope, 'Telescope')
         hdulist[0].header['t_obs'] = (self.t_obs, 'Observing duration (s)')
@@ -2619,15 +2857,17 @@ class InterferometerArray:
             cols += [fits.Column(name='LST', format='D', array=NP.asarray(self.lst).ravel())]
             cols += [fits.Column(name='pointing_longitude', format='D', array=self.pointing_center[:,0])]
             cols += [fits.Column(name='pointing_latitude', format='D', array=self.pointing_center[:,1])]
+            cols += [fits.Column(name='phase_center_longitude', format='D', array=self.phase_center[:,0])]
+            cols += [fits.Column(name='phase_center_latitude', format='D', array=self.phase_center[:,1])]
         columns = fits.ColDefs(cols, tbtype=tabtype)
         tbhdu = fits.new_table(columns)
-        tbhdu.header.set('EXTNAME', 'POINTING INFO')
+        tbhdu.header.set('EXTNAME', 'POINTING AND PHASE CENTER INFO')
         hdulist += [tbhdu]
         if verbose:
-            print '\tCreated pointing information table.'
+            print '\tCreated pointing and phase center information table.'
 
         cols = []
-        cols += [fits.Column(name='labels', format='A', array=NP.asarray(self.labels))]
+        cols += [fits.Column(name='labels', format='5A', array=NP.asarray(self.labels))]
         columns = fits.ColDefs(cols, tbtype=tabtype)
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'LABELS')
@@ -2662,6 +2902,20 @@ class InterferometerArray:
             hdulist += [fits.ImageHDU(self.t_acc, name='t_acc')]
             if verbose:
                 print '\tCreated an extension for accumulation times.'
+
+        cols = []
+        cols += [fits.Column(name='timestamps', format='12A', array=NP.asarray(self.timestamp))]
+        columns = fits.ColDefs(cols, tbtype=tabtype)
+        tbhdu = fits.new_table(columns)
+        tbhdu.header.set('EXTNAME', 'TIMESTAMPS')
+        hdulist += [tbhdu]
+        if verbose:
+            print '\tCreated extension table containing timestamps.'
+
+        if (self.Tsys is not None) and (self.Tsys != []):
+            hdulist += [fits.ImageHDU(self.Tsys, name='Tsys')]
+            if verbose:
+                print '\tCreated an extension for Tsys.'
 
         if self.vis_rms_freq is not None:
             hdulist += [fits.ImageHDU(self.vis_rms_freq, name='freq_channel_noise_rms_visibility')]

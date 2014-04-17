@@ -26,9 +26,9 @@ def delay_envelope(bl, dircos, units='mks'):
     delaymatrix: NxMx2 matrix. delaymatrix[:,:,0] contains the maximum delay if
                  there was no shift due to non-zenith phase center.
                  delaymatrix[:,:,1] contains the delay shift. To determine the 
-                 minimum delay, use delaymatrix[:,:,1]-delaymatrix[:,:,0]. To 
+                 minimum delay, use -delaymatrix[:,:,1]-delaymatrix[:,:,0]. To 
                  determine effective maximum delay, use
-                 delaymatrix[:,:,1]+delaymatrix[:,:,0]. Minimum delay without
+                 delaymatrix[:,:,0]-delaymatrix[:,:,0]. Minimum delay without
                  shift is -delaymatrix[:,:,0]
 
     ---------------------------------------------------------------------------

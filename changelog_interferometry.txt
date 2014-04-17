@@ -1,3 +1,63 @@
+from v1.04 of interferometry:
+============================
+
+In interferometry.py,
+
+(*) Removed the unused attribute sample_density from member function __init__()
+of classes Interferometer and InterferometerArray
+(*) Added two member functions generate_noise() and add_noise() which generate 
+and add noise to the sky visibilities under class InterferometerArray
+(*) Removed the computation and addition of noise on visibilities in observe()
+member function of class InterferometerArray and moved it to member functions
+generate_noise() and add_noise() respectively
+(*) Removed a factor 2 while estimating memory_required in member function
+observe() of class InterferometerArray. This means size of vis_wts is ignored
+since it anyway follows numpy array broadcasting rule
+(*) Removed a factor 2 while estimating the downsize_factor if memory shortage 
+is detected in observe() member function of class InterferometerArray
+(*) memory_required in member function observe() of class InterferometerArray is
+now estimated from free+cached+buffer memory instead of only from free memory
+(*) In member function delay_transform() of class InterferometerArray, changed
+the delay transform to be IFFT instead of FFT to be consistent with the sign 
+convention used in creating the visibilities along frequency axis in member 
+function observe() and docstring changed accordingly
+(*) In member function delay_transform() of class InterferometerArray, replaced
+len(self.timestamp) with self.n_acc
+(*) In member function save() of class InterferometerArray, now write another
+extension to the FITS file containing Tsys information.
+(*) In member function save() of class InterferometerArray, now write another
+extension to the FITS file containing timestamp information. Timestamps are now
+written as 12-character strings
+(*) In member function save() of class InterferometerArray, changed the
+formatting of writing the extension table containing labels. Labels are now 
+written as 5-character strings
+(*) In member function __init__() of class InterferometerArray, made changes to
+initialization from init_file so it is compatible with output of save() member 
+function.
+(*) In member function __init__() of class InterferometerArray, made changes to
+data type of attributes vis_freq, skyvis_freq, vis_noise_freq, skyvis_lag, 
+vis_lag, and vis_noise_lag so they can hold complex values
+(*) In member function delay_transform() of class InterferometerArray, padding
+with zeros reduced the amplitude and hence the amplitudes are now corrected 
+based on the padding factor
+(*) Added attributes phase_center and phase_center_coords to class
+InterferometerArray. These are updated accordingly in all the member functions
+of this class. By default, these are made equal to the pointing center and 
+pointing coordinates.
+(*) Added member function phase_centering() to rotate visibility phases to any
+given phase center.
+(*) Phase center information is now saved in save() member function and also
+initialized in __init__() member function through init file in class
+InterferometerArray. It is also concatenated in member function concatenate().
+(*) In member function concatenate() of class InterferometerArray, added the
+concatenation of attribute bp_wts which was missing earlier
+
+In primary_beams.py,
+
+(*) Renamed skyunits to skycoords in the dosctring of
+isotropic_radiators_array_field_pattern()  
+
+---------------------------------------------------------------------------------
 from v1.03 of interferometry:
 ============================
 
