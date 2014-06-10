@@ -14,10 +14,12 @@ import baseline_delay_horizon as DLY
 import constants as CNST
 import my_DSP_modules as DSP
 import catalog as CTLG
+import ipdb as PDB
 
 ################################################################################
 
-def baseline_generator(antenna_locations, auto=False, conjugate=False):
+def baseline_generator(antenna_locations, ant_id=None, auto=False,
+                       conjugate=False):
 
     """
     -------------------------------------------------------------------
@@ -32,6 +34,11 @@ def baseline_generator(antenna_locations, auto=False, conjugate=False):
 
     Input keywords:
 
+    ant_id             [list of strings] Unique identifier for each
+                       antenna. Default = None. If None provided,
+                       antennas will be indexed by an integer starting
+                       from 0 to N(ants)-1
+
     auto:              [Default=False] If True, compute zero spacings of
                        antennas with themselves.
 
@@ -45,6 +52,9 @@ def baseline_generator(antenna_locations, auto=False, conjugate=False):
                         instances of class Point or Numpy array of size
                         Nb x 3 with each row specifying one baseline 
                         vector)
+
+    antenna_pairs       [List of strings] IDs of antennas in the pair used to
+                        produce the baseline vector
 
     -------------------------------------------------------------------
     """
@@ -101,30 +111,51 @@ def baseline_generator(antenna_locations, auto=False, conjugate=False):
     else:
         num_ants = antenna_locations.shape[0]
 
+    if ant_id is not None:
+        if isinstance(ant_id, list):
+            if len(ant_id) != num_ants:
+                raise ValueError('Dimensions of ant_id and antenna_locations do not match.')
+        elif isinstance(ant_id, NP.ndarray):
+            if ant_id.size != num_ants:
+                raise ValueError('Dimensions of ant_id and antenna_locations do not match.')
+            ant_id = ant_id.tolist()
+    else:
+        ant_id = ['{0:0d}'.format(i) for i in xrange(num_ants)]
+
     if inp_type == 'loo':
         if auto:
             baseline_locations = [antenna_locations[j]-antenna_locations[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
         else:
             baseline_locations = [antenna_locations[j]-antenna_locations[i] for i in range(0,num_ants) for j in range(0,num_ants) if j > i]                
+            antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
         if conjugate:
             baseline_locations += [antenna_locations[j]-antenna_locations[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antenna_pairs += [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
     elif inp_type == 'lot':
         if auto:
             baseline_locations = [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
         else:
             baseline_locations = [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
         if conjugate:
             baseline_locations += [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antenna_pairs += [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
     elif inp_type == 'npa':
         if auto:
-            baseline_locations = [antenna_locations[i,:]-antenna_locations[j,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            baseline_locations = [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
         else:
-            baseline_locations = [antenna_locations[i,:]-antenna_locations[j,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]        
+            baseline_locations = [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]  
+            antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]      
         if conjugate:
-            baseline_locations += [antenna_locations[i,:]-antenna_locations[j,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]         
+            baseline_locations += [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]         
+            antenna_pairs += [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
         baseline_locations = NP.asarray(baseline_locations)
+        antenna_pairs = NP.asarray(antenna_pairs)
 
-    return baseline_locations
+    return baseline_locations, antenna_pairs
 
 #################################################################################
 
@@ -558,7 +589,7 @@ class Interferometer:
                 skypos_altaz_roi = skypos_altaz[m2,:]
             coords_str = 'altaz'
 
-            pb = PB.primary_beam_generator(skypos_altaz_roi, self.channels/1.0e9, skyunits='altaz', telescope=self.telescope, phase_center=pc_altaz)
+            pb = PB.primary_beam_generator(skypos_altaz_roi, self.channels/1.0e9, skyunits='altaz', telescope=self.telescope, pointing_center=pc_altaz)
             # fluxes = NP.repeat(skymodel.catalog.flux_density[m2].reshape(-1,1), self.channels.size, axis=1) * (NP.repeat(self.channels.reshape(1,-1), len(m2), axis=0)/skymodel.catalog.frequency)**NP.repeat(skymodel.catalog.spectral_index[m2].reshape(-1,1), self.channels.size, axis=1)
             fluxes = skymodel.catalog.flux_density[m2].reshape(-1,1) * (self.channels.reshape(1,-1)/skymodel.catalog.frequency[m2].reshape(-1,1))**skymodel.catalog.spectral_index[m2].reshape(-1,1)  # numpy array broadcasting 
             geometric_delays = DLY.geometric_delay(baseline_in_local_frame, skypos_altaz_roi, altaz=(coords_str=='altaz'), hadec=(coords_str=='hadec'), latitude=self.latitude)
@@ -1351,6 +1382,10 @@ class InterferometerArray:
                 observation, nchan is the number of frequency channels, and
                 n_baselines is the number of baselines
 
+    bp_wts      [numpy array] Additional weighting to be applied to the bandpass
+                shapes during the application of the member function 
+                delay_transform(). Same size as attribute bp. 
+
     channels    [list or numpy vector] frequency channels in Hz
 
     eff_Q       [scalar, list or numpy vector] Efficiency of the interferometers, 
@@ -1369,6 +1404,12 @@ class InterferometerArray:
     lags        [numpy vector] Time axis obtained when the frequency axis is
                 inverted using a FFT. Same size as channels. This is 
                 computed in member function delay_transform().
+
+    lag_kernel  [numpy array] Inverse Fourier Transform of the frequency 
+                bandpass shape. In other words, it is the impulse response 
+                corresponding to frequency bandpass. Same size as attributes
+                bp and bp_wts. It is initialized in __init__() member function
+                but effectively computed in member function delay_transform()
 
     latitude    [Scalar] Latitude of the interferometer's location. Default
                 is 34.0790 degrees North corresponding to that of the VLA.
@@ -1590,6 +1631,11 @@ class InterferometerArray:
             else:
                 raise KeyError('Extension named "TIMESTAMPS" not found in init_file.')
 
+            if 'TSYS' in extnames:
+                self.Tsys = hdulist['Tsys'].data
+            else:
+                raise KeyError('Extension named "Tsys" not found in init_file.')
+
             if 'BASELINES' in extnames:
                 self.baselines = hdulist['BASELINES'].data.reshape(-1,3)
                 self.baseline_lengths = NP.sqrt(NP.sum(self.baselines**2, axis=1))
@@ -1745,6 +1791,8 @@ class InterferometerArray:
 
         self.bp = NP.ones((self.baselines.shape[0],self.channels.size)) # Inherent bandpass shape
         self.bp_wts = NP.ones((self.baselines.shape[0],self.channels.size)) # Additional bandpass weights
+        self.lag_kernel = DSP.FT1D(self.bp*self.bp_wts, ax=1, inverse=True, use_real=False, shift=True)
+
         self.Tsys = NP.zeros((self.baselines.shape[0],self.channels.size))
         self.flux_unit = 'JY'
         self.timestamp = []
@@ -2084,10 +2132,9 @@ class InterferometerArray:
                 skypos_altaz_roi = skypos_altaz[m2,:]
             coords_str = 'altaz'
 
-            pb = PB.primary_beam_generator(skypos_altaz_roi, self.channels/1.0e9, skyunits='altaz', telescope=self.telescope, phase_center=pc_altaz)
+            pb = PB.primary_beam_generator(skypos_altaz_roi, self.channels/1.0e9, skyunits='altaz', telescope=self.telescope, pointing_center=pc_altaz, freq_scale='GHz')
             # fluxes = NP.repeat(skymodel.catalog.flux_density[m2].reshape(-1,1), self.channels.size, axis=1) * (NP.repeat(self.channels.reshape(1,-1), len(m2), axis=0)/skymodel.catalog.frequency)**NP.repeat(skymodel.catalog.spectral_index[m2].reshape(-1,1), self.channels.size, axis=1)
             fluxes = skymodel.catalog.flux_density[m2].reshape(-1,1) * (self.channels.reshape(1,-1)/skymodel.catalog.frequency[m2].reshape(-1,1))**skymodel.catalog.spectral_index[m2].reshape(-1,1) # numpy array broadcasting
-
             pbfluxes = pb * fluxes
             geometric_delays = DLY.geometric_delay(baselines_in_local_frame, skypos_altaz_roi, altaz=(coords_str=='altaz'), hadec=(coords_str=='hadec'), latitude=self.latitude)
 
@@ -2694,21 +2741,25 @@ class InterferometerArray:
             
         self.lags = DSP.spectral_axis(self.channels.size, delx=self.freq_resolution, use_real=False, shift=True)
         if pad == 0.0:
-            self.vis_lag = DSP.FT1D(self.vis_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True)
-            self.skyvis_lag = DSP.FT1D(self.skyvis_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True)
-            self.vis_noise_lag = DSP.FT1D(self.vis_noise_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True)
+            self.vis_lag = DSP.FT1D(self.vis_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.channels.size * self.freq_resolution
+            self.skyvis_lag = DSP.FT1D(self.skyvis_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.channels.size * self.freq_resolution
+            self.vis_noise_lag = DSP.FT1D(self.vis_noise_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.channels.size * self.freq_resolution
+            self.lag_kernel = DSP.FT1D(self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.channels.size * self.freq_resolution
             if verbose:
                 print '\tDelay transform computed without padding.'
         else:
             npad = int(self.channels.size * pad)
-            self.vis_lag = DSP.FT1D(NP.pad(self.vis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True)
-            self.skyvis_lag = DSP.FT1D(NP.pad(self.skyvis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True)
-            self.vis_noise_lag = DSP.FT1D(NP.pad(self.vis_noise_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True)
+            self.vis_lag = DSP.FT1D(NP.pad(self.vis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.channels.size) * self.freq_resolution
+            self.skyvis_lag = DSP.FT1D(NP.pad(self.skyvis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.channels.size) * self.freq_resolution
+            self.vis_noise_lag = DSP.FT1D(NP.pad(self.vis_noise_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.channels.size) * self.freq_resolution
+            self.lag_kernel = DSP.FT1D(NP.pad(self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.channels.size) * self.freq_resolution
+
             if verbose:
                 print '\tDelay transform computed with padding fraction {0:.1f}'.format(pad)
-            self.vis_lag = (1+npad*1.0/self.channels.size) * DSP.downsampler(self.vis_lag, 1+pad, axis=1)
-            self.skyvis_lag = (1+npad*1.0/self.channels.size) * DSP.downsampler(self.skyvis_lag, 1+pad, axis=1)
-            self.vis_noise_lag = (1+npad*1.0/self.channels.size) * DSP.downsampler(self.vis_noise_lag, 1+pad, axis=1)
+            self.vis_lag = DSP.downsampler(self.vis_lag, 1+pad, axis=1)
+            self.skyvis_lag = DSP.downsampler(self.skyvis_lag, 1+pad, axis=1)
+            self.vis_noise_lag = DSP.downsampler(self.vis_noise_lag, 1+pad, axis=1)
+            self.lag_kernel = DSP.downsampler(self.lag_kernel, 1+pad, axis=1)
             if verbose:
                 print '\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad)
                 print 'delay_transform() completed successfully.'
@@ -2768,7 +2819,7 @@ class InterferometerArray:
         self.vis_rms_freq  = NP.concatenate(tuple([elem.vis_rms_freq for elem in loo]), axis=axis)
         self.bp = NP.concatenate(tuple([elem.bp for elem in loo]), axis=axis)
         self.bp_wts = NP.concatenate(tuple([elem.bp_wts for elem in loo]), axis=axis)
-        # self.Tsys = NP.concatenate(tuple([elem.Tsys for elem in loo]), axis=axis)
+        self.Tsys = NP.concatenate(tuple([elem.Tsys for elem in loo]), axis=axis)
         if axis != 1:
             self.skyvis_lag = NP.concatenate(tuple([elem.skyvis_lag for elem in loo]), axis=axis)
             self.vis_lag = NP.concatenate(tuple([elem.vis_lag for elem in loo]), axis=axis)
@@ -2947,6 +2998,11 @@ class InterferometerArray:
         hdulist += [fits.ImageHDU(self.bp_wts, name='bandpass_weights')]
         if verbose:
             print '\tCreated an extension for bandpass weights of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp_wts.shape)
+
+        # hdulist += [fits.ImageHDU(self.lag_kernel.real, name='lag_kernel_real')]
+        # hdulist += [fits.ImageHDU(self.lag_kernel.imag, name='lag_kernel_imag')]
+        # if verbose:
+        #     print '\tCreated an extension for impulse response of frequency bandpass shape of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.lag_kernel.shape)
 
         if self.vis_lag is not None:
             hdulist += [fits.ImageHDU(self.vis_lag.real, name='real_lag_visibility')]

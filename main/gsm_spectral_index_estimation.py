@@ -6,6 +6,7 @@ from astropy import units
 import foregrounds as FG
 
 freqs = [140.0e6, 150.0e6, 160.0e6] # frequencies in Hz
+freq_center = 150.0e6
 
 nsides = []
 for i in xrange(len(freqs)):
@@ -14,7 +15,7 @@ for i in xrange(len(freqs)):
     print gsm_inp.min()
     nside = HP.npix2nside(gsm_inp.size)
     gsm_smoothed = HP.smoothing(gsm_inp, fwhm=NP.radians(0.85), regression=False)
-    gsm_downsampled = HP.ud_grade(gsm_smoothed, nside/8)
+    gsm_downsampled = HP.ud_grade(gsm_smoothed, nside/4)
     # gsm_downsampled = HP.ud_grade(gsm_inp, nside/8)
     gsm_downsampled = gsm_downsampled.reshape(-1,1)
     nsides += [HP.npix2nside(gsm_downsampled.size)]
@@ -31,7 +32,7 @@ radec = gc.fk5
 ra = radec.ra.degree
 dec = radec.dec.degree
 
-outfile = '/data3/t_nithyanandan/project_MWA/foregrounds/gsmdata{0:0d}.fits'.format(nsides[0])
+outfile1 = '/data3/t_nithyanandan/project_MWA/foregrounds/gsmdata_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq_center*1e-6, nsides[0])
 hdulist = []
 hdulist += [fits.PrimaryHDU()]
 hdulist[0].header['NSIDE'] = (nsides[0], 'NSIDE')
@@ -48,7 +49,8 @@ tbhdu = fits.new_table(columns)
 tbhdu.header.set('EXTNAME', 'GSM')
 hdulist += [tbhdu]
 hdu = fits.HDUList(hdulist)
-hdu.writeto(outfile, clobber=True)
+hdu.writeto(outfile1, clobber=True)
+
 
 
 

@@ -1,7 +1,7 @@
 import numpy as NP
 import geometry as GEOM
 import scipy.constants as FCNST
-
+import ipdb as PDB
 #################################################################################
 
 def delay_envelope(bl, dircos, units='mks'):
@@ -28,7 +28,7 @@ def delay_envelope(bl, dircos, units='mks'):
                  delaymatrix[:,:,1] contains the delay shift. To determine the 
                  minimum delay, use -delaymatrix[:,:,1]-delaymatrix[:,:,0]. To 
                  determine effective maximum delay, use
-                 delaymatrix[:,:,0]-delaymatrix[:,:,0]. Minimum delay without
+                 delaymatrix[:,:,0]-delaymatrix[:,:,1]. Minimum delay without
                  shift is -delaymatrix[:,:,0]
 
     ---------------------------------------------------------------------------

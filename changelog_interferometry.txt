@@ -1,3 +1,48 @@
+from v1.05 of interferometry:
+============================
+
+In primary_beams.py,
+
+(*) Added a new function to compute airy disk patterns of uniformly illuminated
+circular disks. The funciton is named airy_disk_pattern()
+(*) Modified primary_beam_generator() to accept 'hera' for telescope input and 
+compute the primary beam using the newly added airy_disk_pattern()
+(*) Replaced the use of variable phase_center in all routines with 
+pointing_center.
+
+In baseline_delay_horizon.py,
+
+(*) Changed docstring of delay_envelope() to indicate that maximum delay is 
+given by [:,:,0]-[:,:,1]
+
+In interferometery.py,
+
+(*) In baseline_generator(), added an input keyword ant_id to keep track of
+antennas in the baseline vectors. The output now also contains ids of the 
+antenna pair. Docstring changed accordingly
+(*) In baseline_generator(), when antenna locations are specified as a numpy
+array, baselines were calculated as i-j for j > i. THis is inconsisntent with
+baselines if the input was a list of lists where baseliens were calculated as 
+j-i for j > i. Now they are all made consistent with j-i for j>i.
+(*) Added Tsys initialization from init_file in __init__() member function of
+class InterferometerArray
+(*) Added a new attribute lag_psf that denotes the inverse fourier transform of
+bandpass shape to class InterferometerArray. It is initialized in __init__()
+member function and computed in member function delay_transform(). It is saved
+using save() member function
+(*) Added description of attribute bp_wts to docstring of class
+InterferometerArray which was not done earlier
+(*) Modified delay_transform() member function of class InterferometerArray to
+have output in units of Jy Hz instead of Jy as before. This was done by 
+multiplying the IFFT by number of frequency channels (including padded channels, 
+if any) and the frequency resolution. This automatically makes the amplitude
+invariant to padding and hence no need to correct for amplitudes due to padding
+factor at the downsampling step. Hence, the amplitude correction introduced in 
+the previous version is now removed.
+(*) Replaced use of phase_center in calling primary_beam routines with 
+pointing_center to reflect the same changes made in the primary_beam routines.
+
+---------------------------------------------------------------------------------
 from v1.04 of interferometry:
 ============================
 

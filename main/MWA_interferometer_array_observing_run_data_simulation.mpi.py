@@ -38,8 +38,8 @@ parser = argparse.ArgumentParser(description='Program to simulate MWA interferom
 parser.add_argument('--antenna-file', help='File containing antenna locations', default='/data3/t_nithyanandan/project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', type=file, dest='antenna_file')
 
 telescope_group = parser.add_argument_group('Telescope parameters', 'Telescope/interferometer specifications')
-telescope_group.add_argument('--label-prefix', help='Prefix for baseline labels [str, Default = "B"]', default='B', type=str, dest='label_prefix')
-telescope_group.add_argument('--telescope', help='Telescope name [str, Default = "mwa"]', default='mwa', type=str, dest='telescope', choices=['mwa', 'vla', 'gmrt'])
+telescope_group.add_argument('--label-prefix', help='Prefix for baseline labels [str, Default = ""]', default='', type=str, dest='label_prefix')
+telescope_group.add_argument('--telescope', help='Telescope name [str, Default = "mwa"]', default='mwa', type=str, dest='telescope', choices=['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'paper_dipole'])
 telescope_group.add_argument('--latitude', help='Latitude of interferometer array in degrees [float, Default=-26.701]', default=-26.701, type=float, dest='latitude')
 telescope_group.add_argument('--A-eff', help='Effective area in m^2', type=float, dest='A_eff', nargs='?')
 telescope_group.add_argument('--Tsys', help='System temperature in K [float, Default=440.0]', default=440.0, type=float, dest='Tsys')
@@ -47,7 +47,7 @@ telescope_group.add_argument('--pfb-method', help='PFB coarse channel shape comp
 telescope_group.add_argument('--pfb-file', help='File containing PFB coefficients', type=file, dest='pfb_file', default=None)
 
 obsparm_group = parser.add_argument_group('Observation setup', 'Parameters specifying the observation')
-obsparm_group.add_argument('-f', '--freq', help='Foreground center frequency in Hz [float, Default=150e6]', default=150e6, type=float, dest='freq')
+obsparm_group.add_argument('-f', '--freq', help='Foreground center frequency in Hz [float, Default=185e6]', default=185e6, type=float, dest='freq')
 obsparm_group.add_argument('--dfreq', help='Frequency resolution in Hz [float, Default=40e3]', default=40e3, type=float, dest='freq_resolution')
 obsparm_group.add_argument('--obs-mode', help='Observing mode [str, track/drift/drift-shift/custom]', default=None, type=str, dest='obs_mode', choices=['track', 'drift', 'dns', 'custom'])
 # obsparm_group.add_argument('--t-snap', help='Integration time (seconds) [float, Default=300.0]', default=5.0*60.0, type=float, dest='t_snap')
@@ -62,6 +62,7 @@ duration_group.add_argument('--t-snap', help='integration time of each snapshot 
 
 snapshot_selection_group = parser.add_mutually_exclusive_group(required=True)
 snapshot_selection_group.add_argument('--avg-drifts', dest='avg_drifts', action='store_true')
+snapshot_selection_group.add_argument('--beam-switch', dest='beam_switch', action='store_true')
 snapshot_selection_group.add_argument('--snap-sampling', dest='snapshot_sampling', default=None, type=int, nargs=1)
 snapshot_selection_group.add_argument('--snap-pick', dest='pick_snapshots', default=None, type=int, nargs='*')
 snapshot_selection_group.add_argument('--snap-range', dest='snapshots_range', default=None, nargs=2, type=int)
@@ -76,6 +77,7 @@ processing_group.add_argument('--n-bins-blo', help='Number of bins for baseline 
 processing_group.add_argument('--bl-chunk-size', help='Baseline chunk size [int, Default=100]', default=100, type=int, dest='baseline_chunk_size')
 processing_group.add_argument('--bl-chunk', help='Baseline chunk indices to process [int(s), Default=None: all chunks]', default=None, type=int, dest='bl_chunk', nargs='*')
 processing_group.add_argument('--n-bl-chunks', help='Upper limit on baseline chunks to be processed [int, Default=None]', default=None, type=int, dest='n_bl_chunks')
+processing_group.add_argument('--n-sky-sectors', help='Divide sky into sectors relative to zenith [int, Default=1]', default=1, type=int, dest='n_sky_sectors')
 processing_group.add_argument('--bpw', help='Bandpass window shape [str, "rect"]', default='rect', type=str, dest='bpass_shape', choices=['rect', 'bnw'])
 processing_group.add_argument('--f-pad', help='Frequency padding fraction for delay transform [float, Default=1.0]', type=float, dest='f_pad', default=1.0)
 processing_group.add_argument('--coarse-channel-width', help='Width of coarse channel [int: number of fine channels]', dest='coarse_channel_width', default=32, type=int)
@@ -124,7 +126,7 @@ parser.add_argument('--plots', help='Create plots', action='store_true', dest='p
 args = vars(parser.parse_args())
 
 try:
-    ant_locs = NP.loadtxt(args['antenna_file'], skiprows=6, comments='#', usecols=(1,2,3))
+    ant_locs = NP.loadtxt(args['antenna_file'], skiprows=6, comments='#', usecols=(0,1,2,3))
 except IOError:
     raise IOError('Could not open file containing antenna locations.')
 
@@ -133,6 +135,9 @@ baseline_chunk_size = args['baseline_chunk_size']
 bl_chunk = args['bl_chunk']
 n_bl_chunks = args['n_bl_chunks']
 telescope = args['telescope']
+telescope_str = telescope+'_'
+if telescope == 'mwa':
+    telescope_str = ''
 freq = args['freq']
 freq_resolution = args['freq_resolution']
 latitude = args['latitude']
@@ -146,16 +151,22 @@ t_snap = args['t_snap']
 t_obs = args['t_obs']
 n_snaps = args['n_snaps']
 avg_drifts = args['avg_drifts']
+beam_switch = args['beam_switch']
 snapshot_sampling = args['snapshot_sampling']
 pick_snapshots = args['pick_snapshots']
 snapshots_range = args['snapshots_range']
-avg_drifts_str = ''
+snapshot_type_str = ''
 if avg_drifts and (obs_mode == 'dns'):
-    avg_drifts_str = 'drift_averaged_'
+    snapshot_type_str = 'drift_averaged_'
+if beam_switch and (obs_mode == 'dns'):
+    snapshot_type_str = 'beam_switches_'
+if (snapshots_range is not None) and (obs_mode == 'dns'):
+    snapshot_type_str = 'snaps_{0[0]:0d}-{0[1]:0d}_'.format(snapshots_range)
 pointing_file = args['pointing_file']
 if pointing_file is not None:
     pointing_file = pointing_file[0]
 pointing_info = args['pointing_info']
+
 if pointing_file is not None:
     pointing_init = None
     pointing_info_from_file = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(1,2,3), delimiter=',')
@@ -166,6 +177,7 @@ if pointing_file is not None:
     obs_id = obs_id[:min(n_snaps, pointing_info_from_file.shape[0])]
     n_snaps = min(n_snaps, pointing_info_from_file.shape[0])
     pointings_altaz = OPS.reverse(pointing_info_from_file[:,:2].reshape(-1,2), axis=1)
+    pointings_altaz_orig = OPS.reverse(pointing_info_from_file[:,:2].reshape(-1,2), axis=1)
     lst = 15.0 * pointing_info_from_file[:,2]
     lst_wrapped = lst + 0.0
     lst_wrapped[lst_wrapped > 180.0] = lst_wrapped[lst_wrapped > 180.0] - 360.0
@@ -173,21 +185,27 @@ if pointing_file is not None:
 
     if obs_mode is None:
         obs_mode = 'custom'
-    if (obs_mode == 'dns') and avg_drifts:
+    if (obs_mode == 'dns') and (avg_drifts or beam_switch):
         angle_diff = GEOM.sphdist(pointings_altaz[1:,1], pointings_altaz[1:,0], pointings_altaz[:-1,1], pointings_altaz[:-1,0])
         angle_diff = NP.concatenate(([0.0], angle_diff))
         shift_threshold = 1.0 # in degrees
         # lst_edges = NP.concatenate(([lst_edges[0]], lst_edges[angle_diff > shift_threshold], [lst_edges[-1]]))
         lst_wrapped = NP.concatenate(([lst_wrapped[0]], lst_wrapped[angle_diff > shift_threshold], [lst_wrapped[-1]]))
-        n_snaps = lst_edges.size - 1
+        n_snaps = lst_wrapped.size - 1
         pointings_altaz = NP.vstack((pointings_altaz[0,:].reshape(-1,2), pointings_altaz[angle_diff>shift_threshold,:].reshape(-1,2)))
         obs_id = NP.concatenate(([obs_id[0]], obs_id[angle_diff>shift_threshold]))
         obs_mode = 'custom'
+        if avg_drifts:
+            lst_edges = NP.concatenate(([lst_edges[0]], lst_edges[angle_diff > shift_threshold], [lst_edges[-1]]))
+        else:
+            lst_edges_left = lst_wrapped[:-1] + 0.0
+            lst_edges_right = NP.concatenate(([lst_edges[1]], lst_edges[NP.asarray(NP.where(angle_diff > shift_threshold)).ravel()+1]))
     elif snapshots_range is not None:
         snapshots_range[1] = snapshots_range[1] % n_snaps
         if snapshots_range[0] > snapshots_range[1]:
             raise IndexError('min snaphost # must be <= max snapshot #')
         lst_wrapped = lst_wrapped[snapshots_range[0]:snapshots_range[1]+2]
+        lst_edges = NP.copy(lst_wrapped)
         pointings_altaz = pointings_altaz[snapshots_range[0]:snapshots_range[1]+1,:]
         obs_id = obs_id[snapshots_range[0]:snapshots_range[1]+1]
         n_snaps = snapshots_range[1]-snapshots_range[0]+1
@@ -202,8 +220,12 @@ if pointing_file is not None:
         obs_id = obs_id[pick_snapshots]
         obs_mode = 'custom'
     if pick_snapshots is None:
-        lst = 0.5*(lst_edges[1:]+lst_edges[:-1])
-        t_snap = (lst_edges[1:]-lst_edges[:-1]) / 15.0 * 3.6e3
+        if not beam_switch:
+            lst = 0.5*(lst_edges[1:]+lst_edges[:-1])
+            t_snap = (lst_edges[1:]-lst_edges[:-1]) / 15.0 * 3.6e3
+        else:
+            lst = 0.5*(lst_edges_left + lst_edges_right)
+            t_snap = (lst_edges_right - lst_edges_left) / 15.0 * 3.6e3
 
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
     pointings_hadec = GEOM.altaz2hadec(pointings_altaz, latitude, units='degrees')
@@ -255,11 +277,12 @@ coarse_channel_width = args['coarse_channel_width']
 n_edge_flag = NP.asarray(args['n_edge_flag']).reshape(-1)
 flag_repeat_edge_channels = args['flag_repeat_edge_channels']
 
-bl = RI.baseline_generator(ant_locs, auto=False, conjugate=False)
+bl, bl_id = RI.baseline_generator(ant_locs[:,1:], ant_id=ant_locs[:,0].astype(int).astype(str), auto=False, conjugate=False)
 bl_length = NP.sqrt(NP.sum(bl**2, axis=1))
 bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
 sortind = NP.argsort(bl_length, kind='mergesort')
 bl = bl[sortind,:]
+bl_id = bl_id[sortind]
 bl_length = bl_length[sortind]
 bl_orientation = bl_orientation[sortind]
 neg_bl_orientation_ind = bl_orientation < 0.0
@@ -268,8 +291,11 @@ bl[neg_bl_orientation_ind,:] = -1.0 * bl[neg_bl_orientation_ind,:]
 bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
 total_baselines = bl_length.size
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
-labels = []
-labels += [args['label_prefix']+'{0:0d}'.format(i+1) for i in xrange(bl.shape[0])]
+try:
+    labels = bl_id.tolist()
+except NameError:
+    labels = []
+    labels += [args['label_prefix']+'{0:0d}'.format(i+1) for i in xrange(bl.shape[0])]
 if bl_chunk is None:
     bl_chunk = range(len(baseline_bin_indices))
 if n_bl_chunks is None:
@@ -334,6 +360,10 @@ flagged_channels = list(set(flagged_channels))
 bandpass_shape[flagged_channels] = 0.0
 bpass = base_bpass * bandpass_shape
 
+n_sky_sectors = args['n_sky_sectors']
+if (n_sky_sectors < 1):
+    n_sky_sectors = 1
+
 use_GSM = args['ASM']
 use_DSM = args['DSM']
 use_CSM = args['CSM']
@@ -362,8 +392,8 @@ if plots:
         ax1a.set_ylabel('Longitude [degrees]', fontsize=18, weight='medium')
         ax1a.set_xlim((lst_wrapped.min()-1)/15.0, (lst_wrapped.max()-1)/15.0)
         ax1a.set_ylim(pointings_ha.min()-15.0, pointings_ha.max()+15.0)
-        ax1a.plot(lst_wrapped, pointings_ha, 'k--', lw=2, label='HA')
-        ax1a.plot(lst_wrapped, pointings_ra, 'k-', lw=2, label='RA')
+        ax1a.plot(lst_wrapped/15.0, pointings_ha, 'k--', lw=2, label='HA')
+        ax1a.plot(lst_wrapped/15.0, pointings_ra, 'k-', lw=2, label='RA')
         ax1a.tick_params(which='major', length=18, labelsize=12)
         ax1a.tick_params(which='minor', length=12, labelsize=12)
         legend1a = ax1a.legend(loc='upper left')
@@ -378,7 +408,7 @@ if plots:
         ax1b = ax1a.twinx()
         ax1b.set_ylabel('Declination [degrees]', fontsize=18, weight='medium')
         ax1b.set_ylim(pointings_dec.min()-5.0, pointings_dec.max()+5.0)
-        ax1b.plot(lst_wrapped, pointings_dec, 'k:', lw=2, label='Dec')
+        ax1b.plot(lst_wrapped/15.0, pointings_dec, 'k:', lw=2, label='Dec')
         ax1b.tick_params(which='major', length=12, labelsize=12)
         legend1b = ax1b.legend(loc='upper center')
         legend1b.draw_frame(False)
@@ -427,7 +457,7 @@ flux_unit = args['flux_unit']
 if use_GSM:
     fg_str = 'asm'
 
-    dsm_file = args['DSM_file_prefix']+'{0:0d}.fits'.format(nside)
+    dsm_file = args['DSM_file_prefix']+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
     hdulist = fits.open(dsm_file)
     pixres = hdulist[0].header['PIXAREA']
     dsm_table = hdulist[1].data
@@ -436,7 +466,7 @@ if use_GSM:
     temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
     fluxes_DSM = temperatures * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
     spindex = dsm_table['spindex'] + 2.0
-    freq_DSM = 0.150 # in GHz
+    freq_DSM = 0.185 # in GHz
     freq_catalog = freq_DSM * 1e9 + NP.zeros(fluxes_DSM.size)
     catlabel = NP.repeat('DSM', fluxes_DSM.size)
     ra_deg = ra_deg_DSM + 0.0
@@ -526,7 +556,7 @@ if use_GSM:
 elif use_DSM:
     fg_str = 'dsm'
 
-    dsm_file = args['DSM_file_prefix']+'{0:0d}.fits'.format(nside)
+    dsm_file = args['DSM_file_prefix']+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
     hdulist = fits.open(dsm_file)
     pixres = hdulist[0].header['PIXAREA']
     dsm_table = hdulist[1].data
@@ -535,7 +565,7 @@ elif use_DSM:
     temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
     fluxes_DSM = temperatures * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
     spindex = dsm_table['spindex'] + 2.0
-    freq_DSM = 0.150 # in GHz
+    freq_DSM = 0.185 # in GHz
     freq_catalog = freq_DSM * 1e9 + NP.zeros(fluxes_DSM.size)
     catlabel = NP.repeat('DSM', fluxes_DSM.size)
     ra_deg = ra_deg_DSM
@@ -690,7 +720,7 @@ elif use_PS:
     majax = catdata['MAJAX'].data
     minax = catdata['MINAX'].data
     pa = catdata['PA'].data
-    freq_PS = 0.150 # in GHz
+    freq_PS = 0.185 # in GHz
     freq_catalog = freq_PS * 1e9 + NP.zeros(fint.size)
     catlabel = NP.repeat('PS', fint.size)
     ctlgobj = CTLG.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fint, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), src_shape_units=['arcmin','arcmin','degree'])
@@ -731,7 +761,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ts = time.time()
             if j == 0:
                 ts0 = ts
-            ia.observe(timestamp, Tsys/bpcorr, bpass, pointings_hadec[j,:], CTLG.SkyModel(skymod.catalog.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist())), t_snap[j], brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
+            ia.observe(timestamp, Tsys*bpcorr, bpass, pointings_hadec[j,:], CTLG.SkyModel(skymod.catalog.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist())), t_snap[j], brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
             te = time.time()
             # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
             progress.update(j+1)
@@ -750,7 +780,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ia.generate_noise()
             ia.add_noise()
             ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
-            outfile = '/data3/t_nithyanandan/project_MWA/multi_baseline_visibilities_'+avg_drifts_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+'{0:.1f}_MHz_'.format(nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+            outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+'{0:.1f}_MHz_{1:.1f}_MHz_'.format(freq/1e6, nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
             ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
         else:
             comm.send(ia.skyvis_freq, dest=0)
@@ -773,7 +803,7 @@ else: # MPI based on baseline multiplexing
                 process_sequence.append(rank)
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, count)
 
-                outfile = '/data3/t_nithyanandan/project_MWA/multi_baseline_visibilities_'+avg_drifts_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[count]],bl_length[min(baseline_bin_indices[count]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+'{0:.1f}_MHz_'.format(nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(count)
+                outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[count]],bl_length[min(baseline_bin_indices[count]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+'{0:.1f}_MHz_{1:.1f}_MHz_'.format(freq/1e6, nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(count)
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')        
 
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
@@ -785,7 +815,7 @@ else: # MPI based on baseline multiplexing
                     ts = time.time()
                     if j == 0:
                         ts0 = ts
-                    ia.observe(timestamp, Tsys/bpcorr, bpass, pointings_hadec[j,:], skymod, t_snap[j], brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
+                    ia.observe(timestamp, Tsys*bpcorr, bpass, pointings_hadec[j,:], skymod, t_snap[j], brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
                     te = time.time()
                     # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                     progress.update(j+1)
@@ -809,38 +839,56 @@ else: # MPI based on baseline multiplexing
         n_bl_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(bl_chunk)/nproc
         if len(bl_chunk) % nproc > 0:
             n_bl_chunk_per_rank[:len(bl_chunk)%nproc] += 1
-        cumm_bl_chunks = NP.concatenate(([0], NP.cumsum(n_bl_chunk_per_rank)))
-    
-        ptb_str = str(DT.datetime.now())
-        for i in range(cumm_bl_chunks[rank], cumm_bl_chunks[rank+1]):
-            print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i])
-    
-            outfile = '/data3/t_nithyanandan/project_MWA/multi_baseline_visibilities_'+avg_drifts_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+'{0:.1f}_MHz_'.format(nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
-            ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')        
-    
-            progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
-            for j in range(n_snaps):
-                if (obs_mode == 'custom') or (obs_mode == 'dns'):
-                    timestamp = obs_id[j]
-                else:
-                    timestamp = lst[j]
-                ts = time.time()
-                if j == 0:
-                    ts0 = ts
-                ia.observe(timestamp, Tsys/bpcorr, bpass, pointings_hadec[j,:], skymod, t_snap[j], brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
-                te = time.time()
-                # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
-                progress.update(j+1)
-            progress.finish()
+        cumm_bl_chunks = NP.concatenate(([0], NP.cumsum(n_bl_chunk_per_rank)))        
 
-            te0 = time.time()
-            print 'Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60, bl_chunk[i])
-            ia.t_obs = t_obs
-            ia.generate_noise()
-            ia.add_noise()
-            ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
-            ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
-            pte_str = str(DT.datetime.now())                
+        ptb_str = str(DT.datetime.now())
+
+        for k in range(n_sky_sectors):
+            if n_sky_sectors == 1:
+                sky_sector_str = '_all_sky_'
+            else:
+                sky_sector_str = '_sky_sector_{0:0d}_'.format(k)
+
+            for i in range(cumm_bl_chunks[rank], cumm_bl_chunks[rank+1]):
+                print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i])
+        
+                outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'{0:.1f}_MHz_{1:.1f}_MHz_'.format(freq/1e6, nchan*freq_resolution/1e6)+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+                ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')        
+        
+                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
+                for j in range(n_snaps):
+                    if (obs_mode == 'custom') or (obs_mode == 'dns'):
+                        timestamp = obs_id[j]
+                    else:
+                        timestamp = lst[j]
+                    ts = time.time()
+                    if j == 0:
+                        ts0 = ts
+
+                    src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.catalog.location[:,0]).reshape(-1,1), skymod.catalog.location[:,1].reshape(-1,1))), latitude, units='degrees')
+                    hemisphere_current = src_altaz_current[:,0] >= 0.0
+                    # hemisphere_src_altaz_current = src_altaz_current[hemisphere_current,:]
+                    src_az_current = src_altaz_current[:,1] + 0.0
+                    src_az_current[src_az_current > 360.0 - 0.5*180.0/n_sky_sectors] -= 360.0
+                    roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
+                    roi_subset = NP.where(NP.logical_and(hemisphere_current, roi_ind))[0].tolist()
+
+                    fgmod = CTLG.SkyModel(skymod.catalog.subset(roi_subset))
+                    
+                    ia.observe(timestamp, Tsys*bpcorr, bpass, pointings_hadec[j,:], fgmod, t_snap[j], brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
+                    te = time.time()
+                    # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
+                    progress.update(j+1)
+                progress.finish()
+    
+                te0 = time.time()
+                print 'Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60, bl_chunk[i])
+                ia.t_obs = t_obs
+                ia.generate_noise()
+                ia.add_noise()
+                ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
+                ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
+        pte_str = str(DT.datetime.now())                
 
 print 'Process {0} has completed.'.format(rank)
 PDB.set_trace()
