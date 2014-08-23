@@ -14,7 +14,6 @@ import baseline_delay_horizon as DLY
 import constants as CNST
 import my_DSP_modules as DSP
 import catalog as CTLG
-import ipdb as PDB
 
 ################################################################################
 
@@ -159,10 +158,21 @@ def baseline_generator(antenna_locations, ant_id=None, auto=False,
 
 #################################################################################
 
+def antenna_temperature(T_brightness, skypos, pixel_solid_angles, 
+                        sky_coords=None, telescope='mwa', latitude=-26.701, 
+                        A_eff=None, freq=None, pointings=None,
+                        pointing_coords=None):
+
+    pass
+
+#################################################################################
+
 class Interferometer:
 
     """
     ----------------------------------------------------------------------------
+    !!! DEFUNCT NOW. USE class InterferometerArray FOR ALL PURPOSES. !!!
+
     Class to manage information on a two-element interferometer. 
 
     Attributes:
@@ -1352,6 +1362,630 @@ class Interferometer:
 
 #################################################################################
 
+class ROI_parameters:
+
+    """
+    ----------------------------------------------------------------------------
+    Class to manage information on the regions of interest for different
+    snapshots in an observation.
+
+    Attributes:
+
+    skymodel    [instance of class SkyModel] The common sky model for all the
+                observing instances from which the ROI is determined based on
+                a subset corresponding to each snapshot observation.
+
+    freq        [numpy vector] Frequency channels (with units specified by the
+                attribute freq_scale)
+
+    freq_scale  [string] string specifying the units of frequency. Accepted
+                values are 'GHz', 'MHz' and 'Hz'. Default = 'GHz'
+
+    telescope   [dictionary] Contains information about the telescope parameters
+                using which the primary beams in the regions of interest are
+                determined. It specifies the type of element, element size and
+                orientation. It consists of the following keys and information:
+                'id'      [string] If set, will ignore the other keys and use
+                              telescope details for known telescopes. Accepted 
+                              values are 'mwa', 'vla', 'gmrt', and 'hera'.
+                'shape'       [string] Shape of antenna element. Accepted values
+                              are 'dipole', 'delta', and 'dish'. Will be ignored 
+                              if key 'id' is set. 'delta' denotes a delta
+                              function for the antenna element which has an
+                              isotropic radiation pattern. 'delta' is the default
+                              when keys 'id' and 'shape' are not set.
+                'size'        [scalar] Diameter of the telescope dish (in meters) 
+                              if the key 'shape' is set to 'dish' or length of 
+                              the dipole if key 'shape' is set to 'dipole'. Will 
+                              be ignored if key 'shape' is set to 'delta'. Will 
+                              be ignored if key 'id' is set and a preset value 
+                              used for the diameter or dipole.
+                'orientation' [list or numpy array] If key 'shape' is set to 
+                              dipole, it refers to the orientation of the dipole 
+                              element unit vector whose magnitude is specified by 
+                              length. If key 'shape' is set to 'dish', it refers 
+                              to the position on the sky to which the dish is
+                              pointed. For a dipole, this unit vector must be
+                              provided in the local ENU coordinate system aligned 
+                              with the direction cosines coordinate system or in
+                              the Alt-Az coordinate system. This will be
+                              used only when key 'shape' is set to 'dipole'.
+                              This could be a 2-element vector (transverse 
+                              direction cosines) where the third (line-of-sight) 
+                              component is determined, or a 3-element vector
+                              specifying all three direction cosines or a two-
+                              element coordinate in Alt-Az system. If not provided 
+                              it defaults to an eastward pointing dipole. If key
+                              'shape' is set to 'dish', the orientation refers 
+                              to the pointing center of the dish on the sky. It
+                              can be provided in Alt-Az system as a two-element
+                              vector or in the direction cosine coordinate
+                              system as a two- or three-element vector. If not
+                              set in the case of a dish element, it defaults to 
+                              zenith. This is not to be confused with the key
+                              'pointing_center' in dictionary 'pointing_info' 
+                              which refers to the beamformed pointing center of
+                              the array. The coordinate system is specified by 
+                              the key 'ocoords'
+                'ocoords'     [scalar string] specifies the coordinate system 
+                              for key 'orientation'. Accepted values are 'altaz'
+                              and 'dircos'. 
+                'groundplane' [scalar] height of telescope element above the 
+                              ground plane (in meteres). Default = None will
+                              denote no ground plane effects.
+                'ground_modify'
+                              [dictionary] contains specifications to modify
+                              the analytically computed ground plane pattern. If
+                              absent, the ground plane computed will not be
+                              modified. If set, it may contain the following 
+                              keys:
+                              'scale' [scalar] positive value to scale the 
+                                      modifying factor with. If not set, the 
+                                      scale factor to the modification is unity.
+                              'max'   [scalar] positive value to clip the 
+                                      modified and scaled values to. If not set, 
+                                      there is no upper limit
+
+    info        [dictionary] contains information about the region of interest.
+                It consists of the following keys and information:
+                'radius'  [list of scalars] list of angular radii (in degrees),
+                          one entry for each snapshot observation which defines
+                          the region of interest. 
+                'center'  [list of numpy vectors] list of centers of regions of
+                          interest. For each snapshot, there is one element in
+                          the list each of which is a center of corresponding
+                          region of interest. Each numpy vector could be made of
+                          two elements (Alt-Az) or three elements (direction 
+                          cosines).
+                'ind'     [list of numpy vectors] list of vectors of indices
+                          that define the region of interest as a subset of the
+                          sky model. Each element of the list is a numpy vector
+                          of indices indexing into the sky model corresponding
+                          to each snapshot. 
+                'pbeam'   [list of numpy arrays] list of array of primary beam
+                          values in the region of interest. The size of each
+                          element in the list corresponding to each snapshot is
+                          n_roi x nchan where n_roi is the number of pixels in 
+                          region of interest. 
+    
+    pinfo       [list of dictionaries] Each dictionary element in the list
+                corresponds to a specific snapshot. It contains information
+                relating to the pointing center. The pointing center can be 
+                specified either via element delay compensation or by directly 
+                specifying the pointing center in a certain coordinate system. 
+                Default = None (pointing centered at zenith). Each dictionary 
+                element may consist of the following keys and information:
+                'element_locs'    [2- or 3-column array] Element locations that
+                                  constitute the tile. Each row specifies
+                                  location of one element in the tile. The
+                                  locations must be specified in local ENU
+                                  coordinate system. First column specifies 
+                                  along local east, second along local north and 
+                                  the third along local up. If only two columns 
+                                  are specified, the third column is assumed to 
+                                  be zeros. If 'elements_locs' is not provided, 
+                                  it assumed to be a one-element system and not 
+                                  an array as far as determination of primary 
+                                  beam is concerned.
+                'gains'           [numpy array] Complex element gains. Must be of 
+                                  size equal to the number of elements as 
+                                  specified by the number of rows in 
+                                  'element_locs'. If set to None (default), all 
+                                  element gains are assumed to be unity. 
+                'delays'          [numpy array] Delays (in seconds) to be applied 
+                                  to the tile elements. Size should be equal to 
+                                  number of tile elements (number of rows in
+                                  antpos). Default = None will set all element
+                                  delays to zero phasing them to zenith. 
+                'pointing_center' [numpy array] This will apply in the absence of 
+                                  key 'delays'. This can be specified as a row 
+                                  vector. Should have two-columns if using Alt-Az
+                                  coordinates, or two or three columns if using
+                                  direction cosines. There is no default. The
+                                  coordinate system must be specified in
+                                  'pointing_coords' if 'pointing_center' is to be
+                                  used.
+                'pointing_coords' [string scalar] Coordinate system in which the
+                                  pointing_center is specified. Accepted values 
+                                  are 'altaz' or 'dircos'. Must be provided if
+                                  'pointing_center' is to be used. No default.
+                'delayerr'        [int, float] RMS jitter in delays used in the
+                                  beamformer. Random jitters are drawn from a 
+                                  normal distribution with this rms. Must be
+                                  a non-negative scalar. If not provided, it
+                                  defaults to 0 (no jitter). 
+    
+    Member functions:
+
+    __init__()  Initializes an instance of class ROI_parameters using default 
+                values or using a specified initialization file
+    
+    append_settings()
+                Determines and appends ROI (regions of interest) parameter
+                information for each snapshot observation using the input
+                parameters provided. Optionally also computes the primary beam
+                values in the region of interest using the telescope parameters.
+
+    save()      Saves the information about the regions of interest to a FITS
+                file on disk
+
+    -----------------------------------------------------------------------------
+    """
+
+    def __init__(self, init_file=None):
+
+        """
+        -------------------------------------------------------------------------
+        Initializes an instance of class ROI_parameters using default values or
+        using a specified initialization file
+
+        Class attribute initialized are:
+        skymodel, freq, freq_scale, telescope, info, and pinfo
+
+        Read docstring of class ROI_parameters for details on these attributes.
+
+        Keyword input(s):
+
+        init_file    [string] Location of the initialization file from which an
+                     instance of class ROI_parameters will be created. File 
+                     format must be compatible with the one saved to disk by
+                     member function save()
+        -------------------------------------------------------------------------
+        """
+
+        argument_init = False
+        init_file_success = False
+        if init_file is not None:
+            try:
+                hdulist = fits.open(init_file)
+            except IOError:
+                argument_init = True
+                print '\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...'
+            if not argument_init:
+                n_obs = hdulist[0].header['n_obs']
+                extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,len(hdulist))]
+
+                self.info = {}
+                self.info['radius'] = []
+                self.info['center'] = []
+                self.info['ind'] = []
+                self.info['pbeam'] = []
+                self.telescope = {}
+                if 'id' in hdulist[0].header:
+                    self.telescope['id'] = hdulist[0].header['telescope']
+
+                try:
+                    self.telescope['shape'] = hdulist[0].header['element_shape']
+                except KeyError:
+                    raise KeyError('Antenna element shape not found in the init_file header')
+
+                try:
+                    self.telescope['size'] = hdulist[0].header['element_size']
+                except KeyError:
+                    raise KeyError('Antenna element size not found in the init_file header')
+
+                try:
+                    self.telescope['ocoords'] = hdulist[0].header['element_ocoords']
+                except KeyError:
+                    raise KeyError('Antenna element orientation coordinate system not found in the init_file header')
+                    
+                if 'ANTENNA ELEMENT ORIENTATION' in extnames:
+                    self.telescope['orientation'] = hdulist['ANTENNA ELEMENT ORIENTATION'].data.reshape(1,-1)
+                else:
+                    raise KeyError('Extension named "orientation" not found in init_file.')
+
+                if 'ground_plane' in hdulist[0].header:
+                    self.telescope['groundplane'] = hdulist[0].header['ground_plane']
+                    if 'ground_modify_scale' in hdulist[0].header:
+                        if 'ground_modify' not in self.telescope:
+                            self.telescope['ground_modify'] = {}
+                        self.telescope['ground_modify']['scale'] = hdulist[0].header['ground_modify_scale']
+                    if 'ground_modify_max' in hdulist[0].header:
+                        if 'ground_modify' not in self.telescope:
+                            self.telescope['ground_modify'] = {}
+                        self.telescope['ground_modify']['max'] = hdulist[0].header['ground_modify_max']
+                else:
+                    self.telescope['groundplane'] = None
+
+                if 'FREQ' in extnames:
+                    self.freq = hdulist['FREQ'].data
+                else:
+                    raise KeyError('Extension named "FREQ" not found in init_file.')
+
+                self.info['ind'] = [hdulist['IND_{0:0d}'.format(i)].data for i in range(n_obs)]
+                self.info['pbeam'] = [hdulist['PB_{0:0d}'.format(i)].data for i in range(n_obs)]
+
+                self.pinfo = []
+                for i in range(n_obs):
+                    self.pinfo += [{}]
+                    if 'ELEMENT_LOCS_{0:0d}'.format(i) in extnames:
+                        self.pinfo[-1]['element_locs'] = hdulist['ELEMENT_LOCS_{0:0d}'.format(i)].data
+                        try:
+                            self.pinfo[-1]['delays'] = hdulist['DELAYS_{0:0d}'.format(i)].data
+                        except KeyError:
+                            raise KeyError('Extension DELAYS_{0:0d} corresponding to extension ELEMENT_LOCS_{0:0d} not found in init_file'.format(i))
+                        if 'DELAYERR' in hdulist['DELAYS_{0:0d}'.format(i)].header:
+                            delayerr = hdulist['DELAYS_{0:0d}'.format(i)].header['delayerr']
+                            if delayerr <= 0.0:
+                                self.pinfo[-1]['delayerr'] = None
+                            else:
+                                self.pinfo[-1]['delayerr'] = delayerr
+
+                    if 'POINTING_CENTER_{0:0d}'.format(i) in extnames:
+                        self.pinfo[-1]['pointing_center'] = hdulist['POINTING_CENTER_{0:0d}'.format(i)].data
+                        try:
+                            self.pinfo[-1]['pointing_coords'] = hdulist['POINTING_CENTER_{0:0d}'.format(i)].header['pointing_coords']
+                        except KeyError:
+                            raise KeyError('Header of extension POINTING_CENTER_{0:0d} not found to contain key "pointing_coords" in init_file'.format(i))
+
+                hdulist.close()
+                init_file_success = True
+                return
+        else:
+            argument_init = True
+
+        if (not argument_init) and (not init_file_success):
+            raise ValueError('Initialization failed with the use of init_file.')
+
+        self.skymodel = None
+        self.telescope = None
+        self.info = {}
+        self.info['radius'] = []
+        self.info['ind'] = []
+        self.info['pbeam'] = []
+        self.info['center'] = []
+        self.info['center_coords'] = None
+
+        self.pinfo = []
+        self.freq = None
+
+    #############################################################################
+
+    def append_settings(self, skymodel, freq, pinfo=None, latitude=None,
+                        lst=None, roi_info=None, telescope=None,
+                        freq_scale='GHz'):
+
+        """
+        ------------------------------------------------------------------------
+        Determines and appends ROI (regions of interest) parameter information
+        for each snapshot observation using the input parameters provided.
+        Optionally also computes the primary beam values in the region of
+        interest using the telescope parameters.
+
+        Inputs:
+
+        skymodel [instance of class SkyModel] The common sky model for all the
+                 observing instances from which the ROI is determined based on
+                 a subset corresponding to each snapshot observation.
+
+        freq     [numpy vector] Frequency channels (with units specified by the
+                 attribute freq_scale)
+
+        latitude [Scalar] Latitude of the interferometer's location. Default
+                 is 34.0790 degrees North corresponding to that of the VLA.
+
+        pinfo    [list of dictionaries] Each dictionary element in the list
+                 corresponds to a specific snapshot. It contains information
+                 relating to the pointing center. The pointing center can be 
+                 specified either via element delay compensation or by directly 
+                 specifying the pointing center in a certain coordinate system. 
+                 Default = None (pointing centered at zenith). Each dictionary 
+                 element may consist of the following keys and information:
+                 'element_locs'    [2- or 3-column array] Element locations that
+                                   constitute the tile. Each row specifies
+                                   location of one element in the tile. The
+                                   locations must be specified in local ENU
+                                   coordinate system. First column specifies 
+                                   along local east, second along local north and 
+                                   the third along local up. If only two columns 
+                                   are specified, the third column is assumed to 
+                                   be zeros. If 'elements_locs' is not provided, 
+                                   it assumed to be a one-element system and not 
+                                   an array as far as determination of primary 
+                                   beam is concerned.
+                 'gains'           [numpy array] Complex element gains. Must be 
+                                   of size equal to the number of elements as 
+                                   specified by the number of rows in 
+                                   'element_locs'. If set to None (default), all 
+                                   element gains are assumed to be unity. 
+                 'delays'          [numpy array] Delays (in seconds) to be 
+                                   applied to the tile elements. Size should be 
+                                   equal to number of tile elements (number of 
+                                   rows in antpos). Default = None will set all 
+                                   element delays to zero phasing them to zenith. 
+                 'pointing_center' [numpy array] This will apply in the absence 
+                                   of key 'delays'. This can be specified as a 
+                                   row vector. Should have two-columns if using 
+                                   Alt-Az coordinates, or two or three columns if 
+                                   using direction cosines. There is no default. 
+                                   The coordinate system must be specified in
+                                   'pointing_coords' if 'pointing_center' is to 
+                                   be used.
+                 'pointing_coords' [string scalar] Coordinate system in which the
+                                   pointing_center is specified. Accepted values 
+                                   are 'altaz' or 'dircos'. Must be provided if
+                                   'pointing_center' is to be used. No default.
+                 'delayerr'        [int, float] RMS jitter in delays used in the
+                                   beamformer. Random jitters are drawn from a 
+                                   normal distribution with this rms. Must be
+                                   a non-negative scalar. If not provided, it
+                                   defaults to 0 (no jitter). 
+  
+        ------------------------------------------------------------------------
+        """
+
+        try:
+            skymodel, freq, pinfo
+        except NameError:
+            raise NameError('skymodel, freq, and pinfo must be specified.')
+
+        if not isinstance(skymodel, CTLG.SkyModel):
+            raise TypeError('skymodel should be an instance of class SkyModel.')
+        elif self.skymodel is not None:
+            self.skymodel = skymodel
+
+        if freq is None:
+            raise ValueError('freq must be specified using a numpy array')
+        elif not isinstance(freq, NP.ndarray):
+            raise TypeError('freq must be specified using a numpy array')
+        self.freq = freq.ravel()
+
+        if (freq_scale is None) or (freq_scale == 'Hz') or (freq_scale == 'hz'):
+            self.freq = NP.asarray(freq)
+        elif freq_scale == 'GHz' or freq_scale == 'ghz':
+            self.freq = NP.asarray(freq) * 1.0e9
+        elif freq_scale == 'MHz' or freq_scale == 'mhz':
+            self.freq = NP.asarray(freq) * 1.0e6
+        elif freq_scale == 'kHz' or freq_scale == 'khz':
+            self.freq = NP.asarray(freq) * 1.0e3
+        else:
+            raise ValueError('Frequency units must be "GHz", "MHz", "kHz" or "Hz". If not set, it defaults to "Hz"')
+        self.freq_scale = 'Hz'
+
+        if self.telescope is None:
+            if isinstance(telescope, dict):
+                self.telescope = telescope
+            else:
+                raise TypeError('Input telescope must be a dictionary.')
+
+        if roi_info is None:
+            raise ValueError('roi_info dictionary must be set.')
+
+        pbeam_input = False
+        if 'ind' in roi_info:
+            if roi_info['ind'] is not None:
+                self.info['ind'] += [roi_info['ind']]
+                if 'pbeam' in roi_info:
+                    if roi_info['pbeam'] is not None:
+                        try:
+                            pb = roi_info['pbeam'].reshape(-1,len(self.channels))
+                        except ValueError:
+                            raise ValueError('Number of columns of primary beam in key "pbeam" of dictionary roi_info must be equal to number of frequency channels.')
+
+                        if NP.asarray(roi_info['ind']).size == pb.shape[0]:
+                            self.info['pbeam'] += [roi_info['pbeam']]
+                        else:
+                            raise ValueError('Number of elements in values in key "ind" and number of rows of values in key "pbeam" must be identical.')
+                        pbeam_input = True
+
+                if not pbeam_input: # Will require sky positions in Alt-Az coordinates
+                    if skymodel.catalog.coords == 'radec':
+                        if latitude is None:
+                            raise ValueError('Latitude of the observatory must be provided.')
+                        if lst is None:
+                            raise ValueError('LST must be provided.')
+                        skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.catalog.location[:,0]).reshape(-1,1), skymodel.catalog.location[:,1].reshape(-1,1))), latitude, units='degrees')
+                    elif skymodel.catalog.coords == 'hadec':
+                        if latitude is None:
+                            raise ValueError('Latitude of the observatory must be provided.')
+                        skypos_altaz = GEOM.hadec2altaz(skymodel.catalog.location, latitude, units='degrees')
+                    elif skymodel.catalog.coords == 'dircos':
+                        skypos_altaz = GEOM.dircos2altaz(skymodel.catalog.location, units='degrees')
+                    elif skymodel.catalog.coords == 'altaz':
+                        skypos_altaz = skymodel.catalog.location
+                    else:
+                        raise KeyError('skycoords invalid or unspecified in skymodel')
+            if 'radius' in roi_info:
+                self.info['radius'] += [roi_info['radius']]
+            if 'center' in roi_info:
+                self.info['center'] += [roi_info['center']]
+        else:
+            if roi_info['radius'] is None:
+                roi_info['radius'] = 90.0
+            else:
+                roi_info['radius'] = max(0.0, min(roi_info['radius'], 90.0))
+            self.info['radius'] += [roi_info['radius']]
+
+            if roi_info['center'] is None:
+                self.info['center'] += [NP.asarray([90.0, 270.0]).reshape(1,-1)]
+            else:
+                roi_info['center'] = NP.asarray(roi_info['center']).reshape(1,-1)
+                if roi_info['center_coords'] == 'dircos':
+                    self.info['center'] += [GEOM.dircos2altaz(roi_info['center'], units='degrees')]
+                elif roi_info['center_coords'] == 'altaz':
+                    self.info['center'] += [roi_info['center']]
+                elif roi_info['center_coords'] == 'hadec':
+                    self.info['center'] += [GEOM.hadec2altaz(roi_info['center'], self.latitude, units='degrees')]
+                elif roi_info['center_coords'] == 'radec':
+                    if lst is None:
+                        raise KeyError('LST not provided for coordinate conversion')
+                    hadec = NP.asarray([lst-roi_info['center'][0,0], roi_info['center'][0,1]]).reshape(1,-1)
+                    self.info['center'] += [GEOM.hadec2altaz(hadec, self.latitude, units='degrees')]
+                elif roi_info['center_coords'] == 'dircos':
+                    self.info['center'] += [GEOM.dircos2altaz(roi_info['center'], units='degrees')]
+                else:
+                    raise ValueError('Invalid coordinate system specified for center')
+
+            if skymodel.catalog.coords == 'radec':
+                if latitude is None:
+                    raise ValueError('Latitude of the observatory must be provided.')
+                if lst is None:
+                    raise ValueError('LST must be provided.')
+                skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.catalog.location[:,0]).reshape(-1,1), skymodel.catalog.location[:,1].reshape(-1,1))), latitude, units='degrees')
+            elif skymodel.catalog.coords == 'hadec':
+                if latitude is None:
+                    raise ValueError('Latitude of the observatory must be provided.')
+                skypos_altaz = GEOM.hadec2altaz(skymodel.catalog.location, latitude, units='degrees')
+            elif skymodel.catalog.coords == 'dircos':
+                skypos_altaz = GEOM.dircos2altaz(skymodel.catalog.location, units='degrees')
+            elif skymodel.catalog.coords == 'altaz':
+                skypos_altaz = skymodel.catalog.location
+            else:
+                raise KeyError('skycoords invalid or unspecified in skymodel')
+            
+            dtheta = GEOM.sphdist(self.info['center'][-1][0,1], self.info['center'][-1][0,0], 270.0, 90.0)
+            if dtheta > 1e-2: # ROI center is not zenith
+                m1, m2, d12 = GEOM.spherematch(self.info['center'][-1][0,0], self.info['center'][-1][0,1], skypos_altaz[:,0], skypos_altaz[:,1], roi_info['radius'], maxmatches=0)
+            else:
+                m2, = NP.where(skypos_altaz[:,0] >= 90.0-roi_info['radius']) # select sources whose altitude (angle above horizon) is 90-radius
+            self.info['ind'] += [m2]
+
+        if self.info['center_coords'] is None:
+            if 'center_coords' in roi_info:
+                if (roi_info['center_coords'] == 'altaz') or (roi_info['center_coords'] == 'dircos') or (roi_info['center_coords'] == 'hadec') or (roi_info['center_coords'] == 'radec'):
+                    self.info['center_coords'] = roi_info['center_coords']
+
+        if not pbeam_input:
+            if pinfo is None:
+                raise ValueError('Pointing info dictionary pinfo must be specified.')
+            self.pinfo += [pinfo]
+
+            if 'pointing_coords' in pinfo: # Convert pointing coordinate to Alt-Az
+                if (pinfo['pointing_coords'] != 'dircos') and (pinfo['pointing_coords'] != 'altaz'):
+                    if latitude is None:
+                        raise ValueError('Latitude of the observatory must be provided.')
+                    if pinfo['pointing_coords'] == 'radec':
+                        if lst is None:
+                            raise ValueError('LST must be provided.')
+                        self.pinfo[-1]['pointing_center'] = NP.asarray([lst-pinfo['pointing_center'][0,0], pinfo['pointing_center'][0,1]]).reshape(1,-1)
+                        self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(self.pinfo[-1]['pointing_center'], latitude, units='degrees')
+                    elif pinfo[-1]['pointing_coords'] == 'hadec':
+                        self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(pinfo[-1]['pointing_center'], self.latitude, units='degrees')
+                    else:
+                        raise ValueError('pointing_coords in dictionary pinfo must be "dircos", "altaz", "hadec" or "radec".')
+                    self.pinfo[-1]['pointing_coords'] = 'altaz'
+
+            ind = self.info['ind'][-1]
+            self.info['pbeam'] += [PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])]
+
+    #############################################################################
+
+    def save(self, file, tabtype='BinTableHDU', overwrite=False, verbose=True):
+
+        """
+        ------------------------------------------------------------------------
+        Saves the information about the regions of interest to a FITS file on
+        disk
+
+        Inputs:
+
+        file         [string] Filename with full path to be saved to. Will be
+                     appended with '.fits' extension
+
+        Keyword Input(s):
+
+        tabtype      [string] indicates table type for one of the extensions in 
+                     the FITS file. Allowed values are 'BinTableHDU' and 
+                     'TableHDU' for binary ascii tables respectively. Default is
+                     'BinTableHDU'.
+                     
+        overwrite    [boolean] True indicates overwrite even if a file already 
+                     exists. Default = False (does not overwrite)
+                     
+        verbose      [boolean] If True (default), prints diagnostic and progress
+                     messages. If False, suppress printing such messages.
+        ----------------------------------------------------------------------------
+        """
+
+        try:
+            file
+        except NameError:
+            raise NameError('No filename provided. Aborting ROI_parameters.save()...')
+
+        filename = file + '.fits' 
+
+        if verbose:
+            print '\nSaving information about regions of interest...'
+
+        hdulist = []
+
+        hdulist += [fits.PrimaryHDU()]
+        hdulist[0].header['n_obs'] = (len(self.info['ind']), 'Number of observations')
+        if 'id' in self.telescope:
+            hdulist[0].header['telescope'] = (self.telescope['id'], 'Telescope Name')
+        hdulist[0].header['element_shape'] = (self.telescope['shape'], 'Antenna element shape')
+        hdulist[0].header['element_size'] = (self.telescope['size'], 'Antenna element size [m]')
+        hdulist[0].header['element_ocoords'] = (self.telescope['ocoords'], 'Antenna element orientation coordinates')
+        if self.telescope['groundplane'] is not None:
+            hdulist[0].header['ground_plane'] = (self.telescope['groundplane'], 'Antenna element height above ground plane [m]')
+            if 'ground_modify' in self.telescope:
+                if 'scale' in self.telescope['ground_modify']:
+                    hdulist[0].header['ground_modify_scale'] = (self.telescope['ground_modify']['scale'], 'Ground plane modification scale factor')
+                if 'max' in self.telescope['ground_modify']:
+                    hdulist[0].header['ground_modify_max'] = (self.telescope['ground_modify']['max'], 'Maximum ground plane modification')
+
+        hdulist += [fits.ImageHDU(self.telescope['orientation'], name='Antenna element orientation')]
+        if verbose:
+            print '\tCreated an extension for antenna element orientation.'
+        
+        hdulist += [fits.ImageHDU(self.freq, name='FREQ')]
+        if verbose:
+            print '\t\tCreated an extension HDU of {0:0d} frequency channels'.format(self.freq.size)
+
+        for i in range(len(self.info['ind'])):
+            hdulist += [fits.ImageHDU(self.info['ind'][i], name='IND_{0:0d}'.format(i))]
+            hdulist += [fits.ImageHDU(self.info['pbeam'][i], name='PB_{0:0d}'.format(i))]
+            if 'element_locs' in self.pinfo[i]:
+                hdulist += [fits.ImageHDU(self.pinfo[i]['element_locs'], name='ELEMENT_LOCS_{0:0d}'.format(i))]
+            if 'delays' in self.pinfo[i]:
+                hdulist += [fits.ImageHDU(self.pinfo[i]['delays'], name='DELAYS_{0:0d}'.format(i))]
+                if 'delayerr' in self.pinfo[i]:
+                    if self.pinfo[i]['delayerr'] is not None:
+                        hdulist[-1].header['delayerr'] = (self.pinfo[i]['delayerr'], 'Jitter in delays [s]')
+                    else:
+                        hdulist[-1].header['delayerr'] = (0.0, 'Jitter in delays [s]')
+
+            if 'pointing_center' in self.pinfo[i]:
+                hdulist += [fits.ImageHDU(self.pinfo[i]['pointing_center'], name='POINTING_CENTER_{0:0d}'.format(i))]
+                if 'pointing_coords' in self.pinfo[i]:
+                    hdulist[-1].header['pointing_coords'] = (self.pinfo[i]['pointing_coords'], 'Pointing coordinate system')
+                else:
+                    raise KeyError('Key "pointing_coords" not found in attribute pinfo.')
+                
+        if verbose:
+            print '\t\tCreated HDU extensions for {0:0d} observations containing ROI indices and primary beams'.format(len(self.info['ind']))
+
+        if verbose:
+            print '\tNow writing FITS file to disk...'
+
+        hdu = fits.HDUList(hdulist)
+        hdu.writeto(filename, clobber=overwrite)
+
+        if verbose:
+            print '\tRegions of interest information written successfully to FITS file on disk:\n\t\t{0}\n'.format(filename)
+
+#################################################################################
+
 class InterferometerArray:
 
     """
@@ -1456,29 +2090,91 @@ class InterferometerArray:
                 along frequency axis for each interferometer estimated from the
                 specified external catalog. Same size as vis_freq. Used in the
                 member function observe(). Read its docstring for more details. 
+                Has dimensions n_baselines x nchan x n_snaps.
 
     skyvis_lag  [numpy array] Complex visibility due to sky emission (in Jy Hz or
                 K Hz) along the delay axis for each interferometer obtained by
                 FFT of skyvis_freq along frequency axis. Same size as vis_freq.
                 Created in the member function delay_transform(). Read its
-                docstring for more details. 
+                docstring for more details. Same dimensions as skyvis_freq
 
-    telescope   [string] The name of the telescope facility. Accepted values
-                are 'vla', 'gmrt', 'mwa_dipole' and 'mwa'. Default = 'vla'
+    telescope   [dictionary] dictionary that specifies the type of element,
+                element size and orientation. It consists of the following keys
+                and values:
+                'id'          [string] If set, will ignore the other keys and use
+                              telescope details for known telescopes. Accepted 
+                              values are 'mwa', 'vla', 'gmrt', 'hera', and other
+                              custom values. Default = 'mwa'
+                'shape'       [string] Shape of antenna element. Accepted values
+                              are 'dipole', 'delta', and 'dish'. Will be ignored 
+                              if key 'id' is set. 'delta' denotes a delta
+                              function for the antenna element which has an
+                              isotropic radiation pattern. 'dish' is the default
+                              when keys 'id' and 'shape' are not set.
+                'size'        [scalar] Diameter of the telescope dish (in meters) 
+                              if the key 'shape' is set to 'dish' or length of 
+                              the dipole if key 'shape' is set to 'dipole'. Will 
+                              be ignored if key 'shape' is set to 'delta'. Will 
+                              be ignored if key 'id' is set and a preset value 
+                              used for the diameter or dipole. Default = 25.0.
+                'orientation' [list or numpy array] If key 'shape' is set to 
+                              dipole, it refers to the orientation of the dipole 
+                              element unit vector whose magnitude is specified by 
+                              length. If key 'shape' is set to 'dish', it refers 
+                              to the position on the sky to which the dish is
+                              pointed. For a dipole, this unit vector must be
+                              provided in the local ENU coordinate system aligned 
+                              with the direction cosines coordinate system or in
+                              the Alt-Az coordinate system. 
+                              This could be a 2-element vector (transverse 
+                              direction cosines) where the third (line-of-sight) 
+                              component is determined, or a 3-element vector
+                              specifying all three direction cosines or a two-
+                              element coordinate in Alt-Az system. If not provided 
+                              it defaults to an eastward pointing dipole. If key
+                              'shape' is set to 'dish', the orientation refers 
+                              to the pointing center of the dish on the sky. It
+                              can be provided in Alt-Az system as a two-element
+                              vector or in the direction cosine coordinate
+                              system as a two- or three-element vector. If not
+                              set in the case of a dish element, it defaults to 
+                              zenith. The coordinate system is specified by 
+                              the key 'ocoords'
+                'ocoords'     [scalar string] specifies the coordinate system 
+                              for key 'orientation'. Accepted values are 'altaz'
+                              and 'dircos'. 
+                'groundplane' [scalar] height of telescope element above the 
+                              ground plane (in meteres). Default = None will
+                              denote no ground plane effects.
+                'ground_modify'
+                              [dictionary] contains specifications to modify
+                              the analytically computed ground plane pattern. If
+                              absent, the ground plane computed will not be
+                              modified. If set, it may contain the following 
+                              keys:
+                              'scale' [scalar] positive value to scale the 
+                                      modifying factor with. If not set, the 
+                                      scale factor to the modification is unity.
+                              'max'   [scalar] positive value to clip the 
+                                      modified and scaled values to. If not set, 
+                                      there is no upper limit
 
     timestamp   [list] List of timestamps during the observation
 
     t_acc       [list] Accumulation time (sec) corresponding to each timestamp
 
-    t_obs       [scalar] Observing duration (sec)
+    t_obs       [scalar] Total observing duration (sec)
 
-    Tsys        [scalar, list or numpy vector] System temperature in Kelvin
+    Tsys        [scalar, list or numpy vector] System temperature in Kelvin. At 
+                end of the simulation, it will be a numpy array of size 
+                n_baselines x nchan x n_snaps.
 
     vis_freq    [numpy array] The simulated complex visibility (in Jy or K) 
                 observed by each of the interferometers along frequency axis for 
                 each timestamp of observation per frequency channel. It is the
                 sum of skyvis_freq and vis_noise_freq. It can be either directly
-                initialized or simulated in observe(). 
+                initialized or simulated in observe(). Same dimensions as
+                skyvis_freq.
 
     vis_lag     [numpy array] The simulated complex visibility (in Jy Hz or K Hz) 
                 along delay axis for each interferometer obtained by FFT of
@@ -1489,8 +2185,8 @@ class InterferometerArray:
                 [numpy array] Complex visibility noise (in Jy or K) generated 
                 using an rms of vis_rms_freq along frequency axis for each 
                 interferometer which is then added to the generated sky
-                visibility. Same size as vis_freq. Used in the member function
-                observe(). Read its docstring for more details. 
+                visibility. Same dimensions as skyvis_freq. Used in the member 
+                function observe(). Read its docstring for more details. 
 
     vis_noise_lag
                 [numpy array] Complex visibility noise (in Jy Hz or K Hz) along 
@@ -1528,17 +2224,30 @@ class InterferometerArray:
                        timestamp for each snapshot is the current time at which
                        the snapshot is generated.
 
-    delay_transform(): Transforms the visibilities from frequency axis onto 
-                       delay (time) axis using an FFT.
+    generate_noise():  Generates thermal noise from attributes that describe 
+                       system parameters which can be added to sky visibilities
 
-    noise_estimate():  Given the attribute vis_freq, compute the thermal noise 
-                       estimate (in Jy or K) in the data in each frequency
-                       channel
+    add_noise():       Adds the thermal noise generated in member function 
+                       generate_noise() to the sky visibilities
+
+    phase_centering(): Centers the phase of visibilities around any given phase 
+                       center.
+
+    delay_transform(): Transforms the visibilities from frequency axis onto 
+                       delay (time) axis using an IFFT. This is performed for 
+                       noiseless sky visibilities, thermal noise in visibilities, 
+                       and observed visibilities. 
+
+    concatenate():     Concatenates different visibility data sets from instances 
+                       of class InterferometerArray along baseline, frequency or
+                       time axis.
+
+    save():            Saves the interferometer array information to disk. 
 
     ----------------------------------------------------------------------------
     """
 
-    def __init__(self, labels, baselines, channels, telescope='vla', eff_Q=0.89,
+    def __init__(self, labels, baselines, channels, telescope=None, eff_Q=0.89,
                  latitude=34.0790, skycoords='radec', A_eff=NP.pi*(25.0/2)**2, 
                  pointing_coords='hadec', baseline_coords='localenu',
                  freq_scale=None, init_file=None):
@@ -1558,6 +2267,16 @@ class InterferometerArray:
 
         Read docstring of class InterferometerArray for details on these
         attributes.
+
+        Keyword input(s):
+
+        init_file    [string] Location of the initialization file from which an
+                     instance of class InterferometerArray will be created. 
+                     File format must be compatible with the one saved to disk 
+                     by member function save().
+
+        Other input parameters have their usual meanings. Read the docstring of
+        class InterferometerArray for details on these inputs.
         ------------------------------------------------------------------------
         """
 
@@ -1583,11 +2302,36 @@ class InterferometerArray:
                 print '\tKeyword "latitude" not found in header. Assuming 34.0790 degrees for attribute latitude.'
                 self.latitude = 34.0790
                 
+            self.telescope = {}
+            if 'telescope' in hdulist[0].header:
+                self.telescope['id'] = hdulist[0].header['telescope']
+
             try:
-                self.telescope = hdulist[0].header['telescope']
+                self.telescope['shape'] = hdulist[0].header['element_shape']
             except KeyError:
-                print '\tKeyword "telescope" not found in header. Assuming "vla" for attribute telescope.'
-                self.telescope = 'vla'
+                print '\tKeyword "element_shape" not found in header. Assuming "delta" for attribute antenna element shape.'
+                self.telescope['shape'] = 'delta'
+
+            try:
+                self.telescope['size'] = hdulist[0].header['element_size']
+            except KeyError:
+                print '\tKeyword "element_size" not found in header. Assuming 25.0m for attribute antenna element size.'
+                self.telescope['size'] = 1.0
+
+            try:
+                self.telescope['ocoords'] = hdulist[0].header['element_ocoords']
+            except KeyError:
+                raise KeyError('\tKeyword "element_ocoords" not found in header. No defaults.')
+
+            try:
+                self.telescope['groundplane'] = hdulist[0].header['groundplane']
+            except KeyError:
+                self.telescope['groundplane'] = None
+
+            if 'ANTENNA ELEMENT ORIENTATION' not in extnames:
+                raise KeyError('No extension found containing information on element orientation.')
+            else:
+                self.telescope['orientation'] = hdulist['ANTENNA ELEMENT ORIENTATION'].data.reshape(1,-1)
 
             try:
                 self.baseline_coords = hdulist[0].header['baseline_coords']
@@ -1617,7 +2361,7 @@ class InterferometerArray:
                 self.flux_unit = hdulist[0].header['flux_unit']
             except KeyError:
                 print '\tKeyword "flux_unit" not found in header. Assuming "jy" for attribute flux_unit.'
-                self.skycoords = 'JY'
+                self.flux_unit = 'JY'
 
             if 'POINTING AND PHASE CENTER INFO' not in extnames:
                 raise KeyError('No extension table found containing pointing information.')
@@ -1771,7 +2515,17 @@ class InterferometerArray:
         else:
             self.labels = labels
 
-        self.telescope = telescope
+        if isinstance(telescope, dict):
+            self.telescope = telescope
+        else:
+            self.telescope = {}
+            self.telescope['id'] = 'vla'
+            self.telescope['shape'] = 'dish'
+            self.telescope['size'] = 25.0
+            self.telescope['ocoords'] = 'altaz'
+            self.telescope['orientation'] = NP.asarray([90.0, 270.0]).reshape(1,-1)
+            self.telescope['groundplane'] = None
+
         self.latitude = latitude
         self.vis_freq = None
         self.skyvis_freq = None
@@ -1872,8 +2626,8 @@ class InterferometerArray:
     #############################################################################
 
     def observe(self, timestamp, Tsys, bandpass, pointing_center, skymodel,
-                t_acc, brightness_units=None, roi_radius=None, roi_center=None,
-                lst=None, memsave=False):
+                t_acc, pb_info=None, brightness_units=None, roi_info=None, 
+                roi_radius=None, roi_center=None, lst=None, memsave=False):
 
         """
         -------------------------------------------------------------------------
@@ -2092,49 +2846,63 @@ class InterferometerArray:
         if not isinstance(skymodel, CTLG.SkyModel):
             raise TypeError('skymodel should be an instance of class SkyModel.')
 
-        if roi_radius is None:
-            roi_radius = 90.0
+        if self.skycoords == 'hadec':
+            skypos_altaz = GEOM.hadec2altaz(skymodel.catalog.location, self.latitude, units='degrees')
+        elif self.skycoords == 'radec':
+            skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.catalog.location[:,0]).reshape(-1,1), skymodel.catalog.location[:,1].reshape(-1,1))), self.latitude, units='degrees')
 
-        if roi_center is None:
-            roi_center = 'zenith'
-        elif (roi_center != 'zenith') and (roi_center != 'pointing_center'):
-            raise ValueError('Center of region of interest, roi_center, must be set to "zenith" or "pointing_center".')
+        pb = None
+        if roi_info is not None:
+            if ('ind' not in roi_info) or ('pbeam' not in roi_info):
+                raise KeyError('Both "ind" and "pbeam" keys must be present in dictionary roi_info')
 
-        if roi_center == 'pointing_center':
-            m1, m2, d12 = GEOM.spherematch(pointing_lon, pointing_lat, skymodel.catalog.location[:,0], skymodel.catalog.location[:,1], roi_radius, maxmatches=0)
-        else: # roi_center = 'zenith'
-            if self.skycoords == 'hadec':
-                skypos_altaz = GEOM.hadec2altaz(skymodel.catalog.location, self.latitude, units='degrees')
-            elif self.skycoords == 'radec':
-                skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.catalog.location[:,0]).reshape(-1,1), skymodel.catalog.location[:,1].reshape(-1,1))), self.latitude, units='degrees')
-            m2 = NP.arange(skypos_altaz.shape[0])
-            m2 = m2[NP.where(skypos_altaz[:,0] >= 90.0-roi_radius)] # select sources whose altitude (angle above horizon) is 90-roi_radius
+            if (roi_info['ind'] is not None) and (roi_info['pbeam'] is not None):
+                try:
+                    pb = roi_info['pbeam'].reshape(-1,len(self.channels))
+                except ValueError:
+                    raise ValueError('Number of columns of primary beam in key "pbeam" of dictionary roi_info must be equal to number of frequency channels.')
 
-        # if roi_radius is not None:
-        #     m1, m2, d12 = GEOM.spherematch(pointing_lon, pointing_lat, skymodel.catalog.location[:,0], skymodel.catalog.location[:,1], roi_radius, maxmatches=0)
-        # else:
-        #     m1 = [0] * skymodel.catalog.location.shape[0]
-        #     m2 = xrange(skymodel.catalog.location.shape[0])
-        #     d12 = GEOM.sphdist(NP.empty(skymodel.catalog.shape[0]).fill(pointing_lon), NP.empty(skymodel.catalog.shape[0]).fill(pointing_lat), skymodel.catalog.location[:,0], skymodel.catalog.location[:,1])
+                if NP.asarray(roi_info['ind']).size == pb.shape[0]:
+                    m2 = roi_info['ind']
+                else:
+                    raise ValueError('Values in keys ind and pbeam in must carry same number of elements.')
+        else:
+            if roi_radius is None:
+                roi_radius = 90.0
+    
+            if roi_center is None:
+                roi_center = 'zenith'
+            elif (roi_center != 'zenith') and (roi_center != 'pointing_center'):
+                raise ValueError('Center of region of interest, roi_center, must be set to "zenith" or "pointing_center".')
+    
+            if roi_center == 'pointing_center':
+                m1, m2, d12 = GEOM.spherematch(pointing_lon, pointing_lat, skymodel.catalog.location[:,0], skymodel.catalog.location[:,1], roi_radius, maxmatches=0)
+            else: # roi_center = 'zenith'
+                m2 = NP.arange(skypos_altaz.shape[0])
+                m2 = m2[NP.where(skypos_altaz[:,0] >= 90.0-roi_radius)] # select sources whose altitude (angle above horizon) is 90-roi_radius
 
         if len(m2) != 0:
-            pb = NP.empty((len(m2), len(self.channels)))
-            fluxes = NP.empty((len(m2), len(self.channels)))
-            
-            if roi_center != 'zenith':
-                if self.skycoords == 'altaz':
-                    skypos_altaz_roi = skymodel.catalog.location[m2,:]
-                elif self.skycoords == 'radec':
-                    skypos_altaz_roi = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.catalog.location[m2,0]).reshape(-1,1), skymodel.catalog.location[m2,1].reshape(-1,1))), self.latitude, 'degrees')
-                else:
-                    skypos_altaz_roi = GEOM.hadec2altaz(skymodel.catalog.location[m2,:], self.latitude, 'degrees')
-            else:
-                skypos_altaz_roi = skypos_altaz[m2,:]
+            # if roi_center != 'zenith':
+            #     if self.skycoords == 'altaz':
+            #         skypos_altaz_roi = skymodel.catalog.location[m2,:]
+            #     elif self.skycoords == 'radec':
+            #         skypos_altaz_roi = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.catalog.location[m2,0]).reshape(-1,1), skymodel.catalog.location[m2,1].reshape(-1,1))), self.latitude, 'degrees')
+            #     else:
+            #         skypos_altaz_roi = GEOM.hadec2altaz(skymodel.catalog.location[m2,:], self.latitude, 'degrees')
+            # else:
+            #     skypos_altaz_roi = skypos_altaz[m2,:]
+            skypos_altaz_roi = skypos_altaz[m2,:]
             coords_str = 'altaz'
 
-            pb = PB.primary_beam_generator(skypos_altaz_roi, self.channels/1.0e9, skyunits='altaz', telescope=self.telescope, pointing_center=pc_altaz, freq_scale='GHz')
-            # fluxes = NP.repeat(skymodel.catalog.flux_density[m2].reshape(-1,1), self.channels.size, axis=1) * (NP.repeat(self.channels.reshape(1,-1), len(m2), axis=0)/skymodel.catalog.frequency)**NP.repeat(skymodel.catalog.spectral_index[m2].reshape(-1,1), self.channels.size, axis=1)
             fluxes = skymodel.catalog.flux_density[m2].reshape(-1,1) * (self.channels.reshape(1,-1)/skymodel.catalog.frequency[m2].reshape(-1,1))**skymodel.catalog.spectral_index[m2].reshape(-1,1) # numpy array broadcasting
+
+            if pb is None:
+            # pb = NP.empty((len(m2), len(self.channels)))
+            # fluxes = NP.empty((len(m2), len(self.channels)))
+
+            # pb = PB.primary_beam_generator(skypos_altaz_roi, self.channels/1.0e9, skyunits='altaz', telescope=self.telescope, pointing_center=pc_altaz, freq_scale='GHz')
+                pb = PB.primary_beam_generator(skypos_altaz_roi, self.channels/1.0e9, skyunits='altaz', telescope=self.telescope, pointing_info=pb_info, pointing_center=pc_altaz, freq_scale='GHz')
+
             pbfluxes = pb * fluxes
             geometric_delays = DLY.geometric_delay(baselines_in_local_frame, skypos_altaz_roi, altaz=(coords_str=='altaz'), hadec=(coords_str=='hadec'), latitude=self.latitude)
 
@@ -2854,9 +3622,12 @@ class InterferometerArray:
     #############################################################################
 
     def save(self, file, tabtype='BinTableHDU', overwrite=False, verbose=True):
+
         """
         ----------------------------------------------------------------------------
         Saves the interferometer array information to disk. 
+
+        Inputs:
 
         file         [string] Filename with full path to be saved to. Will be
                      appended with '.fits' extension
@@ -2895,13 +3666,21 @@ class InterferometerArray:
         hdulist[0].header['pointing_coords'] = (self.pointing_coords, 'Pointing coordinate system')
         hdulist[0].header['phase_center_coords'] = (self.phase_center_coords, 'Phase center coordinate system')
         hdulist[0].header['skycoords'] = (self.skycoords, 'Sky coordinate system')
-        hdulist[0].header['telescope'] = (self.telescope, 'Telescope')
+        if 'id' in self.telescope:
+            hdulist[0].header['telescope'] = (self.telescope['id'], 'Telescope Name')
+        hdulist[0].header['element_shape'] = (self.telescope['shape'], 'Antenna element shape')
+        hdulist[0].header['element_size'] = (self.telescope['size'], 'Antenna element size')
+        hdulist[0].header['element_ocoords'] = (self.telescope['ocoords'], 'Antenna element orientation coordinates')
         hdulist[0].header['t_obs'] = (self.t_obs, 'Observing duration (s)')
         hdulist[0].header['n_acc'] = (self.n_acc, 'Number of accumulations')        
         hdulist[0].header['flux_unit'] = (self.flux_unit, 'Unit of flux density')
 
         if verbose:
             print '\tCreated a primary HDU.'
+
+        hdulist += [fits.ImageHDU(self.telescope['orientation'], name='Antenna element orientation')]
+        if verbose:
+            print '\tCreated an extension for antenna element orientation.'
 
         cols = []
         if self.lst: 

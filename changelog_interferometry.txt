@@ -1,3 +1,115 @@
+from v1.06 of interferometry:
+============================
+
+In interferometry.py,
+
+(*) Added a comment to docstring of class Interferometer that it is defunct and
+to use class InterferometerArray instead
+(*) In the __init__() member function of class InterferometerArray, changed the
+assignment of 'jy' to attribute flux_unit which was previously wrongly assigned
+to attribute skycoords
+(*) Added a new class ROI_parameters that stores the information on skymodel 
+along with the region of interest and primary beams across different snapshots.
+This is to save redundant computations inside observe() member function of class
+InterferometerArray
+(*) Modified observe() member function of class InterferometerArray to use
+pre-computed values for regions of interest and the corresponding primary beams
+for the foreground model such as the information provided by instances of class
+ROI_parameters. If these pre-computed values are not provided in input keyword
+parameter roi_info, the regions of interest and corresponding primary beams are
+estimated inside the member function. The input keywrod parameter pb_info is used
+to estimate the primary beam values for the regions of interest. Changed the
+docstring accordingly.
+(*) Modified __init__() member function of class InterferometerArray to
+initialize attribute telescope to a dictionary instead of string. This can be
+done both from an init file as well as from input parameters supplied to
+__init__(). Changed docstring accordingly.
+(*) Modified save() member function of class InterferometerArray to write the
+dictionary attribute telescope into the FITS file.
+(*) In class InterferometerArray, changed docstring to accommodate the use of a
+dictionary inside the keyword input 'telescope' under key named 'ground_modify'
+which will be used when involing ground_plane_field_pattern(). 
+(*) Updated docstring of class InterferometerArray to reflect updates on
+member functions generate_noise(), add_noise(), phase_centering(),
+delay_transform(), concatenate(), and save() which should have been done in 
+earlier revisions but wasn't. 
+(*) Remove from docstring of class InterferometerArray references to a 
+non-existing member function noise_estimate()
+(*) In __init__() member function of class InterferometerArray, modified the
+docstring to describe the input parameter init_file.
+(*) Made very minor changes to docstring of member function save() of class
+InterferometerArray
+
+In primary_beams.py,
+
+(*) Added a new function array_field_pattern() that computes the field pattern
+given beamformer delays or pointing center. The array of antenna elements could
+be of any arbitrary shape. This beamforming will supercede
+isotropic_radiators_array_field_pattern() in functionality because any array 
+shape can be simulated (including delay jitter effects) but may be slower than
+isotropic_radiators_array_field_pattern() due to lack of an analytical formula
+and if the number of sky positions are large.
+(*) Fixed a bug in dipole_field_pattern() in the formula for field pattern 
+without half wave dipole approximation. Changed the argument of a cosine function
+from arg1 * arg2 to arg1 * cos(arg2).
+(*) In dipole_field_pattern(), replaced arg1 and arg2 with actual variables and
+implemented numpy array broadcasting
+(*) In dipole_field_pattern(), default value of dipole_orientation was set to
+None, but had actually did not set any default orientation. Now the default None
+sets the dipole orientation along east. Changed docstring accordingly.
+(*) Moved the computation of ground plane effect from inside
+dipole_field_pattern() to a separate function ground_plane_field_pattern().
+Modified inputs and docstring accordingly. 
+(*) New function ground_plane_field_pattern() created to estimate the ground 
+plane effects independently rather than computing it alongside the dipole field
+pattern.
+(*) In primary_beam_generator(), for MWA and MWA_dipole, changed the default of
+keyword half_wave_dipole_approx from True to False.
+(*) In primary_beam_generator(), for MWA, modified the inputs to have a keyword 
+input pointing_info which contains information about the pointing center, delay
+settings, element locations, etc. in accordance with the requirements for 
+array_field_pattern(). If these inputs are provided, array_field_pattern() is
+preferred over isotropic_radiators_array_field_pattern() in the case of MWA. 
+Modified the docstring accordingly.
+(*) In primary_beam_generator(), changed the input parameter telescope from 
+holding a string to a dictionary which defines the antenna element properties.
+The key 'id' can be used to use default values for known telescopes. If 'id' is
+not specified, element properties such as shape, size and orientation can be used
+to compute the element pattern. Changed the docstring accordingly.
+(*) In primary_beam_generator(), call to airy_disk_pattern() for a HERA dish had
+skyunits hard-coded to 'altaz' which has now been replaced with generic skyunits.
+(*) In airy_disk_pattern(), changed variables 'qty' and 'ef' to 'pattern' and
+removed numpy copies.
+(*) In ground_plane_field_pattern(), added a keyword input named 'modifier' that
+contains specifications to modify the generated ground plane pattern. Changed
+docstring accordingly.
+(*) In primary_beam_generator(), changed docstring to accommodate the use of a
+dictionary inside the keyword input 'telescope' under key named 'ground_modify'
+which will be used when involing ground_plane_field_pattern(). 
+(*) In ground_plane_field_pattern(), changed the inner argument of the analytical 
+expression from cos(90-altitude) to sin(altitude) to be consistent with EM texts
+such as Jordan & Balmain.
+
+---------------------------------------------------------------------------------
+from v1.05 of interferometry:
+============================
+
+In primary_beams.py,
+
+(*) In primary_beam_generator(), changed the default MWA dipole length to 0.74 m
+from 1.1 m. 
+(*) In primary_beam_generator(), if the telescope value is set to 'mwa_dipole', 
+a default ground plane height of 0.3 m is used in the call to the dipole field
+pattern. This does not apply if the telescope is anything other than 
+'mwa_dipole'. 0.3 m was arrived at by using 10 cm elevation above the ground and
+40 cm is the vertical height of the bowtie antenna and hence 20 cm is the 
+half-height. Thus the the center of the antenna is 30 cm above the ground plane.
+(*) In dipole_field_pattern(), corrected the expression for ground plane effect 
+from cos(sin) to sin(cos). This now ensures that the gain is zero at the horizon.
+(*) In dipole_field_pattern(), max_pattern is set to 2.0 if computing ground 
+plane effect.
+
+---------------------------------------------------------------------------------
 from v1.05 of interferometry:
 ============================
 

@@ -5,8 +5,8 @@ from astropy.coordinates import Galactic, FK5
 from astropy import units
 import foregrounds as FG
 
-freqs = [140.0e6, 150.0e6, 160.0e6] # frequencies in Hz
-freq_center = 150.0e6
+freqs = [170.0e6, 185.0e6, 200.0e6] # frequencies in Hz
+freq_center = 185.0e6
 
 nsides = []
 for i in xrange(len(freqs)):
@@ -16,7 +16,7 @@ for i in xrange(len(freqs)):
     nside = HP.npix2nside(gsm_inp.size)
     gsm_smoothed = HP.smoothing(gsm_inp, fwhm=NP.radians(0.85), regression=False)
     gsm_downsampled = HP.ud_grade(gsm_smoothed, nside/4)
-    # gsm_downsampled = HP.ud_grade(gsm_inp, nside/8)
+    # gsm_downsampled = HP.ud_grade(gsm_smoothed, nside/8)
     gsm_downsampled = gsm_downsampled.reshape(-1,1)
     nsides += [HP.npix2nside(gsm_downsampled.size)]
     if i == 0:
