@@ -1,3 +1,12 @@
+from 9618b44 of interferometery:
+===============================
+
+In interferometry.py,
+
+(*) Changed object class definition of class ROI_parameters and
+InterferometerArray to have the modern definition instead of the old one. In 
+other words, they now inherit from Python's default "object"
+
 from v1.07 of interferometry:
 ============================
 
