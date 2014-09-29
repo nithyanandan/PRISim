@@ -79,8 +79,8 @@ if avg_drifts:
 if beam_switch:
     snapshot_type_str = 'beam_switches_'
 
-n_sky_sectors = 1
-sky_sector = None # if None, use all sky sector. Accepted values are None, 0, 1, 2, or 3
+n_sky_sectors = 4
+sky_sector = 3 # if None, use all sky sector. Accepted values are None, 0, 1, 2, or 3
 if sky_sector is None:
     sky_sector_str = '_all_sky_'
     n_sky_sectors = 1
@@ -88,7 +88,7 @@ if sky_sector is None:
 else:
     sky_sector_str = '_sky_sector_{0:0d}_'.format(sky_sector)
 
-Tsys = 85.5  # System temperature in K
+Tsys = 90.0  # System temperature in K
 freq = 185.0 * 1e6 # foreground center frequency in Hz
 freq_resolution = 80e3 # in Hz
 coarse_channel_resolution = 1.28e6 # in Hz
@@ -102,8 +102,8 @@ max_abs_delay = 2.5 # in micro seconds
 window = n_channels * DSP.windowing(n_channels, shape=bpass_shape, pad_width=0, centering=True, area_normalize=True) 
 
 nside = 64
-use_GSM = True
-use_DSM = False
+use_GSM = False
+use_DSM = True
 use_CSM = False
 use_NVSS = False
 use_SUMSS = False
@@ -165,7 +165,7 @@ bl_orientation_bins = NP.linspace(bl_orientation.min(), bl_orientation.max(), 2*
 labels = []
 labels += ['B{0:0d}'.format(i+1) for i in xrange(bl.shape[0])]
 
-roifile = '/data3/t_nithyanandan/project_MWA/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'{0:.1f}_MHz_{1:.1f}_MHz'.format(freq/1e6, nchan*freq_resolution/1e6)+'.fits'
+roifile = '/data3/t_nithyanandan/project_MWA/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
 roi = RI.ROI_parameters(init_file=roifile)
 
 telescope = roi.telescope

@@ -8,7 +8,9 @@ import scipy.constants as FCNST
 from scipy import interpolate
 import matplotlib.pyplot as PLT
 import matplotlib.colors as PLTC
+import matplotlib.cm as CM
 import healpy as HP
+from mwapy.pb import primary_beam as MWAPB
 import geometry as GEOM
 import interferometry as RI
 import catalog as CTLG
@@ -20,34 +22,87 @@ import baseline_delay_horizon as DLY
 import lookup_operations as LKP
 import ipdb as PDB
 
-# 01) Pick representative baselines and show individual contributions from point
+# 01) Plot pointings information
+
+# 02) Pick representative baselines and show individual contributions from point
 #     sources and diffuse emission 
 
-# 02) Show cleaned delay spectra as a function of baseline length and delay
+# 03) Show cleaned delay spectra as a function of baseline length and delay
 
-# 03) Plot EoR window power and wedge power as a function of LST for quality
+# 04) Plot EoR window power and wedge power as a function of LST for quality
 #     assurance purposes from different beamformer settings
 
-# 04) Plot sky power as a function of LST 
+# 05) Plot sky power as a function of LST 
 
-# 05) Plot fraction of pixels relatively free of contamination as a function
+# 06) Plot fraction of pixels relatively free of contamination as a function
 #     of baseline length
+
+# 07) Plot power patterns for snapshots
+
+# 08) Plot foreground models with power pattern contours for snapshots
+
+# 09) Plot FHD data and simulations on baselines by orientation and all combined
 
 plot_01 = False
 plot_02 = False
-plot_03 = True
+plot_03 = False
 plot_04 = False
 plot_05 = False
+plot_06 = False
+plot_07 = True
+plot_08 = False
+plot_09 = False
 
 # PLT.ioff()
 PLT.ion()
 
+telescope_id = 'custom'
+element_size = 0.74
+element_shape = 'delta'
+phased_array = True
+
+if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole'):
+    element_size = 0.74
+    element_shape = 'dipole'
+elif telescope_id == 'vla':
+    element_size = 25.0
+    element_shape = 'dish'
+elif telescope_id == 'gmrt':
+    element_size = 45.0
+    element_shape = 'dish'
+elif telescope_id == 'hera':
+    element_size = 14.0
+    element_shape = 'dish'
+elif telescope_id == 'custom':
+    if (element_shape is None) or (element_size is None):
+        raise ValueError('Both antenna element shape and size must be specified for the custom telescope type.')
+    elif element_size <= 0.0:
+        raise ValueError('Antenna element size must be positive.')
+else:
+    raise ValueError('telescope ID must be specified.')
+
+if telescope_id == 'custom':
+    if element_shape == 'delta':
+        telescope_id = 'delta'
+    else:
+        telescope_id = '{0:.1f}m_{1:}'.format(element_size, element_shape)
+
+    if phased_array:
+        telescope_id = telescope_id + '_array'
+telescope_str = telescope_id+'_'
+
+ground_plane = 0.3 # height of antenna element above ground plane
+if ground_plane is None:
+    ground_plane_str = 'no_ground_'
+else:
+    if ground_plane > 0.0:
+        ground_plane_str = '{0:.1f}m_ground_'.format(ground_plane)
+    else:
+        raise ValueError('Height of antenna element above ground plane must be positive.')
+
+latitude = -26.701 
 antenna_file = '/data3/t_nithyanandan/project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt'
 
-telescope = 'mwa'
-telescope_str = telescope + '_'
-if telescope == 'mwa':
-    telescope_str = ''
 ant_locs = NP.loadtxt(antenna_file, skiprows=6, comments='#', usecols=(0,1,2,3))
 bl, bl_id = RI.baseline_generator(ant_locs[:,1:], ant_id=ant_locs[:,0].astype(int).astype(str), auto=False, conjugate=False)
 bl_length = NP.sqrt(NP.sum(bl**2, axis=1))
@@ -61,14 +116,14 @@ bl_length = bl_length[sortind]
 bl_orientation = bl_orientation[sortind]
 bl_id = bl_id[sortind]
 n_bins_baseline_orientation = 4
-nmax_baselines = 2000
+nmax_baselines = 2048
 bl = bl[:nmax_baselines,:]
 bl_length = bl_length[:nmax_baselines]
 bl_id = bl_id[:nmax_baselines]
 bl_orientation = bl_orientation[:nmax_baselines]
 total_baselines = bl_length.size
 nside = 128
-Tsys = 300.0 # System temperature in K
+Tsys = 85.6 # System temperature in K
 freq = 185.0e6 # center frequency in Hz
 max_abs_delay = None # in micro seconds
 oversampling_factor = 2.0
@@ -81,18 +136,162 @@ if sky_sector is None:
 else:
     sky_sector_str = '_sky_sector_{0:0d}_'.format(sky_sector)
 
-if plot_01 or plot_02:
+n_bl_chunks = 32
+baseline_chunk_size = 64
+total_baselines = bl_length.size
+baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
+bl_chunk = range(len(baseline_bin_indices))
+bl_chunk = bl_chunk[:n_bl_chunks]
 
-    #############################################################################
-    # 01) Pick representative baselines and show individual contributions from 
+nside = 64
+use_GSM = True
+use_DSM = False
+use_CSM = False
+use_NVSS = False
+use_SUMSS = False
+use_MSS = False
+use_GLEAM = False
+use_PS = False
+
+obs_mode = 'custom'
+avg_drifts = False
+beam_switch = False
+snapshot_type_str = ''
+if avg_drifts:
+    snapshot_type_str = 'drift_averaged_'
+if beam_switch:
+    snapshot_type_str = 'beam_switches_'
+
+freq_resolution = 80e3
+nchan = 384
+bpass_shape = 'bnw'
+
+dsm_base_freq = 408e6 # Haslam map frequency
+csm_base_freq = 1.420e9 # NVSS frequency
+dsm_dalpha = 0.5 # Spread in spectral index in Haslam map
+csm_dalpha = 0.5 # Spread in spectral index in NVSS
+
+if use_GSM:
+    fg_str = 'asm'
+elif use_DSM:
+    fg_str = 'dsm'
+elif use_CSM:
+    fg_str = 'csm'
+elif use_SUMSS:
+    fg_str = 'sumss'
+elif use_GLEAM:
+    fg_str = 'gleam'
+elif use_PS:
+    fg_str = 'point'
+elif use_NVSS:
+    fg_str = 'nvss'
+else:
+    fg_str = 'other'
+
+roifile = '/data3/t_nithyanandan/project_MWA/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
+roi = RI.ROI_parameters(init_file=roifile)
+telescope = roi.telescope
+
+##########################################
+
+if plot_01:
+        
+    # 01) Plot pointings information
+
+    pointing_file = '/data3/t_nithyanandan/project_MWA/Aug23_obsinfo.txt'
+    
+    pointing_info_from_file = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(1,2,3), delimiter=',')
+    obs_id = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(0,), delimiter=',', dtype=str)
+    if (telescope_id == 'mwa') or (phased_array):
+        delays_str = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(4,), delimiter=',', dtype=str)
+        delays_list = [NP.fromstring(delaystr, dtype=float, sep=';', count=-1) for delaystr in delays_str]
+        delay_settings = NP.asarray(delays_list)
+        delay_settings *= 435e-12
+        delays = NP.copy(delay_settings)
+        n_snaps = pointing_info_from_file.shape[0]
+    pointing_info_from_file = pointing_info_from_file[:min(n_snaps, pointing_info_from_file.shape[0]),:]
+    obs_id = obs_id[:min(n_snaps, pointing_info_from_file.shape[0])]
+    if (telescope_id == 'mwa') or (phased_array):
+        delays = delay_settings[:min(n_snaps, pointing_info_from_file.shape[0]),:]
+    n_snaps = min(n_snaps, pointing_info_from_file.shape[0])
+    pointings_altaz = OPS.reverse(pointing_info_from_file[:,:2].reshape(-1,2), axis=1)
+    pointings_altaz_orig = OPS.reverse(pointing_info_from_file[:,:2].reshape(-1,2), axis=1)
+    lst = 15.0 * pointing_info_from_file[:,2]
+    lst_wrapped = lst + 0.0
+    lst_wrapped[lst_wrapped > 180.0] = lst_wrapped[lst_wrapped > 180.0] - 360.0
+    lst_edges = NP.concatenate((lst_wrapped, [lst_wrapped[-1]+lst_wrapped[-1]-lst_wrapped[-2]]))
+
+    lst = 0.5*(lst_edges[1:]+lst_edges[:-1])
+    t_snap = (lst_edges[1:]-lst_edges[:-1]) / 15.0 * 3.6e3
+
+    pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
+    pointings_hadec = GEOM.altaz2hadec(pointings_altaz, latitude, units='degrees')
+    pointings_radec = NP.hstack(((lst-pointings_hadec[:,0]).reshape(-1,1), pointings_hadec[:,1].reshape(-1,1)))
+    pointings_radec[:,0] = pointings_radec[:,0] % 360.0
+
+    pointings_ha = pointings_hadec[:,0]
+    pointings_ha[pointings_ha > 180.0] = pointings_ha[pointings_ha > 180.0] - 360.0
+
+    pointings_ra = pointings_radec[:,0]
+    pointings_ra[pointings_ra > 180.0] = pointings_ra[pointings_ra > 180.0] - 360.0
+
+    pointings_dec = pointings_radec[:,1]
+
+    infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
+    hdulist = fits.open(infile)
+    lst_select = hdulist['POINTING AND PHASE CENTER INFO'].data['LST']
+    hdulist.close()
+    lst_select[lst_select > 180.0] -= 360.0
+
+    fig = PLT.figure(figsize=(6,6))
+    ax1a = fig.add_subplot(111)
+    ax1a.set_xlabel('Local Sidereal Time [hours]', fontsize=18, weight='medium')
+    ax1a.set_ylabel('Longitude [degrees]', fontsize=18, weight='medium')
+    ax1a.set_xlim((lst_wrapped.min()-1)/15.0, (lst_wrapped.max()-1)/15.0)
+    ax1a.set_ylim(pointings_ha.min()-15.0, pointings_ha.max()+15.0)
+    ax1a.plot(lst_wrapped/15.0, pointings_ha, 'k--', lw=2, label='HA')
+    ax1a.plot(lst_wrapped/15.0, pointings_ra, 'k-', lw=2, label='RA')
+    for i in xrange(lst_select.size):
+        if i == 0:
+            ax1a.axvline(x=lst_select[i]/15.0, color='gray', ls='-.', lw=2, label='Selected LST')
+        else:
+            ax1a.axvline(x=lst_select[i]/15.0, color='gray', ls='-.', lw=2)
+    ax1a.tick_params(which='major', length=18, labelsize=12)
+    ax1a.tick_params(which='minor', length=12, labelsize=12)
+    legend1a = ax1a.legend(loc='lower right')
+    legend1a.draw_frame(False)
+    for axis in ['top','bottom','left','right']:
+        ax1a.spines[axis].set_linewidth(2)
+    xticklabels = PLT.getp(ax1a, 'xticklabels')
+    yticklabels = PLT.getp(ax1a, 'yticklabels')
+    PLT.setp(xticklabels, fontsize=15, weight='medium')
+    PLT.setp(yticklabels, fontsize=15, weight='medium')    
+
+    ax1b = ax1a.twinx()
+    ax1b.set_ylabel('Declination [degrees]', fontsize=18, weight='medium')
+    ax1b.set_ylim(pointings_dec.min()-5.0, pointings_dec.max()+5.0)
+    ax1b.plot(lst_wrapped/15.0, pointings_dec, 'k:', lw=2, label='Dec')
+    ax1b.tick_params(which='major', length=12, labelsize=12)
+    legend1b = ax1b.legend(loc='upper right')
+    legend1b.draw_frame(False)
+    yticklabels = PLT.getp(ax1b, 'yticklabels')
+    PLT.setp(yticklabels, fontsize=15, weight='medium')    
+
+    fig.subplots_adjust(right=0.85)
+
+    PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+obs_mode+'_pointings.eps', bbox_inches=0)
+    PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+obs_mode+'_pointings.png', bbox_inches=0)
+
+#############################################################################
+
+if plot_02 or plot_03:
+
+    # 02) Pick representative baselines and show individual contributions from 
     #     point sources and diffuse emission 
 
-    # 02) Show cleaned delay spectra as a function of baseline length and delay
+    # 03) Show cleaned delay spectra as a function of baseline length and delay
     
     obs_mode = 'custom'
-    freq_resolution = 80e3
-    nchan = 384
-    bpass_shape = 'bnw'
     snapshot_type_str = ''
     dalpha = 0.35
     csm_ref_freq = NP.sqrt(1420.0 * 843.0) * 1e6
@@ -107,11 +306,11 @@ if plot_01 or plot_02:
     pc = NP.asarray([0.0, 0.0, 1.0]).reshape(1,-1)
     pc_coords = 'dircos'
     
-    csm_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[0],bl_length[-1])+'gaussian_FG_model_csm_all_sky_nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+'.fits'
+    csm_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
 
-    csm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[0],bl_length[-1])+'gaussian_FG_model_csm_all_sky_nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'.fits'
-    dsm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[0],bl_length[-1])+'gaussian_FG_model_dsm_all_sky_nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'.fits'
-    asm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[0],bl_length[-1])+'gaussian_FG_model_asm_all_sky_nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'.fits'
+    csm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape+'.fits'
+    dsm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_dsm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape+'.fits'
+    asm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape+'.fits'
 
     fhd_obsid = [1061309344, 1061316544]
     
@@ -240,7 +439,7 @@ if plot_01 or plot_02:
 
     ## Above to be incorporated ##
 
-    if plot_01:
+    if plot_02:
 
         # Pick representative baselines and show individual contributions from point
         # sources and diffuse emission 
@@ -362,7 +561,7 @@ if plot_01 or plot_02:
                 PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'baseline_'+bl_id_ref[i]+'_composite_'+bias_str+'_noisy_delay_spectrum_snapshot_{0:0d}.eps'.format(j), bbox_inches=0)
                 PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'baseline_'+bl_id_ref[i]+'_composite_'+bias_str+'_noisy_delay_spectrum_snapshot_{0:0d}.png'.format(j), bbox_inches=0)
 
-    if plot_02:
+    if plot_03:
         
         # Show cleaned delay spectra as a function of baseline length and delay
 
@@ -595,15 +794,12 @@ if plot_01 or plot_02:
             # PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/annotated_combined_baseline_noiseless_CLEAN_visibilities_'+snapshot_type_str+obs_mode+'_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'{0:.1f}_MHz_{1:.1f}_MHz_'.format(freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_snap_{0:0d}.eps'.format(i), bbox_inches=0)
             # PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/annotated_combined_baseline_noiseless_CLEAN_visibilities_'+snapshot_type_str+obs_mode+'_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'{0:.1f}_MHz_{1:.1f}_MHz_'.format(freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_snap_{0:0d}.png'.format(i), bbox_inches=0)        
 
-if plot_03:
+if plot_04:
 
     #############################################################################
     # Plot EoR window power as a function of LST for quality assurance purposes
     # from different beamformer settings
 
-    freq_resolution = 80e3 # in Hz
-    nchan = 384
-    bpass_shape = 'bnw'
     fg_model = 'asm'
     coarse_channel_resolution = 1.28e6 # in Hz
     obs_mode = 'dns'
@@ -629,8 +825,8 @@ if plot_03:
     min_delay = -delay_matrix[0,:,1]-delay_matrix[0,:,0]
     max_delay = delay_matrix[0,:,0]-delay_matrix[0,:,1]
 
-    infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[0],bl_length[-1])+'gaussian_FG_model_asm_all_sky_nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+'.fits'
-    CLEAN_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[0],bl_length[-1])+'gaussian_FG_model_asm_all_sky_nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'.fits'
+    infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
+    CLEAN_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape+'.fits'
 
     hdulist = fits.open(infile)
     lst = hdulist['POINTING AND PHASE CENTER INFO'].data['LST']
@@ -763,12 +959,11 @@ if plot_03:
     # #     PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_combined_baseline_CLEAN_visibilities_contiguous_orientations_'+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'{0:.1f}_MHz_{1:.1f}_MHz_'.format(freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_snapshot_{0:0d}.eps'.format(i), bbox_inches=0)
     # #     PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_combined_baseline_CLEAN_visibilities_contiguous_orientations_'+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'{0:.1f}_MHz_{1:.1f}_MHz_'.format(freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_snapshot_{0:0d}.png'.format(i), bbox_inches=0)
 
-if plot_04:
+if plot_05:
 
     #############################################################################
-    # 04) Plot sky power as a function of LST 
+    # 05) Plot sky power as a function of LST 
 
-    latitude = -26.701 
     use_GSM = True
     use_DSM = False
     use_CSM = False
@@ -1232,12 +1427,10 @@ if plot_04:
             dsmfluxes_roi = dsmfluxes[roi_subset]
             gp_sky_sector_emission[j,k] = NP.sum(dsmfluxes_roi * pb_hemisphere_curent[roi_ind])
 
-    PDB.set_trace()
-
-if plot_05:
+if plot_06:
 
     #############################################################################
-    # 05) Plot fraction of pixels relatively free of contamination as a function
+    # 06) Plot fraction of pixels relatively free of contamination as a function
     #     of baseline length
 
     freq = 185.0e6 # center frequency in Hz
@@ -1390,4 +1583,256 @@ if plot_05:
     PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/faint_fraction_delay_spectrum_zenith.eps', bbox_inches=0)
     PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/faint_fraction_delay_spectrum_zenith.png', bbox_inches=0)
 
+#######################################
+if plot_07 or plot_08:
     
+    # 07) Plot power patterns for snapshots
+    
+    infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
+    hdulist = fits.open(infile)
+    n_snaps = hdulist[0].header['n_acc']
+    lst = hdulist['POINTING AND PHASE CENTER INFO'].data['LST']
+    hdulist.close()
+    
+    backdrop_xsize = 100
+    xmin = -180.0
+    xmax = 180.0
+    ymin = -90.0
+    ymax = 90.0
+
+    xgrid, ygrid = NP.meshgrid(NP.linspace(xmax, xmin, backdrop_xsize), NP.linspace(ymin, ymax, backdrop_xsize/2))
+    xvect = xgrid.ravel()
+    yvect = ygrid.ravel()
+
+    pb_snapshots = []
+    pbx_MWA_snapshots = []
+    pby_MWA_snapshots = []
+
+    src_ind_csm_snapshots = []
+    src_ind_gsm_snapshots = []
+    dsm_snapshots = []
+
+    if plot_08:
+
+        freq_SUMSS = 0.843 # in GHz
+        SUMSS_file = '/data3/t_nithyanandan/project_MWA/foregrounds/sumsscat.Mar-11-2008.txt'
+        catalog = NP.loadtxt(SUMSS_file, usecols=(0,1,2,3,4,5,10,12,13,14,15,16))
+        ra_deg_SUMSS = 15.0 * (catalog[:,0] + catalog[:,1]/60.0 + catalog[:,2]/3.6e3)
+        dec_dd = NP.loadtxt(SUMSS_file, usecols=(3,), dtype="|S3")
+        sgn_dec_str = NP.asarray([dec_dd[i][0] for i in range(dec_dd.size)])
+        sgn_dec = 1.0*NP.ones(dec_dd.size)
+        sgn_dec[sgn_dec_str == '-'] = -1.0
+        dec_deg_SUMSS = sgn_dec * (NP.abs(catalog[:,3]) + catalog[:,4]/60.0 + catalog[:,5]/3.6e3)
+        fmajax = catalog[:,7]
+        fminax = catalog[:,8]
+        fpa = catalog[:,9]
+        dmajax = catalog[:,10]
+        dminax = catalog[:,11]
+        PS_ind = NP.logical_and(dmajax == 0.0, dminax == 0.0)
+        ra_deg_SUMSS = ra_deg_SUMSS[PS_ind]
+        dec_deg_SUMSS = dec_deg_SUMSS[PS_ind]
+        fint = catalog[PS_ind,6] * 1e-3
+        spindex_SUMSS = -0.83 + NP.zeros(fint.size)
+        fmajax = fmajax[PS_ind]
+        fminax = fminax[PS_ind]
+        fpa = fpa[PS_ind]
+        dmajax = dmajax[PS_ind]
+        dminax = dminax[PS_ind]
+        bright_source_ind = fint >= 10.0 * (freq_SUMSS*1e9/freq)**spindex_SUMSS
+        ra_deg_SUMSS = ra_deg_SUMSS[bright_source_ind]
+        dec_deg_SUMSS = dec_deg_SUMSS[bright_source_ind]
+        fint = fint[bright_source_ind]
+        fmajax = fmajax[bright_source_ind]
+        fminax = fminax[bright_source_ind]
+        fpa = fpa[bright_source_ind]
+        dmajax = dmajax[bright_source_ind]
+        dminax = dminax[bright_source_ind]
+        spindex_SUMSS = spindex_SUMSS[bright_source_ind]
+        valid_ind = NP.logical_and(fmajax > 0.0, fminax > 0.0)
+        ra_deg_SUMSS = ra_deg_SUMSS[valid_ind]
+        dec_deg_SUMSS = dec_deg_SUMSS[valid_ind]
+        fint = fint[valid_ind]
+        fmajax = fmajax[valid_ind]
+        fminax = fminax[valid_ind]
+        fpa = fpa[valid_ind]
+        spindex_SUMSS = spindex_SUMSS[valid_ind]
+        freq_catalog = freq_SUMSS*1e9 + NP.zeros(fint.size)
+        catlabel = NP.repeat('SUMSS', fint.size)
+        ra_deg = ra_deg_SUMSS + 0.0
+        dec_deg = dec_deg_SUMSS
+        spindex = spindex_SUMSS
+        majax = fmajax/3.6e3
+        minax = fminax/3.6e3
+        fluxes = fint + 0.0
+
+        nvss_file = '/data3/t_nithyanandan/project_MWA/foregrounds/NVSS_catalog.fits'
+        freq_NVSS = 1.4 # in GHz
+        hdulist = fits.open(nvss_file)
+        ra_deg_NVSS = hdulist[1].data['RA(2000)']
+        dec_deg_NVSS = hdulist[1].data['DEC(2000)']
+        nvss_fpeak = hdulist[1].data['PEAK INT']
+        nvss_majax = hdulist[1].data['MAJOR AX']
+        nvss_minax = hdulist[1].data['MINOR AX']
+        hdulist.close()
+    
+        spindex_NVSS = -0.83 + NP.zeros(nvss_fpeak.size)
+        not_in_SUMSS_ind = NP.logical_and(dec_deg_NVSS > -30.0, dec_deg_NVSS <= min(90.0, latitude+90.0))
+        bright_source_ind = nvss_fpeak >= 10.0 * (freq_NVSS*1e9/freq)**(spindex_NVSS)
+        PS_ind = NP.sqrt(nvss_majax**2-(0.75/60.0)**2) < 14.0/3.6e3
+        count_valid = NP.sum(NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind))
+        nvss_fpeak = nvss_fpeak[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]
+        freq_catalog = NP.concatenate((freq_catalog, freq_NVSS*1e9 + NP.zeros(count_valid)))
+        catlabel = NP.concatenate((catlabel, NP.repeat('NVSS',count_valid)))
+        ra_deg = NP.concatenate((ra_deg, ra_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
+        dec_deg = NP.concatenate((dec_deg, dec_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
+        spindex = NP.concatenate((spindex, spindex_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
+        majax = NP.concatenate((majax, nvss_majax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
+        minax = NP.concatenate((minax, nvss_minax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
+        fluxes = NP.concatenate((fluxes, nvss_fpeak))
+        ra_deg_wrapped = ra_deg.ravel()
+        ra_deg_wrapped[ra_deg_wrapped > 180.0] -= 360.0
+    
+        csmctlg = CTLG.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+
+        dsm_file = '/data3/t_nithyanandan/project_MWA/foregrounds/gsmdata_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq/1e6,nside)
+        hdulist = fits.open(dsm_file)
+        dsm_table = hdulist[1].data
+        dsm_ra_deg = dsm_table['RA']
+        dsm_dec_deg = dsm_table['DEC']
+        dsm_temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
+        dsm = HP.cartview(dsm_temperatures.ravel(), coord=['G','E'], rot=[0,0,0], xsize=backdrop_xsize, return_projected_map=True)
+        dsm = dsm.ravel()
+
+    for i in xrange(n_snaps):
+        havect = lst[i] - xvect
+        altaz = GEOM.hadec2altaz(NP.hstack((havect.reshape(-1,1),yvect.reshape(-1,1))), latitude, units='degrees')
+        dircos = GEOM.altaz2dircos(altaz, units='degrees')
+        roi_altaz = NP.asarray(NP.where(altaz[:,0] >= 0.0)).ravel()
+        az = altaz[:,1] + 0.0
+        az[az > 360.0 - 0.5*180.0/n_sky_sectors] -= 360.0
+        roi_sector_altaz = NP.asarray(NP.where(NP.logical_or(NP.logical_and(az[roi_altaz] >= -0.5*180.0/n_sky_sectors + sky_sector*180.0/n_sky_sectors, az[roi_altaz] < -0.5*180.0/n_sky_sectors + (sky_sector+1)*180.0/n_sky_sectors), NP.logical_and(az[roi_altaz] >= 180.0 - 0.5*180.0/n_sky_sectors + sky_sector*180.0/n_sky_sectors, az[roi_altaz] < 180.0 - 0.5*180.0/n_sky_sectors + (sky_sector+1)*180.0/n_sky_sectors)))).ravel()
+        pb = NP.empty(xvect.size)
+        pb.fill(NP.nan)
+        pbx_MWA_vect = NP.empty(xvect.size)
+        pbx_MWA_vect.fill(NP.nan)
+        pby_MWA_vect = NP.empty(xvect.size)
+        pby_MWA_vect.fill(NP.nan)
+    
+        pb[roi_altaz] = PB.primary_beam_generator(altaz[roi_altaz,:], freq, telescope=telescope, skyunits='altaz', freq_scale='Hz', pointing_info=roi.pinfo[i])
+        pbx_MWA, pby_MWA = MWAPB.MWA_Tile_advanced(NP.radians(90.0-altaz[roi_altaz,0]).reshape(-1,1), NP.radians(altaz[roi_altaz,1]).reshape(-1,1), freq=185e6, delays=roi.pinfo[i]['delays']/435e-12)
+        pbx_MWA_vect[roi_altaz] = pbx_MWA.ravel()
+        pby_MWA_vect[roi_altaz] = pby_MWA.ravel()
+    
+        pb_snapshots += [pb]
+        pbx_MWA_snapshots += [pbx_MWA_vect]
+        pby_MWA_snapshots += [pby_MWA_vect]
+
+        if plot_08:
+            csm_hadec = NP.hstack(((lst[i]-csmctlg.location[:,0]).reshape(-1,1), csmctlg.location[:,1].reshape(-1,1)))
+            csm_altaz = GEOM.hadec2altaz(csm_hadec, latitude, units='degrees')
+            roi_csm_altaz = NP.asarray(NP.where(csm_altaz[:,0] >= 0.0)).ravel()
+            src_ind_csm_snapshots += [roi_csm_altaz]
+
+            dsm_snapshot = NP.empty(xvect.size)
+            dsm_snapshot.fill(NP.nan)
+            dsm_snapshot[roi_altaz] = dsm[roi_altaz]
+            dsm_snapshots += [dsm_snapshot]
+
+    if plot_07:
+        fig = PLT.figure(figsize=(6,6))
+
+        for i in xrange(n_snaps):
+            ax = fig.add_subplot(n_snaps,1,i+1)
+            pbsky = ax.imshow(pb_snapshots[i].reshape(-1,backdrop_xsize), origin='lower', extent=(NP.amax(xvect), NP.amin(xvect), NP.amin(yvect), NP.amax(yvect)), norm=PLTC.LogNorm(vmin=1e-3, vmax=1.0), cmap=CM.jet)
+            # pbskyc = ax.contour(xgrid[0,:], ygrid[:,0], pb_snapshots[i].reshape(-1,backdrop_xsize), levels=[0.01, 0.05, 0.1, 0.5], colors='k')
+            # ax.clabel(pbskyc, inline=1, fontsize=8, colors='k', fmt='%0.3f')
+    
+            ax.set_xlim(xvect.max(), xvect.min())
+            ax.set_ylim(yvect.min(), yvect.max())
+            ax.grid(True, which='both')
+            ax.set_aspect('equal')
+            ax.tick_params(which='major', length=12, labelsize=12)
+            ax.tick_params(which='minor', length=6)
+            ax.set_xlabel(r'$\alpha$ [degrees]', fontsize=16, weight='medium')
+            ax.set_ylabel(r'$\delta$ [degrees]', fontsize=16, weight='medium')
+            ax.locator_params(axis='x', nbins=5)
+        
+        cbax = fig.add_axes([0.9, 0.125, 0.02, 0.84])
+        cbar = fig.colorbar(pbsky, cax=cbax, orientation='vertical')
+    
+        PLT.tight_layout()
+        fig.subplots_adjust(right=0.95)
+        # fig.subplots_adjust(left=0.15)
+    
+        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'.eps', bbox_inches=0)
+
+    if plot_08:
+
+        # 08) Plot foreground models with power pattern contours for snapshots
+        
+        n_fg_ticks = 5
+        fg_ticks = NP.round(10**NP.linspace(NP.log10(dsm.min()), NP.log10(dsm.max()), n_fg_ticks)).astype(NP.int)
+
+        fig = PLT.figure(figsize=(6,6))
+        for i in xrange(n_snaps):
+            ax = fig.add_subplot(n_snaps,1,i+1)
+            dsmsky = ax.imshow(dsm_snapshots[i].reshape(-1,backdrop_xsize), origin='lower', extent=(NP.amax(xvect), NP.amin(xvect), NP.amin(yvect), NP.amax(yvect)), norm=PLTC.LogNorm(vmin=dsm.min(), vmax=dsm.max()), cmap=CM.jet)
+            pbskyc = ax.contour(xgrid[0,:], ygrid[:,0], pb_snapshots[i].reshape(-1,backdrop_xsize), levels=[0.001953125, 0.0078125, 0.03125, 0.125, 0.5], colors='k', linewidths=1.5)
+            # ax.clabel(pbskyc, inline=1, fontsize=8, colors='k', fmt='%0.3f')
+    
+            ax.set_xlim(xvect.max(), xvect.min())
+            ax.set_ylim(yvect.min(), yvect.max())
+            ax.grid(True, which='both')
+            ax.set_aspect('equal')
+            ax.tick_params(which='major', length=12, labelsize=12)
+            ax.tick_params(which='minor', length=6)
+            ax.set_xlabel(r'$\alpha$ [degrees]', fontsize=16, weight='medium')
+            ax.set_ylabel(r'$\delta$ [degrees]', fontsize=16, weight='medium')
+            ax.locator_params(axis='x', nbins=5)
+        
+        cbax = fig.add_axes([0.85, 0.125, 0.02, 0.84])
+        cbar = fig.colorbar(dsmsky, cax=cbax, orientation='vertical')
+        cbar.set_ticks(fg_ticks.tolist())
+        cbar.set_ticklabels(fg_ticks.tolist())
+        cbax.set_ylabel('Temperature [K]', labelpad=0, fontsize=18)
+    
+        PLT.tight_layout()
+        fig.subplots_adjust(right=0.85)
+        # fig.subplots_adjust(left=0.15)
+    
+        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/dsm.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/dsm.eps', bbox_inches=0)
+
+        n_fg_ticks = 5
+        fg_ticks = NP.round(10**NP.linspace(NP.log10(fluxes.min()), NP.log10(fluxes.max()), n_fg_ticks)).astype(NP.int)
+        fig = PLT.figure(figsize=(6,6))
+        for i in xrange(n_snaps):
+            ax = fig.add_subplot(n_snaps,1,i+1)
+            csmsky = ax.scatter(ra_deg_wrapped[src_ind_csm_snapshots[i]], dec_deg[src_ind_csm_snapshots[i]], c=fluxes[src_ind_csm_snapshots[i]], norm=PLTC.LogNorm(vmin=fluxes.min(), vmax=fluxes.max()), cmap=CM.jet, edgecolor='none', s=20)
+            pbskyc = ax.contour(xgrid[0,:], ygrid[:,0], pb_snapshots[i].reshape(-1,backdrop_xsize), levels=[0.001953125, 0.0078125, 0.03125, 0.125, 0.5], colors='k', linewidths=1)
+            # ax.clabel(pbskyc, inline=1, fontsize=8, colors='k', fmt='%0.3f')
+    
+            ax.set_xlim(xvect.max(), xvect.min())
+            ax.set_ylim(yvect.min(), yvect.max())
+            ax.grid(True, which='both')
+            ax.set_aspect('equal')
+            ax.tick_params(which='major', length=12, labelsize=12)
+            ax.tick_params(which='minor', length=6)
+            ax.set_xlabel(r'$\alpha$ [degrees]', fontsize=16, weight='medium')
+            ax.set_ylabel(r'$\delta$ [degrees]', fontsize=16, weight='medium')
+            ax.locator_params(axis='x', nbins=5)
+        
+        cbax = fig.add_axes([0.85, 0.125, 0.02, 0.84])
+        cbar = fig.colorbar(csmsky, cax=cbax, orientation='vertical')
+        cbar.set_ticks(fg_ticks.tolist())
+        cbar.set_ticklabels(fg_ticks.tolist())
+        cbax.set_ylabel('Flux density [Jy]', labelpad=0, fontsize=18)
+    
+        PLT.tight_layout()
+        fig.subplots_adjust(right=0.85)
+        # fig.subplots_adjust(left=0.15)
+    
+        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/csm.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/csm.eps', bbox_inches=0)
+        

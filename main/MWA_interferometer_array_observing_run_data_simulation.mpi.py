@@ -113,10 +113,11 @@ processing_group.add_argument('--bl-chunk-size', help='Baseline chunk size [int,
 processing_group.add_argument('--bl-chunk', help='Baseline chunk indices to process [int(s), Default=None: all chunks]', default=None, type=int, dest='bl_chunk', nargs='*')
 processing_group.add_argument('--n-bl-chunks', help='Upper limit on baseline chunks to be processed [int, Default=None]', default=None, type=int, dest='n_bl_chunks')
 processing_group.add_argument('--n-sky-sectors', help='Divide sky into sectors relative to zenith [int, Default=1]', default=1, type=int, dest='n_sky_sectors')
-processing_group.add_argument('--bpw', help='Bandpass window shape [str, "rect"]', default='rect', type=str, dest='bpass_shape', choices=['rect', 'bnw'])
+processing_group.add_argument('--bpw', help='Bandpass window shape [str, "rect"]', default='rect', type=str, dest='bpass_shape', choices=['rect', 'bnw', 'bhw'])
 processing_group.add_argument('--f-pad', help='Frequency padding fraction for delay transform [float, Default=1.0]', type=float, dest='f_pad', default=1.0)
 processing_group.add_argument('--coarse-channel-width', help='Width of coarse channel [int: number of fine channels]', dest='coarse_channel_width', default=32, type=int)
 processing_group.add_argument('--bp-correct', help='Bandpass correction', dest='bp_correct', action='store_true')
+processing_group.add_argument('--noise-bp-correct', help='Bandpass correction for Tsys', dest='noise_bp_correct', action='store_true')
 processing_group.add_argument('--bpw-pad', help='Bandpass window padding length [int, Default=0]', dest='n_pad', default=0, type=int)
 
 mpi_group = parser.add_mutually_exclusive_group(required=True)
@@ -489,6 +490,7 @@ oversampling_factor = 1.0 + args['f_pad']
 n_pad = args['n_pad']
 pfb_method = args['pfb_method']
 bandpass_correct = args['bp_correct']
+noise_bandpass_correct = args['noise_bp_correct']
 flag_chan  = NP.asarray(args['flag_chan']).reshape(-1)
 bp_flag_repeat = args['bp_flag_repeat']
 coarse_channel_width = args['coarse_channel_width']
@@ -565,6 +567,10 @@ if bandpass_correct:
     bandpass_shape = NP.ones(base_bpass.size)
 else:
     bpcorr = 1.0*NP.ones(nchan)
+
+noise_bpcorr = 1.0*NP.ones(nchan)
+if noise_bandpass_correct:
+    noise_bpcorr = NP.copy(bpcorr)
 
 if not flag_repeat_edge_channels:
     flagged_edge_channels += [range(0,n_edge_flag[0])]
@@ -650,16 +656,16 @@ if plots:
         ax = fig.add_subplot(111)
         ax.set_xlabel('frequency [MHz]', fontsize=18, weight='medium')
         ax.set_ylabel('gain', fontsize=18, weight='medium')
-        ax.set_xlim(149.0, 152.0)
+        ax.set_xlim(freq*1e-6 - 2.0, freq*1e-6 + 2.0)
         ax.set_ylim(0.05, 2.0*bpcorr.max())
         ax.set_yscale('log')
         try:
-            ax.plot(1e3*chans, 10**(pfbwin_interp/10), 'k.:', lw=2, ms=10, label='Instrumental PFB Bandpass')
+            ax.plot(1e3*chans, 10**(pfbwin_interp/10), 'k.--', lw=2, ms=10, label='Instrumental PFB Bandpass')
         except NameError:
             pass
-        ax.plot(1e3*chans, bpcorr, 'k+--', lw=2, ms=10, label='Bandpass Correction')
+        ax.plot(1e3*chans, bpcorr, 'k+:', lw=2, ms=10, label='Bandpass Correction')
         ax.plot(1e3*chans, bandpass_shape, 'k-', lw=2, label='Corrected Bandpass (Flagged)')
-        ax.plot(1e3*chans, 3.0+NP.zeros(n_channels), 'k-.', label='Flagging threshold')
+        # ax.plot(1e3*chans, 3.0+NP.zeros(n_channels), 'k-.', label='Flagging threshold')
         legend = ax.legend(loc='lower center')
         legend.draw_frame(False)
         ax.tick_params(which='major', length=18, labelsize=12)
@@ -996,7 +1002,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ts = time.time()
             if j == 0:
                 ts0 = ts
-            ia.observe(timestamp, Tsys*bpcorr, bpass, pointings_hadec[j,:], CTLG.SkyModel(skymod.catalog.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist())), t_snap[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
+            ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], CTLG.SkyModel(skymod.catalog.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist())), t_snap[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
             te = time.time()
             # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
             progress.update(j+1)
@@ -1058,7 +1064,7 @@ else: # MPI based on baseline multiplexing
                     ts = time.time()
                     if j == 0:
                         ts0 = ts
-                    ia.observe(timestamp, Tsys*bpcorr, bpass, pointings_hadec[j,:], skymod, t_snap[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
+                    ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_snap[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
                     te = time.time()
                     # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                     progress.update(j+1)
@@ -1181,8 +1187,8 @@ else: # MPI based on baseline multiplexing
                     if j == 0:
                         ts0 = ts
                   
-                    # ia.observe(timestamp, Tsys*bpcorr, bpass, pointings_hadec[j,:], fgmod, t_snap[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
-                    ia.observe(timestamp, Tsys*bpcorr, bpass, pointings_hadec[j,:], skymod, t_snap[j], pb_info=pbinfo, brightness_units=flux_unit, roi_info={'ind': roi.info['ind'][j], 'pbeam': roi.info['pbeam'][j]}, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
+                    # ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], fgmod, t_snap[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
+                    ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_snap[j], pb_info=pbinfo, brightness_units=flux_unit, roi_info={'ind': roi.info['ind'][j], 'pbeam': roi.info['pbeam'][j]}, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
                     te = time.time()
                     # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                     progress.update(j+1)
@@ -1194,6 +1200,7 @@ else: # MPI based on baseline multiplexing
                 ia.generate_noise()
                 ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
+                ia.project_baselines()
                 ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
         pte_str = str(DT.datetime.now())                
 

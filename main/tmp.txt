@@ -22,3 +22,5 @@ Tsys     Description
 87.1     100 ps jitter, no dipole, array pattern, ground_plane 0.3, pb modified by regions at (265, -20), (2.5, 40), (2.5, -62.5), with angular radius (20, 12.5, 12.5) on snapshots (0, 1, 1) with factors (2, 6, 6) respectively
 87.2     100 ps jitter, no dipole, array pattern, ground_plane 0.3, pb modified by regions at (265, -20), (2.5, 50), (2.5, -62.5), with angular radius (20, 20, 12.5) on snapshots (0, 1, 1) with factors (2, 4, 4) respectively
 87.3     100 ps jitter, no dipole, array pattern, ground_plane 0.3, pb modified by regions at (265, -20), (300, -30), (305, 40), (2.5, 50), (2.5, -62.5), (325, 10), (60, -50) with angular radius (20, 10, 7.5, 20, 12.5, 10, 10) on snapshots (0, 0, 0, 1, 1, 1, 1) with factors (2, 4, 4, 5, 5, 4, 4) respectively
+
+90.0     50 ps jitter, no dipole, ground plane 0.3, array pattern

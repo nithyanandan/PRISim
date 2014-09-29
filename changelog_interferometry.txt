@@ -1,3 +1,20 @@
+from v1.07 of interferometry:
+============================
+
+In interferometry.py,
+
+(*) Added a member function project_baselines() to class InterferometerArray. 
+This projects baseline vectors with respect to a specified direction on the sky.
+(*) Modified save() member function of class InterferometerArray to write out
+projected baselines
+(*) Modified __init__() member function of class InterferometerArray to read in
+projected baselines from the FITS file as well as initialize it to None if not
+initialized from init_file. Modified docstring accordingly
+(*) Modified docstring of class InterferometerArray about description and usage
+of new member function project_baselines()
+(*) Modified docstring of class InterferometerArray about description and usage
+of new attribute projected_baselines
+
 from v1.06 of interferometry:
 ============================
 

@@ -97,11 +97,11 @@ if sky_sector is None:
 else:
     sky_sector_str = '_sky_sector_{0:0d}_'.format(sky_sector)
 
-Tsys = 85.6  # System temperature in K
+Tsys = 95.0  # System temperature in K
 freq = 185.0 * 1e6 # foreground center frequency in Hz
 freq_resolution = 80e3 # in Hz
 coarse_channel_resolution = 1.28e6 # in Hz
-bpass_shape = 'bnw'
+bpass_shape = 'bhw'
 f_pad = 1.0
 oversampling_factor = 1.0 + f_pad
 n_channels = 384
@@ -158,8 +158,8 @@ ref_bl_length = ref_bl_length[sortind]
 ref_bl_orientation = ref_bl_orientation[sortind]
 ref_bl_id = ref_bl_id[sortind]
 
-n_bl_chunks = 32
-baseline_chunk_size = 64
+n_bl_chunks = 2048
+baseline_chunk_size = 1
 total_baselines = ref_bl_length.size
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
 bl_chunk = range(len(baseline_bin_indices))
@@ -353,6 +353,7 @@ for j in range(len(fhd_obsid)):
     fhd_info[fhd_obsid[j]] = {}
     fhd_info[fhd_obsid[j]]['bl_id'] = fhd_bl_id
     fhd_info[fhd_obsid[j]]['bl'] = fhd_bl
+    fhd_info[fhd_obsid[j]]['bl_length'] = fhd_bl_length
     fhd_info[fhd_obsid[j]]['bl_orientation'] = fhd_bl_orientation
     fhd_info[fhd_obsid[j]]['delays'] = fhd_delays
     fhd_info[fhd_obsid[j]]['C'] = fhd_C
@@ -722,7 +723,7 @@ norm_b = PLTC.Normalize(vmin=mindelay, vmax=maxdelay)
 #         ax.locator_params(axis='x', nbins=5)
     
 #         cbax = fig.add_axes([0.15, 0.9, 0.8, 0.02])
-#         cbar = fig.colorbar(imsky, cax=cbax, orientation='horizontal')
+#         cbar = fig.colorbar(pbsky, cax=cbax, orientation='horizontal')
 
 #         PLT.tight_layout()
 #         # fig.subplots_adjust(bottom=0.1)
@@ -847,7 +848,11 @@ for j in xrange(n_snaps):
     data_sim_ratio = NP.abs(fhd_info[fhd_obsid[j]]['vis_lag_noisy'][sortind,:,0].T) / NP.abs(asm_cc_vis_lag[common_bl_ind[sortind],:,j].T)
     relevant_EoR_window = small_delays_EoR_window[:,common_bl_ind[sortind]]
 
-    data_sim_difference_fraction[j] = NP.abs(NP.sum(NP.abs(fhd_info[fhd_obsid[j]]['vis_lag_noisy'][sortind,:,0].T)-NP.abs(NP.mean(fhd_info[fhd_obsid[j]]['rms_lag']))) - NP.sum(NP.abs(asm_cc_vis_lag[common_bl_ind[sortind],:,j].T)-NP.abs(NP.mean(vis_rms_lag)))) / NP.sum(NP.abs(asm_cc_vis_lag[common_bl_ind[sortind],:,j].T)-NP.abs(NP.mean(vis_rms_lag)))
+    # data_sim_difference_fraction[j] = NP.mean(NP.abs(NP.abs(fhd_info[fhd_obsid[j]]['vis_lag_noisy'][sortind,:,0].T) - NP.abs(asm_cc_vis_lag[common_bl_ind[sortind],:,j].T))/NP.abs(fhd_info[fhd_obsid[j]]['vis_lag_noisy'][sortind,:,0].T))
+    # data_sim_difference_fraction[j] = NP.mean(NP.abs(NP.abs(fhd_info[fhd_obsid[j]]['vis_lag_noisy'][sortind,:,0].T) - NP.abs(asm_cc_vis_lag[common_bl_ind[sortind],:,j].T))/NP.abs(asm_cc_vis_lag[common_bl_ind[sortind],:,j].T))
+    data_sim_difference_fraction[j] = NP.sum(NP.abs(NP.abs(fhd_info[fhd_obsid[j]]['vis_lag_noisy'][sortind,:,0].T) - NP.abs(asm_cc_vis_lag[common_bl_ind[sortind],:,j].T))) / NP.sum(NP.abs(fhd_info[fhd_obsid[j]]['vis_lag_noisy'][sortind,:,0].T))
+    # data_sim_difference_fraction[j] = NP.sum(NP.abs(NP.abs(fhd_info[fhd_obsid[j]]['vis_lag_noisy'][sortind,:,0].T) - NP.abs(asm_cc_vis_lag[common_bl_ind[sortind],:,j].T))) / NP.sum(NP.abs(asm_cc_vis_lag[common_bl_ind[sortind],:,j].T))
+    # data_sim_difference_fraction[j] = NP.abs(NP.sum(NP.abs(fhd_info[fhd_obsid[j]]['vis_lag_noisy'][sortind,:,0].T)-NP.abs(NP.mean(fhd_info[fhd_obsid[j]]['rms_lag'])) - NP.abs(asm_cc_vis_lag[common_bl_ind[sortind],:,j].T)+NP.abs(NP.mean(vis_rms_lag)))) / NP.sum(NP.abs(asm_cc_vis_lag[common_bl_ind[sortind],:,j].T)-NP.abs(NP.mean(vis_rms_lag)))
 
     mu = NP.mean(NP.log10(data_sim_ratio[relevant_EoR_window]))
     sig= NP.std(NP.log10(data_sim_ratio[relevant_EoR_window]))

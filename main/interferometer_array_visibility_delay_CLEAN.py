@@ -64,14 +64,14 @@ bl_length = bl_length[sortind]
 bl_id = bl_id[sortind]
 total_baselines = bl_length.size
 
-n_bl_chunks = 32
-baseline_chunk_size = 64
+n_bl_chunks = 1
+baseline_chunk_size = 2048
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
 
-Tsys = 87.3 # System temperature in K
+Tsys = 95.0 # System temperature in K
 freq = 185.0 * 1e6 # foreground center frequency in Hz
 freq_resolution = 80e3 # in Hz
-bpass_shape = 'bnw'
+bpass_shape = 'bhw'
 f_pad = 1.0
 oversampling_factor = 1.0 + f_pad
 n_channels = 384
@@ -101,9 +101,9 @@ if pc_coords == 'dircos':
 n_sky_sectors = 1
 
 nside = 64
-use_GSM = True
+use_GSM = False
 use_DSM = False
-use_CSM = False
+use_CSM = True
 use_NVSS = False
 use_SUMSS = False
 use_MSS = False

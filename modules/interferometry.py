@@ -14,6 +14,7 @@ import baseline_delay_horizon as DLY
 import constants as CNST
 import my_DSP_modules as DSP
 import catalog as CTLG
+import ipdb as PDB
 
 ################################################################################
 
@@ -2011,6 +2012,13 @@ class InterferometerArray:
     baseline_lengths
                 [M-element numpy array] Lengths of the baseline in SI units
 
+    projected_baselines
+                [M x 3 x n_snaps Numpy array] The projected baseline vectors 
+                associated with the M interferometers and number of snapshots in 
+                SI units. The coordinate system of these vectors is specified by 
+                either pointing_center, phase_center or as specified in input to 
+                member function project_baselines().
+
     bp          [numpy array] Bandpass weights of size n_baselines x nchan x
                 n_acc, where n_acc is the number of accumulations in the
                 observation, nchan is the number of frequency channels, and
@@ -2207,42 +2215,46 @@ class InterferometerArray:
 
     Member functions:
 
-    __init__():        Initializes an instance of class InterferometerArray
+    __init__()          Initializes an instance of class InterferometerArray
+                        
+    observe()           Simulates an observing run with the interferometer
+                        specifications and an external sky catalog thus producing
+                        visibilities. The simulation generates visibilities
+                        observed by the interferometer for the specified
+                        parameters.
+                        
+    observing_run()     Simulate an extended observing run in 'track' or 'drift'
+                        mode, by an instance of the InterferometerArray class, of
+                        the sky when a sky catalog is provided. The simulation
+                        generates visibilities observed by the interferometer
+                        array for the specified parameters. Uses member function
+                        observe() and builds the observation from snapshots. The
+                        timestamp for each snapshot is the current time at which
+                        the snapshot is generated.
+                        
+    generate_noise()    Generates thermal noise from attributes that describe 
+                        system parameters which can be added to sky visibilities
+                        
+    add_noise()         Adds the thermal noise generated in member function 
+                        generate_noise() to the sky visibilities
+                        
+    phase_centering()   Centers the phase of visibilities around any given phase 
+                        center.
+                        
+    project_baselines() Project baseline vectors with respect to a reference 
+                        point (usually pointing center) on the sky.
 
-    observe():         Simulates an observing run with the interferometer
-                       specifications and an external sky catalog thus producing
-                       visibilities. The simulation generates visibilities
-                       observed by the interferometer for the specified
-                       parameters.
 
-    observing_run():   Simulate an extended observing run in 'track' or 'drift'
-                       mode, by an instance of the InterferometerArray class, of
-                       the sky when a sky catalog is provided. The simulation
-                       generates visibilities observed by the interferometer
-                       array for the specified parameters. Uses member function
-                       observe() and builds the observation from snapshots. The
-                       timestamp for each snapshot is the current time at which
-                       the snapshot is generated.
-
-    generate_noise():  Generates thermal noise from attributes that describe 
-                       system parameters which can be added to sky visibilities
-
-    add_noise():       Adds the thermal noise generated in member function 
-                       generate_noise() to the sky visibilities
-
-    phase_centering(): Centers the phase of visibilities around any given phase 
-                       center.
-
-    delay_transform(): Transforms the visibilities from frequency axis onto 
+    delay_transform()  Transforms the visibilities from frequency axis onto 
                        delay (time) axis using an IFFT. This is performed for 
                        noiseless sky visibilities, thermal noise in visibilities, 
                        and observed visibilities. 
 
-    concatenate():     Concatenates different visibility data sets from instances 
+    concatenate()      Concatenates different visibility data sets from instances 
                        of class InterferometerArray along baseline, frequency or
                        time axis.
 
-    save():            Saves the interferometer array information to disk. 
+    save()             Saves the interferometer array information to disk. 
 
     ----------------------------------------------------------------------------
     """
@@ -2263,7 +2275,7 @@ class InterferometerArray:
         freq_resolution, lags, lst, obs_catalog_indices, pointing_center,
         skyvis_freq, skyvis_lag, timestamp, t_acc, Tsys, vis_freq, vis_lag, 
         t_obs, n_acc, vis_noise_freq, vis_noise_lag, vis_rms_freq,
-        geometric_delays.
+        geometric_delays, and projected_baselines.
 
         Read docstring of class InterferometerArray for details on these
         attributes.
@@ -2386,6 +2398,9 @@ class InterferometerArray:
             else:
                 raise KeyError('Extension named "BASELINES" not found in init_file.')
 
+            if 'PROJ_BASELINES' in extnames:
+                self.projected_baselines = hdulist['PROJ_BASELINES'].data
+
             if 'LABELS' in extnames:
                 self.labels = hdulist['LABELS'].data.tolist()
             else:
@@ -2507,6 +2522,7 @@ class InterferometerArray:
 
         self.baseline_lengths = NP.sqrt(NP.sum(self.baselines**2, axis=1))
         self.baseline_orientations = NP.angle(self.baselines[:,0] + 1j * self.baselines[:,1])
+        self.projected_baselines = None
 
         if not isinstance(labels, (list, tuple)):
             raise TypeError('Interferometer array labels must be a list or tuple of unique identifiers')
@@ -3445,6 +3461,96 @@ class InterferometerArray:
 
     #############################################################################
 
+    def project_baselines(self, ref_point=None):
+
+        """
+        ------------------------------------------------------------------------
+        Project baseline vectors with respect to a reference point (usually
+        pointing center) on the sky. Assigns the projected baselines to the 
+        attribute projected_baselines
+
+        Input(s):
+
+        ref_point   [dictionary] Contains information about the reference 
+                    position to which projected baselines are to be computed. If
+                    none provided, default = None. Default sets the reference
+                    point to be the pointing center as determined from the
+                    instance of class InterferometerArray. If this dictionary is
+                    specified, it must be contain the following keys with the 
+                    following values:
+                    'location'  [string or 2-element numpy vector] If set to 
+                                'pointing_center' or 'phase_center', it uses the
+                                pointing or phase center value from the instance
+                                of class InterferometerArray. If not set to one
+                                of these strings, it must be a 2-element RA-Dec
+                                position (in degrees). 
+                    'coords'    [string] Refers to the coordinate system in
+                                which value in key 'location' is specified in. 
+                                This is used only when value in key 'location' 
+                                is not a string but a 2-element numpy array.
+                                Currently can be set only to 'radec'. More 
+                                functionality to be added later. If none
+                                provided, it is assumed to be 'radec'
+        ------------------------------------------------------------------------
+        """
+
+        if ref_point is None:
+            ref_point = {}
+            ref_point['location'] = 'pointing_center'
+        elif isinstance(ref_point, dict):
+            if 'location' in ref_point:
+                if (ref_point['location'] != 'pointing_center') and (ref_point['location'] != 'phase_center'):
+                    if not isinstance(ref_point['location'], NP.ndarray):
+                        raise ValueError('Value of key "location" in input parameter ref_point can only be "pointing_center" or "phase_center"')
+                    else:
+                        ref_point['location'] = ref_point['location'].ravel()
+                        if ref_point['location'].size != 2:
+                            raise ValueError('key "location" in input parameter ref_point must be a 2-element numpy array')
+
+                    if 'coords' in ref_point:
+                        if ref_point['coords'] != 'radec':
+                            raise ValueError('Value of key "coords" in input parameter ref_point must be "radec"')
+                    
+                    else:
+                        ref_point['coords'] = 'radec'
+            else:
+                raise KeyError('Key "location" not provided in input parameter ref_point')
+        else:
+            raise TypeError('Input parameter ref_point must be a dictionary')
+
+        if ref_point['location'] == 'pointing_center':
+            dec = self.pointing_center[:,1]
+            if self.pointing_coords == 'hadec':
+                ha = self.pointing_center[:,0]
+            elif self.pointing_coords == 'radec':
+                ha = NP.asarray(self.lst) - self.pointing_center[:,0]
+        elif ref_point['location'] == 'phase_center':
+            dec = self.phase_center[:,1]
+            if self.phase_coords == 'hadec':
+                ha = self.phase_center[:,0]
+            elif self.phase_coords == 'radec':
+                ha = NP.asarray(self.lst) - self.phase_center[:,0]
+        else:
+            ha = NP.asarray(self.lst) - ref_point['location'][0]
+            dec = ref_point['location'][1] + NP.zeros(len(self.lst))
+
+        ha = NP.radians(ha).ravel()
+        dec = NP.radians(dec).ravel()
+
+        eq_baselines = GEOM.enu2xyz(self.baselines, self.latitude, units='degrees')
+        proj_baselines = NP.empty((eq_baselines.shape[0], eq_baselines.shape[1], len(self.lst)))
+
+        for i in xrange(len(self.lst)):
+            rot_matrix = NP.asarray([[NP.sin(ha[i]),               NP.cos(ha[i]),             0.0],
+                                     [-NP.sin(dec[i])*NP.cos(ha[i]), NP.sin(dec[i])*NP.sin(ha[i]), NP.cos(dec[i])], 
+                                     [NP.cos(dec[i])*NP.cos(ha[i]), -NP.cos(dec[i])*NP.sin(ha[i]), NP.sin(dec[i])]])
+
+            proj_baselines[:,:,i] = NP.dot(eq_baselines, rot_matrix.T)
+
+        self.projected_baselines = proj_baselines
+
+    #############################################################################
+
     def delay_transform(self, pad=1.0, freq_wts=None, verbose=True):
 
         """
@@ -3708,6 +3814,11 @@ class InterferometerArray:
         hdulist += [fits.ImageHDU(self.baselines, name='baselines')]
         if verbose:
             print '\tCreated an extension for baseline vectors.'
+
+        if self.projected_baselines is not None:
+            hdulist += [fits.ImageHDU(self.projected_baselines, name='proj_baselines')]
+            if verbose:
+                print '\tCreated an extension for projected baseline vectors.'
 
         hdulist += [fits.ImageHDU(self.A_eff, name='Effective area')]
         if verbose:

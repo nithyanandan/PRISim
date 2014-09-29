@@ -58,8 +58,8 @@ bl_id = bl_id[sortind]
 bl_length = bl_length[sortind]
 total_baselines = bl_length.size
 
-n_bl_chunks = 32
-baseline_chunk_size = 64
+n_bl_chunks = 1
+baseline_chunk_size = 2048
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
 
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
@@ -69,7 +69,7 @@ bl = bl[:baseline_bin_indices[n_bl_chunks],:]
 bl_length = bl_length[:baseline_bin_indices[n_bl_chunks]]
 bl_id = bl_id[:baseline_bin_indices[n_bl_chunks]]
 
-Tsys = 87.3 # System temperature in K
+Tsys = 95.0 # System temperature in K
 freq = 185.0 * 1e6 # foreground center frequency in Hz
 freq_resolution = 80e3 # in Hz
 bpass_shape = 'rect'
@@ -94,9 +94,9 @@ if snapshots_range is not None:
 n_sky_sectors = 1
 
 nside = 64
-use_GSM = True
+use_GSM = False
 use_DSM = False
-use_CSM = False
+use_CSM = True
 use_NVSS = False
 use_SUMSS = False
 use_MSS = False
