@@ -4,7 +4,7 @@ from astropy.io import ascii
 import progressbar as PGB
 import interferometry as RI
 
-telescope_id = 'custom'
+telescope_id = 'mwa_dipole'
 element_size = 0.74
 element_shape = 'delta'
 phased_array = True
@@ -26,6 +26,8 @@ elif telescope_id == 'custom':
         raise ValueError('Both antenna element shape and size must be specified for the custom telescope type.')
     elif element_size <= 0.0:
         raise ValueError('Antenna element size must be positive.')
+elif telescope_id == 'mwa_tools':
+    pass
 else:
     raise ValueError('telescope ID must be specified.')
 
@@ -58,8 +60,8 @@ bl_id = bl_id[sortind]
 bl_length = bl_length[sortind]
 total_baselines = bl_length.size
 
-n_bl_chunks = 1
-baseline_chunk_size = 2048
+n_bl_chunks = 32
+baseline_chunk_size = 64
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
 
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
@@ -93,10 +95,21 @@ if snapshots_range is not None:
 
 n_sky_sectors = 1
 
+spindex_rms = 0.0
+spindex_seed = None
+spindex_seed_str = ''
+if spindex_rms > 0.0:
+    spindex_rms_str = '{0:.1f}'.format(spindex_rms)
+else:
+    spindex_rms = 0.0
+
+if spindex_seed is not None:
+    spindex_seed_str = '{0:0d}_'.format(spindex_seed)
+
 nside = 64
-use_GSM = False
+use_GSM = True
 use_DSM = False
-use_CSM = True
+use_CSM = False
 use_NVSS = False
 use_SUMSS = False
 use_MSS = False
@@ -128,14 +141,14 @@ for k in range(n_sky_sectors):
         sky_sector_str = '_sky_sector_{0:0d}_'.format(k)
 
     for i in range(0, n_bl_chunks):
-        infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+        infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
         # infile = '/data3/t_nithyanandan/project_MWA/multi_baseline_visibilities_'+avg_drifts_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[i]],bl_length[min(baseline_bin_indices[i]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+'{0:.1f}_MHz_'.format(nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
         if i == 0:
             ia = RI.InterferometerArray(None, None, None, init_file=infile+'.fits')    
         else:
             ia_next = RI.InterferometerArray(None, None, None, init_file=infile+'.fits')    
             ia.concatenate(ia_next, axis=0)
-    outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)
+    outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)
     
     ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
 

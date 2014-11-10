@@ -48,6 +48,8 @@ elif telescope_id == 'custom':
         raise ValueError('Both antenna element shape and size must be specified for the custom telescope type.')
     elif element_size <= 0.0:
         raise ValueError('Antenna element size must be positive.')
+elif telescope_id == 'mwa_tools':
+    pass
 else:
     raise ValueError('telescope ID must be specified.')
 

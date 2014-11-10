@@ -1,4 +1,20 @@
-from 9618b44 of interferometery:
+from d703b37 of interferometry:
+============================== 
+
+In interferometry.py,
+
+(*) Fixed a bug to check if key 'id' is present in attribute telescope before
+computing primary beam in member function append_settings() of class
+ROI_parameters
+
+In primary_beams.py,
+
+(*) Removed reference of ground plane in the call to dipole_field_pattern()
+while using telescope id = 'mwa_dipole'. This is because ground plane pattern
+effect has been detached from dipole field pattern
+(*) Fixed bugs when telescope is set to mwa_dipole in primary_beam_generator()
+
+from 9618b44 of interferometry:
 ===============================
 
 In interferometry.py,

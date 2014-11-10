@@ -263,10 +263,27 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 raise ValueError('skyunits must be in Alt-Az or direction cosine coordinates for MWA.')
         elif telescope['id'] == 'mwa_dipole':
             if (skyunits == 'altaz') or (skyunits == 'dircos'):
-                ep = dipole_field_pattern(0.74, skypos, dipole_coords='dircos',
-                                          dipole_orientation=NP.asarray([1.0,0.0,0.0]).reshape(1,-1),
+                if ('orientation' in telescope) and ('ocoords' in telescope):
+                    orientation = NP.asarray(telescope['orientation']).reshape(1,-1)
+                    ocoords = telescope['ocoords']
+                elif ('orientation' not in telescope) and ('ocoords' in telescope):
+                    ocoords = telescope['ocoords']
+                    if telescope['ocoords'] == 'altaz':
+                        orientation = NP.asarray([0.0, 90.0]).reshape(1,-1)
+                    elif telescope['ocoords'] == 'dircos':
+                        orientation = NP.asarray([1.0, 0.0, 0.0]).reshape(1,-1)
+                    else:
+                        raise ValueError('key "ocoords" in telescope dictionary contains invalid value')
+                elif ('orientation' in telescope) and ('ocoords' not in telescope):
+                    raise KeyError('key "ocoords" in telescope dictionary not specified.')
+                else:
+                    ocoords = 'dircos'
+                    orientation = NP.asarray([1.0, 0.0, 0.0]).reshape(1,-1)
+
+                ep = dipole_field_pattern(0.74, skypos, dipole_coords=ocoords,
+                                          dipole_orientation=orientation,
                                           skycoords=skyunits, wavelength=FCNST.c/frequency, 
-                                          ground_plane=0.3, half_wave_dipole_approx=False)
+                                          half_wave_dipole_approx=False)
                 pb = NP.abs(ep)**2 # Power pattern is square of the field pattern
             else:
                 raise ValueError('skyunits must be in Alt-Az or direction cosine coordinates for MWA dipole.')

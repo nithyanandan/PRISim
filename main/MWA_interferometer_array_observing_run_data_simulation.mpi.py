@@ -39,11 +39,11 @@ parser.add_argument('--antenna-file', help='File containing antenna locations', 
 
 telescope_group = parser.add_argument_group('Telescope parameters', 'Telescope/interferometer specifications')
 telescope_group.add_argument('--label-prefix', help='Prefix for baseline labels [str, Default = ""]', default='', type=str, dest='label_prefix')
-telescope_group.add_argument('--telescope', help='Telescope name [str, default="custom"]', default='custom', type=str, dest='telescope_id', choices=['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'paper_dipole', 'custom'])
+telescope_group.add_argument('--telescope', help='Telescope name [str, default="custom"]', default='custom', type=str, dest='telescope_id', choices=['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'paper_dipole', 'custom', 'mwa_tools'])
 telescope_group.add_argument('--latitude', help='Latitude of interferometer array in degrees [float, Default=-26.701]', default=-26.701, type=float, dest='latitude')
 telescope_group.add_argument('--A-eff', help='Effective area in m^2', type=float, dest='A_eff', nargs='?')
 telescope_group.add_argument('--Tsys', help='System temperature in K [float, Default=440.0]', default=440.0, type=float, dest='Tsys')
-telescope_group.add_argument('--pfb-method', help='PFB coarse channel shape computation method [str, Default="theoretical"]', dest='pfb_method', default='theoretical', choices=['theoretical', 'empirical', None])
+telescope_group.add_argument('--pfb-method', help='PFB coarse channel shape computation method [str, Default="theoretical"]', dest='pfb_method', default=None, choices=['theoretical', 'empirical', None])
 telescope_group.add_argument('--pfb-file', help='File containing PFB coefficients', type=file, dest='pfb_file', default=None)
 
 antenna_element_group = parser.add_argument_group('Antenna element parameters', 'Antenna element specifications')
@@ -147,6 +147,8 @@ fgmodel_group.add_argument('--PS', action='store_true')
 fgparm_group = parser.add_argument_group('Foreground Setup', 'Parameters describing foreground sky')
 fgparm_group.add_argument('--flux-unit', help='Units of flux density [str, Default="Jy"]', type=str, dest='flux_unit', default='Jy', choices=['Jy','K'])
 fgparm_group.add_argument('--spindex', help='Spectral index, ~ f^spindex [float, Default=0.0]', type=float, dest='spindex', default=0.0)
+fgparm_group.add_argument('--spindex-rms', help='Spectral index rms [float, Default=0.0]', type=float, dest='spindex_rms', default=0.0)
+fgparm_group.add_argument('--spindex-seed', help='Spectral index seed [float, Default=None]', type=int, dest='spindex_seed', default=None)
 fgparm_group.add_argument('--nside', help='nside parameter for healpix map [int, Default=64]', type=int, dest='nside', default=64, choices=[64, 128])
 
 fgcat_group = parser.add_argument_group('Catalog files', 'Catalog file locations')
@@ -195,6 +197,8 @@ elif telescope_id == 'custom':
         raise ValueError('Both antenna element shape and size must be specified for the custom telescope type.')
     elif element_size <= 0.0:
         raise ValueError('Antenna element size must be positive.')
+elif telescope_id == 'mwa_tools':
+    pass
 else:
     raise ValueError('telescope ID must be specified.')
 
@@ -251,7 +255,7 @@ ground_modify_scale = args['ground_modify_scale']
 ground_modify_max = args['ground_modify_max']
 
 telescope = {}
-if telescope_id in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole']:
+if telescope_id in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'mwa_tools']:
     telescope['id'] = telescope_id
 telescope['shape'] = element_shape
 telescope['size'] = element_size
@@ -315,7 +319,7 @@ if pointing_file is not None:
     pointing_init = None
     pointing_info_from_file = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(1,2,3), delimiter=',')
     obs_id = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(0,), delimiter=',', dtype=str)
-    if (telescope_id == 'mwa') or (phased_array):
+    if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
         delays_str = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(4,), delimiter=',', dtype=str)
         delays_list = [NP.fromstring(delaystr, dtype=float, sep=';', count=-1) for delaystr in delays_str]
         delay_settings = NP.asarray(delays_list)
@@ -325,7 +329,7 @@ if pointing_file is not None:
         n_snaps = pointing_info_from_file.shape[0]
     pointing_info_from_file = pointing_info_from_file[:min(n_snaps, pointing_info_from_file.shape[0]),:]
     obs_id = obs_id[:min(n_snaps, pointing_info_from_file.shape[0])]
-    if (telescope_id == 'mwa') or (phased_array):
+    if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
         delays = delay_settings[:min(n_snaps, pointing_info_from_file.shape[0]),:]
     n_snaps = min(n_snaps, pointing_info_from_file.shape[0])
     pointings_altaz = OPS.reverse(pointing_info_from_file[:,:2].reshape(-1,2), axis=1)
@@ -346,7 +350,7 @@ if pointing_file is not None:
         n_snaps = lst_wrapped.size - 1
         pointings_altaz = NP.vstack((pointings_altaz[0,:].reshape(-1,2), pointings_altaz[angle_diff>shift_threshold,:].reshape(-1,2)))
         obs_id = NP.concatenate(([obs_id[0]], obs_id[angle_diff>shift_threshold]))
-        if (telescope_id == 'mwa') or (phased_array):
+        if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
             delays = NP.vstack((delay_settings[0,:], delay_settings[angle_diff>shift_threshold,:]))
         obs_mode = 'custom'
         if avg_drifts:
@@ -362,7 +366,7 @@ if pointing_file is not None:
         lst_edges = NP.copy(lst_wrapped)
         pointings_altaz = pointings_altaz[snapshots_range[0]:snapshots_range[1]+1,:]
         obs_id = obs_id[snapshots_range[0]:snapshots_range[1]+1]
-        if (telescope_id == 'mwa') or (phased_array):
+        if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
             delays = delay_settings[snapshots_range[0]:snapshots_range[1]+1,:]
         n_snaps = snapshots_range[1]-snapshots_range[0]+1
     elif pick_snapshots is not None:
@@ -374,7 +378,7 @@ if pointing_file is not None:
         lst = 0.5 * (lst_begin + lst_end)
         pointings_altaz = pointings_altaz[pick_snapshots,:]
         obs_id = obs_id[pick_snapshots]
-        if (telescope_id == 'mwa') or (phased_array):
+        if (telescope_id == 'mwa') or (phased_array) or (telescope_id == 'mwa_tools'):
             delays = delay_settings[pick_snapshots,:]
         obs_mode = 'custom'
     if pick_snapshots is None:
@@ -384,6 +388,11 @@ if pointing_file is not None:
         else:
             lst = 0.5*(lst_edges_left + lst_edges_right)
             t_snap = (lst_edges_right - lst_edges_left) / 15.0 * 3.6e3
+
+    # pointings_dircos_orig = GEOM.altaz2dircos(pointings_altaz_orig, units='degrees')
+    # pointings_hadec_orig = GEOM.altaz2hadec(pointings_altaz_orig, latitude, units='degrees')
+    # pointings_radec_orig = NP.hstack(((lst-pointings_hadec_orig[:,0]).reshape(-1,1), pointings_hadec_orig[:,1].reshape(-1,1)))
+    # pointings_radec_orig[:,0] = pointings_radec_orig[:,0] % 360.0
 
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
     pointings_hadec = GEOM.altaz2hadec(pointings_altaz, latitude, units='degrees')
@@ -418,6 +427,11 @@ elif pointing_info is not None:
     pointings_hadec = NP.hstack(((lst-pointings_radec[:,0]).reshape(-1,1), pointings_radec[:,1].reshape(-1,1)))
     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
+
+    pointings_radec_orig = NP.copy(pointings_radec)
+    pointings_hadec_orig = NP.copy(pointings_hadec)
+    pointings_altaz_orig = NP.copy(pointings_altaz)
+    pointings_dircos_orig = NP.copy(pointings_dircos)
 
     lst_wrapped = lst + 0.0
     lst_wrapped[lst_wrapped > 180.0] = lst_wrapped[lst_wrapped > 180.0] - 360.0
@@ -603,86 +617,97 @@ use_MSS = args['MSS']
 use_GLEAM = args['GLEAM']
 use_PS = args['PS']
 
-if plots:
-    if rank == 0:
+# if plots:
+#     if rank == 0:
 
-        ## Plot the pointings
+#         ## Plot the pointings
 
-        pointings_ha = pointings_hadec[:,0]
-        pointings_ha[pointings_ha > 180.0] = pointings_ha[pointings_ha > 180.0] - 360.0
+#         pointings_ha_orig = pointings_hadec_orig[:,0]
+#         pointings_ha_orig[pointings_ha_orig > 180.0] = pointings_ha_orig[pointings_ha_orig > 180.0] - 360.0
     
-        pointings_ra = pointings_radec[:,0]
-        pointings_ra[pointings_ra > 180.0] = pointings_ra[pointings_ra > 180.0] - 360.0
+#         pointings_ra_orig = pointings_radec_orig[:,0]
+#         pointings_ra_orig[pointings_ra_orig > 180.0] = pointings_ra_orig[pointings_ra_orig > 180.0] - 360.0
     
-        pointings_dec = pointings_radec[:,1]
+#         pointings_dec_orig = pointings_radec_orig[:,1]
     
-        fig = PLT.figure(figsize=(6,6))
-        ax1a = fig.add_subplot(111)
-        ax1a.set_xlabel('Local Sidereal Time [hours]', fontsize=18, weight='medium')
-        ax1a.set_ylabel('Longitude [degrees]', fontsize=18, weight='medium')
-        ax1a.set_xlim((lst_wrapped.min()-1)/15.0, (lst_wrapped.max()-1)/15.0)
-        ax1a.set_ylim(pointings_ha.min()-15.0, pointings_ha.max()+15.0)
-        ax1a.plot(lst_wrapped/15.0, pointings_ha, 'k--', lw=2, label='HA')
-        ax1a.plot(lst_wrapped/15.0, pointings_ra, 'k-', lw=2, label='RA')
-        ax1a.tick_params(which='major', length=18, labelsize=12)
-        ax1a.tick_params(which='minor', length=12, labelsize=12)
-        legend1a = ax1a.legend(loc='upper left')
-        legend1a.draw_frame(False)
-        for axis in ['top','bottom','left','right']:
-            ax1a.spines[axis].set_linewidth(2)
-        xticklabels = PLT.getp(ax1a, 'xticklabels')
-        yticklabels = PLT.getp(ax1a, 'yticklabels')
-        PLT.setp(xticklabels, fontsize=15, weight='medium')
-        PLT.setp(yticklabels, fontsize=15, weight='medium')    
+#         fig = PLT.figure(figsize=(6,6))
+#         ax1a = fig.add_subplot(111)
+#         ax1a.set_xlabel('Local Sidereal Time [hours]', fontsize=18, weight='medium')
+#         ax1a.set_ylabel('Longitude [degrees]', fontsize=18, weight='medium')
+#         ax1a.set_xlim((lst_wrapped.min()-1)/15.0, (lst_wrapped.max()+1)/15.0)
+#         ax1a.set_ylim(pointings_ha_orig.min()-15.0, pointings_ha_orig.max()+15.0)
+#         ax1a.plot(lst_wrapped/15.0, pointings_ha_orig, 'k--', lw=2, label='HA')
+#         ax1a.plot(lst_wrapped/15.0, pointings_ra_orig, 'k-', lw=2, label='RA')
+#         ax1a.tick_params(which='major', length=18, labelsize=12)
+#         ax1a.tick_params(which='minor', length=12, labelsize=12)
+#         legend1a = ax1a.legend(loc='upper left')
+#         legend1a.draw_frame(False)
+#         for axis in ['top','bottom','left','right']:
+#             ax1a.spines[axis].set_linewidth(2)
+#         xticklabels = PLT.getp(ax1a, 'xticklabels')
+#         yticklabels = PLT.getp(ax1a, 'yticklabels')
+#         PLT.setp(xticklabels, fontsize=15, weight='medium')
+#         PLT.setp(yticklabels, fontsize=15, weight='medium')    
     
-        ax1b = ax1a.twinx()
-        ax1b.set_ylabel('Declination [degrees]', fontsize=18, weight='medium')
-        ax1b.set_ylim(pointings_dec.min()-5.0, pointings_dec.max()+5.0)
-        ax1b.plot(lst_wrapped/15.0, pointings_dec, 'k:', lw=2, label='Dec')
-        ax1b.tick_params(which='major', length=12, labelsize=12)
-        legend1b = ax1b.legend(loc='upper center')
-        legend1b.draw_frame(False)
-        yticklabels = PLT.getp(ax1b, 'yticklabels')
-        PLT.setp(yticklabels, fontsize=15, weight='medium')    
+#         ax1b = ax1a.twinx()
+#         ax1b.set_ylabel('Declination [degrees]', fontsize=18, weight='medium')
+#         ax1b.set_ylim(pointings_dec_orig.min()-5.0, pointings_dec_orig.max()+5.0)
+#         ax1b.plot(lst_wrapped/15.0, pointings_dec_orig, 'k:', lw=2, label='Dec')
+#         ax1b.tick_params(which='major', length=12, labelsize=12)
+#         legend1b = ax1b.legend(loc='upper center')
+#         legend1b.draw_frame(False)
+#         yticklabels = PLT.getp(ax1b, 'yticklabels')
+#         PLT.setp(yticklabels, fontsize=15, weight='medium')    
     
-        fig.subplots_adjust(right=0.85)
+#         fig.subplots_adjust(right=0.85)
     
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+obs_mode+'_pointings.eps', bbox_inches=0)
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+obs_mode+'_pointings.png', bbox_inches=0)
+#         PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+obs_mode+'_pointings.eps', bbox_inches=0)
+#         PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+obs_mode+'_pointings.png', bbox_inches=0)
 
-        ## Plot bandpass properties
+#         ## Plot bandpass properties
 
-        fig = PLT.figure(figsize=(7,6))
-        ax = fig.add_subplot(111)
-        ax.set_xlabel('frequency [MHz]', fontsize=18, weight='medium')
-        ax.set_ylabel('gain', fontsize=18, weight='medium')
-        ax.set_xlim(freq*1e-6 - 2.0, freq*1e-6 + 2.0)
-        ax.set_ylim(0.05, 2.0*bpcorr.max())
-        ax.set_yscale('log')
-        try:
-            ax.plot(1e3*chans, 10**(pfbwin_interp/10), 'k.--', lw=2, ms=10, label='Instrumental PFB Bandpass')
-        except NameError:
-            pass
-        ax.plot(1e3*chans, bpcorr, 'k+:', lw=2, ms=10, label='Bandpass Correction')
-        ax.plot(1e3*chans, bandpass_shape, 'k-', lw=2, label='Corrected Bandpass (Flagged)')
-        # ax.plot(1e3*chans, 3.0+NP.zeros(n_channels), 'k-.', label='Flagging threshold')
-        legend = ax.legend(loc='lower center')
-        legend.draw_frame(False)
-        ax.tick_params(which='major', length=18, labelsize=12)
-        ax.tick_params(which='minor', length=12, labelsize=12)
-        for axis in ['top','bottom','left','right']:
-            ax.spines[axis].set_linewidth(2)
-        xticklabels = PLT.getp(ax, 'xticklabels')
-        yticklabels = PLT.getp(ax, 'yticklabels')
-        PLT.setp(xticklabels, fontsize=15, weight='medium')
-        PLT.setp(yticklabels, fontsize=15, weight='medium')    
+#         fig = PLT.figure(figsize=(7,6))
+#         ax = fig.add_subplot(111)
+#         ax.set_xlabel('frequency [MHz]', fontsize=18, weight='medium')
+#         ax.set_ylabel('gain', fontsize=18, weight='medium')
+#         ax.set_xlim(freq*1e-6 - 2.0, freq*1e-6 + 2.0)
+#         ax.set_ylim(0.05, 2.0*bpcorr.max())
+#         ax.set_yscale('log')
+#         try:
+#             ax.plot(1e3*chans, 10**(pfbwin_interp/10), 'k.--', lw=2, ms=10, label='Instrumental PFB Bandpass')
+#         except NameError:
+#             pass
+#         ax.plot(1e3*chans, bpcorr, 'k+:', lw=2, ms=10, label='Bandpass Correction')
+#         ax.plot(1e3*chans, bandpass_shape, 'k-', lw=2, label='Corrected Bandpass (Flagged)')
+#         # ax.plot(1e3*chans, 3.0+NP.zeros(n_channels), 'k-.', label='Flagging threshold')
+#         legend = ax.legend(loc='lower center')
+#         legend.draw_frame(False)
+#         ax.tick_params(which='major', length=18, labelsize=12)
+#         ax.tick_params(which='minor', length=12, labelsize=12)
+#         for axis in ['top','bottom','left','right']:
+#             ax.spines[axis].set_linewidth(2)
+#         xticklabels = PLT.getp(ax, 'xticklabels')
+#         yticklabels = PLT.getp(ax, 'yticklabels')
+#         PLT.setp(xticklabels, fontsize=15, weight='medium')
+#         PLT.setp(yticklabels, fontsize=15, weight='medium')    
 
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/bandpass_properties.eps', bbox_inches=0)
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/bandpass_properties.png', bbox_inches=0)
+#         PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/bandpass_properties.eps', bbox_inches=0)
+#         PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/bandpass_properties.png', bbox_inches=0)
 
 fg_str = ''
 nside = args['nside']
 flux_unit = args['flux_unit']
+spindex_seed = args['spindex_seed']
+spindex_rms = args['spindex_rms']
+spindex_rms_str = ''
+spindex_seed_str = ''
+if spindex_rms > 0.0:
+    spindex_rms_str = '{0:.1f}'.format(spindex_rms)
+else:
+    spindex_rms = 0.0
+
+if spindex_seed is not None:
+    spindex_seed_str = '{0:0d}_'.format(spindex_seed)
 
 if use_GSM:
     fg_str = 'asm'
@@ -725,7 +750,12 @@ if use_GSM:
     ra_deg_SUMSS = ra_deg_SUMSS[PS_ind]
     dec_deg_SUMSS = dec_deg_SUMSS[PS_ind]
     fint = catalog[PS_ind,6] * 1e-3
-    spindex_SUMSS = -0.83 + NP.zeros(fint.size)
+    if spindex_seed is None:
+        spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
+    else:
+        NP.random.seed(spindex_seed)
+        spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
+
     fmajax = fmajax[PS_ind]
     fminax = fminax[PS_ind]
     fpa = fpa[PS_ind]
@@ -768,7 +798,12 @@ if use_GSM:
     nvss_minax = hdulist[1].data['MINOR AX']
     hdulist.close()
 
-    spindex_NVSS = -0.83 + NP.zeros(nvss_fpeak.size)
+    if spindex_seed is None:
+        spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
+    else:
+        NP.random.seed(2*spindex_seed)
+        spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
+
     not_in_SUMSS_ind = NP.logical_and(dec_deg_NVSS > -30.0, dec_deg_NVSS <= min(90.0, latitude+90.0))
     bright_source_ind = nvss_fpeak >= 10.0 * (freq_NVSS*1e9/freq)**(spindex_NVSS)
     PS_ind = NP.sqrt(nvss_majax**2-(0.75/60.0)**2) < 14.0/3.6e3
@@ -829,7 +864,12 @@ elif use_CSM:
     ra_deg_SUMSS = ra_deg_SUMSS[PS_ind]
     dec_deg_SUMSS = dec_deg_SUMSS[PS_ind]
     fint = catalog[PS_ind,6] * 1e-3
-    spindex_SUMSS = -0.83 + NP.zeros(fint.size)
+    if spindex_seed is None:
+        spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
+    else:
+        NP.random.seed(spindex_seed)
+        spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
+
     fmajax = fmajax[PS_ind]
     fminax = fminax[PS_ind]
     fpa = fpa[PS_ind]
@@ -861,7 +901,6 @@ elif use_CSM:
     majax = fmajax/3.6e3
     minax = fminax/3.6e3
     fluxes = fint + 0.0
-
     nvss_file = args['NVSS_file']
     freq_NVSS = 1.4 # in GHz
     hdulist = fits.open(nvss_file)
@@ -872,7 +911,12 @@ elif use_CSM:
     nvss_minax = hdulist[1].data['MINOR AX']
     hdulist.close()
 
-    spindex_NVSS = -0.83 + NP.zeros(nvss_fpeak.size)
+    if spindex_seed is None:
+        spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
+    else:
+        NP.random.seed(2*spindex_seed)
+        spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
+
     not_in_SUMSS_ind = NP.logical_and(dec_deg_NVSS > -30.0, dec_deg_NVSS <= min(90.0, latitude+90.0))
     bright_source_ind = nvss_fpeak >= 10.0 * (freq_NVSS*1e9/freq)**(spindex_NVSS)
     PS_ind = NP.sqrt(nvss_majax**2-(0.75/60.0)**2) < 14.0/3.6e3
@@ -928,7 +972,12 @@ elif use_SUMSS:
     fminax = fminax[valid_ind]
     fpa = fpa[valid_ind]
     freq_catalog = 0.843 # in GHz
-    spindex = -0.83 + NP.zeros(fint.size)
+    if spindex_seed is None:
+        spindex = -0.83 + spindex_rms * NP.random.randn(fint.size)
+    else:
+        NP.random.seed(spindex_seed)
+        spindex = -0.83 + spindex_rms * NP.random.randn(fint.size)
+
     ctlgobj = CTLG.Catalog(freq_catalog*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fint, spectral_index=spindex, src_shape=NP.hstack((fmajax.reshape(-1,1),fminax.reshape(-1,1),fpa.reshape(-1,1))), src_shape_units=['arcsec','arcsec','degree'])    
     fg_str = 'sumss'
 elif use_MSS:
@@ -993,11 +1042,12 @@ if mpi_on_src: # MPI based on source multiplexing
             # timestamp = str(DT.datetime.now())
             timestamp = lst[j]
             pbinfo = None
-            if (telescope_id == 'mwa') or (phased_array):
+            if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
                 pbinfo = {}
-                pbinfo['element_locs'] = element_locs
                 pbinfo['delays'] = delays[j,:]
-                pbinfo['delayerr'] = delayerr
+                if (telescope_id == 'mwa') or (phased_array):
+                    pbinfo['element_locs'] = element_locs
+                    pbinfo['delayerr'] = delayerr
 
             ts = time.time()
             if j == 0:
@@ -1055,11 +1105,12 @@ else: # MPI based on baseline multiplexing
                         timestamp = lst[j]
 
                     pbinfo = None
-                    if (telescope_id == 'mwa') or (phased_array):
+                    if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
                         pbinfo = {}
-                        pbinfo['element_locs'] = element_locs
                         pbinfo['delays'] = delays[j,:]
-                        pbinfo['delayerr'] = delayerr
+                        if (telescope_id == 'mwa') or (phased_array):
+                            pbinfo['element_locs'] = element_locs
+                            pbinfo['delayerr'] = delayerr
 
                     ts = time.time()
                     if j == 0:
@@ -1112,10 +1163,11 @@ else: # MPI based on baseline multiplexing
                     fgmod = CTLG.SkyModel(skymod.catalog.subset(roi_subset))
    
                     pbinfo = {}
-                    if (telescope_id == 'mwa') or (phased_array):
-                        pbinfo['element_locs'] = element_locs
+                    if (telescope_id == 'mwa') or (phased_array) or (telescope_id == 'mwa_tools'):
                         pbinfo['delays'] = delays[j,:]
-                        pbinfo['delayerr'] = delayerr
+                        if (telescope_id == 'mwa') or (phased_array):
+                            pbinfo['element_locs'] = element_locs
+                            pbinfo['delayerr'] = delayerr
                     else:
                         pbinfo['pointing_center'] = pointings_altaz[j,:]
                         pbinfo['pointing_coords'] = 'altaz'
@@ -1129,7 +1181,6 @@ else: # MPI based on baseline multiplexing
                     roiinfo['center'] = NP.asarray(roiinfo_center_radec).reshape(1,-1)
                     roiinfo['center_coords'] = 'radec'
                     roi.append_settings(skymod, chans, pinfo=pbinfo, latitude=latitude, lst=lst[j], roi_info=roiinfo, telescope=telescope, freq_scale='GHz')
-
                     if pb_modify_region:
                         for ri in xrange(pb_modify_lat_center.size):
                             dist = None
@@ -1170,10 +1221,43 @@ else: # MPI based on baseline multiplexing
             if (rank == 0):
                 roifile = '/data3/t_nithyanandan/project_MWA/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)
                 roi.save(roifile, tabtype='BinTableHDU', overwrite=True, verbose=True)
+
+                if plots:
+                    for j in xrange(n_snaps):
+                        src_ra = roi.skymodel.catalog.location[roi.info['ind'][j],0]
+                        src_dec = roi.skymodel.catalog.location[roi.info['ind'][j],1]
+                        src_ra[src_ra > 180.0] = src_ra[src_ra > 180.0] - 360.0
+                        fig, axs = PLT.subplots(2, sharex=True, sharey=True, figsize=(6,6))
+                        modelsky = axs[0].scatter(src_ra, src_dec, c=roi.skymodel.catalog.flux_density[roi.info['ind'][j]], norm=PLTC.LogNorm(vmin=roi.skymodel.catalog.flux_density.min(), vmax=roi.skymodel.catalog.flux_density.max()), edgecolor='none', s=20)
+                        axs[0].set_xlim(180.0, -180.0)
+                        axs[0].set_ylim(-90.0, 90.0)
+                        pbsky = axs[1].scatter(src_ra, src_dec, c=roi.info['pbeam'][j][:,NP.argmax(NP.abs(chans-freq))], norm=PLTC.LogNorm(vmin=roi.info['pbeam'][j].min(), vmax=1.0), edgecolor='none', s=20)
+                        axs[1].set_xlim(180.0, -180.0)
+                        axs[1].set_ylim(-90.0, 90.0)
+
+                        cbax0 = fig.add_axes([0.88, 0.5, 0.02, 0.35])
+                        cbar0 = fig.colorbar(modelsky, cax=cbax0, orientation='vertical')
+                        cbax0.set_ylabel('Flux Density [Jy]', labelpad=0, fontsize=14)
+
+                        cbax1 = fig.add_axes([0.88, 0.1, 0.02, 0.35])
+                        cbar1 = fig.colorbar(pbsky, cax=cbax1, orientation='vertical')
+                        
+                        fig.subplots_adjust(hspace=0)
+                        big_ax = fig.add_subplot(111)
+                        big_ax.set_axis_bgcolor('none')
+                        big_ax.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+                        big_ax.set_xticks([])
+                        big_ax.set_yticks([])
+                        big_ax.set_ylabel(r'$\delta$ [degrees]', fontsize=16, weight='medium', labelpad=30)
+                        big_ax.set_xlabel(r'$\alpha$ [degrees]', fontsize=16, weight='medium', labelpad=20)
+
+                        fig.subplots_adjust(right=0.88)
+
             for i in range(cumm_bl_chunks[rank], cumm_bl_chunks[rank+1]):
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i])
         
-                outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+                outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')        
         
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()

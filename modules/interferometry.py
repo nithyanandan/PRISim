@@ -15,6 +15,11 @@ import constants as CNST
 import my_DSP_modules as DSP
 import catalog as CTLG
 import ipdb as PDB
+mwa_tools_found = True
+try:
+    from mwapy.pb import primary_beam as MWAPB
+except ImportError:
+    mwa_tools_found = False
 
 ################################################################################
 
@@ -1386,9 +1391,11 @@ class ROI_parameters(object):
                 using which the primary beams in the regions of interest are
                 determined. It specifies the type of element, element size and
                 orientation. It consists of the following keys and information:
-                'id'      [string] If set, will ignore the other keys and use
+                'id'          [string] If set, will ignore the other keys and use
                               telescope details for known telescopes. Accepted 
-                              values are 'mwa', 'vla', 'gmrt', and 'hera'.
+                              values are 'mwa', 'vla', 'gmrt', 'hera', and 
+                              'mwa_tools'. If using 'mwa_tools', the MWA_Tools
+                              and mwapb modules must be installed and imported.  
                 'shape'       [string] Shape of antenna element. Accepted values
                               are 'dipole', 'delta', and 'dish'. Will be ignored 
                               if key 'id' is set. 'delta' denotes a delta
@@ -1446,6 +1453,14 @@ class ROI_parameters(object):
                               'max'   [scalar] positive value to clip the 
                                       modified and scaled values to. If not set, 
                                       there is no upper limit
+                'pol'         [string] specifies polarization when using
+                              MWA_Tools for primary beam computation. Value of 
+                              key 'id' in attribute dictionary telescope must be
+                              set to 'mwa_tools'. 'X' or 'x' denotes
+                              X-polarization. Y-polarization is specified by 'Y'
+                              or 'y'. If polarization is not specified when 'id'
+                              of telescope is set to 'mwa_tools', it defaults
+                              to X-polarization.
 
     info        [dictionary] contains information about the region of interest.
                 It consists of the following keys and information:
@@ -1742,7 +1757,7 @@ class ROI_parameters(object):
 
         if not isinstance(skymodel, CTLG.SkyModel):
             raise TypeError('skymodel should be an instance of class SkyModel.')
-        elif self.skymodel is not None:
+        elif skymodel is not None:
             self.skymodel = skymodel
 
         if freq is None:
@@ -1887,7 +1902,30 @@ class ROI_parameters(object):
                     self.pinfo[-1]['pointing_coords'] = 'altaz'
 
             ind = self.info['ind'][-1]
-            self.info['pbeam'] += [PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])]
+            if 'id' in self.telescope:
+                if self.telescope['id'] == 'mwa_tools':
+                    if not mwa_tools_found:
+                        raise ImportError('MWA_Tools could not be imported which is required for power pattern computation.')
+    
+                    pbeam = NP.empty((ind.size, self.freq.size))
+                    for i in xrange(self.freq.size):
+                        pbx_MWA, pby_MWA = MWAPB.MWA_Tile_advanced(NP.radians(90.0-skypos_altaz[ind,0]).reshape(-1,1), NP.radians(skypos_altaz[ind,1]).reshape(-1,1), freq=self.freq[i], delays=self.pinfo[-1]['delays']/435e-12)
+                        if 'pol' in self.telescope:
+                            if (self.telescope['pol'] == 'X') or (self.telescope['pol'] == 'x'):
+                                pbeam[:,i] = pbx_MWA.ravel()
+                            elif (self.telescope['pol'] == 'Y') or (self.telescope['pol'] == 'y'):
+                                pbeam[:,i] = pby_MWA.ravel()
+                            else:
+                                raise ValueError('Key "pol" in attribute dictionary telescope is invalid.')
+                        else:
+                            self.telescope['pol'] = 'X'
+                            pbeam[:,i] = pbx_MWA.ravel()
+                else:
+                    pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
+            else:
+                pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
+
+            self.info['pbeam'] += [pbeam]
 
     #############################################################################
 
