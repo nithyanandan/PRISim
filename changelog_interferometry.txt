@@ -1,3 +1,23 @@
+From 1509599 of interferometry:
+==============================
+
+In primary_beams.py,
+
+(*) Fixed a major bug in the usage of diameter in the expression for an airy
+pattern in airy_disk_pattern()
+(*) Fixed a bug in primary_beam_generator() where frequency input parameter
+even if supplied as a scalar is converted to an array
+(*) Fixed a bug in primary_beam_generator.py where in the call to 
+dipole_field_pattern(), dipole_coords was being passed as 'dircos' instead of, 
+more generally, the value of the key 'occords' in dictionary telescope
+(*) Ensured ground plane computation does not happen for a dish shaped antenna
+element in primary_beam_generator()
+(*) Ensured that the beam pattern for points outside the horizon are forced to
+zero in airy_disk_pattern()
+
+(*) Fixed a bug where A_eff estimate was the same for most antenna shapes 
+independent of their size.
+
 from d703b37 of interferometry:
 ============================== 
 

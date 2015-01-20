@@ -23,6 +23,12 @@ except ImportError:
 
 ################################################################################
 
+def antenna_generator(nside, orientation=None):
+
+    pass
+
+################################################################################
+
 def baseline_generator(antenna_locations, ant_id=None, auto=False,
                        conjugate=False):
 

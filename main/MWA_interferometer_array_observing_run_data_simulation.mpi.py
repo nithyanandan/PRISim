@@ -135,14 +135,15 @@ freq_flags_group.add_argument('--flag-edge-channels', help='Flag edge channels i
 freq_flags_group.add_argument('--flag-repeat-edge-channels', help='If set, will flag the leading and trailing channels whose number is specified in n_edge_flag. Otherwise, will flag the beginning and end of the band.', action='store_true', dest='flag_repeat_edge_channels')
 
 fgmodel_group = parser.add_mutually_exclusive_group(required=True)
-fgmodel_group.add_argument('--ASM', action='store_true')
-fgmodel_group.add_argument('--DSM', action='store_true')
-fgmodel_group.add_argument('--CSM', action='store_true')
-fgmodel_group.add_argument('--SUMSS', action='store_true')
-fgmodel_group.add_argument('--NVSS', action='store_true')
-fgmodel_group.add_argument('--MSS', action='store_true')
-fgmodel_group.add_argument('--GLEAM', action='store_true')
-fgmodel_group.add_argument('--PS', action='store_true')
+fgmodel_group.add_argument('--ASM', action='store_true') # Diffuse (GSM) + Compact (NVSS+SUMSS) All-sky model 
+fgmodel_group.add_argument('--DSM', action='store_true') # Diffuse all-sky model
+fgmodel_group.add_argument('--CSM', action='store_true') # Point source model (NVSS+SUMSS)
+fgmodel_group.add_argument('--SUMSS', action='store_true') # SUMSS catalog
+fgmodel_group.add_argument('--NVSS', action='store_true') # NVSS catalog
+fgmodel_group.add_argument('--MSS', action='store_true') # Molonglo Sky Survey
+fgmodel_group.add_argument('--GLEAM', action='store_true') # GLEAM catalog
+fgmodel_group.add_argument('--PS', action='store_true') # Point sources 
+fgmodel_group.add_argument('--USM', action='store_true') # Uniform all-sky model
 
 fgparm_group = parser.add_argument_group('Foreground Setup', 'Parameters describing foreground sky')
 fgparm_group.add_argument('--flux-unit', help='Units of flux density [str, Default="Jy"]', type=str, dest='flux_unit', default='Jy', choices=['Jy','K'])
@@ -183,6 +184,7 @@ phased_elements_file = args['phased_elements_file']
 if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole'):
     element_size = 0.74
     element_shape = 'dipole'
+    if telescope_id == 'mwa': phased_array = True
 elif telescope_id == 'vla':
     element_size = 25.0
     element_shape = 'dish'
@@ -193,10 +195,11 @@ elif telescope_id == 'hera':
     element_size = 14.0
     element_shape = 'dish'
 elif telescope_id == 'custom':
-    if (element_shape is None) or (element_size is None):
-        raise ValueError('Both antenna element shape and size must be specified for the custom telescope type.')
-    elif element_size <= 0.0:
-        raise ValueError('Antenna element size must be positive.')
+    if element_shape != 'delta':
+        if (element_shape is None) or (element_size is None):
+            raise ValueError('Both antenna element shape and size must be specified for the custom telescope type.')
+        elif element_size <= 0.0:
+            raise ValueError('Antenna element size must be positive.')
 elif telescope_id == 'mwa_tools':
     pass
 else:
@@ -275,10 +278,17 @@ if ground_plane is not None:
 freq = args['freq']
 freq_resolution = args['freq_resolution']
 latitude = args['latitude']
+
 if args['A_eff'] is None:
-    A_eff = 16.0 * (0.5 * FCNST.c / freq)**2
+    if (telescope['shape'] == 'dipole') or (telescope['shape'] == 'delta'):
+        A_eff = (0.5*FCNST.c/freq)**2
+        if (telescope_id == 'mwa') or phased_array:
+            A_eff *= 16
+    if telescope['shape'] == 'dish':
+        A_eff = NP.pi * (0.5*element_size)**2
 else:
     A_eff = args['A_eff']
+
 obs_mode = args['obs_mode']
 Tsys = args['Tsys']
 t_snap = args['t_snap']
@@ -548,6 +558,7 @@ base_bpass = 1.0*NP.ones(nchan)
 bandpass_shape = 1.0*NP.ones(nchan)
 chans = (freq + (NP.arange(nchan) - 0.5 * nchan) * freq_resolution)/ 1e9 # in GHz
 flagged_edge_channels = []
+pfb_str = ''
 if pfb_method is not None:
     if pfb_method == 'empirical':
         bandpass_shape = DSP.PFB_empirical(nchan, 32, 0.25, 0.25)
@@ -574,6 +585,8 @@ if pfb_method is not None:
             # pfb_filtered = DSP.fft_filter(bandpass_shape.ravel(), wts=freq_wts.ravel(), passband='high')
             # pfb_edge_channels = pfb_filtered.argsort()[:int(1.0*n_channels/coarse_channel_width)]
             flagged_edge_channels += [range(max(0,pfb_edge-n_edge_flag[0]),min(n_channels-1,pfb_edge+n_edge_flag[1])) for pfb_edge in pfb_edge_channels]
+else:
+    pfb_str = 'no_pfb_'
 
 window = n_channels * DSP.windowing(n_channels, shape=bpass_shape, pad_width=n_pad, centering=True, area_normalize=True) 
 if bandpass_correct:
@@ -616,6 +629,7 @@ use_SUMSS = args['SUMSS']
 use_MSS = args['MSS']
 use_GLEAM = args['GLEAM']
 use_PS = args['PS']
+use_USM = args['USM']
 
 # if plots:
 #     if rank == 0:
@@ -844,6 +858,26 @@ elif use_DSM:
     fluxes = fluxes_DSM
     ctlgobj = CTLG.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     hdulist.close()
+elif use_USM:
+    fg_str = 'usm'
+
+    dsm_file = args['DSM_file_prefix']+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
+    hdulist = fits.open(dsm_file)
+    pixres = hdulist[0].header['PIXAREA']
+    dsm_table = hdulist[1].data
+    ra_deg = dsm_table['RA']
+    dec_deg = dsm_table['DEC']
+    temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
+    avg_temperature = NP.mean(temperatures)
+    fluxes_USM = avg_temperature * (2.0 * FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy * NP.ones(temperatures.size)
+    spindex = NP.zeros(fluxes_USM.size)
+    freq_USM = 0.185 # in GHz
+    freq_catalog = freq_USM * 1e9 + NP.zeros(fluxes_USM.size)
+    catlabel = NP.repeat('USM', fluxes_USM.size)
+    majax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_USM.size)
+    minax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_USM.size)
+    ctlgobj = CTLG.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes_USM, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes_USM.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    hdulist.close()    
 elif use_CSM:
     fg_str = 'csm'
     freq_SUMSS = 0.843 # in GHz
@@ -1071,7 +1105,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ia.generate_noise()
             ia.add_noise()
             ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
-            outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+            outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_str+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
             ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
         else:
             comm.send(ia.skyvis_freq, dest=0)
@@ -1094,7 +1128,7 @@ else: # MPI based on baseline multiplexing
                 process_sequence.append(rank)
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, count)
 
-                outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[count]],bl_length[min(baseline_bin_indices[count]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(count)
+                outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[count]],bl_length[min(baseline_bin_indices[count]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_str+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(count)
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')        
 
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
@@ -1256,7 +1290,7 @@ else: # MPI based on baseline multiplexing
             for i in range(cumm_bl_chunks[rank], cumm_bl_chunks[rank+1]):
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i])
         
-                outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+                outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
 
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')        
         

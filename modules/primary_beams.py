@@ -179,6 +179,8 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
     elif (freq_scale == 'khz') or (freq_scale == 'kHz'):
         frequency = frequency * 1.0e3
 
+    frequency = NP.asarray(frequency)
+
     if (telescope is None) or (not isinstance(telescope, dict)):
         raise TypeError('telescope must be specified as a dictionary')
 
@@ -296,7 +298,8 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
         elif telescope['shape'] == 'delta':
             ep = 1.0
         elif telescope['shape'] == 'dipole':
-            ep = dipole_field_pattern(telescope['size'], skypos, dipole_coords='dircos',
+            ep = dipole_field_pattern(telescope['size'], skypos,
+                                      dipole_coords=telescope['ocoords'],
                                       dipole_orientation=telescope['orientation'],
                                       skycoords=skyunits, wavelength=FCNST.c/frequency, 
                                       half_wave_dipole_approx=False)
@@ -333,15 +336,27 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
         pb = NP.abs(ep * irap)**2 # Power pattern is square of the field pattern
        
     if 'groundplane' in telescope:
+        gp = 1.0
         if telescope['groundplane'] is not None:
-            modifier = None
-            if 'ground_modify' in telescope:
-                modifier = telescope['ground_modify']
-
-            gp = ground_plane_field_pattern(telescope['groundplane'], skypos, skycoords=skyunits,
-                                            wavelength=FCNST.c/frequency, angle_units='degrees', 
-                                            modifier=modifier)
-            pb *= gp**2
+            if 'shape' in telescope:
+                if telescope['shape'] != 'dish':  # If shape is not dish, compute ground plane pattern
+                    modifier = None
+                    if 'ground_modify' in telescope:
+                        modifier = telescope['ground_modify']
+        
+                    gp = ground_plane_field_pattern(telescope['groundplane'], skypos, skycoords=skyunits,
+                                                    wavelength=FCNST.c/frequency, angle_units='degrees', 
+                                                    modifier=modifier)
+            else:
+                modifier = None
+                if 'ground_modify' in telescope:
+                    modifier = telescope['ground_modify']
+        
+                gp = ground_plane_field_pattern(telescope['groundplane'], skypos, skycoords=skyunits,
+                                                wavelength=FCNST.c/frequency, angle_units='degrees', 
+                                                modifier=modifier)
+                
+        pb *= gp**2
 
     return pb
     
@@ -430,7 +445,8 @@ def airy_disk_pattern(diameter, skypos, frequency, skyunits='altaz', peak=1.0,
                 is to be estimated. Size is M x N where M is the number of 
                 locations and N = 1 (if skyunits = degrees), N = 2 (if
                 skyunits = altaz denoting Alt-Az coordinates), or N = 3 (if
-                skyunits = dircos denoting direction cosine coordinates)
+                skyunits = dircos denoting direction cosine coordinates). If
+                skyunits = altaz, then altitude and azimuth must be in degrees
 
     frequency   [list or numpy vector] frequencies (in GHz) at which the power 
                 pattern is to be estimated. Frequencies differing by too much
@@ -439,7 +455,8 @@ def airy_disk_pattern(diameter, skypos, frequency, skyunits='altaz', peak=1.0,
     skyunits    [string] string specifying the coordinate system of the sky 
                 positions. Accepted values are 'degrees', 'altaz', and 'dircos'.
                 Default = 'degrees'. If 'dircos', the direction cosines are 
-                aligned with the local East, North, and Up
+                aligned with the local East, North, and Up. If 'altaz', then 
+                altitude and azimuth must be in degrees.
 
     pointing_center
                 [numpy array] 1xN numpy array, where N is the same as in skypos.
@@ -483,6 +500,7 @@ def airy_disk_pattern(diameter, skypos, frequency, skyunits='altaz', peak=1.0,
             x = NP.arcsin(NP.sqrt(skypos[:,0]**2 + skypos[:,1]**2))
         else:
             raise ValueError('skyunits must be "degrees", "altaz" or "dircos" in GMRT_primary_beam().')
+        zero_ind = x >= NP.pi/2   # Determine positions beyond the horizon
     else:
         if pointing_coords is None:
             pointing_coords = skyunits
@@ -505,20 +523,22 @@ def airy_disk_pattern(diameter, skypos, frequency, skyunits='altaz', peak=1.0,
                 raise ValueError('skyunits must be "degrees", "altaz" or "dircos" in GMRT_primary_beam().')
             x = GEOM.sphdist(skypos_altaz[:,1], skypos_altaz[:,0], pc_altaz[0,1], pc_altaz[0,0])
             x = NP.radians(x)
+            zero_ind = NP.logical_or(x >= NP.pi/2, skypos_altaz[:,0] <= 0.0)   # Determine positions beyond the horizon of the sky as well as those beyond the horizon of the dish, if it is pointed away from the horizon
 
     k = 2*NP.pi*frequency/FCNST.c
     k = k.reshape(1,-1)
     small_angles_ind = x < small_angle_tol
     x = NP.where(small_angles_ind, small_angle_tol, x)
     x = x.reshape(-1,1)
-    pattern = 2 * SPS.j1(k*0.5*diameter*NP.sin(x)) / (k*0.5*NP.sin(x))
-    # pattern = NP.where(small_angles_ind, 1.0, 2 * SPS.j1(k*0.5*diameter*NP.sin(x)) / (k*0.5*NP.sin(x)))
+    pattern = 2 * SPS.j1(k*0.5*diameter*NP.sin(x)) / (k*0.5*diameter*NP.sin(x))
 
+    pattern[zero_ind,:] = 0.0   # Blank all values beyond the horizon
+
+    maxval = 2 * SPS.j1(k*0.5*diameter*NP.sin(small_angle_tol)) / (k*0.5*diameter*NP.sin(small_angle_tol))
     if power:
         pattern = NP.abs(pattern)**2
-        maxval = (2 * SPS.j1(k*0.5*diameter*NP.sin(small_angle_tol)) / (k*0.5*NP.sin(small_angle_tol)))**2
-    else:
-        maxval = 2 * SPS.j1(k*0.5*diameter*NP.sin(small_angle_tol)) / (k*0.5*NP.sin(small_angle_tol))
+        maxval = maxval**2
+        
     pattern *= peak / maxval 
     
     return pattern
@@ -1451,3 +1471,4 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', gains=None,
     return retvalue
                 
 #################################################################################
+
