@@ -23,9 +23,134 @@ except ImportError:
 
 ################################################################################
 
-def antenna_generator(nside, orientation=None):
+def hexagon_generator(spacing, n_total=None, n_side=None, orientation=None, 
+                      center=None):
+    
+    """
+    ------------------------------------------------------------------------
+    Generate a grid of baseline locations filling a regular hexagon. 
+    Primarily intended for HERA experiment.
 
-    pass
+    Inputs:
+    
+    spacing      [scalar] positive scalar specifying the spacing between
+                 antennas. Must be specified, no default.
+
+    n_total      [scalar] positive integer specifying the total number of
+                 antennas to be placed in the hexagonal array. This value
+                 will be checked if it valid for a regular hexagon. If
+                 n_total is specified, n_side must not be specified. 
+                 Default = None.
+
+    n_side       [scalar] positive integer specifying the number of antennas
+                 on the side of the hexagonal array. If n_side is specified,
+                 n_total should not be specified. Default = None
+
+    orientation  [scalar] counter-clockwise angle (in degrees) by which the 
+                 principal axis of the hexagonal array is to be rotated. 
+                 Default = None (means 0 degrees)
+
+    center       [2-element list or numpy array] specifies the center of the
+                 array. Must be in the same units as spacing. The hexagonal
+                 array will be centered on this position.
+
+    Outputs:
+
+    xy           [2-column array] x- and y-locations. x is in the first
+                 column, y is in the second column. Number of xy-locations
+                 is equal to the number of rows which is equal to n_total
+
+    Notes: 
+
+    If n_side is the number of antennas on the side of the hexagon, then
+    n_total = 3*n_side**2 - 3*n_side + 1
+    ------------------------------------------------------------------------
+    """
+
+    try:
+        spacing
+    except NameError:
+        raise NameError('No spacing provided.')
+
+    if not isinstance(spacing, (int, float)):
+        raise TypeError('spacing must be scalar value')
+
+    if spacing <= 0:
+        raise ValueError('spacing must be positive')
+        
+    if orientation is not None:
+        if not isinstance(orientation, (int,float)):
+            raise TypeError('orientation must be a scalar')
+
+    if center is not None:
+        if not isinstance(center, (list, NP.ndarray)):
+            raise TypeError('center must be a list or numpy array')
+        center = NP.asarray(center)
+        if center.size != 2:
+            raise ValueError('center should be a 2-element vector')
+        center = center.reshape(1,-1)
+
+    if (n_total is None) and (n_side is None):
+        raise NameError('n_total or n_side must be provided')
+    elif (n_total is not None) and (n_side is not None):
+        raise ValueError('Only one of n_total or n_side must be specified.')
+    elif n_total is not None:
+        if not isinstance(n_total, int):
+            raise TypeError('n_total must be an integer')
+        if n_total <= 0:
+            raise ValueError('n_total must be positive')
+    else:
+        if not isinstance(n_side, int):
+            raise TypeError('n_side must be an integer')
+        if n_side <= 0:
+            raise ValueError('n_side must be positive')
+
+    if n_total is not None:
+        sqroots = NP.roots([3.0, -3.0, 1.0-n_total])
+        valid_ind = NP.logical_and(sqroots.real >= 1, sqroots.imag == 0.0)
+        if NP.any(valid_ind):
+            sqroot = sqroots[valid_ind]
+        else:
+            raise ValueError('No valid root found for the quadratic equation with the specified n_total')
+
+        n_side = NP.round(sqroot).astype(NP.int)
+        if (3*n_side**2 - 3*n_side + 1 != n_total):
+            raise ValueError('n_total is not a valid number for a hexagonal array')
+    else:
+        n_total = 3*n_side**2 - 3*n_side + 1
+
+    xref = NP.arange(2*n_side-1, dtype=NP.float)
+    xloc, yloc = [], []
+    for i in range(1,n_side):
+        x = xref[:-i] + i * NP.cos(NP.pi/3)   # Select one less antenna each time and displace
+        y = i*NP.sin(NP.pi/3) * NP.ones(2*n_side-1-i)
+        xloc += x.tolist() * 2   # Two lists, one for the top and the other for the bottom
+        yloc += y.tolist()   # y-locations of the top list
+        yloc += (-y).tolist()   # y-locations of the bottom list
+
+    xloc += xref.tolist()   # Add the x-locations of central line of antennas
+    yloc += [0.0] * int(2*n_side-1)   # Add the y-locations of central line of antennas
+
+    if len(xloc) != len(yloc):
+        raise ValueError('Sizes of x- and y-locations do not agree')
+
+    xy = zip(xloc, yloc)
+    if len(xy) != n_total:
+        raise ValueError('Sizes of x- and y-locations do not agree with n_total')
+
+    xy = NP.asarray(xy)
+    xy = xy - NP.mean(xy, axis=0, keepdims=True)    # Shift the center to origin
+    if orientation is not None:   # Perform any rotation
+        angle = NP.radians(orientation)
+        rot_matrix = NP.asarray([[NP.cos(angle), -NP.sin(angle)], 
+                                 [NP.sin(angle), NP.cos(angle)]])
+        xy = NP.dot(xy, rot_matrix.T)
+
+    xy *= spacing    # Scale by the spacing
+    if center is not None:   # Shift the center
+        xy += center
+
+    return NP.asarray(xy)
 
 ################################################################################
 
@@ -115,7 +240,7 @@ def baseline_generator(antenna_locations, ant_id=None, auto=False,
             if antenna_locations.shape[1] > 3:
                 antenna_locations = antenna_locations[:,:3]
             elif antenna_locations.shape[1] < 3:
-                antenna_locations = NP.hstack((antenna_locations, NP.zeros(antenna_locations.shape[0],3-antenna_locations.shape[1])))
+                antenna_locations = NP.hstack((antenna_locations, NP.zeros((antenna_locations.shape[0],3-antenna_locations.shape[1]))))
 
     if isinstance(antenna_locations, list):
         num_ants = len(antenna_locations)
@@ -167,6 +292,85 @@ def baseline_generator(antenna_locations, ant_id=None, auto=False,
         antenna_pairs = NP.asarray(antenna_pairs)
 
     return baseline_locations, antenna_pairs
+
+#################################################################################
+
+def uniq_baselines(baseline_locations, redundant=None):
+
+    """
+    ---------------------------------------------------------------------------
+    Identify unique, redundant or non-redundant baselines from a given set of
+    baseline locations.
+
+    Inputs:
+    
+    baseline_locations [2- or 3-column numpy array] Each row of the array 
+                       specifies a baseline vector from which the required 
+                       set of baselines have to be identified
+
+    redundant          [None or boolean] If set to None (default), all the 
+                       unique baselines including redundant and non-redundant
+                       baselines are returned. If set to True, only redundant
+                       baselines that occur more than once are returned. If set
+                       to False, only non-redundant baselines that occur 
+                       exactly once are returned.
+
+    Output:
+
+    3-column numpy array which is a subset of baseline_locations containing 
+    the requested type of baselines are returned. In case of redundant and 
+    unique baselines, the order of repeated baselines does not matter and any
+    one of those baselines could be returned without guarantee of any ordering.
+    ---------------------------------------------------------------------------
+    """
+
+    try:
+        baseline_locations
+    except NameError:
+        raise NameError('baseline_locations not provided')
+        
+    if not isinstance(baseline_locations, NP.ndarray):
+        raise TypeError('baseline_locations must be a numpy array')
+
+    if redundant is not None:
+        if not isinstance(redundant, bool):
+            raise TypeError('keyword "redundant" must be set to None or a boolean value')
+
+    blshape = baseline_locations.shape
+    if blshape[1] > 3:
+        baseline_locations = baseline_locations[:,:3]
+    elif blshape[1] < 3:
+        baseline_locations = NP.hstack((baseline_locations, NP.zeros((blshape[0],3-blshape[1]))))
+
+    blo = NP.angle(baseline_locations[:,0] + 1j * baseline_locations[:,1], deg=True)
+    blo[blo >= 180.0] -= 180.0
+    blo[blo < 0.0] += 180.0
+    bll = NP.sqrt(baseline_locations[:,0]**2 + baseline_locations[:,1]**2)
+
+    blstr = ['{0[0]:.2f}_{0[1]:.2f}'.format(lo) for lo in zip(bll,blo)]
+
+    uniq_blstr, ind, invind = NP.unique(blstr, return_index=True, return_inverse=True)  ## if numpy.__version__ < 1.9.0
+
+    # uniq_blstr, ind, invind, frequency = NP.unique(blstr, return_index=True, return_inverse=True, return_counts=True)  ## if numpy.__version__ >= 1.9.0
+
+    if redundant is None:
+        return baseline_locations[ind,:]
+    else:
+        count_blstr = [(ubstr,blstr.count(ubstr)) for ubstr in uniq_blstr]  ## if numpy.__version__ < 1.9.0
+        if not redundant:
+            ## if numpy.__version__ < 1.9.0
+            non_redn_ind = [i for i,tup in enumerate(count_blstr) if tup[1] == 1]
+            return baseline_locations[ind[non_redn_ind],:]
+
+            ## if numpy.__version__ >= 1.9.0
+            # return baseline_locations[ind[frequency==1],:]
+        else:
+            ## if numpy.__version__ < 1.9.0
+            redn_ind = [i for i,tup in enumerate(count_blstr) if tup[1] > 1]
+            return baseline_locations[ind[redn_ind],:]
+
+            ## if numpy.__version__ >= 1.9.0
+            # return baseline_locations[ind[frequency>1],:]
 
 #################################################################################
 

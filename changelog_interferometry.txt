@@ -1,3 +1,17 @@
+From cd410da of interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Remove the undeveloped function antenna_generator() 
+(*) Add a new function hexagon_generator() which will generate antenna 
+locations on a hexagnal grid
+(*) Fix a bug in baseline_generator() when the input antenna 
+locations only have x and y but no z component.
+(*) Add a new function uniq_baselines() that can determine all the
+unique or only redundant or only non-redundant baselines from any given
+set of baselines
+
 From 1509599 of interferometry:
 ==============================
 
