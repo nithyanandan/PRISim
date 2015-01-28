@@ -1,4 +1,5 @@
 import numpy as NP 
+import astropy
 from astropy.io import fits
 from astropy.io import ascii
 import progressbar as PGB
@@ -13,7 +14,7 @@ import ipdb as PDB
 telescope_id = 'custom'
 element_size = 0.74
 element_shape = 'delta'
-phased_array = True
+phased_array = False
 
 if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole'):
     element_size = 0.74
@@ -47,7 +48,7 @@ if telescope_id == 'custom':
         telescope_id = telescope_id + '_array'
 telescope_str = telescope_id+'_'
 
-ground_plane = 0.3 # height of antenna element above ground plane
+ground_plane = None # height of antenna element above ground plane
 if ground_plane is None:
     ground_plane_str = 'no_ground_'
 else:
@@ -228,7 +229,12 @@ for k in range(n_sky_sectors):
     cols = []
     cols += [fits.Column(name='frequency', format='D', array=ia.channels)]
     cols += [fits.Column(name='lag', format='D', array=lags)]
-    columns = fits.ColDefs(cols, tbtype='BinTableHDU')
+
+    if astropy.__version__ == '0.4':
+        columns = fits.ColDefs(cols, tbtype='BinTableHDU')
+    elif astropy.__version__ == '0.4.2':
+        columns = fits.ColDefs(cols, ascii=False)
+
     tbhdu = fits.new_table(columns)
     tbhdu.header.set('EXTNAME', 'SPECTRAL INFO')
     hdulist += [tbhdu]

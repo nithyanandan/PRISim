@@ -7,7 +7,7 @@ import interferometry as RI
 telescope_id = 'custom'
 element_size = 0.74
 element_shape = 'delta'
-phased_array = True
+phased_array = False
 
 if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole'):
     element_size = 0.74
@@ -41,7 +41,7 @@ if telescope_id == 'custom':
         telescope_id = telescope_id + '_array'
 telescope_str = telescope_id+'_'
 
-ground_plane = 0.3 # height of antenna element above ground plane
+ground_plane = None # height of antenna element above ground plane
 if ground_plane is None:
     ground_plane_str = 'no_ground_'
 else:

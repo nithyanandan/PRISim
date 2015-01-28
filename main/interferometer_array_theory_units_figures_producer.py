@@ -61,6 +61,8 @@ import ipdb as PDB
 
 # 18) Plot delay spectra of the all-sky model with dipole, MWA tile, and HERA dish antenna shapes
 
+# 19) Plot delay spectrum of uniform sky model with a uniform power pattern
+
 plot_01 = False
 plot_02 = False
 plot_03 = False
@@ -78,7 +80,8 @@ plot_14 = False
 plot_15 = False
 plot_16 = False
 plot_17 = False
-plot_18 = True
+plot_18 = False
+plot_19 = True
 
 # PLT.ioff()
 PLT.ion()
@@ -171,9 +174,10 @@ baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
 bl_chunk = range(len(baseline_bin_indices))
 bl_chunk = bl_chunk[:n_bl_chunks]
 
-truncated_ref_bl_length = NP.copy(ref_bl_length)
 truncated_ref_bl = NP.copy(ref_bl)
 truncated_ref_bl_id = NP.copy(ref_bl_id)
+truncated_ref_bl_length = NP.sqrt(NP.sum(truncated_ref_bl[:,:2]**2, axis=1))
+# truncated_ref_bl_length = NP.copy(ref_bl_length)
 truncated_ref_bl_orientation = NP.copy(ref_bl_orientation)
 truncated_total_baselines = truncated_ref_bl_length.size
 if max_bl_length is not None:
@@ -2623,13 +2627,14 @@ if plot_15:
 
 ##################################################################
 
-if plot_17 or plot_18:
+if plot_17 or plot_18 or plot_19:
 
     delta_array_usm_infile = '/data3/t_nithyanandan/project_MWA/delta_array_multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_usm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb'
     delta_array_usm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/delta_array_multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_usm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb_'+bpass_shape
     delta_array_asm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/delta_array_multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb_'+bpass_shape
     mwa_dipole_asm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/mwa_dipole_multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb_'+bpass_shape
     hera_asm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/hera_multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb_'+bpass_shape
+    delta_usm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/delta_multi_baseline_CLEAN_visibilities_no_ground_'+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_usm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb_'+bpass_shape
 
     ia = RI.InterferometerArray(None, None, None, init_file=delta_array_usm_infile+'.fits')    
     simdata_bl_orientation = NP.angle(ia.baselines[:,0] + 1j * ia.baselines[:,1], deg=True)
@@ -2688,6 +2693,13 @@ if plot_17 or plot_18:
     hera_asm_cc_skyvis_res = hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS REAL'].data + 1j * hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS IMAG'].data
     hera_asm_cc_vis = hdulist['CLEAN NOISY VISIBILITIES REAL'].data + 1j * hdulist['CLEAN NOISY VISIBILITIES IMAG'].data
     hera_asm_cc_vis_res = hdulist['CLEAN NOISY VISIBILITIES RESIDUALS REAL'].data + 1j * hdulist['CLEAN NOISY VISIBILITIES RESIDUALS IMAG'].data
+    hdulist.close()
+
+    hdulist = fits.open(delta_usm_CLEAN_infile+'.fits')
+    delta_usm_cc_skyvis = hdulist['CLEAN NOISELESS VISIBILITIES REAL'].data + 1j * hdulist['CLEAN NOISELESS VISIBILITIES IMAG'].data
+    delta_usm_cc_skyvis_res = hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS REAL'].data + 1j * hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS IMAG'].data
+    delta_usm_cc_vis = hdulist['CLEAN NOISY VISIBILITIES REAL'].data + 1j * hdulist['CLEAN NOISY VISIBILITIES IMAG'].data
+    delta_usm_cc_vis_res = hdulist['CLEAN NOISY VISIBILITIES RESIDUALS REAL'].data + 1j * hdulist['CLEAN NOISY VISIBILITIES RESIDUALS IMAG'].data
     hdulist.close()
 
     clean_lags = DSP.downsampler(clean_lags, 1.0*clean_lags.size/ia.lags.size, axis=-1)
@@ -2796,7 +2808,7 @@ if plot_17 or plot_18:
         PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/delta_array_multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_usm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
         PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/delta_array_multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_usm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
         
-##################################################################
+    ##################################################################
 
     if plot_18:
         # 18) Plot delay spectra of the all-sky model with dipole, MWA tile, and HERA dish antenna shapes
@@ -3028,10 +3040,64 @@ if plot_17 or plot_18:
             PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/multi_antenna_multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}_snapshot_{1:0d}'.format(oversampling_factor,j)+'.png', bbox_inches=0)
             PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/multi_antenna_multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}_snapshot_{1:0d}'.format(oversampling_factor,j)+'.eps', bbox_inches=0)
         
+##################################################################
 
+    if plot_19:
+        # 19) Plot delay spectrum of uniform sky model with a uniform power pattern
 
+        delta_usm_cc_skyvis[simdata_neg_bl_orientation_ind,:,:] = delta_usm_cc_skyvis[simdata_neg_bl_orientation_ind,:,:].conj()
+        delta_usm_cc_skyvis_res[simdata_neg_bl_orientation_ind,:,:] = delta_usm_cc_skyvis_res[simdata_neg_bl_orientation_ind,:,:].conj()
         
+        delta_usm_cc_skyvis_lag = NP.fft.fftshift(NP.fft.ifft(delta_usm_cc_skyvis, axis=1),axes=1) * delta_usm_cc_skyvis.shape[1] * freq_resolution
+        delta_usm_ccres_sky = NP.fft.fftshift(NP.fft.ifft(delta_usm_cc_skyvis_res, axis=1),axes=1) * delta_usm_cc_skyvis.shape[1] * freq_resolution
+        delta_usm_cc_skyvis_lag = delta_usm_cc_skyvis_lag + delta_usm_ccres_sky
+        
+        delta_usm_cc_skyvis_lag = DSP.downsampler(delta_usm_cc_skyvis_lag, 1.0*clean_lags_orig.size/ia.lags.size, axis=1)
+        delta_usm_cc_skyvis_lag = delta_usm_cc_skyvis_lag[truncated_ref_bl_ind,:,:]
+    
+        delta_usm_dspec_max = NP.abs(delta_usm_cc_skyvis_lag).max()
+        delta_usm_dspec_min = NP.abs(delta_usm_cc_skyvis_lag).min()
+        # delta_usm_dspec_max = delta_usm_dspec_max**2 * volfactor1 * volfactor2 * Jy2K**2
+        # delta_usm_dspec_min = delta_usm_dspec_min**2 * volfactor1 * volfactor2 * Jy2K**2
 
+        if max_abs_delay is not None:
+            delta_usm_cc_skyvis_lag = delta_usm_cc_skyvis_lag[:,small_delays_ind,:]
 
+        for j in xrange(n_snaps):
+            fig = PLT.figure(figsize=(6,6))
+            ax = fig.add_subplot(111)
+            imdspec = ax.pcolorfast(truncated_ref_bl_length, 1e6*clean_lags, NP.abs(delta_usm_cc_skyvis_lag[:-1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e5**2) * volfactor1 * volfactor2 * Jy2K**2, vmax=(delta_usm_dspec_max**2) * volfactor1 * volfactor2 * Jy2K**2))
+            horizonb = ax.plot(truncated_ref_bl_length, 1e6*min_delay.ravel(), color='white', ls=':', lw=1.5)
+            horizont = ax.plot(truncated_ref_bl_length, 1e6*max_delay.ravel(), color='white', ls=':', lw=1.5)
+            ax.set_ylim(0.9*NP.amin(clean_lags*1e6), 0.9*NP.amax(clean_lags*1e6))
+            ax.set_aspect('auto')
+            # ax.text(0.5, 0.9, descriptor_str[j], transform=ax.transAxes, fontsize=14, weight='semibold', ha='center', color='white')
+    
+            ax_kprll = ax.twinx()
+            ax_kprll.set_yticks(kprll(ax.get_yticks()*1e-6, redshift))
+            ax_kprll.set_ylim(kprll(NP.asarray(ax.get_ylim())*1e-6, redshift))
+            yformatter = FuncFormatter(lambda y, pos: '{0:.2f}'.format(y))
+            ax_kprll.yaxis.set_major_formatter(yformatter)
 
+            ax_kperp = ax.twiny()
+            ax_kperp.set_xticks(kperp(ax.get_xticks()*freq/FCNST.c, redshift))
+            ax_kperp.set_xlim(kperp(NP.asarray(ax.get_xlim())*freq/FCNST.c, redshift))
+            xformatter = FuncFormatter(lambda x, pos: '{0:.3f}'.format(x))
+            ax_kperp.xaxis.set_major_formatter(xformatter)
+    
+            ax.set_ylabel(r'$\tau$ [$\mu$s]', fontsize=16, weight='medium')
+            ax.set_xlabel(r'$|\mathbf{b}|$ [m]', fontsize=16, weight='medium')
+            ax_kprll.set_ylabel(r'$k_\parallel$ [$h$ Mpc$^{-1}$]', fontsize=16, weight='medium')
+            ax_kperp.set_xlabel(r'$k_\perp$ [$h$ Mpc$^{-1}$]', fontsize=16, weight='medium')
 
+            cbax = fig.add_axes([0.9, 0.125, 0.02, 0.74])
+            cbar = fig.colorbar(imdspec, cax=cbax, orientation='vertical')
+            cbax.set_xlabel(r'K$^2$(Mpc/h)$^3$', labelpad=10, fontsize=12)
+            cbax.xaxis.set_label_position('top')
+            
+            # PLT.tight_layout()
+            fig.subplots_adjust(right=0.72)
+            fig.subplots_adjust(top=0.88)
+    
+            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/delta_multi_baseline_CLEAN_noiseless_PS_no_ground_'+snapshot_type_str+obs_mode+'_gaussian_FG_model_usm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}_snapshot_{1:0d}'.format(oversampling_factor,j)+'.png', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/delta_multi_baseline_CLEAN_noiseless_PS_no_ground_'+snapshot_type_str+obs_mode+'_gaussian_FG_model_usm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}_snapshot_{1:0d}'.format(oversampling_factor,j)+'.eps', bbox_inches=0)

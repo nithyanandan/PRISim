@@ -1,3 +1,10 @@
+From c1d5cb5 of interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Adjust code to handle updates to Astropy while saving to FITS files
+
 From cd410da of interferometry:
 ==============================
 

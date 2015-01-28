@@ -7,6 +7,7 @@ from scipy.linalg import toeplitz
 import scipy.optimize as OPT
 import datetime as DT
 import progressbar as PGB
+import astropy 
 from astropy.io import fits
 import geometry as GEOM
 import primary_beams as PB
@@ -1449,8 +1450,8 @@ class Interferometer:
 
         tabtype      [string] indicates table type for one of the extensions in 
                      the FITS file. Allowed values are 'BinTableHDU' and 
-                     'TableHDU' for binary ascii tables respectively. Default is
-                     'BinTableHDU'.
+                     'TableHDU' for binary and ascii tables respectively. Default 
+                     is 'BinTableHDU'.
                      
         overwrite    [boolean] True indicates overwrite even if a file already 
                      exists. Default = False (does not overwrite)
@@ -3990,8 +3991,8 @@ class InterferometerArray(object):
 
         tabtype      [string] indicates table type for one of the extensions in 
                      the FITS file. Allowed values are 'BinTableHDU' and 
-                     'TableHDU' for binary ascii tables respectively. Default is
-                     'BinTableHDU'.
+                     'TableHDU' for binary and ascii tables respectively. Default 
+                     is 'BinTableHDU'.
                      
         overwrite    [boolean] True indicates overwrite even if a file already 
                      exists. Default = False (does not overwrite)
@@ -4010,6 +4011,10 @@ class InterferometerArray(object):
 
         if verbose:
             print '\nSaving information about interferometer...'
+
+        use_ascii = False
+        if tabtype == 'TableHDU':
+            use_ascii = True
 
         hdulist = []
 
@@ -4043,7 +4048,12 @@ class InterferometerArray(object):
             cols += [fits.Column(name='pointing_latitude', format='D', array=self.pointing_center[:,1])]
             cols += [fits.Column(name='phase_center_longitude', format='D', array=self.phase_center[:,0])]
             cols += [fits.Column(name='phase_center_latitude', format='D', array=self.phase_center[:,1])]
-        columns = fits.ColDefs(cols, tbtype=tabtype)
+
+        if astropy.__version__ == '0.4':
+            columns = fits.ColDefs(cols, tbtype=tabtype)
+        elif astropy.__version__ == '0.4.2':
+            columns = fits.ColDefs(cols, ascii=use_ascii)
+
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'POINTING AND PHASE CENTER INFO')
         hdulist += [tbhdu]
@@ -4052,7 +4062,12 @@ class InterferometerArray(object):
 
         cols = []
         cols += [fits.Column(name='labels', format='5A', array=NP.asarray(self.labels))]
-        columns = fits.ColDefs(cols, tbtype=tabtype)
+
+        if astropy.__version__ == '0.4':
+            columns = fits.ColDefs(cols, tbtype=tabtype)
+        elif astropy.__version__ == '0.4.2':
+            columns = fits.ColDefs(cols, ascii=use_ascii)
+
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'LABELS')
         hdulist += [tbhdu]
@@ -4080,7 +4095,12 @@ class InterferometerArray(object):
         cols += [fits.Column(name='frequency', format='D', array=self.channels)]
         if self.lags is not None:
             cols += [fits.Column(name='lag', format='D', array=self.lags)]
-        columns = fits.ColDefs(cols, tbtype=tabtype)
+
+        if astropy.__version__ == '0.4':
+            columns = fits.ColDefs(cols, tbtype=tabtype)
+        elif astropy.__version__ == '0.4.2':
+            columns = fits.ColDefs(cols, ascii=use_ascii)
+
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'SPECTRAL INFO')
         hdulist += [tbhdu]
@@ -4094,7 +4114,12 @@ class InterferometerArray(object):
 
         cols = []
         cols += [fits.Column(name='timestamps', format='12A', array=NP.asarray(self.timestamp))]
-        columns = fits.ColDefs(cols, tbtype=tabtype)
+
+        if astropy.__version__ == '0.4':
+            columns = fits.ColDefs(cols, tbtype=tabtype)
+        elif astropy.__version__ == '0.4.2':
+            columns = fits.ColDefs(cols, ascii=use_ascii)
+
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'TIMESTAMPS')
         hdulist += [tbhdu]
