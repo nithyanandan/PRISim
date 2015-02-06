@@ -65,6 +65,7 @@ obsparm_group.add_argument('--obs-mode', help='Observing mode [str, track/drift/
 # obsparm_group.add_argument('--t-snap', help='Integration time (seconds) [float, Default=300.0]', default=5.0*60.0, type=float, dest='t_snap')
 obsparm_group.add_argument('--nchan', help='Number of frequency channels [int, Default=256]', default=256, type=int, dest='n_channels')
 obsparm_group.add_argument('--delayerr', dest='delayerr', type=float, default=0.0, help='RMS error in beamformer delays [ns], default=0')
+obsparm_group.add_argument('--gainerr', dest='gainerr', type=float, default=0.0, help='RMS error in beamformer gains [dB], default=0')
 # obsparm_group.add_argument('--lst-init', help='LST at beginning of observing run (hours) [float]', type=float, dest='lst_init', required=True, metavar='LST')
 # obsparm_group.add_argument('--pointing-init', help='Pointing (RA, Dec) at beginning of observing run (degrees) [float]', type=float, dest='pointing_init', metavar=('RA', 'Dec'), required=True, nargs=2)
 
@@ -300,20 +301,29 @@ snapshot_sampling = args['snapshot_sampling']
 pick_snapshots = args['pick_snapshots']
 snapshots_range = args['snapshots_range']
 snapshot_type_str = ''
+
 if avg_drifts and (obs_mode == 'dns'):
     snapshot_type_str = 'drift_averaged_'
+
 if beam_switch and (obs_mode == 'dns'):
     snapshot_type_str = 'beam_switches_'
+
 if (snapshots_range is not None) and (obs_mode == 'dns'):
     snapshot_type_str = 'snaps_{0[0]:0d}-{0[1]:0d}_'.format(snapshots_range)
+
 pointing_file = args['pointing_file']
 if pointing_file is not None:
     pointing_file = pointing_file[0]
 pointing_info = args['pointing_info']
+
 delayerr = args['delayerr']
 if delayerr < 0.0:
     raise ValueError('delayerr must be non-negative.')
 delayerr *= 1e-9
+
+gainerr = args['gainerr']
+if gainerr < 0.0:
+    raise ValueError('gainerr must be non-negative.')
 
 if phased_array:
     try:
@@ -1082,6 +1092,7 @@ if mpi_on_src: # MPI based on source multiplexing
                 if (telescope_id == 'mwa') or (phased_array):
                     pbinfo['element_locs'] = element_locs
                     pbinfo['delayerr'] = delayerr
+                    pbinfo['gainerr'] = gainerr
 
             ts = time.time()
             if j == 0:
@@ -1145,6 +1156,7 @@ else: # MPI based on baseline multiplexing
                         if (telescope_id == 'mwa') or (phased_array):
                             pbinfo['element_locs'] = element_locs
                             pbinfo['delayerr'] = delayerr
+                            pbinfo['gainerr'] = gainerr
 
                     ts = time.time()
                     if j == 0:
@@ -1202,6 +1214,7 @@ else: # MPI based on baseline multiplexing
                         if (telescope_id == 'mwa') or (phased_array):
                             pbinfo['element_locs'] = element_locs
                             pbinfo['delayerr'] = delayerr
+                            pbinfo['gainerr'] = gainerr
                     else:
                         pbinfo['pointing_center'] = pointings_altaz[j,:]
                         pbinfo['pointing_coords'] = 'altaz'

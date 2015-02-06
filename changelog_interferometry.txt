@@ -1,3 +1,16 @@
+From c28f55a of Interferometry:
+==============================
+
+In primary_beams.py,
+
+(*) Modify array_field_pattern() to take and process input parameter specifying 
+gain errors. 
+(*) Modify primary_beam_generator() to pass input parameter specifying gain
+errors
+(*) Update docstrings accordingly
+(*) Adapt MWA_interferometer_array_observing_run_data_simulation.mpi.py to make
+use of the input parameter gainerr
+
 From c1d5cb5 of interferometry:
 ==============================
 

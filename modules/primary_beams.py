@@ -129,6 +129,12 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                                 specified by the number of rows in antpos. If 
                                 set to None (default), all element gains are 
                                 assumed to be unity. 
+              'gainerr'         [int, float] RMS error in voltage amplitude in 
+                                dB to be used in the beamformer. Random jitters 
+                                are drawn from a normal distribution in 
+                                logarithm units which are then converted to 
+                                linear units. Must be a non-negative scalar. 
+                                If not provided, it defaults to 0 (no jitter). 
               'delays'          [numpy array] Delays (in seconds) to be applied 
                                 to the tile elements. Size should be equal to 
                                 number of tile elements (number of rows in
@@ -257,8 +263,12 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                         pinfo['pointing_coords'] = pointing_info['pointing_coords']
                     if 'gains' in pointing_info:
                         gains = pointing_info['gains']
-                    irap = array_field_pattern(element_locs, skypos, skycoords=skyunits,
-                                               gains=gains, pointing_info=pinfo,
+                    if 'gainerr' in pointing_info:
+                        gainerr = pointing_info['gainerr']
+                    irap = array_field_pattern(element_locs, skypos, 
+                                               skycoords=skyunits,
+                                               gains=gains, gainerr=gainerr, 
+                                               pointing_info=pinfo,
                                                wavelength=FCNST.c/frequency)
                 pb = NP.abs(ep * irap)**2 # Power pattern is square of the field pattern
             else:
@@ -318,6 +328,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 element_locs = pointing_info['element_locs']
                 pinfo = {}
                 gains = None
+                gainerr = None
                 if 'delays' in pointing_info:
                     pinfo['delays'] = pointing_info['delays']
                 if 'delayerr' in pointing_info:
@@ -328,8 +339,11 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                     pinfo['pointing_coords'] = pointing_info['pointing_coords']
                 if 'gains' in pointing_info:
                     gains = pointing_info['gains']
+                if 'gainerr' in pointing_info:
+                    gainerr = pointing_info['gainerr']
                 irap = array_field_pattern(element_locs, skypos, skycoords=skyunits,
-                                           gains=gains, pointing_info=pinfo,
+                                           gains=gains, gainerr=gainerr, 
+                                           pointing_info=pinfo,
                                            wavelength=FCNST.c/frequency)
         else:
             irap = NP.ones(skypos.shape[0]*frequency.size).reshape(skypos.shape[0],frequency.size)
@@ -1241,7 +1255,7 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
 #################################################################################
 
 def array_field_pattern(antpos, skypos, skycoords='altaz', gains=None, 
-                        pointing_info=None, wavelength=1.0):
+                        gainerr=None, pointing_info=None, wavelength=1.0):
 
     """
     -----------------------------------------------------------------------------
@@ -1282,6 +1296,12 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', gains=None,
               number of elements as specified by the number of rows in antpos.
               If set to None (default), all element gains are assumed to be
               unity.
+
+    gainerr   [int, float] RMS error in voltage amplitude in dB to be used in 
+              the beamformer. Random jitters are drawn from a normal 
+              distribution in logarithm units which are then converted to linear
+              units. Must be a non-negative scalar. If not provided, it defaults 
+              to 0 (no jitter). 
 
     pointing_info 
               [dictionary] A dictionary consisting of information relating to 
@@ -1348,6 +1368,17 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', gains=None,
         if gains.size != antpos.shape[0]:
             raise ValueError('size of gains must be equal to the number of antennas')
         gains = gains.ravel().astype(NP.float32)
+
+    if gainerr is not None:
+        if isinstance(gainerr, (int, float)):
+            if gainerr < 0.0:
+                raise ValueError('gainerr must be non-negative')
+            gainerr /= 10.0         # Convert from dB to logarithmic units
+            gains = gains * 10**(gainerr * NP.random.standard_normal(gains.shape))
+        else:
+            raise TypeError('gainerr must be an integer or float')
+        
+    gains = gains.astype(NP.float32)
 
     if pointing_info is None:
         delays = NP.zeros(antpos.shape[0])
