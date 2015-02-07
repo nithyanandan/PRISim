@@ -262,12 +262,11 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                     if 'pointing_coords' in pointing_info:
                         pinfo['pointing_coords'] = pointing_info['pointing_coords']
                     if 'gains' in pointing_info:
-                        gains = pointing_info['gains']
+                        pinfo['gains'] = pointing_info['gains']
                     if 'gainerr' in pointing_info:
-                        gainerr = pointing_info['gainerr']
+                        pinfo['gainerr'] = pointing_info['gainerr']
                     irap = array_field_pattern(element_locs, skypos, 
                                                skycoords=skyunits,
-                                               gains=gains, gainerr=gainerr, 
                                                pointing_info=pinfo,
                                                wavelength=FCNST.c/frequency)
                 pb = NP.abs(ep * irap)**2 # Power pattern is square of the field pattern
@@ -338,11 +337,10 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 if 'pointing_coords' in pointing_info:
                     pinfo['pointing_coords'] = pointing_info['pointing_coords']
                 if 'gains' in pointing_info:
-                    gains = pointing_info['gains']
+                    pinfo['gains'] = pointing_info['gains']
                 if 'gainerr' in pointing_info:
-                    gainerr = pointing_info['gainerr']
+                    pinfo['gainerr'] = pointing_info['gainerr']
                 irap = array_field_pattern(element_locs, skypos, skycoords=skyunits,
-                                           gains=gains, gainerr=gainerr, 
                                            pointing_info=pinfo,
                                            wavelength=FCNST.c/frequency)
         else:
@@ -1254,8 +1252,8 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
 
 #################################################################################
 
-def array_field_pattern(antpos, skypos, skycoords='altaz', gains=None, 
-                        gainerr=None, pointing_info=None, wavelength=1.0):
+def array_field_pattern(antpos, skypos, skycoords='altaz', pointing_info=None, 
+                        wavelength=1.0):
 
     """
     -----------------------------------------------------------------------------
@@ -1292,17 +1290,6 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', gains=None,
               skypos. Accepted values are 'altaz' (Alt-Az) or 'dircos' (direction
               cosines)
 
-    gains     [numpy array] Complex element gains. Must be of size equal to the
-              number of elements as specified by the number of rows in antpos.
-              If set to None (default), all element gains are assumed to be
-              unity.
-
-    gainerr   [int, float] RMS error in voltage amplitude in dB to be used in 
-              the beamformer. Random jitters are drawn from a normal 
-              distribution in logarithm units which are then converted to linear
-              units. Must be a non-negative scalar. If not provided, it defaults 
-              to 0 (no jitter). 
-
     pointing_info 
               [dictionary] A dictionary consisting of information relating to 
               pointing center. The pointing center can be specified either via
@@ -1332,6 +1319,17 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', gains=None,
                                 normal distribution with this rms. Must be
                                 a non-negative scalar. If not provided, it
                                 defaults to 0 (no jitter). 
+              'gains'           [numpy array] Complex element gains. Must be of 
+                                size equal to the number of elements as 
+                                specified by the number of rows in antpos. If
+                                set to None (default), all element gains are 
+                                assumed to be unity.
+              'gainerr'         [int, float] RMS error in voltage amplitude in 
+                                dB to be used in the beamformer. Random jitters 
+                                are drawn from a normal distribution in 
+                                logarithm units which are then converted to 
+                                linear units. Must be a non-negative scalar. If 
+                                not provided, it defaults to 0 (no jitter). 
               
     wavelength [scalar, list or numpy vector] Wavelengths at which the field 
                dipole pattern is to be estimated. Must be in the same units as 
@@ -1360,28 +1358,10 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', gains=None,
             elif antpos.shape[1] != 3:
                 raise ValueError('antpos must be a 2- or 3-column array')
             antpos = antpos.astype(NP.float32)
-    if gains is None:
-        gains = NP.ones(antpos.shape[0])
-    elif not isinstance(gains, NP.ndarray):
-        raise TypeError('gains must be a numpy array')
-    else:
-        if gains.size != antpos.shape[0]:
-            raise ValueError('size of gains must be equal to the number of antennas')
-        gains = gains.ravel().astype(NP.float32)
-
-    if gainerr is not None:
-        if isinstance(gainerr, (int, float)):
-            if gainerr < 0.0:
-                raise ValueError('gainerr must be non-negative')
-            gainerr /= 10.0         # Convert from dB to logarithmic units
-            gains = gains * 10**(gainerr * NP.random.standard_normal(gains.shape))
-        else:
-            raise TypeError('gainerr must be an integer or float')
-        
-    gains = gains.astype(NP.float32)
 
     if pointing_info is None:
         delays = NP.zeros(antpos.shape[0])
+        gains = NP.ones(antpos.shape[0])
     else:
         if 'delays' in pointing_info:
             delays = pointing_info['delays']
@@ -1408,16 +1388,41 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', gains=None,
         else:
             delays = NP.zeros(antpos.shape[0], dtype=NP.float32)
 
-    if 'delayerr' in pointing_info:
-        delayerr = pointing_info['delayerr']
-        if delayerr is not None:
-            if isinstance(delayerr, (int, float)):
-                if delayerr < 0.0:
-                    raise ValueError('delayerr must be non-negative')
-                delays = delays + delayerr * NP.random.standard_normal(delays.shape)
+        if 'gains' in pointing_info:
+            gains = pointing_info['gains']
+            if gains is None:
+                gains = NP.ones(antpos.shape[0])
+            elif not isinstance(gains, NP.ndarray):
+                raise TypeError('gains must be a numpy array')
             else:
-                raise TypeError('delayerr must be an integer or float')
-        
+                if gains.size != antpos.shape[0]:
+                    raise ValueError('size of gains must be equal to the number of antennas')
+            gains = gains.ravel()
+        else:
+            gains = NP.ones(antpos.shape[0], dtype=NP.float32)
+
+        if 'delayerr' in pointing_info:
+            delayerr = pointing_info['delayerr']
+            if delayerr is not None:
+                if isinstance(delayerr, (int, float)):
+                    if delayerr < 0.0:
+                        raise ValueError('delayerr must be non-negative')
+                    delays = delays + delayerr * NP.random.standard_normal(delays.shape)
+                else:
+                    raise TypeError('delayerr must be an integer or float')
+
+        if 'gainerr' in pointing_info:
+            gainerr = pointing_info['gainerr']
+            if gainerr is not None:
+                if isinstance(gainerr, (int, float)):
+                    if gainerr < 0.0:
+                        raise ValueError('gainerr must be non-negative')
+                    gainerr /= 10.0         # Convert from dB to logarithmic units
+                    gains = gains * 10**(gainerr * NP.random.standard_normal(gains.shape))
+                else:
+                    raise TypeError('gainerr must be an integer or float')
+
+    gains = gains.astype(NP.float32)        
     delays = delays.astype(NP.float32)
 
     if not isinstance(skypos, NP.ndarray):

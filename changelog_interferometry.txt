@@ -1,3 +1,14 @@
+From bc17d44 of Interferometry:
+==============================
+
+In primary_beams.py,
+
+(*) Remove input parameters gains and gainerr and make them as part of input
+dictionary parameter pointing_info in array_field_pattern()
+(*) Change docstring of array_field_pattern() accordingly
+(*) Modify primary_beam_generator() to pass gain and gainerr as part of a
+dictionary to array_field_pattern() instead of as individual input parameters
+
 From c28f55a of Interferometry:
 ==============================
 
