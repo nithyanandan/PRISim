@@ -157,6 +157,9 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                                 normal distribution with this rms. Must be
                                 a non-negative scalar. If not provided, it
                                 defaults to 0 (no jitter). 
+              'nrand'           [int] number of random realizations of gainerr 
+                                and/or delayerr to be averaged. Must be 
+                                positive. If none provided, it defaults to 1.
 
     pointing_center
                 [list or numpy array] coordinates of pointing center (in the same
@@ -233,6 +236,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                                           dipole_orientation=orientation,
                                           skycoords=skyunits, wavelength=FCNST.c/frequency, 
                                           half_wave_dipole_approx=False)
+                ep = ep[:,:,NP.newaxis]  # add an axis to be compatible with random ralizations
                 if pointing_info is None: # Use analytical formula
                     if skyunits == 'altaz':
                         pointing_center = NP.asarray([90.0, 270.0]).reshape(1,-1)
@@ -245,8 +249,11 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                                                                    FCNST.c/frequency, east2ax1=east2ax1,
                                                                    pointing_center=pointing_center,
                                                                    skycoords=skyunits)
+                    irap = irap[:,:,NP.newaxis]  # add an axis to be compatible with random ralizations
+
                 else: # Call the beamformer
                     if 'element_locs' not in pointing_info:
+                        nrand = 1
                         xlocs, ylocs = NP.meshgrid(1.1*NP.linspace(-1.5,1.5,4), 1.1*NP.linspace(1.5,-1.5,4))
                         element_locs = NP.hstack((xlocs.reshape(-1,1), ylocs.reshape(-1,1), NP.zeros(xlocs.size).reshape(-1,1)))
                     else:
@@ -265,11 +272,14 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                         pinfo['gains'] = pointing_info['gains']
                     if 'gainerr' in pointing_info:
                         pinfo['gainerr'] = pointing_info['gainerr']
+                    if 'nrand' in pointing_info:
+                        pinfo['nrand'] = pointing_info['nrand']
                     irap = array_field_pattern(element_locs, skypos, 
                                                skycoords=skyunits,
                                                pointing_info=pinfo,
                                                wavelength=FCNST.c/frequency)
-                pb = NP.abs(ep * irap)**2 # Power pattern is square of the field pattern
+                    nrand = irap.shape[-1]
+                pb = NP.mean(NP.abs(ep * irap)**2, axis=2) # Power pattern is square of the field pattern
             else:
                 raise ValueError('skyunits must be in Alt-Az or direction cosine coordinates for MWA.')
         elif telescope['id'] == 'mwa_dipole':
@@ -312,17 +322,20 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                                       dipole_orientation=telescope['orientation'],
                                       skycoords=skyunits, wavelength=FCNST.c/frequency, 
                                       half_wave_dipole_approx=False)
-
+            ep = ep[:,:,NP.newaxis]   # add an axis to be compatible with random ralizations
         elif telescope['shape'] == 'dish':
             ep = airy_disk_pattern(telescope['size'], skypos, frequency, skyunits=skyunits,
                                    peak=1.0, pointing_center=pointing_center, 
                                    gaussian=False, power=False, small_angle_tol=1e-10)
+            ep = ep[:,:,NP.newaxis]   # add an axis to be compatible with random ralizations
         else:
             raise ValueError('Value in key "shape" of telescope dictionary invalid.')
 
         if pointing_info is not None: # Call the beamformer
+
             if 'element_locs' not in pointing_info:
-                irap = NP.ones(skypos.shape[0]*frequency.size).reshape(skypos.shape[0],frequency.size)
+                nrand = 1
+                irap = NP.ones(skypos.shape[0]*frequency.size).reshape(skypos.shape[0],frequency.size,nrand)
             else:
                 element_locs = pointing_info['element_locs']
                 pinfo = {}
@@ -340,12 +353,16 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                     pinfo['gains'] = pointing_info['gains']
                 if 'gainerr' in pointing_info:
                     pinfo['gainerr'] = pointing_info['gainerr']
+                if 'nrand' in pointing_info:
+                    pinfo['nrand'] = pointing_info['nrand']
                 irap = array_field_pattern(element_locs, skypos, skycoords=skyunits,
                                            pointing_info=pinfo,
                                            wavelength=FCNST.c/frequency)
+                nrand = irap.shape[-1]
         else:
-            irap = NP.ones(skypos.shape[0]*frequency.size).reshape(skypos.shape[0],frequency.size)
-        pb = NP.abs(ep * irap)**2 # Power pattern is square of the field pattern
+            nrand = 1
+            irap = NP.ones(skypos.shape[0]*frequency.size).reshape(skypos.shape[0],frequency.size,nrand)  # Last axis indicates number of random realizations
+        pb = NP.mean(NP.abs(ep * irap)**2, axis=2) # Power pattern is square of the field pattern averaged over all random realizations of delays and gains if specified
        
     if 'groundplane' in telescope:
         gp = 1.0
@@ -1330,6 +1347,9 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', pointing_info=None,
                                 logarithm units which are then converted to 
                                 linear units. Must be a non-negative scalar. If 
                                 not provided, it defaults to 0 (no jitter). 
+              'nrand'           [int] number of random realizations of gainerr 
+                                and/or delayerr to be generated. Must be 
+                                positive. If none provided, it defaults to 1.
               
     wavelength [scalar, list or numpy vector] Wavelengths at which the field 
                dipole pattern is to be estimated. Must be in the same units as 
@@ -1362,7 +1382,17 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', pointing_info=None,
     if pointing_info is None:
         delays = NP.zeros(antpos.shape[0])
         gains = NP.ones(antpos.shape[0])
+        nrand = 1
     else:
+        if 'nrand' in pointing_info:
+            nrand = pointing_info['nrand']
+            if nrand is None: 
+                nrand = 1
+            elif not isinstance(nrand, int):
+                raise TypeError('nrand must be an integer')
+            elif nrand < 1:
+                raise ValueError('nrand must be positive')
+
         if 'delays' in pointing_info:
             delays = pointing_info['delays']
             if delays is None:
@@ -1407,7 +1437,7 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', pointing_info=None,
                 if isinstance(delayerr, (int, float)):
                     if delayerr < 0.0:
                         raise ValueError('delayerr must be non-negative')
-                    delays = delays + delayerr * NP.random.standard_normal(delays.shape)
+                    delays = delays.reshape(antpos.shape[0],1) + delayerr * NP.random.standard_normal((antpos.shape[0],nrand))
                 else:
                     raise TypeError('delayerr must be an integer or float')
 
@@ -1418,7 +1448,7 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', pointing_info=None,
                     if gainerr < 0.0:
                         raise ValueError('gainerr must be non-negative')
                     gainerr /= 10.0         # Convert from dB to logarithmic units
-                    gains = gains * 10**(gainerr * NP.random.standard_normal(gains.shape))
+                    gains = gains.reshape(antpos.shape[0],1) * 10**(gainerr * NP.random.standard_normal((antpos.shape[0],nrand)))
                 else:
                     raise TypeError('gainerr must be an integer or float')
 
@@ -1485,11 +1515,11 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', pointing_info=None,
     wavelength = wavelength.astype(NP.float32)
 
     geometric_delays = -NP.dot(antpos, skypos.T) / FCNST.c
-    geometric_delays = geometric_delays[:,:,NP.newaxis].astype(NP.float32, copy=False) # Add an axis for wavelengths
+    geometric_delays = geometric_delays[:,:,NP.newaxis,NP.newaxis].astype(NP.float32, copy=False) # Add an axis for wavelengths, and random realizations of beamformer settings
     
-    gains = gains.reshape(-1,1,1).astype(NP.complex64, copy=False)
-    delays = delays.reshape(-1,1,1)
-    wavelength = wavelength.reshape(1,1,-1).astype(NP.float32, copy=False)
+    gains = gains.reshape(antpos.shape[0],1,1,nrand).astype(NP.complex64, copy=False)
+    delays = delays.reshape(antpos.shape[0],1,1,nrand)
+    wavelength = wavelength.reshape(1,1,-1,1).astype(NP.float32, copy=False)
 
     retvalue = geometric_delays + delays
     retvalue = retvalue.astype(NP.complex64, copy=False)

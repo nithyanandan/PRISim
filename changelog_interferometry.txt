@@ -1,3 +1,13 @@
+From 2a6938b of Interferometry:
+==============================
+
+In primary_beams.py,
+
+(*) Add random realization capability for delays and gains in the settings of
+the beamformer in array_field_pattern()
+(*) change docstring accordingly
+(*) Change primary_beam_generator() to be compatible with the change above
+
 From bc17d44 of Interferometry:
 ==============================
 

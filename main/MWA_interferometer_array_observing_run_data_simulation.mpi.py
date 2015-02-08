@@ -66,6 +66,7 @@ obsparm_group.add_argument('--obs-mode', help='Observing mode [str, track/drift/
 obsparm_group.add_argument('--nchan', help='Number of frequency channels [int, Default=256]', default=256, type=int, dest='n_channels')
 obsparm_group.add_argument('--delayerr', dest='delayerr', type=float, default=0.0, help='RMS error in beamformer delays [ns], default=0')
 obsparm_group.add_argument('--gainerr', dest='gainerr', type=float, default=0.0, help='RMS error in beamformer gains [dB], default=0')
+obsparm_group.add_argument('--nrandom', dest='nrand', type=int, default=1, help='numner of random realizations of gains and/or delays, default=1')
 # obsparm_group.add_argument('--lst-init', help='LST at beginning of observing run (hours) [float]', type=float, dest='lst_init', required=True, metavar='LST')
 # obsparm_group.add_argument('--pointing-init', help='Pointing (RA, Dec) at beginning of observing run (degrees) [float]', type=float, dest='pointing_init', metavar=('RA', 'Dec'), required=True, nargs=2)
 
@@ -324,6 +325,10 @@ delayerr *= 1e-9
 gainerr = args['gainerr']
 if gainerr < 0.0:
     raise ValueError('gainerr must be non-negative.')
+
+nrand = args['nrand']
+if nrand < 1:
+    raise ValueError('nrandom must be positive')
 
 if phased_array:
     try:
@@ -1093,6 +1098,7 @@ if mpi_on_src: # MPI based on source multiplexing
                     pbinfo['element_locs'] = element_locs
                     pbinfo['delayerr'] = delayerr
                     pbinfo['gainerr'] = gainerr
+                    pbinfo['nrand'] = nrand
 
             ts = time.time()
             if j == 0:
@@ -1157,6 +1163,7 @@ else: # MPI based on baseline multiplexing
                             pbinfo['element_locs'] = element_locs
                             pbinfo['delayerr'] = delayerr
                             pbinfo['gainerr'] = gainerr
+                            pbinfo['nrand'] = nrand
 
                     ts = time.time()
                     if j == 0:
@@ -1215,6 +1222,7 @@ else: # MPI based on baseline multiplexing
                             pbinfo['element_locs'] = element_locs
                             pbinfo['delayerr'] = delayerr
                             pbinfo['gainerr'] = gainerr
+                            pbinfo['nrand'] = nrand
                     else:
                         pbinfo['pointing_center'] = pointings_altaz[j,:]
                         pbinfo['pointing_coords'] = 'altaz'
