@@ -35,6 +35,13 @@ name = MPI.Get_processor_name()
 
 parser = argparse.ArgumentParser(description='Program to simulate interferometer array data')
 
+project_group = parser.add_mutually_exclusive_group(required=True)
+project_group.add_argument('--project-MWA', dest='project_MWA', action='store_true')
+project_group.add_argument('--project-HERA', dest='project_HERA', action='store_true')
+project_group.add_argument('--project-beams', dest='project_beams', action='store_true')
+project_group.add_argument('--project-drift-scan', dest='project_drift_scan', action='store_true')
+project_group.add_argument('--project-global-EoR', dest='project_global_EoR', action='store_true')
+
 parser.add_argument('--antenna-file', help='File containing antenna locations', default='/data3/t_nithyanandan/project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', type=file, dest='antenna_file')
 
 telescope_group = parser.add_argument_group('Telescope parameters', 'Telescope/interferometer specifications')
@@ -165,6 +172,18 @@ fgcat_group.add_argument('--PS-file', help='Point source catalog file [str]', ty
 parser.add_argument('--plots', help='Create plots', action='store_true', dest='plots')
 
 args = vars(parser.parse_args())
+
+project_MWA = args['project_MWA']
+project_HERA = args['project_HERA']
+project_beams = args['project_beams']
+project_drift_scan = args['project_drift_scan']
+project_global_EoR = args['project_global_EoR']
+
+if project_MWA: project_dir = 'project_MWA'
+if project_HERA: project_dir = 'project_HERA'
+if project_beams: project_dir = 'project_beams'
+if project_drift_scan: project_dir = 'project_drift_scan'
+if project_global_EoR: project_dir = 'project_global_EoR'
 
 try:
     ant_locs = NP.loadtxt(args['antenna_file'], skiprows=6, comments='#', usecols=(0,1,2,3))
@@ -318,18 +337,39 @@ if pointing_file is not None:
 pointing_info = args['pointing_info']
 
 delayerr = args['delayerr']
-if delayerr < 0.0:
+if delayerr is None:
+    delayerr_str = ''
+    delayerr = 0.0
+elif delayerr < 0.0:
     raise ValueError('delayerr must be non-negative.')
+else:
+    delayerr_str = 'derr_{0:.3f}ns'.format(delayerr)
 delayerr *= 1e-9
 
 gainerr = args['gainerr']
-if gainerr < 0.0:
+if gainerr is None:
+    gainerr_str = ''
+    gainerr = 0.0
+elif gainerr < 0.0:
     raise ValueError('gainerr must be non-negative.')
+else:
+    gainerr_str = '_gerr_{0:.2f}dB'.format(gainerr)
 
 nrand = args['nrand']
-if nrand < 1:
+if nrand is None:
+    nrandom_str = ''
+    nrand = 1
+elif nrand < 1:
     raise ValueError('nrandom must be positive')
+else:
+    nrandom_str = '_nrand_{0:0d}_'.format(nrand)
 
+if (delayerr_str == '') and (gainerr_str == ''):
+    nrand = 1
+    nrandom_str = ''
+
+delaygain_err_str = delayerr_str + gainerr_str + nrandom_str
+    
 if phased_array:
     try:
         element_locs = NP.loadtxt(phased_elements_file, skiprows=1, comments='#', usecols=(0,1,2))
@@ -1122,7 +1162,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ia.generate_noise()
             ia.add_noise()
             ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
-            outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_str+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+            outfile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_str+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
             ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
         else:
             comm.send(ia.skyvis_freq, dest=0)
@@ -1145,7 +1185,7 @@ else: # MPI based on baseline multiplexing
                 process_sequence.append(rank)
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, count)
 
-                outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[count]],bl_length[min(baseline_bin_indices[count]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_str+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(count)
+                outfile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[count]],bl_length[min(baseline_bin_indices[count]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_str+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(count)
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')        
 
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
@@ -1235,6 +1275,7 @@ else: # MPI based on baseline multiplexing
                     roiinfo_center_radec = [lst[j]-roiinfo_center_hadec[0], roiinfo_center_hadec[1]]
                     roiinfo['center'] = NP.asarray(roiinfo_center_radec).reshape(1,-1)
                     roiinfo['center_coords'] = 'radec'
+
                     roi.append_settings(skymod, chans, pinfo=pbinfo, latitude=latitude, lst=lst[j], roi_info=roiinfo, telescope=telescope, freq_scale='GHz')
                     if pb_modify_region:
                         for ri in xrange(pb_modify_lat_center.size):
@@ -1274,7 +1315,7 @@ else: # MPI based on baseline multiplexing
             pbinfo = comm.bcast(pbinfo, root=0) # Broadcast PB synthesis info
 
             if (rank == 0):
-                roifile = '/data3/t_nithyanandan/project_MWA/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)
+                roifile = '/data3/t_nithyanandan/'+project_dir+'/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)
                 roi.save(roifile, tabtype='BinTableHDU', overwrite=True, verbose=True)
 
                 if plots:
@@ -1311,7 +1352,7 @@ else: # MPI based on baseline multiplexing
             for i in range(cumm_bl_chunks[rank], cumm_bl_chunks[rank+1]):
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i])
         
-                outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+                outfile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
 
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')        
         

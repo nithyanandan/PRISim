@@ -11,10 +11,22 @@ import baseline_delay_horizon as DLY
 import CLEAN_wrapper as CLN
 import ipdb as PDB
 
+project_MWA = False
+project_HERA = False
+project_beams = True
+project_drift_scan = False
+project_global_EoR = False
+
+if project_MWA: project_dir = 'project_MWA'
+if project_HERA: project_dir = 'project_HERA'
+if project_beams: project_dir = 'project_beams'
+if project_drift_scan: project_dir = 'project_drift_scan'
+if project_global_EoR: project_dir = 'project_global_EoR'
+
 telescope_id = 'custom'
 element_size = 0.74
 element_shape = 'delta'
-phased_array = False
+phased_array = True
 
 if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole'):
     element_size = 0.74
@@ -48,7 +60,7 @@ if telescope_id == 'custom':
         telescope_id = telescope_id + '_array'
 telescope_str = telescope_id+'_'
 
-ground_plane = None # height of antenna element above ground plane
+ground_plane = 0.3 # height of antenna element above ground plane
 if ground_plane is None:
     ground_plane_str = 'no_ground_'
 else:
@@ -56,6 +68,40 @@ else:
         ground_plane_str = '{0:.1f}m_ground_'.format(ground_plane)
     else:
         raise ValueError('Height of antenna element above ground plane must be positive.')
+
+delayerr = 0.05     # delay error rms in ns
+if delayerr is None:
+    delayerr_str = ''
+    delayerr = 0.0
+elif delayerr < 0.0:
+    raise ValueError('delayerr must be non-negative.')
+else:
+    delayerr_str = 'derr_{0:.3f}ns'.format(delayerr)
+delayerr *= 1e-9
+
+gainerr = 0.5      # Gain error rms in dB
+if gainerr is None:
+    gainerr_str = ''
+    gainerr = 0.0
+elif gainerr < 0.0:
+    raise ValueError('gainerr must be non-negative.')
+else:
+    gainerr_str = '_gerr_{0:.2f}dB'.format(gainerr)
+
+nrand = 32       # Number of random realizations
+if nrand is None:
+    nrandom_str = ''
+    nrand = 1
+elif nrand < 1:
+    raise ValueError('nrandom must be positive')
+else:
+    nrandom_str = '_nrand_{0:0d}_'.format(nrand)
+
+if (delayerr_str == '') and (gainerr_str == ''):
+    nrand = 1
+    nrandom_str = ''
+
+delaygain_err_str = delayerr_str + gainerr_str + nrandom_str
 
 antenna_file = '/data3/t_nithyanandan/project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt'
 ant_locs = NP.loadtxt(antenna_file, skiprows=6, comments='#', usecols=(0,1,2,3))
@@ -82,7 +128,7 @@ nchan = n_channels
 window = n_channels * DSP.windowing(n_channels, shape=bpass_shape, pad_width=0, centering=True, area_normalize=True) 
 bw = n_channels * freq_resolution
 
-use_pfb = False
+use_pfb = True
 
 pfb_instr = ''
 pfb_outstr = ''
@@ -123,7 +169,7 @@ if spindex_seed is not None:
     spindex_seed_str = '{0:0d}_'.format(spindex_seed)
 
 nside = 64
-use_GSM = False
+use_GSM = True
 use_DSM = False
 use_CSM = False
 use_NVSS = False
@@ -131,7 +177,7 @@ use_SUMSS = False
 use_MSS = False
 use_GLEAM = False
 use_PS = False
-use_USM = True
+use_USM = False
 
 if use_GSM:
     fg_str = 'asm'
@@ -158,7 +204,7 @@ for k in range(n_sky_sectors):
     else:
         sky_sector_str = '_sky_sector_{0:0d}_'.format(k)
 
-    infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_instr
+    infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_instr
 
     # infile = '/data3/t_nithyanandan/project_MWA/multi_baseline_visibilities_'+avg_drifts_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+'{0:.1f}_MHz'.format(nchan*freq_resolution/1e6)
     
@@ -222,7 +268,7 @@ for k in range(n_sky_sectors):
     # ccres = (1+npad*1.0/ia.channels.size) * DSP.downsampler(ccres, 1+npad*1.0/ia.channels.size, axis=1)
     # lags = DSP.downsampler(lags, 1+npad*1.0/ia.channels.size, axis=-1)
     
-    outfile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_outstr+bpass_shape
+    outfile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_outstr+bpass_shape
     hdulist = []
     hdulist += [fits.PrimaryHDU()]
     
