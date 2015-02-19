@@ -1,3 +1,11 @@
+From ea35571 of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Remove useless commented lines in class InterferometerArray
+(*) Comment out the defunct class Interferometer
+
 From 8c14608 of Interferometry:
 ==============================
 
