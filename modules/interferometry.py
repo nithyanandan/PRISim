@@ -14,7 +14,7 @@ import primary_beams as PB
 import baseline_delay_horizon as DLY
 import constants as CNST
 import my_DSP_modules as DSP
-import catalog as CTLG
+import catalog as SM
 import ipdb as PDB
 mwa_tools_found = True
 try:
@@ -773,7 +773,7 @@ def antenna_temperature(T_brightness, skypos, pixel_solid_angles,
 #         pc_dircos = GEOM.altaz2dircos(pc_altaz, 'degrees') # Convert pointing center to direction cosine coordinates
 #         pointing_phase = 2.0 * NP.pi * NP.dot(baseline_in_local_frame.reshape(1,-1), pc_dircos.reshape(-1,1))*self.channels.reshape(1,-1)/FCNST.c
 
-#         if not isinstance(skymodel, CTLG.SkyModel):
+#         if not isinstance(skymodel, SM.SkyModel):
 #             raise TypeError('skymodel should be an instance of class SkyModel.')
 
 #         if roi_radius is None:
@@ -950,7 +950,7 @@ def antenna_temperature(T_brightness, skypos, pixel_solid_angles,
 #             raise ValueError('pointing_init must be a 2-element vector.')
 #         pointing_init = pointing_init.ravel()
 
-#         if not isinstance(skymodel, CTLG.SkyModel):
+#         if not isinstance(skymodel, SM.SkyModel):
 #             raise TypeError('skymodel must be an instance of class SkyModel.')
 
 #         if not isinstance(t_acc, (int, float)):
@@ -1901,7 +1901,7 @@ class ROI_parameters(object):
 
         Inputs:
 
-        skymodel [instance of class SkyModel_new] The common sky model for all the
+        skymodel [instance of class SkyModel] The common sky model for all the
                  observing instances from which the ROI is determined based on
                  a subset corresponding to each snapshot observation.
 
@@ -1966,7 +1966,7 @@ class ROI_parameters(object):
         except NameError:
             raise NameError('skymodel, freq, and pinfo must be specified.')
 
-        if not isinstance(skymodel, CTLG.SkyModel_new):
+        if not isinstance(skymodel, SM.SkyModel):
             raise TypeError('skymodel should be an instance of class SkyModel.')
         elif skymodel is not None:
             self.skymodel = skymodel
@@ -2929,9 +2929,9 @@ class InterferometerArray(object):
                      specified by the attribute pointing_coords initialized in
                      __init__(). 
 
-        skymodel     [instance of class SkyModel_new] It consists of source flux
+        skymodel     [instance of class SkyModel] It consists of source flux
                      densities, their positions, and spectral indices. Read 
-                     class SkyModel_new docstring for more information.
+                     class SkyModel docstring for more information.
 
         t_acc        [scalar] Accumulation time (sec) corresponding to timestamp
 
@@ -3108,8 +3108,8 @@ class InterferometerArray(object):
 
         # pointing_phase = 2.0 * NP.pi * NP.repeat(NP.dot(baselines_in_local_frame, pc_dircos.reshape(-1,1)), self.channels.size, axis=1) * NP.repeat(self.channels.reshape(1,-1), self.baselines.shape[0], axis=0)/FCNST.c
 
-        if not isinstance(skymodel, CTLG.SkyModel_new):
-            raise TypeError('skymodel should be an instance of class SkyModel_new.')
+        if not isinstance(skymodel, SM.SkyModel):
+            raise TypeError('skymodel should be an instance of class SkyModel.')
 
         if self.skycoords == 'hadec':
             skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.latitude, units='degrees')
@@ -3334,7 +3334,7 @@ class InterferometerArray(object):
             raise ValueError('pointing_init must be a 2-element vector.')
         pointing_init = pointing_init.ravel()
 
-        if not isinstance(skymodel, CTLG.SkyModel):
+        if not isinstance(skymodel, SM.SkyModel):
             raise TypeError('skymodel must be an instance of class SkyModel.')
 
         if not isinstance(t_acc, (int, float)):

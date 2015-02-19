@@ -1,3 +1,13 @@
+From 22710be of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Rename catalog module alias from CTLG to SM
+(*) Rename sky model class SkyModel_new to SkyModel to reflect changes in 
+catalog module
+(*) Adapt main programs to be compatible with these changes
+
 From ea35571 of Interferometry:
 ==============================
 

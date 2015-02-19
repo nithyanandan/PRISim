@@ -16,7 +16,7 @@ import healpy as HP
 from mwapy.pb import primary_beam as MWAPB
 import geometry as GEOM
 import interferometry as RI
-import catalog as CTLG
+import catalog as SM
 import constants as CNST
 import my_DSP_modules as DSP 
 import my_operations as OPS
@@ -484,7 +484,19 @@ if plot_02 or plot_03 or plot_04 or plot_12:
         ra_deg_wrapped = ra_deg.ravel()
         ra_deg_wrapped[ra_deg_wrapped > 180.0] -= 360.0
     
-        csmctlg = CTLG.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+        # csmctlg = SM.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+
+        spec_parms = {}
+        # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
+        spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+        spec_parms['power-law-index'] = spindex
+        # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
+        spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
+        spec_parms['flux-scale'] = fluxes
+        spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+        spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+
+        csmskymod = SM.SkyModel(catlabel, freq, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
 
         dsm_file = '/data3/t_nithyanandan/project_MWA/foregrounds/gsmdata_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq/1e6,nside)
         hdulist = fits.open(dsm_file)
@@ -520,7 +532,8 @@ if plot_02 or plot_03 or plot_04 or plot_12:
         pby_MWA_snapshots += [pby_MWA_vect]
 
         if plot_03 or plot_12:
-            csm_hadec = NP.hstack(((lst[i]-csmctlg.location[:,0]).reshape(-1,1), csmctlg.location[:,1].reshape(-1,1)))
+            # csm_hadec = NP.hstack(((lst[i]-csmctlg.location[:,0]).reshape(-1,1), csmctlg.location[:,1].reshape(-1,1)))
+            csm_hadec = NP.hstack(((lst[i]-csmskymod.location[:,0]).reshape(-1,1), csmskymod.location[:,1].reshape(-1,1)))
             csm_altaz = GEOM.hadec2altaz(csm_hadec, latitude, units='degrees')
             roi_csm_altaz = NP.asarray(NP.where(csm_altaz[:,0] >= 0.0)).ravel()
             src_ind_csm_snapshots += [roi_csm_altaz]
@@ -591,7 +604,9 @@ if plot_02 or plot_03 or plot_04 or plot_12:
 
     if plot_03 or plot_12:
 
-        csm_fluxes = csmctlg.flux_density * (freq/csmctlg.frequency)**csmctlg.spectral_index
+        # csm_fluxes = csmctlg.flux_density * (freq/csmctlg.frequency)**csmctlg.spectral_index
+        csm_fluxes = csmskymod.flux_density * (freq/csmskymod.spec_parms['freq-ref'])**csmskymod.spectral_index
+
         if plot_03:
             # 03) Plot foreground models with power pattern contours for snapshots
             

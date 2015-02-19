@@ -69,7 +69,7 @@ else:
     else:
         raise ValueError('Height of antenna element above ground plane must be positive.')
 
-delayerr = 0.05     # delay error rms in ns
+delayerr = 0.0     # delay error rms in ns
 if delayerr is None:
     delayerr_str = ''
     delayerr = 0.0
@@ -79,7 +79,7 @@ else:
     delayerr_str = 'derr_{0:.3f}ns'.format(delayerr)
 delayerr *= 1e-9
 
-gainerr = 0.5      # Gain error rms in dB
+gainerr = 0.0      # Gain error rms in dB
 if gainerr is None:
     gainerr_str = ''
     gainerr = 0.0
@@ -88,7 +88,7 @@ elif gainerr < 0.0:
 else:
     gainerr_str = '_gerr_{0:.2f}dB'.format(gainerr)
 
-nrand = 32       # Number of random realizations
+nrand = 1       # Number of random realizations
 if nrand is None:
     nrandom_str = ''
     nrand = 1
