@@ -1901,7 +1901,7 @@ class ROI_parameters(object):
 
         Inputs:
 
-        skymodel [instance of class SkyModel] The common sky model for all the
+        skymodel [instance of class SkyModel_new] The common sky model for all the
                  observing instances from which the ROI is determined based on
                  a subset corresponding to each snapshot observation.
 
@@ -1966,7 +1966,7 @@ class ROI_parameters(object):
         except NameError:
             raise NameError('skymodel, freq, and pinfo must be specified.')
 
-        if not isinstance(skymodel, CTLG.SkyModel):
+        if not isinstance(skymodel, CTLG.SkyModel_new):
             raise TypeError('skymodel should be an instance of class SkyModel.')
         elif skymodel is not None:
             self.skymodel = skymodel
@@ -2016,20 +2016,20 @@ class ROI_parameters(object):
                         pbeam_input = True
 
                 if not pbeam_input: # Will require sky positions in Alt-Az coordinates
-                    if skymodel.catalog.coords == 'radec':
+                    if skymodel.coords == 'radec':
                         if latitude is None:
                             raise ValueError('Latitude of the observatory must be provided.')
                         if lst is None:
                             raise ValueError('LST must be provided.')
-                        skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.catalog.location[:,0]).reshape(-1,1), skymodel.catalog.location[:,1].reshape(-1,1))), latitude, units='degrees')
-                    elif skymodel.catalog.coords == 'hadec':
+                        skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), latitude, units='degrees')
+                    elif skymodel.coords == 'hadec':
                         if latitude is None:
                             raise ValueError('Latitude of the observatory must be provided.')
-                        skypos_altaz = GEOM.hadec2altaz(skymodel.catalog.location, latitude, units='degrees')
-                    elif skymodel.catalog.coords == 'dircos':
-                        skypos_altaz = GEOM.dircos2altaz(skymodel.catalog.location, units='degrees')
-                    elif skymodel.catalog.coords == 'altaz':
-                        skypos_altaz = skymodel.catalog.location
+                        skypos_altaz = GEOM.hadec2altaz(skymodel.location, latitude, units='degrees')
+                    elif skymodel.coords == 'dircos':
+                        skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
+                    elif skymodel.coords == 'altaz':
+                        skypos_altaz = skymodel.location
                     else:
                         raise KeyError('skycoords invalid or unspecified in skymodel')
             if 'radius' in roi_info:
@@ -2063,20 +2063,20 @@ class ROI_parameters(object):
                 else:
                     raise ValueError('Invalid coordinate system specified for center')
 
-            if skymodel.catalog.coords == 'radec':
+            if skymodel.coords == 'radec':
                 if latitude is None:
                     raise ValueError('Latitude of the observatory must be provided.')
                 if lst is None:
                     raise ValueError('LST must be provided.')
-                skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.catalog.location[:,0]).reshape(-1,1), skymodel.catalog.location[:,1].reshape(-1,1))), latitude, units='degrees')
-            elif skymodel.catalog.coords == 'hadec':
+                skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), latitude, units='degrees')
+            elif skymodel.coords == 'hadec':
                 if latitude is None:
                     raise ValueError('Latitude of the observatory must be provided.')
-                skypos_altaz = GEOM.hadec2altaz(skymodel.catalog.location, latitude, units='degrees')
-            elif skymodel.catalog.coords == 'dircos':
-                skypos_altaz = GEOM.dircos2altaz(skymodel.catalog.location, units='degrees')
-            elif skymodel.catalog.coords == 'altaz':
-                skypos_altaz = skymodel.catalog.location
+                skypos_altaz = GEOM.hadec2altaz(skymodel.location, latitude, units='degrees')
+            elif skymodel.coords == 'dircos':
+                skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
+            elif skymodel.coords == 'altaz':
+                skypos_altaz = skymodel.location
             else:
                 raise KeyError('skycoords invalid or unspecified in skymodel')
             
@@ -2929,9 +2929,9 @@ class InterferometerArray(object):
                      specified by the attribute pointing_coords initialized in
                      __init__(). 
 
-        skymodel     [instance of class SkyModel] It consists of source flux
+        skymodel     [instance of class SkyModel_new] It consists of source flux
                      densities, their positions, and spectral indices. Read 
-                     class SkyModel docstring for more information.
+                     class SkyModel_new docstring for more information.
 
         t_acc        [scalar] Accumulation time (sec) corresponding to timestamp
 
@@ -3108,13 +3108,13 @@ class InterferometerArray(object):
 
         # pointing_phase = 2.0 * NP.pi * NP.repeat(NP.dot(baselines_in_local_frame, pc_dircos.reshape(-1,1)), self.channels.size, axis=1) * NP.repeat(self.channels.reshape(1,-1), self.baselines.shape[0], axis=0)/FCNST.c
 
-        if not isinstance(skymodel, CTLG.SkyModel):
-            raise TypeError('skymodel should be an instance of class SkyModel.')
+        if not isinstance(skymodel, CTLG.SkyModel_new):
+            raise TypeError('skymodel should be an instance of class SkyModel_new.')
 
         if self.skycoords == 'hadec':
-            skypos_altaz = GEOM.hadec2altaz(skymodel.catalog.location, self.latitude, units='degrees')
+            skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.latitude, units='degrees')
         elif self.skycoords == 'radec':
-            skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.catalog.location[:,0]).reshape(-1,1), skymodel.catalog.location[:,1].reshape(-1,1))), self.latitude, units='degrees')
+            skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.latitude, units='degrees')
 
         pb = None
         if roi_info is not None:
@@ -3141,7 +3141,7 @@ class InterferometerArray(object):
                 raise ValueError('Center of region of interest, roi_center, must be set to "zenith" or "pointing_center".')
     
             if roi_center == 'pointing_center':
-                m1, m2, d12 = GEOM.spherematch(pointing_lon, pointing_lat, skymodel.catalog.location[:,0], skymodel.catalog.location[:,1], roi_radius, maxmatches=0)
+                m1, m2, d12 = GEOM.spherematch(pointing_lon, pointing_lat, skymodel.location[:,0], skymodel.location[:,1], roi_radius, maxmatches=0)
             else: # roi_center = 'zenith'
                 m2 = NP.arange(skypos_altaz.shape[0])
                 m2 = m2[NP.where(skypos_altaz[:,0] >= 90.0-roi_radius)] # select sources whose altitude (angle above horizon) is 90-roi_radius
@@ -3149,17 +3149,20 @@ class InterferometerArray(object):
         if len(m2) != 0:
             # if roi_center != 'zenith':
             #     if self.skycoords == 'altaz':
-            #         skypos_altaz_roi = skymodel.catalog.location[m2,:]
+            #         skypos_altaz_roi = skymodel.location[m2,:]
             #     elif self.skycoords == 'radec':
-            #         skypos_altaz_roi = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.catalog.location[m2,0]).reshape(-1,1), skymodel.catalog.location[m2,1].reshape(-1,1))), self.latitude, 'degrees')
+            #         skypos_altaz_roi = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[m2,0]).reshape(-1,1), skymodel.location[m2,1].reshape(-1,1))), self.latitude, 'degrees')
             #     else:
-            #         skypos_altaz_roi = GEOM.hadec2altaz(skymodel.catalog.location[m2,:], self.latitude, 'degrees')
+            #         skypos_altaz_roi = GEOM.hadec2altaz(skymodel.location[m2,:], self.latitude, 'degrees')
             # else:
             #     skypos_altaz_roi = skypos_altaz[m2,:]
             skypos_altaz_roi = skypos_altaz[m2,:]
             coords_str = 'altaz'
 
-            fluxes = skymodel.catalog.flux_density[m2].reshape(-1,1) * (self.channels.reshape(1,-1)/skymodel.catalog.frequency[m2].reshape(-1,1))**skymodel.catalog.spectral_index[m2].reshape(-1,1) # numpy array broadcasting
+            # fluxes = skymodel.flux_density[m2].reshape(-1,1) * (self.channels.reshape(1,-1)/skymodel.frequency[m2].reshape(-1,1))**skymodel.spectral_index[m2].reshape(-1,1) # numpy array broadcasting
+            
+            skymodel_subset = skymodel.subset(indices=m2)
+            fluxes = skymodel_subset.generate_spectrum()
 
             if pb is None:
             # pb = NP.empty((len(m2), len(self.channels)))
@@ -3172,14 +3175,14 @@ class InterferometerArray(object):
             geometric_delays = DLY.geometric_delay(baselines_in_local_frame, skypos_altaz_roi, altaz=(coords_str=='altaz'), hadec=(coords_str=='hadec'), latitude=self.latitude)
 
             vis_wts = None
-            if skymodel.catalog.src_shape is not None:
+            if skymodel_subset.src_shape is not None:
                 eps = 1.0e-13
                 f0 = self.channels[self.channels.size/2]
                 wl0 = FCNST.c / f0
                 skypos_dircos_roi = GEOM.altaz2dircos(skypos_altaz_roi, units='degrees')
                 # projected_spatial_frequencies = NP.sqrt(NP.repeat(self.baseline_lengths.reshape(1,-1)**2, len(m2), axis=0) - (FCNST.c * geometric_delays)**2) / wl0
                 projected_spatial_frequencies = NP.sqrt(self.baseline_lengths.reshape(1,-1)**2 - (FCNST.c * geometric_delays)**2) / wl0
-                src_FWHM = NP.sqrt(skymodel.catalog.src_shape[m2,0] * skymodel.catalog.src_shape[m2,1])
+                src_FWHM = NP.sqrt(skymodel_subset.src_shape[:,0] * skymodel_subset.src_shape[:,1])
                 src_FWHM_dircos = 2.0 * NP.sin(0.5*NP.radians(src_FWHM)).reshape(-1,1)
                 # src_FWHM_dircos = NP.repeat(src_FWHM_dircos.reshape(-1,1), self.baselines.shape[0], axis=1)
                 src_sigma_spatial_frequencies = 2.0 * NP.sqrt(2.0 * NP.log(2.0)) / (2 * NP.pi * src_FWHM_dircos)

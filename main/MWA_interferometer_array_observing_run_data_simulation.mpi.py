@@ -889,6 +889,19 @@ if use_GSM:
 
     ctlgobj = CTLG.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     # ctlgobj = CTLG.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex)
+
+    spec_parms = {}
+    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
+    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+    spec_parms['power-law-index'] = spindex
+    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
+    spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
+    spec_parms['flux-scale'] = fluxes
+    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+    spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+
+    skymod = CTLG.SkyModel_new(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+
 elif use_DSM:
     fg_str = 'dsm'
 
@@ -913,6 +926,19 @@ elif use_DSM:
     fluxes = fluxes_DSM
     ctlgobj = CTLG.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     hdulist.close()
+
+    spec_parms = {}
+    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
+    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+    spec_parms['power-law-index'] = spindex
+    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
+    spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
+    spec_parms['flux-scale'] = fluxes
+    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+    spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+
+    skymod = CTLG.SkyModel_new(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+
 elif use_USM:
     fg_str = 'usm'
 
@@ -932,7 +958,20 @@ elif use_USM:
     majax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_USM.size)
     minax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_USM.size)
     ctlgobj = CTLG.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes_USM, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes_USM.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
-    hdulist.close()    
+    hdulist.close()  
+
+    spec_parms = {}
+    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
+    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+    spec_parms['power-law-index'] = spindex
+    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
+    spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
+    spec_parms['flux-scale'] = fluxes
+    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+    spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+
+    skymod = CTLG.SkyModel_new(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+  
 elif use_CSM:
     fg_str = 'csm'
     freq_SUMSS = 0.843 # in GHz
@@ -1021,6 +1060,19 @@ elif use_CSM:
     fluxes = NP.concatenate((fluxes, nvss_fpeak))
 
     ctlgobj = CTLG.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+
+    spec_parms = {}
+    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
+    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+    spec_parms['power-law-index'] = spindex
+    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
+    spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
+    spec_parms['flux-scale'] = fluxes
+    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+    spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+
+    skymod = CTLG.SkyModel_new(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+
 elif use_SUMSS:
     SUMSS_file = args['SUMSS_file']
     catalog = NP.loadtxt(SUMSS_file, usecols=(0,1,2,3,4,5,10,12,13,14,15,16))
@@ -1069,6 +1121,19 @@ elif use_SUMSS:
 
     ctlgobj = CTLG.Catalog(freq_catalog*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fint, spectral_index=spindex, src_shape=NP.hstack((fmajax.reshape(-1,1),fminax.reshape(-1,1),fpa.reshape(-1,1))), src_shape_units=['arcsec','arcsec','degree'])    
     fg_str = 'sumss'
+
+    spec_parms = {}
+    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
+    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+    spec_parms['power-law-index'] = spindex
+    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
+    spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
+    spec_parms['flux-scale'] = fluxes
+    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+    spec_parms['freq-width'] = 1.0e-3 + NP.zeros(ra_deg.size)
+
+    skymod = CTLG.SkyModel_new(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+
 elif use_MSS:
     pass
 elif use_GLEAM:
@@ -1081,6 +1146,19 @@ elif use_GLEAM:
     spindex = catdata['Sp+Index']
     ctlgobj = CTLG.Catalog(freq_catalog*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fpeak, spectral_index=spindex)
     fg_str = 'gleam'
+
+    spec_parms = {}
+    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
+    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+    spec_parms['power-law-index'] = spindex
+    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
+    spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
+    spec_parms['flux-scale'] = fluxes
+    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+    spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+
+    skymod = CTLG.SkyModel_new(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+
 elif use_PS:
     fg_str = 'point'
     catalog_file = args['PS_file']
@@ -1097,6 +1175,18 @@ elif use_PS:
     catlabel = NP.repeat('PS', fint.size)
     ctlgobj = CTLG.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fint, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), src_shape_units=['arcmin','arcmin','degree'])
 
+    spec_parms = {}
+    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
+    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+    spec_parms['power-law-index'] = spindex
+    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
+    spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
+    spec_parms['flux-scale'] = fluxes
+    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+    spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+
+    skymod = CTLG.SkyModel_new(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+
 # elif use_PS:
 #     n_src = 1
 #     fpeak = 1000.0*NP.ones(n_src)
@@ -1109,7 +1199,7 @@ elif use_PS:
 #     ctlgobj = CTLG.Catalog('PS', freq_catalog*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fpeak, spectral_index=spindex, src_shape=NP.hstack((fmajax.reshape(-1,1),fminax.reshape(-1,1),fpa.reshape(-1,1))), src_shape_units=['arcmin','arcmin','degree'])
 #     fg_str = 'point'
 
-skymod = CTLG.SkyModel(ctlgobj)
+# skymod = CTLG.SkyModel(ctlgobj)
 
 ## Set up the observing run
 
@@ -1122,7 +1212,7 @@ if mpi_on_src: # MPI based on source multiplexing
 
         progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
         for j in range(n_snaps):
-            src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.catalog.location[:,0]).reshape(-1,1), skymod.catalog.location[:,1].reshape(-1,1))), latitude, units='degrees')
+            src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
             roi_ind = NP.where(src_altaz_current[:,0] >= 0.0)[0]
             n_src_per_rank = NP.zeros(nproc, dtype=int) + roi_ind.size/nproc
             if roi_ind.size % nproc > 0:
@@ -1143,7 +1233,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ts = time.time()
             if j == 0:
                 ts0 = ts
-            ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], CTLG.SkyModel(skymod.catalog.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist())), t_snap[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
+            ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_snap[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
             te = time.time()
             # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
             progress.update(j+1)
@@ -1245,7 +1335,7 @@ else: # MPI based on baseline multiplexing
             if rank == 0: # Compute ROI parameters for only one process and broadcast to all
                 roi = RI.ROI_parameters()
                 for j in range(n_snaps):
-                    src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.catalog.location[:,0]).reshape(-1,1), skymod.catalog.location[:,1].reshape(-1,1))), latitude, units='degrees')
+                    src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
                     hemisphere_current = src_altaz_current[:,0] >= 0.0
                     # hemisphere_src_altaz_current = src_altaz_current[hemisphere_current,:]
                     src_az_current = NP.copy(src_altaz_current[:,1])
@@ -1253,7 +1343,8 @@ else: # MPI based on baseline multiplexing
                     roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
                     roi_subset = NP.where(NP.logical_and(hemisphere_current, roi_ind))[0].tolist()
                     src_dircos_current_subset = GEOM.altaz2dircos(src_altaz_current[roi_subset,:], units='degrees')
-                    fgmod = CTLG.SkyModel(skymod.catalog.subset(roi_subset))
+                    PDB.set_trace()
+                    fgmod = skymod.subset(roi_subset)
    
                     pbinfo = {}
                     if (telescope_id == 'mwa') or (phased_array) or (telescope_id == 'mwa_tools'):
@@ -1283,13 +1374,13 @@ else: # MPI based on baseline multiplexing
                             if snap_modify_pb_region is None:
                                 if pb_modify_coords == 'altaz':
                                     m1, m2, dist = GEOM.spherematch(pb_modify_lon_center[ri], pb_modify_lat_center[ri], lon2=src_altaz_current[roi_subset,1], lat2=src_altaz_current[roi_subset,0], matchrad=pb_modify_ang_radius[ri], maxmatches=0)
-                                elif fgmod.catalog.coords == 'radec':
-                                    m1, m2, dist = GEOM.spherematch(pb_modify_lon_center[ri], pb_modify_lat_center[ri], lon2=fgmod.catalog.location[:,0], lat2=fgmod.catalog.location[:,1], matchrad=pb_modify_ang_radius[ri], maxmatches=0)
+                                elif fgmod.coords == 'radec':
+                                    m1, m2, dist = GEOM.spherematch(pb_modify_lon_center[ri], pb_modify_lat_center[ri], lon2=fgmod.location[:,0], lat2=fgmod.location[:,1], matchrad=pb_modify_ang_radius[ri], maxmatches=0)
                             elif snap_modify_pb_region[ri] == j:
                                 if pb_modify_coords == 'altaz':
                                     m1, m2, dist = GEOM.spherematch(pb_modify_lon_center[ri], pb_modify_lat_center[ri], lon2=src_altaz_current[roi_subset,1], lat2=src_altaz_current[roi_subset,0], matchrad=pb_modify_ang_radius[ri], maxmatches=0)
-                                elif fgmod.catalog.coords == 'radec':
-                                    m1, m2, dist = GEOM.spherematch(pb_modify_lon_center[ri], pb_modify_lat_center[ri], lon2=fgmod.catalog.location[:,0], lat2=fgmod.catalog.location[:,1], matchrad=pb_modify_ang_radius[ri], maxmatches=0)
+                                elif fgmod.coords == 'radec':
+                                    m1, m2, dist = GEOM.spherematch(pb_modify_lon_center[ri], pb_modify_lat_center[ri], lon2=fgmod.location[:,0], lat2=fgmod.location[:,1], matchrad=pb_modify_ang_radius[ri], maxmatches=0)
                             if dist is not None:
                                 if dist.size != 0:
                                     roi.info['pbeam'][-1][m2,:] *= pb_modify_factor_region[ri]
@@ -1298,9 +1389,9 @@ else: # MPI based on baseline multiplexing
                         for mi in xrange(pb_modify_rmin.size):
                             dist = None
                             if snap_modify_pb_distance is None:
-                                dist = GEOM.sphdist(pointings_radec[j,0], pointings_radec[j,1], fgmod.catalog.location[:,0], fgmod.catalog.location[:,1])
+                                dist = GEOM.sphdist(pointings_radec[j,0], pointings_radec[j,1], fgmod.location[:,0], fgmod.location[:,1])
                             elif snap_modify_pb_distance[mi] == j:
-                                dist = GEOM.sphdist(pointings_radec[j,0], pointings_radec[j,1], fgmod.catalog.location[:,0], fgmod.catalog.location[:,1])
+                                dist = GEOM.sphdist(pointings_radec[j,0], pointings_radec[j,1], fgmod.location[:,0], fgmod.location[:,1])
                             if dist is not None:
                                 # ind_dist_in_range = NP.where(NP.logical_and(NP.mean(roi.info['pbeam'][-1], axis=1) >= pb_modify_llim[mi], NP.logical_and(dist >= pb_modify_rmin[mi], dist <= pb_modify_rmax[mi])))[0].tolist()
                                 ind_dist_in_range = NP.where(NP.logical_and(roi.info['pbeam'][-1][:,n_channels/2] >= pb_modify_llim[mi], NP.logical_and(dist >= pb_modify_rmin[mi], dist <= pb_modify_rmax[mi])))[0].tolist()
@@ -1320,11 +1411,11 @@ else: # MPI based on baseline multiplexing
 
                 if plots:
                     for j in xrange(n_snaps):
-                        src_ra = roi.skymodel.catalog.location[roi.info['ind'][j],0]
-                        src_dec = roi.skymodel.catalog.location[roi.info['ind'][j],1]
+                        src_ra = roi.skymodel.location[roi.info['ind'][j],0]
+                        src_dec = roi.skymodel.location[roi.info['ind'][j],1]
                         src_ra[src_ra > 180.0] = src_ra[src_ra > 180.0] - 360.0
                         fig, axs = PLT.subplots(2, sharex=True, sharey=True, figsize=(6,6))
-                        modelsky = axs[0].scatter(src_ra, src_dec, c=roi.skymodel.catalog.flux_density[roi.info['ind'][j]], norm=PLTC.LogNorm(vmin=roi.skymodel.catalog.flux_density.min(), vmax=roi.skymodel.catalog.flux_density.max()), edgecolor='none', s=20)
+                        modelsky = axs[0].scatter(src_ra, src_dec, c=roi.skymodel.flux_density[roi.info['ind'][j]], norm=PLTC.LogNorm(vmin=roi.skymodel.flux_density.min(), vmax=roi.skymodel.flux_density.max()), edgecolor='none', s=20)
                         axs[0].set_xlim(180.0, -180.0)
                         axs[0].set_ylim(-90.0, 90.0)
                         pbsky = axs[1].scatter(src_ra, src_dec, c=roi.info['pbeam'][j][:,NP.argmax(NP.abs(chans-freq))], norm=PLTC.LogNorm(vmin=roi.info['pbeam'][j].min(), vmax=1.0), edgecolor='none', s=20)

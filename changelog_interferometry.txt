@@ -1,3 +1,16 @@
+From 8c14608 of Interferometry:
+==============================
+
+Note that 8c14608 was a redundant commit with no substantial changes from 
+the previous commit e41a005
+
+In interferometry.py,
+
+(*) Adapt classes ROI_parameters and InterferometerArray to be compatible while
+using the modified module catalog by replacing the use of classes Catalog and 
+SkyModel with SkyModel_new
+(*) Adapt main programs to be compatible with above changes
+
 From 2a6938b of Interferometry:
 ==============================
 
