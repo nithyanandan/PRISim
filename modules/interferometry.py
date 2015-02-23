@@ -375,13 +375,112 @@ def uniq_baselines(baseline_locations, redundant=None):
 
 #################################################################################
 
-def antenna_temperature(T_brightness, skypos, pixel_solid_angles, 
-                        sky_coords=None, telescope='mwa', latitude=-26.701, 
-                        A_eff=None, freq=None, pointings=None,
-                        pointing_coords=None):
+def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
 
-    pass
+    try:
+        skymodel, telescope_info, pointing_info
+    except NameError:
+        raise NameError('Sky model, telescope and pointing information must be provided')
 
+    if not isinstance(skymodel, SM.SkyModel):
+        raise TypeError('Input parameter skymodel must be an instance of class SkyModel')
+
+    if not isinstance(telescope_info, dict):
+        raise TypeError('Input parameter telescope_info must be a dictionary')
+
+    if not isinstance(pointing_info, dict):
+        raise TypeError('Input parameter pointing_info must be a dictionary')
+    
+    if 'latitude' in telescope_info:
+        latitude = telescope_info['latitude']
+    else:
+        latitude = -26.701
+
+    n_src = skymodel.location.shape[0]
+    nchan = skymodel.frequency.size
+
+    if 'lst' not in pointing_info:
+        raise KeyError('Key "lst" not provided in input parameter pointing_info')
+    else:
+        lst = NP.asarray(pointing_info['lst'])
+        n_lst = lst.size
+
+    if 'pointing_center' not in pointing_info:
+        pointing_center = NP.repeat(NP.asarray([90.0, 270.0]).reshape(1,-1), n_lst, axis=0)
+        pointing_coords = 'altaz'
+    else:
+        if 'pointing_coords' not in pointing_info:
+            raise KeyError('key "pointing_info" not found in input parameter pointing_info')
+        pointing_coords = pointing_info['pointing_coords']
+
+        if not isinstance(pointing_info['pointing_center'], NP.ndarray):
+            raise TypeError('Value in key "pointing_center" in input parameter pointing_info must be a numpy array')
+        pointing_center = pointing_info['pointing_center']
+        if len(pointing_center.shape) > 2:
+            raise ValueError('Value under key "pointing_center" in input parameter pointing_info cannot exceed two dimensions')
+        if len(pointing_center.shape) < 2:
+            pointing_center = pointing_center.reshape(1,-1)
+
+        if (pointing_coords == 'dircos') and (pointing_center.shape[1] != 3):
+            raise ValueError('Value under key "pointing_center" in input parameter pointing_info must be a 3-column array for direction cosine coordinate system')
+        elif pointing_center.shape[1] != 2:
+            raise ValueError('Value under key "pointing_center" in input parameter pointing_info must be a 2-column array for RA-Dec, HA-Dec and Alt-Az coordinate systems')
+
+        n_pointings = pointing_center.shape[0]
+        
+        if (n_pointings != n_lst) and (n_pointings != 1):
+            raise ValueError('Number of pointing centers and number of LST must match')
+        if n_pointings < n_lst:
+            pointing_center = NP.repeat(pointing_center, n_lst, axis=0)
+
+    n_snaps = lst.size
+
+    if pointing_coords == 'dircos':
+        pointings_altaz = GEOM.dircos2altaz(pointing_center, units='degrees')
+    elif pointing_coords == 'hadec':
+        pointings_altaz = GEOM.hadec2altaz(pointing_center, latitude, units='degrees')
+    elif pointing_coords == 'radec':
+        pointings_altaz = GEOM.hadec2altaz(NP.hstack(((lst-pointing_center[:,0]).reshape(-1,1), pointing_center[:,1].reshape(-1,1))), latitude, units='degrees')
+    else:
+        pointings_altaz = NP.copy(pointing_center)
+
+    if skymodel.coords == 'radec':
+        lst_temp = NP.hstack((lst.reshape(-1,1),NP.zeros(n_snaps).reshape(-1,1)))  # Prepare fake LST for numpy broadcasting
+        lst_temp = lst_temp.T
+        lst_temp = lst_temp[NP.newaxis,:,:]  
+        sky_hadec = lst_temp - skymodel.location[:,:,NP.newaxis]  # Reverses sign of declination
+        sky_hadec[:,1,:] *= -1   # Correct for the reversal of sign in the declination 
+        sky_hadec = NP.concatenate(NP.split(sky_hadec, n_snaps, axis=2), axis=0)
+        sky_hadec = NP.squeeze(sky_hadec, axis=2)
+        sky_altaz = GEOM.hadec2altaz(sky_hadec, latitude, units='degrees')
+    elif skymodel.coords == 'hadec':
+        sky_altaz = GEOM.hadec2altaz(skymodel.location, latitude, units='degrees')
+    elif skymodel.coords == 'dircos':
+        sky_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
+    else:
+        sky_altaz = NP.copy(skymodel.location)
+
+    sky_altaz = NP.split(sky_altaz, range(0,sky_altaz.shape[0],n_src)[1:], axis=0)  # Split sky_altaz into a list of arrays
+    retval = []
+
+    progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=len(sky_altaz)).start()
+    for i in xrange(len(sky_altaz)):
+        pinfo = {}
+        pinfo['pointing_center'] = pointings_altaz[i,:]
+        pinfo['pointing_coords'] = 'altaz'
+        
+        upper_hemisphere_ind = sky_altaz[i][:,0] >= 0.0
+        upper_skymodel = skymodel.subset(indices=NP.where(upper_hemisphere_ind)[0])
+        pb = PB.primary_beam_generator(sky_altaz[i][upper_hemisphere_ind,:], skymodel.frequency, telescope_info, freq_scale=freq_scale, skyunits='altaz', pointing_info=pinfo)
+        spectrum = upper_skymodel.generate_spectrum()
+
+        retval += [NP.sum(pb*spectrum, axis=0) / NP.sum(pb, axis=0)]
+
+        progress.update(i+1)
+    progress.finish()
+
+    return NP.asarray(retval)
+        
 #################################################################################
 
 # class Interferometer:

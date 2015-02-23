@@ -1,3 +1,17 @@
+From b4ce5b4 of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Add new function antenna_power() to compute antenna power after 
+integrating a sky model over the sky weighted by the power pattern
+
+In primary_beams.py,
+
+(*) Fix a bug in array_field_pattern() by specifying nrand=1 when nrand 
+not provided in input parameter dictionary pointing_info
+(*) Modify docstring of primary_beam_generator() slightly
+
 From 22710be of Interferometry:
 ==============================
 

@@ -121,25 +121,28 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                                 third along local up. If only two columns are 
                                 specified, the third column is assumed to be 
                                 zeros. If 'elements_locs' is not provided, it
-                                assumed to be a one-element system and not an
-                                array as far as determination of primary beam is
-                                concerned.
+                                assumed to be a one-element system and not a
+                                phased array as far as determination of primary 
+                                beam is concerned.
               'gains'           [numpy array] Complex element gains. Must be of 
                                 size equal to the number of elements as 
                                 specified by the number of rows in antpos. If 
                                 set to None (default), all element gains are 
-                                assumed to be unity. 
+                                assumed to be unity. Used only in phased array
+                                mode.
               'gainerr'         [int, float] RMS error in voltage amplitude in 
                                 dB to be used in the beamformer. Random jitters 
                                 are drawn from a normal distribution in 
                                 logarithm units which are then converted to 
                                 linear units. Must be a non-negative scalar. 
-                                If not provided, it defaults to 0 (no jitter). 
+                                If not provided, it defaults to 0 (no jitter).
+                                Used only in phased array mode.
               'delays'          [numpy array] Delays (in seconds) to be applied 
                                 to the tile elements. Size should be equal to 
                                 number of tile elements (number of rows in
                                 antpos). Default = None will set all element
-                                delays to zero phasing them to zenith. 
+                                delays to zero phasing them to zenith. Used only
+                                in phased array mode. 
               'pointing_center' [numpy array] This will apply in the absence of 
                                 key 'delays'. This can be specified as a row 
                                 vector. Should have two-columns if using Alt-Az
@@ -156,10 +159,12 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                                 beamformer. Random jitters are drawn from a 
                                 normal distribution with this rms. Must be
                                 a non-negative scalar. If not provided, it
-                                defaults to 0 (no jitter). 
+                                defaults to 0 (no jitter). Used only in phased 
+                                array mode.
               'nrand'           [int] number of random realizations of gainerr 
                                 and/or delayerr to be averaged. Must be 
                                 positive. If none provided, it defaults to 1.
+                                Used only in phased array mode.
 
     pointing_center
                 [list or numpy array] coordinates of pointing center (in the same
@@ -1392,6 +1397,8 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', pointing_info=None,
                 raise TypeError('nrand must be an integer')
             elif nrand < 1:
                 raise ValueError('nrand must be positive')
+        else:
+            nrand = 1
 
         if 'delays' in pointing_info:
             delays = pointing_info['delays']

@@ -258,7 +258,7 @@ if element_orientation is None:
         element_ocoords = 'altaz'
 else:
     if element_ocoords is None:
-        raise ValueError('Antenna element orientation coordiante system must be specified to describe the specified antenna orientation.')
+        raise ValueError('Antenna element orientation coordinate system must be specified to describe the specified antenna orientation.')
 
 element_orientation = NP.asarray(element_orientation).reshape(1,-1)
 if (element_orientation.size < 2) or (element_orientation.size > 3):

@@ -72,9 +72,9 @@ plot_06 = False
 plot_07 = False
 plot_08 = False
 plot_09 = False
-plot_10 = True
+plot_10 = False
 plot_11 = False
-plot_12 = False
+plot_12 = True
 plot_13 = False
 plot_14 = False
 plot_15 = False
@@ -85,6 +85,18 @@ plot_19 = False
 
 # PLT.ioff()
 PLT.ion()
+
+project_MWA = True
+project_HERA = False
+project_beams = False
+project_drift_scan = False
+project_global_EoR = False
+
+if project_MWA: project_dir = 'project_MWA'
+if project_HERA: project_dir = 'project_HERA'
+if project_beams: project_dir = 'project_beams'
+if project_drift_scan: project_dir = 'project_drift_scan'
+if project_global_EoR: project_dir = 'project_global_EoR'
 
 telescope_id = 'custom'
 element_size = 0.74
@@ -129,6 +141,42 @@ else:
         ground_plane_str = '{0:.1f}m_ground_'.format(ground_plane)
     else:
         raise ValueError('Height of antenna element above ground plane must be positive.')
+
+delayerr = 0.05     # delay error rms in ns
+if delayerr is None:
+    delayerr_str = ''
+    delayerr = 0.0
+elif delayerr < 0.0:
+    raise ValueError('delayerr must be non-negative.')
+else:
+    delayerr_str = 'derr_{0:.3f}ns'.format(delayerr)
+delayerr *= 1e-9
+
+gainerr = None      # Gain error rms in dB
+if gainerr is None:
+    gainerr_str = ''
+    gainerr = 0.0
+elif gainerr < 0.0:
+    raise ValueError('gainerr must be non-negative.')
+else:
+    gainerr_str = '_gerr_{0:.2f}dB'.format(gainerr)
+
+nrand = 1       # Number of random realizations
+if nrand is None:
+    nrandom_str = ''
+    nrand = 1
+elif nrand < 1:
+    raise ValueError('nrandom must be positive')
+else:
+    nrandom_str = '_nrand_{0:0d}_'.format(nrand)
+
+if (delayerr_str == '') and (gainerr_str == ''):
+    nrand = 1
+    nrandom_str = ''
+
+delaygain_err_str = delayerr_str + gainerr_str + nrandom_str
+if project_MWA:
+    delaygain_err_str = ''
 
 latitude = -26.701 
 antenna_file = '/data3/t_nithyanandan/project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt'
@@ -263,7 +311,7 @@ elif use_NVSS:
 else:
     fg_str = 'other'
 
-roifile = '/data3/t_nithyanandan/project_MWA/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
+roifile = '/data3/t_nithyanandan/'+project_dir+'/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
 roi = RI.ROI_parameters(init_file=roifile)
 telescope = roi.telescope
 
@@ -349,7 +397,7 @@ if plot_01:
 
     pointings_dec = pointings_radec[:,1]
 
-    infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
+    infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
     hdulist = fits.open(infile)
     lst_select = hdulist['POINTING AND PHASE CENTER INFO'].data['LST']
     hdulist.close()
@@ -397,14 +445,14 @@ if plot_01:
 
     fig.subplots_adjust(right=0.85)
 
-    PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+obs_mode+'_pointings.eps', bbox_inches=0)
-    PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+obs_mode+'_pointings.png', bbox_inches=0)
+    PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+obs_mode+'_pointings.eps', bbox_inches=0)
+    PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+obs_mode+'_pointings.png', bbox_inches=0)
 
 #############################################################################
 
 if plot_02 or plot_03 or plot_04 or plot_12:
     
-    infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
+    infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
     hdulist = fits.open(infile)
     n_snaps = hdulist[0].header['n_acc']
     lst = hdulist['POINTING AND PHASE CENTER INFO'].data['LST']
@@ -610,8 +658,8 @@ if plot_02 or plot_03 or plot_04 or plot_12:
         fig.subplots_adjust(right=0.9)
         fig.subplots_adjust(top=0.98)
     
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'.png', bbox_inches=0)
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'.eps', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'.eps', bbox_inches=0)
 
         # Plot each snapshot separately
 
@@ -638,13 +686,13 @@ if plot_02 or plot_03 or plot_04 or plot_12:
             fig.subplots_adjust(top=0.96)
             fig.subplots_adjust(bottom=0.15)
     
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'_snapshot_{0:1d}.png'.format(j), bbox_inches=0)
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'_snapshot_{0:1d}.eps'.format(j), bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'_snapshot_{0:1d}.png'.format(j), bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'_snapshot_{0:1d}.eps'.format(j), bbox_inches=0)
 
     if plot_03 or plot_12:
 
         # csm_fluxes = csmctlg.flux_density * (freq/csmctlg.frequency)**csmctlg.spectral_index
-        csm_fluxes = csmskymod.flux_density * (freq/csmskymod.spec_parms['freq-ref'])**csmskymod.spectral_index
+        csm_fluxes = csmskymod.spec_parms['flux-scale'] * (freq/csmskymod.spec_parms['freq-ref'])**csmskymod.spec_parms['power-law-index']
 
         if plot_03:
             # 03) Plot foreground models with power pattern contours for snapshots
@@ -685,8 +733,8 @@ if plot_02 or plot_03 or plot_04 or plot_12:
             fig.subplots_adjust(right=0.85)
             fig.subplots_adjust(top=0.98)
     
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/dsm.png', bbox_inches=0)
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/dsm.eps', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/dsm.png', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/dsm.eps', bbox_inches=0)
     
             n_fg_ticks = 5
             fg_ticks = NP.round(NP.logspace(NP.log10(csm_fluxes.min()), NP.log10(csm_fluxes.max()), n_fg_ticks)).astype(NP.int)
@@ -723,8 +771,8 @@ if plot_02 or plot_03 or plot_04 or plot_12:
             fig.subplots_adjust(right=0.88)
             fig.subplots_adjust(top=0.98)
     
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/csm.png', bbox_inches=0)
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/csm.eps', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/csm.png', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/csm.eps', bbox_inches=0)
 
         if plot_12:
 
@@ -776,8 +824,8 @@ if plot_02 or plot_03 or plot_04 or plot_12:
                 fig.subplots_adjust(right=0.85)
                 fig.subplots_adjust(top=0.98)
             
-                PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/sky_model_with_pb_contours_snapshot_{0:0d}.png'.format(j), bbox_inches=0)
-                PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/sky_model_with_pb_contours_snapshot_{0:0d}.eps'.format(j), bbox_inches=0)
+                PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/sky_model_with_pb_contours_snapshot_{0:0d}.png'.format(j), bbox_inches=0)
+                PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/sky_model_with_pb_contours_snapshot_{0:0d}.eps'.format(j), bbox_inches=0)
 
             # Plot sky models without power pattern contours
 
@@ -823,8 +871,8 @@ if plot_02 or plot_03 or plot_04 or plot_12:
                 fig.subplots_adjust(right=0.85)
                 fig.subplots_adjust(top=0.98)
             
-                PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/sky_model_snapshot_{0:0d}.png'.format(j), bbox_inches=0)
-                PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/sky_model_snapshot_{0:0d}.eps'.format(j), bbox_inches=0)
+                PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/sky_model_snapshot_{0:0d}.png'.format(j), bbox_inches=0)
+                PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/sky_model_snapshot_{0:0d}.eps'.format(j), bbox_inches=0)
 
     if plot_04 or plot_12:
 
@@ -894,8 +942,8 @@ if plot_02 or plot_03 or plot_04 or plot_12:
     
                 # PLT.tight_layout()
                 fig.subplots_adjust(top=0.88)
-                PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/delay_map_snapshot_{0:0d}.png'.format(i), bbox_inches=0)
-                PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/delay_map_snapshot_{0:0d}.eps'.format(i), bbox_inches=0)
+                PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/delay_map_snapshot_{0:0d}.png'.format(i), bbox_inches=0)
+                PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/delay_map_snapshot_{0:0d}.eps'.format(i), bbox_inches=0)
                 # for i in xrange(n_bins_baseline_orientation):
                 #     axs[j/2,j%2].set_ylim(yvect.min(), yvect.max())
                 #     axs[0,0].set_autoscaley_on(False)
@@ -924,14 +972,14 @@ if plot_02 or plot_03 or plot_04 or plot_12:
     
                 cbax = fig.add_axes([0.13, 0.92, 0.82, 0.02])
                 cbar = fig.colorbar(imdmap, cax=cbax, orientation='horizontal')
-                cbax.set_xlabel(r'delay [$(|\mathbf{b}|/100)\,\mu$s]', labelpad=-50, fontsize=18)
+                cbax.set_xlabel(r'$\tau\,[(|\mathbf{b}|/100\,\mathrm{m})\,\mu\mathrm{s}]$', labelpad=-50, fontsize=18)
     
                 # PLT.tight_layout()
                 fig.subplots_adjust(top=0.88)
                 fig.subplots_adjust(right=0.95)
 
-                PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/directional_delay_map_snapshot_{0:0d}.png'.format(i), bbox_inches=0)
-                PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/directional_delay_map_snapshot_{0:0d}.eps'.format(i), bbox_inches=0)
+                PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/directional_delay_map_snapshot_{0:0d}.png'.format(i), bbox_inches=0)
+                PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/directional_delay_map_snapshot_{0:0d}.eps'.format(i), bbox_inches=0)
 
 ##############################################################################
     
@@ -941,10 +989,10 @@ if plot_05 or plot_06 or plot_07 or plot_09 or plot_16:
 
     fhd_obsid = [1061309344, 1061316544]
 
-    infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)
-    asm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
+    infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)
+    asm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
     if use_alt_spindex:
-        alt_asm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(alt_spindex_rms)+alt_spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
+        alt_asm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(alt_spindex_rms)+alt_spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
 
     ia = RI.InterferometerArray(None, None, None, init_file=infile+'.fits')    
     simdata_bl_orientation = NP.angle(ia.baselines[:,0] + 1j * ia.baselines[:,1], deg=True)
@@ -1255,8 +1303,8 @@ if plot_05 or plot_06 or plot_07 or plot_09 or plot_16:
         fig.subplots_adjust(right=0.82)
         fig.subplots_adjust(top=0.88)
 
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_fhd_sim_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_fhd_sim_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_fhd_sim_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_fhd_sim_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
 
 
         # Plot the FHD delay power spectra all snapshots together
@@ -1317,8 +1365,8 @@ if plot_05 or plot_06 or plot_07 or plot_09 or plot_16:
         fig.subplots_adjust(right=0.72)
         fig.subplots_adjust(top=0.88)
     
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_fhd_data_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_fhd_data_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_fhd_data_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_fhd_data_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
 
         # Plot the modeled delay power spectra all snapshots together
 
@@ -1403,8 +1451,8 @@ if plot_05 or plot_06 or plot_07 or plot_09 or plot_16:
         # fig.subplots_adjust(right=0.83)
         # # fig.subplots_adjust(top=0.9)
     
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
 
         # Plot each snapshot separately
 
@@ -1443,8 +1491,8 @@ if plot_05 or plot_06 or plot_07 or plot_09 or plot_16:
             fig.subplots_adjust(right=0.72)
             fig.subplots_adjust(top=0.88)
 
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.png', bbox_inches=0)
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.eps', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.png', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.eps', bbox_inches=0)
 
 
     for j in xrange(n_snaps):
@@ -1502,8 +1550,8 @@ if plot_05 or plot_06 or plot_07 or plot_09 or plot_16:
         fig.subplots_adjust(right=0.88)
         # fig.subplots_adjust(top=0.9)
     
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
 
         descriptor_str = ['off-zenith', 'zenith']
         fig, axs = PLT.subplots(n_snaps, sharex=True, sharey=True, figsize=(6,6))
@@ -1540,8 +1588,8 @@ if plot_05 or plot_06 or plot_07 or plot_09 or plot_16:
         big_ax.set_yticks([])
         big_ax.set_xlabel(r'$\log_{10}\,\rho$', fontsize=24, weight='medium', labelpad=20)
 
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'histogram_wedge_sim_data_log_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'histogram_wedge_sim_data_log_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'histogram_wedge_sim_data_log_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'histogram_wedge_sim_data_log_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
 
     if plot_09:
         # 09) Plot histogram of fractional differences between FHD data and simulation 
@@ -1556,13 +1604,13 @@ if plot_05 or plot_06 or plot_07 or plot_09 or plot_16:
         PLT.tight_layout()
         fig.subplots_adjust(bottom=0.15)
 
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'histogram_wedge_sim_data_snr_log_fractional_diff_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'histogram_wedge_sim_data_snr_log_fractional_diff_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'histogram_wedge_sim_data_snr_log_fractional_diff_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'histogram_wedge_sim_data_snr_log_fractional_diff_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
 
     if plot_07 or plot_08:
     
-        dsm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_dsm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
-        csm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_csm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
+        dsm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_dsm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
+        csm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_csm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
         
         hdulist = fits.open(dsm_CLEAN_infile+'.fits')
         dsm_cc_skyvis = hdulist['CLEAN NOISELESS VISIBILITIES REAL'].data + 1j * hdulist['CLEAN NOISELESS VISIBILITIES IMAG'].data
@@ -1653,8 +1701,8 @@ if plot_05 or plot_06 or plot_07 or plot_09 or plot_16:
             PLT.tight_layout()
             fig.subplots_adjust(right=0.83)
 
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_snr_log_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_snr_log_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_snr_log_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_snr_log_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
 
             fig = PLT.figure(figsize=(6,8))
             for j in xrange(n_snaps):
@@ -1695,8 +1743,8 @@ if plot_05 or plot_06 or plot_07 or plot_09 or plot_16:
             PLT.tight_layout()
             fig.subplots_adjust(bottom=0.15)
 
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'histogram_wedge_sim_data_snr_log_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'histogram_wedge_sim_data_snr_log_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'histogram_wedge_sim_data_snr_log_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'histogram_wedge_sim_data_snr_log_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
 
     if plot_16:
         # 16) Plot average thermal noise in simulations and data as a function of baseline length
@@ -1723,10 +1771,10 @@ if plot_05 or plot_06 or plot_07 or plot_09 or plot_16:
         
 if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
 
-    infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)
-    asm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
-    dsm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_dsm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
-    csm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_csm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
+    infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)
+    asm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
+    dsm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_dsm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
+    csm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_csm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
 
     ia = RI.InterferometerArray(None, None, None, init_file=infile+'.fits')    
     simdata_bl_orientation = NP.angle(ia.baselines[:,0] + 1j * ia.baselines[:,1], deg=True)
@@ -1961,8 +2009,8 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
         # # fig.subplots_adjust(right=0.83)
         # # # fig.subplots_adjust(top=0.9)
     
-        # PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-        # PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+        # PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+        # PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
 
         # # Plot each snapshot separately
 
@@ -2001,8 +2049,8 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
         #     fig.subplots_adjust(right=0.72)
         #     fig.subplots_adjust(top=0.88)
         
-        #     PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.png', bbox_inches=0)
-        #     PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.eps', bbox_inches=0)
+        #     PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.png', bbox_inches=0)
+        #     PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.eps', bbox_inches=0)
 
         # # Diffuse foreground model
 
@@ -2080,8 +2128,8 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
         # # fig.subplots_adjust(right=0.83)
         # # # fig.subplots_adjust(top=0.9)
     
-        # PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_dsm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-        # PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_dsm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+        # PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_dsm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+        # PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_dsm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
             
         # # Plot each snapshot separately
 
@@ -2120,8 +2168,8 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
         #     fig.subplots_adjust(right=0.72)
         #     fig.subplots_adjust(top=0.88)
         
-        #     PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_dsm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.png', bbox_inches=0)
-        #     PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_dsm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.eps', bbox_inches=0)
+        #     PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_dsm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.png', bbox_inches=0)
+        #     PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_dsm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.eps', bbox_inches=0)
 
         # # Compact foreground model
 
@@ -2199,8 +2247,8 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
         # # fig.subplots_adjust(right=0.83)
         # # # fig.subplots_adjust(top=0.9)
     
-        # PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-        # PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+        # PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+        # PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
             
         # # Plot each snapshot separately
 
@@ -2240,8 +2288,8 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
         #     fig.subplots_adjust(right=0.72)
         #     fig.subplots_adjust(top=0.88)
         
-        #     PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.png', bbox_inches=0)
-        #     PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.eps', bbox_inches=0)
+        #     PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.png', bbox_inches=0)
+        #     PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.eps', bbox_inches=0)
 
         # Plot diffuse and compact sky models for all snapshots together
 
@@ -2307,8 +2355,8 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
         fig.subplots_adjust(right=0.82)
         fig.subplots_adjust(top=0.88)
 
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_dsm_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_dsm_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_dsm_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_dsm_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
 
 
         select_bl_id = ['47-21']
@@ -2356,8 +2404,8 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
             # big_ax.set_ylabel(r'$|V_{b\tau}(\mathbf{b},\tau)|$  [Jy Hz]', fontsize=16, weight='medium', labelpad=30)
             big_ax.set_ylabel(r"$P_d(k_\perp,k_\parallel)$  [K$^2$ (Mpc/$h)^3$]", fontsize=16, weight='medium', labelpad=30)
     
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'baseline_'+blid+'_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'baseline_'+blid+'_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'baseline_'+blid+'_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'baseline_'+blid+'_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
     
         select_bl_id = ['85-61', '63-58', '95-51']
         fig, axs = PLT.subplots(len(select_bl_id), sharex=True, sharey=True, figsize=(6,8))
@@ -2377,7 +2425,7 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
             dspec_llim = dspec_llim**2 * volfactor1 * volfactor2 * Jy2K**2
             dspec_ulim = dspec_ulim**2 * volfactor1 * volfactor2 * Jy2K**2
 
-            axs[j].fill_between(1e6*clean_lags, dspec_ulim, dspec_llim, alpha=0.75, edgecolor='none', facecolor='gray')
+            # axs[j].fill_between(1e6*clean_lags, dspec_ulim, dspec_llim, alpha=0.75, edgecolor='none', facecolor='gray')
     
             axs[j].axvline(x=1e6*min_delay[truncated_ref_bl_id==blid,0], ls=':', lw=2, color='black')
             axs[j].axvline(x=1e6*max_delay[truncated_ref_bl_id==blid,0], ls=':', lw=2, color='black')
@@ -2386,7 +2434,7 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
             axs[j].set_yticks(NP.logspace(0,8,5,endpoint=True).tolist())
             # axs[j].get_yaxis().get_major_formatter().labelOnlyBase = True
             axs[j].set_xlim(1e6*clean_lags.min(), 1e6*clean_lags.max())
-            axs[j].set_ylim(dspec_llim.min(), 1.5*dspec_ulim.max())
+            axs[j].set_ylim(0.1*dspec_llim.min(), 1.5*dspec_ulim.max())
             # axs[j].set_ylim(10**4.3, 1.1*(max([NP.abs(asm_cc_vis_lag[truncated_ref_bl_id==blid,:,1]).max(), NP.abs(asm_cc_skyvis_lag[truncated_ref_bl_id==blid,:,1]).max(), NP.abs(dsm_cc_skyvis_lag[truncated_ref_bl_id==blid,:,1]).max(), NP.abs(csm_cc_vis_lag[truncated_ref_bl_id==blid,:,1]).max()])+NP.sqrt(NP.abs(csm_jacobian_spindex*csm_cc_skyvis_lag[truncated_ref_bl_id==blid,:,1])**2 + NP.abs(dsm_jacobian_spindex*dsm_cc_skyvis_lag[truncated_ref_bl_id==blid,:,1])**2 + NP.abs(vis_rms_lag[truncated_ref_bl_id==blid,:,1])**2)).max())
             hl = PLT.Line2D(range(1), range(0), color='black', linestyle=':', linewidth=2)
             dsml = PLT.Line2D(range(1), range(0), color='red', linestyle='-', linewidth=2)
@@ -2421,8 +2469,8 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
         big_axt.set_yticks([])
         big_axt.set_xlabel(r'$k_\parallel$ [$h$ Mpc$^{-1}$]', fontsize=16, weight='medium', labelpad=30)
     
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'{0:0d}_baseline_comparison'.format(len(select_bl_id))+'_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'{0:0d}_baseline_comparison'.format(len(select_bl_id))+'_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'{0:0d}_baseline_comparison'.format(len(select_bl_id))+'_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'{0:0d}_baseline_comparison'.format(len(select_bl_id))+'_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
 
     bl_orientation = NP.copy(simdata_bl_orientation[truncated_ref_bl_ind])
     bloh, bloe, blon, blori = OPS.binned_statistic(bl_orientation, bins=n_bins_baseline_orientation, statistic='count', range=[(-90.0+0.5*180.0/n_bins_baseline_orientation, 90.0+0.5*180.0/n_bins_baseline_orientation)])
@@ -2498,8 +2546,8 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
             fig.subplots_adjust(top=0.85)
             fig.subplots_adjust(bottom=0.07)
 
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'baseline_binned_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_snapshot_{0:0d}.png'.format(j), bbox_inches=0)
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'baseline_binned_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_snapshot_{0:0d}.eps'.format(j), bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'baseline_binned_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_snapshot_{0:0d}.png'.format(j), bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'baseline_binned_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_snapshot_{0:0d}.eps'.format(j), bbox_inches=0)
 
     if plot_12:
 
@@ -2574,8 +2622,8 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
             fig.subplots_adjust(top=0.79)
             fig.subplots_adjust(bottom=0.09)
         
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'baseline_N_E_binned_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_snapshot_{0:0d}.png'.format(j), bbox_inches=0)
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'baseline_N_E_binned_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_snapshot_{0:0d}.eps'.format(j), bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'baseline_N_E_binned_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_snapshot_{0:0d}.png'.format(j), bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'baseline_N_E_binned_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_snapshot_{0:0d}.eps'.format(j), bbox_inches=0)
 
     if plot_13:
         # 13) Plot EoR window foreground contamination when baselines are selectively removed
@@ -2651,8 +2699,8 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
 
         PLT.tight_layout()
 
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'baseline_screening_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'baseline_screening_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'baseline_screening_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'baseline_screening_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
 
     if plot_14:
         # 14) Plot delay spectra before and after baselines are selectively removed        
@@ -2735,8 +2783,8 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
         fig.subplots_adjust(right=0.72)
         fig.subplots_adjust(top=0.88)
 
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_screening_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/'+telescope_str+'multi_baseline_screening_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_screening_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_screening_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
 
 ##################################################################
 
@@ -2800,19 +2848,19 @@ if plot_15:
 
     PLT.tight_layout()
 
-    PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/fourier_space_{0:.1f}_MHz_{1:.1f}_MHz.png'.format(freq/1e6,nchan*freq_resolution/1e6))
-    PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/fourier_space_{0:.1f}_MHz_{1:.1f}_MHz.eps'.format(freq/1e6,nchan*freq_resolution/1e6))
+    PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/fourier_space_{0:.1f}_MHz_{1:.1f}_MHz.png'.format(freq/1e6,nchan*freq_resolution/1e6))
+    PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/fourier_space_{0:.1f}_MHz_{1:.1f}_MHz.eps'.format(freq/1e6,nchan*freq_resolution/1e6))
 
 ##################################################################
 
 if plot_17 or plot_18 or plot_19:
 
-    delta_array_usm_infile = '/data3/t_nithyanandan/project_MWA/delta_array_multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_usm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb'
-    delta_array_usm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/delta_array_multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_usm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb_'+bpass_shape
-    delta_array_asm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/delta_array_multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb_'+bpass_shape
-    mwa_dipole_asm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/mwa_dipole_multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb_'+bpass_shape
-    hera_asm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/hera_multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb_'+bpass_shape
-    delta_usm_CLEAN_infile = '/data3/t_nithyanandan/project_MWA/delta_multi_baseline_CLEAN_visibilities_no_ground_'+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_usm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb_'+bpass_shape
+    delta_array_usm_infile = '/data3/t_nithyanandan/'+project_dir+'/delta_array_multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_usm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb'
+    delta_array_usm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/delta_array_multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_usm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb_'+bpass_shape
+    delta_array_asm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/delta_array_multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb_'+bpass_shape
+    mwa_dipole_asm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/mwa_dipole_multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb_'+bpass_shape
+    hera_asm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/hera_multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb_'+bpass_shape
+    delta_usm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/delta_multi_baseline_CLEAN_visibilities_no_ground_'+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_usm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'no_pfb_'+bpass_shape
 
     ia = RI.InterferometerArray(None, None, None, init_file=delta_array_usm_infile+'.fits')    
     simdata_bl_orientation = NP.angle(ia.baselines[:,0] + 1j * ia.baselines[:,1], deg=True)
@@ -2983,8 +3031,8 @@ if plot_17 or plot_18 or plot_19:
         fig.subplots_adjust(right=0.72)
         fig.subplots_adjust(top=0.88)
     
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/delta_array_multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_usm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
-        PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/delta_array_multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_usm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/delta_array_multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_usm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/delta_array_multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_usm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
         
     ##################################################################
 
@@ -3032,15 +3080,15 @@ if plot_17 or plot_18 or plot_19:
         # antelem_asm_dspec_max = antelem_asm_dspec_max**2 * volfactor1 * volfactor2 * Jy2K**2
         # antelem_asm_dspec_min = antelem_asm_dspec_min**2 * volfactor1 * volfactor2 * Jy2K**2
 
-        delta_array_roifile = '/data3/t_nithyanandan/project_MWA/roi_info_delta_array_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
+        delta_array_roifile = '/data3/t_nithyanandan/'+project_dir+'/roi_info_delta_array_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
         delta_array_roi = RI.ROI_parameters(init_file=delta_array_roifile)
         delta_array_telescope = delta_array_roi.telescope
 
-        mwa_dipole_roifile = '/data3/t_nithyanandan/project_MWA/roi_info_mwa_dipole_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
+        mwa_dipole_roifile = '/data3/t_nithyanandan/'+project_dir+'/roi_info_mwa_dipole_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
         mwa_dipole_roi = RI.ROI_parameters(init_file=mwa_dipole_roifile)
         mwa_dipole_telescope = mwa_dipole_roi.telescope
 
-        hera_roifile = '/data3/t_nithyanandan/project_MWA/roi_info_hera_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
+        hera_roifile = '/data3/t_nithyanandan/'+project_dir+'/roi_info_hera_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
         hera_roi = RI.ROI_parameters(init_file=hera_roifile)
         hera_telescope = hera_roi.telescope
 
@@ -3127,8 +3175,8 @@ if plot_17 or plot_18 or plot_19:
             fig.subplots_adjust(top=0.94)
             fig.subplots_adjust(bottom=0.24)
         
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'_no_delayerr_snapshot_{0:0d}.png'.format(j), bbox_inches=0)
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'_no_delayerr_snapshot_{0:0d}.eps'.format(j), bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'_no_delayerr_snapshot_{0:0d}.png'.format(j), bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'_no_delayerr_snapshot_{0:0d}.eps'.format(j), bbox_inches=0)
 
         for j in xrange(n_snaps):
             fig, axs = PLT.subplots(ncols=3, nrows=1, sharex=True, sharey=True, figsize=(10.5,5))
@@ -3215,8 +3263,8 @@ if plot_17 or plot_18 or plot_19:
             fig.subplots_adjust(left=0.1)
             fig.subplots_adjust(bottom=0.125)
         
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/multi_antenna_multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}_snapshot_{1:0d}'.format(oversampling_factor,j)+'.png', bbox_inches=0)
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/multi_antenna_multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}_snapshot_{1:0d}'.format(oversampling_factor,j)+'.eps', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/multi_antenna_multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}_snapshot_{1:0d}'.format(oversampling_factor,j)+'.png', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/multi_antenna_multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_asm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}_snapshot_{1:0d}'.format(oversampling_factor,j)+'.eps', bbox_inches=0)
         
 ##################################################################
 
@@ -3277,5 +3325,5 @@ if plot_17 or plot_18 or plot_19:
             fig.subplots_adjust(right=0.72)
             fig.subplots_adjust(top=0.88)
     
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/delta_multi_baseline_CLEAN_noiseless_PS_no_ground_'+snapshot_type_str+obs_mode+'_gaussian_FG_model_usm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}_snapshot_{1:0d}'.format(oversampling_factor,j)+'.png', bbox_inches=0)
-            PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/delta_multi_baseline_CLEAN_noiseless_PS_no_ground_'+snapshot_type_str+obs_mode+'_gaussian_FG_model_usm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}_snapshot_{1:0d}'.format(oversampling_factor,j)+'.eps', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/delta_multi_baseline_CLEAN_noiseless_PS_no_ground_'+snapshot_type_str+obs_mode+'_gaussian_FG_model_usm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}_snapshot_{1:0d}'.format(oversampling_factor,j)+'.png', bbox_inches=0)
+            PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/delta_multi_baseline_CLEAN_noiseless_PS_no_ground_'+snapshot_type_str+obs_mode+'_gaussian_FG_model_usm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'_no_pfb_{0:.1f}_snapshot_{1:0d}'.format(oversampling_factor,j)+'.eps', bbox_inches=0)
