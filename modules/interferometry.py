@@ -348,7 +348,7 @@ def uniq_baselines(baseline_locations, redundant=None):
     blo[blo < 0.0] += 180.0
     bll = NP.sqrt(baseline_locations[:,0]**2 + baseline_locations[:,1]**2)
 
-    blstr = ['{0[0]:.2f}_{0[1]:.2f}'.format(lo) for lo in zip(bll,blo)]
+    blstr = ['{0[0]:.2f}_{0[1]:.3f}'.format(lo) for lo in zip(bll,blo)]
 
     uniq_blstr, ind, invind = NP.unique(blstr, return_index=True, return_inverse=True)  ## if numpy.__version__ < 1.9.0
 
@@ -4120,7 +4120,7 @@ class InterferometerArray(object):
 
         if astropy.__version__ == '0.4':
             columns = fits.ColDefs(cols, tbtype=tabtype)
-        elif astropy.__version__ == '0.4.2':
+        elif (astropy.__version__ == '0.4.2') or (astropy.__version__ == u'1.0'):
             columns = fits.ColDefs(cols, ascii=use_ascii)
 
         tbhdu = fits.new_table(columns)
@@ -4134,7 +4134,7 @@ class InterferometerArray(object):
 
         if astropy.__version__ == '0.4':
             columns = fits.ColDefs(cols, tbtype=tabtype)
-        elif astropy.__version__ == '0.4.2':
+        elif (astropy.__version__ == '0.4.2') or (astropy.__version__ == u'1.0'):
             columns = fits.ColDefs(cols, ascii=use_ascii)
 
         tbhdu = fits.new_table(columns)
@@ -4167,7 +4167,7 @@ class InterferometerArray(object):
 
         if astropy.__version__ == '0.4':
             columns = fits.ColDefs(cols, tbtype=tabtype)
-        elif astropy.__version__ == '0.4.2':
+        elif (astropy.__version__ == '0.4.2') or (astropy.__version__ == u'1.0'):
             columns = fits.ColDefs(cols, ascii=use_ascii)
 
         tbhdu = fits.new_table(columns)
@@ -4186,7 +4186,7 @@ class InterferometerArray(object):
 
         if astropy.__version__ == '0.4':
             columns = fits.ColDefs(cols, tbtype=tabtype)
-        elif astropy.__version__ == '0.4.2':
+        elif (astropy.__version__ == '0.4.2') or (astropy.__version__ == u'1.0'):
             columns = fits.ColDefs(cols, ascii=use_ascii)
 
         tbhdu = fits.new_table(columns)

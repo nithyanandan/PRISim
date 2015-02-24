@@ -1,3 +1,11 @@
+From 0cbdd7d of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Make unique baseline estimation more accurate in uniq_baselines()
+(*) Adjust code to handle updates to Astropy while saving to FITS files
+
 From b4ce5b4 of Interferometry:
 ==============================
 

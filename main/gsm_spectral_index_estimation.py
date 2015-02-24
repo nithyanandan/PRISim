@@ -1,21 +1,22 @@
 import numpy as NP
 import healpy as HP
+import astropy
 from astropy.io import fits
 from astropy.coordinates import Galactic, FK5
 from astropy import units
 import foregrounds as FG
 
-freqs = [170.0e6, 185.0e6, 200.0e6] # frequencies in Hz
-freq_center = 185.0e6
+freqs = [140.0e6, 150.0e6, 160.0e6, 170.0e6, 185.0e6, 200.0e6] # frequencies in Hz
+freq_center = 150.0e6
+out_nside = 64
 
 nsides = []
 for i in xrange(len(freqs)):
     gsm_file = '/data3/t_nithyanandan/project_MWA/foregrounds/gsm{0:.0f}.txt'.format(freqs[i]/1e6)
     gsm_inp = NP.loadtxt(gsm_file)
-    print gsm_inp.min()
     nside = HP.npix2nside(gsm_inp.size)
     gsm_smoothed = HP.smoothing(gsm_inp, fwhm=NP.radians(0.85), regression=False)
-    gsm_downsampled = HP.ud_grade(gsm_smoothed, nside/4)
+    gsm_downsampled = HP.ud_grade(gsm_smoothed, out_nside)
     # gsm_downsampled = HP.ud_grade(gsm_smoothed, nside/8)
     gsm_downsampled = gsm_downsampled.reshape(-1,1)
     nsides += [HP.npix2nside(gsm_downsampled.size)]
@@ -44,7 +45,11 @@ cols += [fits.Column(name='RA', format='D', array=ra)]
 cols += [fits.Column(name='DEC', format='D', array=dec)]
 cols += [fits.Column(name='T_{0:.0f}'.format(freqs[i]/1e6), format='D', array=gsm[:,i]) for i in xrange(len(freqs))]
 cols += [fits.Column(name='spindex', format='D', array=spindex)]
-columns = fits.ColDefs(cols, tbtype='BinTableHDU')
+if astropy.__version__ == '0.4':
+    columns = fits.ColDefs(cols, tbtype='BinTableHDU')
+elif (astropy.__version__ == '0.4.2') or (astropy.__version__ == u'1.0'):
+    columns = fits.ColDefs(cols, ascii=False)
+
 tbhdu = fits.new_table(columns)
 tbhdu.header.set('EXTNAME', 'GSM')
 hdulist += [tbhdu]

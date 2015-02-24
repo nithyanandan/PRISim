@@ -80,7 +80,7 @@ obsparm_group.add_argument('--nrandom', dest='nrand', type=int, default=1, help=
 duration_group = parser.add_argument_group('Observing duration parameters', 'Parameters specifying observing duration')
 duration_group.add_argument('--t-obs', help='Duration of observation [seconds]', dest='t_obs', default=None, type=float, metavar='t_obs')
 duration_group.add_argument('--n-snap', help='Number of snapshots or records that make up the observation', dest='n_snaps', default=None, type=int, metavar='n_snapshots')
-duration_group.add_argument('--t-snap', help='integration time of each snapshot [seconds]', dest='t_snap', default=None, type=int, metavar='t_snap')
+duration_group.add_argument('--t-snap', help='integration time of each snapshot [seconds]', dest='t_snap', default=None, type=float, metavar='t_snap')
 
 snapshot_selection_group = parser.add_mutually_exclusive_group(required=True)
 snapshot_selection_group.add_argument('--avg-drifts', dest='avg_drifts', action='store_true')
@@ -319,6 +319,7 @@ avg_drifts = args['avg_drifts']
 beam_switch = args['beam_switch']
 snapshot_sampling = args['snapshot_sampling']
 pick_snapshots = args['pick_snapshots']
+all_snapshots = args['all_snapshots']
 snapshots_range = args['snapshots_range']
 snapshot_type_str = ''
 
@@ -487,7 +488,8 @@ elif pointing_info is not None:
     if obs_mode == 'track':
         pointings_radec = NP.repeat(NP.asarray(pointing_init).reshape(-1,2), n_snaps, axis=0)
     else:
-        pointings_radec = NP.hstack((NP.asarray(lst-pointing_init[0]).reshape(-1,1), pointing_init[1]+NP.zeros(n_snaps).reshape(-1,1)))
+        ha_init = lst_init * 15.0 - pointing_init[0]
+        pointings_radec = NP.hstack((NP.asarray(lst-ha_init).reshape(-1,1), pointing_init[1]+NP.zeros(n_snaps).reshape(-1,1)))
 
     pointings_hadec = NP.hstack(((lst-pointings_radec[:,0]).reshape(-1,1), pointings_radec[:,1].reshape(-1,1)))
     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
@@ -639,7 +641,9 @@ if pfb_method is not None:
             # freq_wts = NP.fft.fft(wts_shift)
             # pfb_filtered = DSP.fft_filter(bandpass_shape.ravel(), wts=freq_wts.ravel(), passband='high')
             # pfb_edge_channels = pfb_filtered.argsort()[:int(1.0*n_channels/coarse_channel_width)]
-            flagged_edge_channels += [range(max(0,pfb_edge-n_edge_flag[0]),min(n_channels-1,pfb_edge+n_edge_flag[1])) for pfb_edge in pfb_edge_channels]
+
+            pfb_edge_channels = NP.hstack((pfb_edge_channels.ravel(), NP.asarray([pfb_edge_channels.min()-coarse_channel_width, pfb_edge_channels.max()+coarse_channel_width])))
+            flagged_edge_channels += [range(max(0,pfb_edge-n_edge_flag[0]),min(n_channels,pfb_edge+n_edge_flag[1])) for pfb_edge in pfb_edge_channels]
 else:
     pfb_str = 'no_pfb_'
 
@@ -887,7 +891,7 @@ if use_GSM:
     minax = NP.concatenate((minax, nvss_minax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
     fluxes = NP.concatenate((fluxes, nvss_fpeak))
 
-    ctlgobj = SM.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    # ctlgobj = SM.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     # ctlgobj = SM.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex)
 
     spec_parms = {}
@@ -924,7 +928,7 @@ elif use_DSM:
     # majax = NP.degrees(NP.sqrt(HP.nside2pixarea(64)*4/NP.pi) * NP.ones(fluxes_DSM.size))
     # minax = NP.degrees(NP.sqrt(HP.nside2pixarea(64)*4/NP.pi) * NP.ones(fluxes_DSM.size))
     fluxes = fluxes_DSM
-    ctlgobj = SM.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    # ctlgobj = SM.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     hdulist.close()
 
     spec_parms = {}
@@ -957,7 +961,7 @@ elif use_USM:
     catlabel = NP.repeat('USM', fluxes_USM.size)
     majax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_USM.size)
     minax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_USM.size)
-    ctlgobj = SM.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes_USM, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes_USM.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    # ctlgobj = SM.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes_USM, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes_USM.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     hdulist.close()  
 
     spec_parms = {}
@@ -1059,7 +1063,7 @@ elif use_CSM:
     minax = NP.concatenate((minax, nvss_minax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
     fluxes = NP.concatenate((fluxes, nvss_fpeak))
 
-    ctlgobj = SM.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    # ctlgobj = SM.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
 
     spec_parms = {}
     # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
@@ -1119,7 +1123,7 @@ elif use_SUMSS:
         NP.random.seed(spindex_seed)
         spindex = -0.83 + spindex_rms * NP.random.randn(fint.size)
 
-    ctlgobj = SM.Catalog(freq_catalog*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fint, spectral_index=spindex, src_shape=NP.hstack((fmajax.reshape(-1,1),fminax.reshape(-1,1),fpa.reshape(-1,1))), src_shape_units=['arcsec','arcsec','degree'])    
+    # ctlgobj = SM.Catalog(freq_catalog*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fint, spectral_index=spindex, src_shape=NP.hstack((fmajax.reshape(-1,1),fminax.reshape(-1,1),fpa.reshape(-1,1))), src_shape_units=['arcsec','arcsec','degree'])    
     fg_str = 'sumss'
 
     spec_parms = {}
@@ -1144,7 +1148,7 @@ elif use_GLEAM:
     fpeak = catdata['S150_fit']
     ferr = catdata['e_S150_fit']
     spindex = catdata['Sp+Index']
-    ctlgobj = SM.Catalog(freq_catalog*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fpeak, spectral_index=spindex)
+    # ctlgobj = SM.Catalog(freq_catalog*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fpeak, spectral_index=spindex)
     fg_str = 'gleam'
 
     spec_parms = {}
@@ -1173,7 +1177,7 @@ elif use_PS:
     freq_PS = 0.185 # in GHz
     freq_catalog = freq_PS * 1e9 + NP.zeros(fint.size)
     catlabel = NP.repeat('PS', fint.size)
-    ctlgobj = SM.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fint, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), src_shape_units=['arcmin','arcmin','degree'])
+    # ctlgobj = SM.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fint, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), src_shape_units=['arcmin','arcmin','degree'])
 
     spec_parms = {}
     # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
@@ -1334,6 +1338,7 @@ else: # MPI based on baseline multiplexing
 
             if rank == 0: # Compute ROI parameters for only one process and broadcast to all
                 roi = RI.ROI_parameters()
+                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
                 for j in range(n_snaps):
                     src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
                     hemisphere_current = src_altaz_current[:,0] >= 0.0
@@ -1347,7 +1352,12 @@ else: # MPI based on baseline multiplexing
    
                     pbinfo = {}
                     if (telescope_id == 'mwa') or (phased_array) or (telescope_id == 'mwa_tools'):
-                        pbinfo['delays'] = delays[j,:]
+                        if pointing_file is not None:
+                            pbinfo['delays'] = delays[j,:]
+                        else:
+                            pbinfo['pointing_center'] = pointings_altaz[j,:]
+                            pbinfo['pointing_coords'] = 'altaz'
+                            
                         if (telescope_id == 'mwa') or (phased_array):
                             pbinfo['element_locs'] = element_locs
                             pbinfo['delayerr'] = delayerr
@@ -1397,13 +1407,14 @@ else: # MPI based on baseline multiplexing
                                 if ind_dist_in_range:
                                     ind_dist_in_range = NP.asarray(ind_dist_in_range)
                                     roi.info['pbeam'][-1][ind_dist_in_range,:] *= pb_modify_factor_radius[mi]
-                                    
+                    
+                    progress.update(j+1)
+                progress.finish()
             else:
                 roi = None
                 pbinfo = None
             roi = comm.bcast(roi, root=0) # Broadcast information in ROI instance to all processes
             pbinfo = comm.bcast(pbinfo, root=0) # Broadcast PB synthesis info
-
             if (rank == 0):
                 roifile = '/data3/t_nithyanandan/'+project_dir+'/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)
                 roi.save(roifile, tabtype='BinTableHDU', overwrite=True, verbose=True)
