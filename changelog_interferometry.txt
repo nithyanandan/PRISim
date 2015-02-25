@@ -1,3 +1,13 @@
+From c1e0049 of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Make uniq_baselines() also return indices of selected baselines.
+Change docstring accordingly
+(*) Make hexagon_generator() also return antenna identifiers. Change
+docstring accordingly
+
 From b1ebe5c of Interferometry:
 ==============================
 

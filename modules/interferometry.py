@@ -56,9 +56,14 @@ def hexagon_generator(spacing, n_total=None, n_side=None, orientation=None,
 
     Outputs:
 
+    Two element tuple with these elements in the following order:
+
     xy           [2-column array] x- and y-locations. x is in the first
                  column, y is in the second column. Number of xy-locations
                  is equal to the number of rows which is equal to n_total
+
+    id           [numpy array of string] unique antenna identifier. Numbers
+                 from 0 to n_antennas-1 in string format.
 
     Notes: 
 
@@ -150,7 +155,7 @@ def hexagon_generator(spacing, n_total=None, n_side=None, orientation=None,
     if center is not None:   # Shift the center
         xy += center
 
-    return NP.asarray(xy)
+    return (NP.asarray(xy), map(str, range(n_total)))
 
 ################################################################################
 
@@ -317,13 +322,13 @@ def uniq_baselines(baseline_locations, redundant=None):
 
     Output:
 
-    2-element tuple with the selected baselines and their count. The first 
-    element of this tuple is a 3-column numpy array which is a subset of 
-    baseline_locations containing the requested type of baselines. The second
-    element of the tuple contains the count of these selected baselines. In 
-    case of redundant and unique baselines, the order of repeated baselines 
-    does not matter and any one of those baselines could be returned without 
-    preserving the order.
+    3-element tuple with the selected baselines, their indices in the input,
+    and their count. The first element of this tuple is a 3-column numpy array 
+    which is a subset of baseline_locations containing the requested type of 
+    baselines. The second element of the tuple contains the count of these 
+    selected baselines. In case of redundant and unique baselines, the order 
+    of repeated baselines does not matter and any one of those baselines could 
+    be returned without preserving the order.
     ---------------------------------------------------------------------------
     """
 
@@ -374,7 +379,7 @@ def uniq_baselines(baseline_locations, redundant=None):
             retind = ind[NP.asarray(redn_ind)]
             counts = NP.asarray(counts)
             
-    return (baseline_locations[retind,:], counts)
+    return (baseline_locations[retind,:], retind, counts)
 
 #################################################################################
 

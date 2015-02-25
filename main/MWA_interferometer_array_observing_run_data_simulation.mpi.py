@@ -42,7 +42,11 @@ project_group.add_argument('--project-beams', dest='project_beams', action='stor
 project_group.add_argument('--project-drift-scan', dest='project_drift_scan', action='store_true')
 project_group.add_argument('--project-global-EoR', dest='project_global_EoR', action='store_true')
 
-parser.add_argument('--antenna-file', help='File containing antenna locations', default='/data3/t_nithyanandan/project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', type=file, dest='antenna_file')
+array_config_group = parser.add_mutually_exclusive_group(required=True)
+array_config_group.add_argument('--antenna-file', help='File containing antenna locations', type=file, dest='antenna_file')
+array_config_group.add_argument('--array-layout', help='Identifier specifying antenna array layout', choices=['MWA-128T', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331'], type=str, dest='array_layout')
+
+# parser.add_argument('--antenna-file', help='File containing antenna locations', default='/data3/t_nithyanandan/project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', type=file, dest='antenna_file')
 
 telescope_group = parser.add_argument_group('Telescope parameters', 'Telescope/interferometer specifications')
 telescope_group.add_argument('--label-prefix', help='Prefix for baseline labels [str, Default = ""]', default='', type=str, dest='label_prefix')
@@ -185,10 +189,41 @@ if project_beams: project_dir = 'project_beams'
 if project_drift_scan: project_dir = 'project_drift_scan'
 if project_global_EoR: project_dir = 'project_global_EoR'
 
-try:
-    ant_locs = NP.loadtxt(args['antenna_file'], skiprows=6, comments='#', usecols=(0,1,2,3))
-except IOError:
-    raise IOError('Could not open file containing antenna locations.')
+antenna_file = args['antenna_file']
+array_layout = args['array_layout']
+
+if antenna_file is not None: 
+    try:
+        ant_info = NP.loadtxt(antenna_file, skiprows=6, comments='#', usecols=(0,1,2,3))
+        ant_id = ant_info[:,0].astype(int).astype(str)
+        ant_locs = ant_info[:,1:]
+    except IOError:
+        raise IOError('Could not open file containing antenna locations.')
+else:
+    if array_layout == 'MWA-128T':
+        ant_info = NP.loadtxt('/data3/t_nithyanandan/project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', skiprows=6, comments='#', usecols=(0,1,2,3))
+        ant_id = ant_info[:,0].astype(int).astype(str)
+        ant_locs = ant_info[:,1:]
+    elif array_layout == 'HERA-7':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=7)
+    elif array_layout == 'HERA-19':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=19)
+    elif array_layout == 'HERA-37':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=37)
+    elif array_layout == 'HERA-61':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=61)
+    elif array_layout == 'HERA-91':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=91)
+    elif array_layout == 'HERA-127':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=127)
+    elif array_layout == 'HERA-169':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=169)
+    elif array_layout == 'HERA-217':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=217)
+    elif array_layout == 'HERA-271':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=271)
+    elif array_layout == 'HERA-331':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=331)
 
 n_bins_baseline_orientation = args['n_bins_baseline_orientation']
 baseline_chunk_size = args['baseline_chunk_size']
@@ -578,7 +613,9 @@ coarse_channel_width = args['coarse_channel_width']
 n_edge_flag = NP.asarray(args['n_edge_flag']).reshape(-1)
 flag_repeat_edge_channels = args['flag_repeat_edge_channels']
 
-bl, bl_id = RI.baseline_generator(ant_locs[:,1:], ant_id=ant_locs[:,0].astype(int).astype(str), auto=False, conjugate=False)
+bl, bl_id = RI.baseline_generator(ant_locs, ant_id=ant_id, auto=False, conjugate=False)
+bl, select_bl_ind, bl_count = RI.uniq_baselines(bl)
+bl_id = bl_id[select_bl_ind]
 bl_length = NP.sqrt(NP.sum(bl**2, axis=1))
 bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
 sortind = NP.argsort(bl_length, kind='mergesort')
