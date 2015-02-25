@@ -385,6 +385,125 @@ def uniq_baselines(baseline_locations, redundant=None):
 
 def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
 
+    """
+    ---------------------------------------------------------------------------
+    Generate antenna power received from sky when a sky model, telescope and
+    pointing parameters are provided.
+
+    Inputs:
+
+    skymodel  [instance of class SkyModel] Sky model specified as an instance
+              of class SkyModel
+
+    telescope_info
+              [dictionary] dictionary that specifies the type of element,
+              element size and orientation. It consists of the following keys
+              and values:
+              'latitude'    [float] latitude of the telescope site (in degrees).
+                            If this key is not present, the latitude of MWA 
+                            (-26.701 degrees) will be assumed.
+              'id'          [string] If set, will ignore the other keys and use
+                            telescope details for known telescopes. Accepted 
+                            values are 'mwa', 'vla', 'gmrt', and 'hera'.
+              'shape'       [string] Shape of antenna element. Accepted values
+                            are 'dipole', 'delta', and 'dish'. Will be ignored 
+                            if key 'id' is set. 'delta' denotes a delta
+                            function for the antenna element which has an
+                            isotropic radiation pattern. 'delta' is the default
+                            when keys 'id' and 'shape' are not set.
+              'size'        [scalar] Diameter of the telescope dish (in meters) 
+                            if the key 'shape' is set to 'dish' or length of 
+                            the dipole if key 'shape' is set to 'dipole'. Will 
+                            be ignored if key 'shape' is set to 'delta'. Will 
+                            be ignored if key 'id' is set and a preset value 
+                            used for the diameter or dipole.
+              'orientation' [list or numpy array] If key 'shape' is set to 
+                            dipole, it refers to the orientation of the dipole 
+                            element unit vector whose magnitude is specified by 
+                            length. If key 'shape' is set to 'dish', it refers 
+                            to the position on the sky to which the dish is
+                            pointed. For a dipole, this unit vector must be
+                            provided in the local ENU coordinate system aligned 
+                            with the direction cosines coordinate system or in
+                            the Alt-Az coordinate system. This will be
+                            used only when key 'shape' is set to 'dipole'.
+                            This could be a 2-element vector (transverse 
+                            direction cosines) where the third (line-of-sight) 
+                            component is determined, or a 3-element vector
+                            specifying all three direction cosines or a two-
+                            element coordinate in Alt-Az system. If not provided 
+                            it defaults to an eastward pointing dipole. If key
+                            'shape' is set to 'dish', the orientation refers 
+                            to the pointing center of the dish on the sky. It
+                            can be provided in Alt-Az system as a two-element
+                            vector or in the direction cosine coordinate
+                            system as a two- or three-element vector. If not
+                            set in the case of a dish element, it defaults to 
+                            zenith. This is not to be confused with the key
+                            'pointing_center' in dictionary 'pointing_info' 
+                            which refers to the beamformed pointing center of
+                            the array. The coordinate system is specified by 
+                            the key 'ocoords'
+              'ocoords'     [scalar string] specifies the coordinate system 
+                            for key 'orientation'. Accepted values are 'altaz'
+                            and 'dircos'. 
+              'groundplane' [scalar] height of telescope element above the 
+                            ground plane (in meteres). Default = None will
+                            denote no ground plane effects.
+              'ground_modify'
+                            [dictionary] contains specifications to modify
+                            the analytically computed ground plane pattern. If
+                            absent, the ground plane computed will not be
+                            modified. If set, it may contain the following 
+                            keys:
+                            'scale' [scalar] positive value to scale the 
+                                    modifying factor with. If not set, the 
+                                    scale factor to the modification is unity.
+                            'max'   [scalar] positive value to clip the 
+                                    modified and scaled values to. If not set, 
+                                    there is no upper limit
+
+    pointing_info 
+              [dictionary] Contains information about the pointing. It carries
+              the following keys and values:
+
+              'lst'    [numpy array] LST values (in degrees) for each pointing
+
+              'pointing_coords'
+                       [string scalar] Coordinate system in which the
+                       pointing_center is specified. Accepted values are 
+                       'radec', 'hadec', 'altaz' or 'dircos'. Must be specified
+                       if pointing_center is specified
+
+              'pointing_center'
+                       [numpy array] coordinates of pointing center (in the 
+                       coordinate system specified under key 'pointing_coords'). 
+                       Mx2 array when value under key 'pointing_coords' is set
+                       to 'radec', 'hadec' or 'altaz', or Mx3 array when the
+                       value in 'pointing_coords' is set to 'dircos'. Number of
+                       rows M should be equal to number of pointings and LST. 
+                       If only one row (M=1) is provided the same pointing
+                       center in the given coordinate system will apply to all
+                       pointings.
+
+    freq_scale 
+              [string scalar] Units of frequency. Accepted values are 'Hz', 
+              'kHz', 'MHz' or 'GHz'. If None provided, default is set to 'GHz'
+
+    Output:
+
+    2-dimensional numpy array containing the antenna power. The rows denote 
+    the different pointings and columns denote the frequency spectrum obtained
+    from the frequencies specified in the sky model.
+
+    Notes:
+
+    For each pointing the visible sky spectrum is multiplied with the power
+    pattern and summed over all sky locations to obtain the received antenna
+    power as a function of pointings and frequency.
+    ---------------------------------------------------------------------------
+    """
+
     try:
         skymodel, telescope_info, pointing_info
     except NameError:

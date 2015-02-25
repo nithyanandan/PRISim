@@ -1,3 +1,10 @@
+From 61fd4c9 of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Create docstring for antenna_power()
+
 From c1e0049 of Interferometry:
 ==============================
 
