@@ -6,8 +6,8 @@ import interferometry as RI
 
 project_MWA = False
 project_HERA = False
-project_beams = True
-project_drift_scan = False
+project_beams = False
+project_drift_scan = True
 project_global_EoR = False
 
 if project_MWA: project_dir = 'project_MWA'
@@ -106,8 +106,8 @@ bl_id = bl_id[sortind]
 bl_length = bl_length[sortind]
 total_baselines = bl_length.size
 
-n_bl_chunks = 32
-baseline_chunk_size = 64
+n_bl_chunks = 16
+baseline_chunk_size = 128
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
 
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
@@ -117,13 +117,13 @@ bl = bl[:baseline_bin_indices[n_bl_chunks],:]
 bl_length = bl_length[:baseline_bin_indices[n_bl_chunks]]
 bl_id = bl_id[:baseline_bin_indices[n_bl_chunks]]
 
-Tsys = 95.0 # System temperature in K
-freq = 185.0 * 1e6 # foreground center frequency in Hz
+Tsys = 440.0 # System temperature in K
+freq = 150.0 * 1e6 # foreground center frequency in Hz
 freq_resolution = 80e3 # in Hz
 bpass_shape = 'rect'
 f_pad = 1.0
 oversampling_factor = 1.0 + f_pad
-n_channels = 384
+n_channels = 96
 nchan = n_channels
 
 use_pfb = True
@@ -134,7 +134,8 @@ if not use_pfb:
     pfb_instr = 'no_pfb_'
     pfb_outstr = '_no_pfb'
 
-obs_mode = 'custom'
+obs_mode = 'drift'
+# obs_mode = 'custom'
 avg_drifts = False
 beam_switch = False
 

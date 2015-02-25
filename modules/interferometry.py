@@ -15,7 +15,6 @@ import baseline_delay_horizon as DLY
 import constants as CNST
 import my_DSP_modules as DSP
 import catalog as SM
-import ipdb as PDB
 mwa_tools_found = True
 try:
     from mwapy.pb import primary_beam as MWAPB
@@ -318,10 +317,13 @@ def uniq_baselines(baseline_locations, redundant=None):
 
     Output:
 
-    3-column numpy array which is a subset of baseline_locations containing 
-    the requested type of baselines are returned. In case of redundant and 
-    unique baselines, the order of repeated baselines does not matter and any
-    one of those baselines could be returned without guarantee of any ordering.
+    2-element tuple with the selected baselines and their count. The first 
+    element of this tuple is a 3-column numpy array which is a subset of 
+    baseline_locations containing the requested type of baselines. The second
+    element of the tuple contains the count of these selected baselines. In 
+    case of redundant and unique baselines, the order of repeated baselines 
+    does not matter and any one of those baselines could be returned without 
+    preserving the order.
     ---------------------------------------------------------------------------
     """
 
@@ -354,24 +356,25 @@ def uniq_baselines(baseline_locations, redundant=None):
 
     # uniq_blstr, ind, invind, frequency = NP.unique(blstr, return_index=True, return_inverse=True, return_counts=True)  ## if numpy.__version__ >= 1.9.0
 
+    count_blstr = [(ubstr,blstr.count(ubstr)) for ubstr in uniq_blstr]  ## if numpy.__version__ < 1.9.0
     if redundant is None:
-        return baseline_locations[ind,:]
+        retind = NP.copy(ind)
+        counts = [tup[1] for tup in count_blstr]
+        counts = NP.asarray(counts)
     else:
-        count_blstr = [(ubstr,blstr.count(ubstr)) for ubstr in uniq_blstr]  ## if numpy.__version__ < 1.9.0
         if not redundant:
             ## if numpy.__version__ < 1.9.0
             non_redn_ind = [i for i,tup in enumerate(count_blstr) if tup[1] == 1]
-            return baseline_locations[ind[non_redn_ind],:]
-
-            ## if numpy.__version__ >= 1.9.0
-            # return baseline_locations[ind[frequency==1],:]
+            retind = ind[NP.asarray(non_redn_ind)]
+            counts = NP.ones(retind.size)
         else:
             ## if numpy.__version__ < 1.9.0
-            redn_ind = [i for i,tup in enumerate(count_blstr) if tup[1] > 1]
-            return baseline_locations[ind[redn_ind],:]
-
-            ## if numpy.__version__ >= 1.9.0
-            # return baseline_locations[ind[frequency>1],:]
+            redn_ind_counts = [(i,tup[1]) for i,tup in enumerate(count_blstr) if tup[1] > 1]
+            redn_ind, counts = zip(*redn_ind_counts)
+            retind = ind[NP.asarray(redn_ind)]
+            counts = NP.asarray(counts)
+            
+    return (baseline_locations[retind,:], counts)
 
 #################################################################################
 
@@ -3632,7 +3635,7 @@ class InterferometerArray(object):
         Inputs:
         
         phase_center  [numpy array] Mx2 or Mx3 numpy array specifying phase
-                      centers for each timestamp in the observation. Deafault is 
+                      centers for each timestamp in the observation. Default is 
                       None (No phase rotation of visibilities). M can be 1 
                       or equal to the number of timestamps in the observation. If
                       M=1, the same phase center is assumed for all the

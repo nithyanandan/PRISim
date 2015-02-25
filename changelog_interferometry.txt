@@ -1,3 +1,12 @@
+From b1ebe5c of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Enhance functionality of uniq_baselines() by returning the count of 
+unique, redundant or non-redundant baselines as applicable 
+(*) Change docstring of uniq_baselines() accordingly
+
 From 0cbdd7d of Interferometry:
 ==============================
 

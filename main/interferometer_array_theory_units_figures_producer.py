@@ -994,7 +994,7 @@ if plot_05 or plot_06 or plot_07 or plot_09 or plot_16:
     if use_alt_spindex:
         alt_asm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(alt_spindex_rms)+alt_spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
 
-    ia = RI.InterferometerArray(None, None, None, init_file=infile+'.fits')  
+    ia = RI.InterferometerArray(None, None, None, init_file=infile+'.fits') 
     simdata_bl_orientation = NP.angle(ia.baselines[:,0] + 1j * ia.baselines[:,1], deg=True)
     simdata_neg_bl_orientation_ind = simdata_bl_orientation > 90.0 + 0.5*180.0/n_bins_baseline_orientation
     simdata_bl_orientation[simdata_neg_bl_orientation_ind] -= 180.0

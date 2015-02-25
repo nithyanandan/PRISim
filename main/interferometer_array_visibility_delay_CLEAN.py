@@ -9,7 +9,6 @@ import interferometry as RI
 import my_DSP_modules as DSP 
 import baseline_delay_horizon as DLY
 import CLEAN_wrapper as CLN
-import ipdb as PDB
 
 project_MWA = False
 project_HERA = False
