@@ -1890,6 +1890,19 @@ class ROI_parameters(object):
                 'ocoords'     [scalar string] specifies the coordinate system 
                               for key 'orientation'. Accepted values are 'altaz'
                               and 'dircos'. 
+                'element_locs'
+                              [2- or 3-column array] Element locations that
+                              constitute the tile. Each row specifies
+                              location of one element in the tile. The
+                              locations must be specified in local ENU
+                              coordinate system. First column specifies along
+                              local east, second along local north and the
+                              third along local up. If only two columns are 
+                              specified, the third column is assumed to be 
+                              zeros. If 'elements_locs' is not provided, it
+                              assumed to be a one-element system and not a
+                              phased array as far as determination of primary 
+                              beam is concerned.
                 'groundplane' [scalar] height of telescope element above the 
                               ground plane (in meteres). Default = None will
                               denote no ground plane effects.
@@ -1943,18 +1956,6 @@ class ROI_parameters(object):
                 specifying the pointing center in a certain coordinate system. 
                 Default = None (pointing centered at zenith). Each dictionary 
                 element may consist of the following keys and information:
-                'element_locs'    [2- or 3-column array] Element locations that
-                                  constitute the tile. Each row specifies
-                                  location of one element in the tile. The
-                                  locations must be specified in local ENU
-                                  coordinate system. First column specifies 
-                                  along local east, second along local north and 
-                                  the third along local up. If only two columns 
-                                  are specified, the third column is assumed to 
-                                  be zeros. If 'elements_locs' is not provided, 
-                                  it assumed to be a one-element system and not 
-                                  an array as far as determination of primary 
-                                  beam is concerned.
                 'gains'           [numpy array] Complex element gains. Must be of 
                                   size equal to the number of elements as 
                                   specified by the number of rows in 
@@ -2062,6 +2063,9 @@ class ROI_parameters(object):
                 else:
                     raise KeyError('Extension named "orientation" not found in init_file.')
 
+                if 'ANTENNA ELEMENT LOCATIONS' in extnames:
+                    self.telescope['element_locs'] = hdulist['ANTENNA ELEMENT LOCATIONS'].data
+
                 if 'ground_plane' in hdulist[0].header:
                     self.telescope['groundplane'] = hdulist[0].header['ground_plane']
                     if 'ground_modify_scale' in hdulist[0].header:
@@ -2084,27 +2088,31 @@ class ROI_parameters(object):
                 self.info['pbeam'] = [hdulist['PB_{0:0d}'.format(i)].data for i in range(n_obs)]
 
                 self.pinfo = []
-                for i in range(n_obs):
-                    self.pinfo += [{}]
-                    if 'ELEMENT_LOCS_{0:0d}'.format(i) in extnames:
-                        self.pinfo[-1]['element_locs'] = hdulist['ELEMENT_LOCS_{0:0d}'.format(i)].data
-                        try:
+                if 'ANTENNA ELEMENT LOCATIONS' in extnames:
+                    for i in range(n_obs):
+                        self.pinfo += [{}]
+
+                        # try:
+                        #     self.pinfo[-1]['delays'] = hdulist['DELAYS_{0:0d}'.format(i)].data
+                        # except KeyError:
+                        #     raise KeyError('Extension DELAYS_{0:0d} for phased array beamforming not found in init_file'.format(i))
+
+                        if 'DELAYS_{0:0d}'.format(i) in extnames:
                             self.pinfo[-1]['delays'] = hdulist['DELAYS_{0:0d}'.format(i)].data
-                        except KeyError:
-                            raise KeyError('Extension DELAYS_{0:0d} corresponding to extension ELEMENT_LOCS_{0:0d} not found in init_file'.format(i))
+
                         if 'DELAYERR' in hdulist['DELAYS_{0:0d}'.format(i)].header:
                             delayerr = hdulist['DELAYS_{0:0d}'.format(i)].header['delayerr']
                             if delayerr <= 0.0:
                                 self.pinfo[-1]['delayerr'] = None
                             else:
                                 self.pinfo[-1]['delayerr'] = delayerr
-
-                    if 'POINTING_CENTER_{0:0d}'.format(i) in extnames:
-                        self.pinfo[-1]['pointing_center'] = hdulist['POINTING_CENTER_{0:0d}'.format(i)].data
-                        try:
-                            self.pinfo[-1]['pointing_coords'] = hdulist['POINTING_CENTER_{0:0d}'.format(i)].header['pointing_coords']
-                        except KeyError:
-                            raise KeyError('Header of extension POINTING_CENTER_{0:0d} not found to contain key "pointing_coords" in init_file'.format(i))
+    
+                        if 'POINTING_CENTER_{0:0d}'.format(i) in extnames:
+                            self.pinfo[-1]['pointing_center'] = hdulist['POINTING_CENTER_{0:0d}'.format(i)].data
+                            try:
+                                self.pinfo[-1]['pointing_coords'] = hdulist['POINTING_CENTER_{0:0d}'.format(i)].header['pointing_coords']
+                            except KeyError:
+                                raise KeyError('Header of extension POINTING_CENTER_{0:0d} not found to contain key "pointing_coords" in init_file'.format(i))
 
                 hdulist.close()
                 init_file_success = True
@@ -2159,18 +2167,6 @@ class ROI_parameters(object):
                  specifying the pointing center in a certain coordinate system. 
                  Default = None (pointing centered at zenith). Each dictionary 
                  element may consist of the following keys and information:
-                 'element_locs'    [2- or 3-column array] Element locations that
-                                   constitute the tile. Each row specifies
-                                   location of one element in the tile. The
-                                   locations must be specified in local ENU
-                                   coordinate system. First column specifies 
-                                   along local east, second along local north and 
-                                   the third along local up. If only two columns 
-                                   are specified, the third column is assumed to 
-                                   be zeros. If 'elements_locs' is not provided, 
-                                   it assumed to be a one-element system and not 
-                                   an array as far as determination of primary 
-                                   beam is concerned.
                  'gains'           [numpy array] Complex element gains. Must be 
                                    of size equal to the number of elements as 
                                    specified by the number of rows in 
@@ -2180,25 +2176,116 @@ class ROI_parameters(object):
                                    applied to the tile elements. Size should be 
                                    equal to number of tile elements (number of 
                                    rows in antpos). Default = None will set all 
-                                   element delays to zero phasing them to zenith. 
+                                   element delays to zero phasing them to zenith 
                  'pointing_center' [numpy array] This will apply in the absence 
                                    of key 'delays'. This can be specified as a 
                                    row vector. Should have two-columns if using 
-                                   Alt-Az coordinates, or two or three columns if 
-                                   using direction cosines. There is no default. 
-                                   The coordinate system must be specified in
-                                   'pointing_coords' if 'pointing_center' is to 
-                                   be used.
-                 'pointing_coords' [string scalar] Coordinate system in which the
-                                   pointing_center is specified. Accepted values 
-                                   are 'altaz' or 'dircos'. Must be provided if
-                                   'pointing_center' is to be used. No default.
-                 'delayerr'        [int, float] RMS jitter in delays used in the
-                                   beamformer. Random jitters are drawn from a 
-                                   normal distribution with this rms. Must be
-                                   a non-negative scalar. If not provided, it
-                                   defaults to 0 (no jitter). 
+                                   Alt-Az coordinates, or two or three columns 
+                                   if using direction cosines. There is no 
+                                   default. The coordinate system must be 
+                                   specified in 'pointing_coords' if 
+                                   'pointing_center' is to be used.
+                 'pointing_coords' [string scalar] Coordinate system in which 
+                                   the pointing_center is specified. Accepted 
+                                   values are 'altaz' or 'dircos'. Must be 
+                                   provided if 'pointing_center' is to be used. 
+                                   No default.
+                 'delayerr'        [int, float] RMS jitter in delays used in 
+                                   the beamformer. Random jitters are drawn 
+                                   from a normal distribution with this rms. 
+                                   Must be a non-negative scalar. If not 
+                                   provided, it defaults to 0 (no jitter). 
   
+    telescope   [dictionary] Contains information about the telescope parameters
+                using which the primary beams in the regions of interest are
+                determined. It specifies the type of element, element size and
+                orientation. It consists of the following keys and information:
+                'id'          [string] If set, will ignore the other keys and 
+                              use telescope details for known telescopes. 
+                              Accepted values are 'mwa', 'vla', 'gmrt', 'hera', 
+                              and 'mwa_tools'. If using 'mwa_tools', the 
+                              MWA_Tools and mwapb modules must be installed and 
+                              imported.  
+                'shape'       [string] Shape of antenna element. Accepted values
+                              are 'dipole', 'delta', and 'dish'. Will be ignored 
+                              if key 'id' is set. 'delta' denotes a delta
+                              function for the antenna element which has an
+                              isotropic radiation pattern. 'delta' is the 
+                              default when keys 'id' and 'shape' are not set.
+                'size'        [scalar] Diameter of the telescope dish (in 
+                              meters) if the key 'shape' is set to 'dish' or 
+                              length of the dipole if key 'shape' is set to 
+                              'dipole'. Will be ignored if key 'shape' is set to 
+                              'delta'. Will be ignored if key 'id' is set and a 
+                              preset value used for the diameter or dipole.
+                'orientation' [list or numpy array] If key 'shape' is set to 
+                              dipole, it refers to the orientation of the dipole 
+                              element unit vector whose magnitude is specified 
+                              by length. If key 'shape' is set to 'dish', it 
+                              refers to the position on the sky to which the 
+                              dish is pointed. For a dipole, this unit vector 
+                              must be provided in the local ENU coordinate 
+                              system aligned with the direction cosines 
+                              coordinate system or in the Alt-Az coordinate 
+                              system. This will be used only when key 'shape' 
+                              is set to 'dipole'. This could be a 2-element 
+                              vector (transverse direction cosines) where the 
+                              third (line-of-sight) component is determined, 
+                              or a 3-element vector specifying all three 
+                              direction cosines or a two-element coordinate in 
+                              Alt-Az system. If not provided it defaults to an 
+                              eastward pointing dipole. If key
+                              'shape' is set to 'dish', the orientation refers 
+                              to the pointing center of the dish on the sky. It
+                              can be provided in Alt-Az system as a two-element
+                              vector or in the direction cosine coordinate
+                              system as a two- or three-element vector. If not
+                              set in the case of a dish element, it defaults to 
+                              zenith. This is not to be confused with the key
+                              'pointing_center' in dictionary 'pointing_info' 
+                              which refers to the beamformed pointing center of
+                              the array. The coordinate system is specified by 
+                              the key 'ocoords'
+                'ocoords'     [scalar string] specifies the coordinate system 
+                              for key 'orientation'. Accepted values are 'altaz'
+                              and 'dircos'. 
+                'element_locs'
+                              [2- or 3-column array] Element locations that
+                              constitute the tile. Each row specifies
+                              location of one element in the tile. The
+                              locations must be specified in local ENU
+                              coordinate system. First column specifies along
+                              local east, second along local north and the
+                              third along local up. If only two columns are 
+                              specified, the third column is assumed to be 
+                              zeros. If 'elements_locs' is not provided, it
+                              assumed to be a one-element system and not a
+                              phased array as far as determination of primary 
+                              beam is concerned.
+                'groundplane' [scalar] height of telescope element above the 
+                              ground plane (in meteres). Default = None will
+                              denote no ground plane effects.
+                'ground_modify'
+                              [dictionary] contains specifications to modify
+                              the analytically computed ground plane pattern. If
+                              absent, the ground plane computed will not be
+                              modified. If set, it may contain the following 
+                              keys:
+                              'scale' [scalar] positive value to scale the 
+                                      modifying factor with. If not set, the 
+                                      scale factor to the modification is unity.
+                              'max'   [scalar] positive value to clip the 
+                                      modified and scaled values to. If not set, 
+                                      there is no upper limit
+                'pol'         [string] specifies polarization when using
+                              MWA_Tools for primary beam computation. Value of 
+                              key 'id' in attribute dictionary telescope must be
+                              set to 'mwa_tools'. 'X' or 'x' denotes
+                              X-polarization. Y-polarization is specified by 'Y'
+                              or 'y'. If polarization is not specified when 'id'
+                              of telescope is set to 'mwa_tools', it defaults
+                              to X-polarization.
+
         ------------------------------------------------------------------------
         """
 
@@ -2438,6 +2525,9 @@ class ROI_parameters(object):
         hdulist += [fits.ImageHDU(self.telescope['orientation'], name='Antenna element orientation')]
         if verbose:
             print '\tCreated an extension for antenna element orientation.'
+
+        if 'element_locs' in self.telescope:
+            hdulist += [fits.ImageHDU(self.telescope['element_locs'], name='Antenna element locations')]
         
         hdulist += [fits.ImageHDU(self.freq, name='FREQ')]
         if verbose:
@@ -2446,8 +2536,6 @@ class ROI_parameters(object):
         for i in range(len(self.info['ind'])):
             hdulist += [fits.ImageHDU(self.info['ind'][i], name='IND_{0:0d}'.format(i))]
             hdulist += [fits.ImageHDU(self.info['pbeam'][i], name='PB_{0:0d}'.format(i))]
-            if 'element_locs' in self.pinfo[i]:
-                hdulist += [fits.ImageHDU(self.pinfo[i]['element_locs'], name='ELEMENT_LOCS_{0:0d}'.format(i))]
             if 'delays' in self.pinfo[i]:
                 hdulist += [fits.ImageHDU(self.pinfo[i]['delays'], name='DELAYS_{0:0d}'.format(i))]
                 if 'delayerr' in self.pinfo[i]:

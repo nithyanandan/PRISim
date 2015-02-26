@@ -1,3 +1,15 @@
+From dc7db1e of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) In class ROI_parameters, move key 'element_locs' from being a ley
+in dictionary pointing_info to that in dictionary telescope in both
+class attribute and input parameter in member function append_settings()
+(*) Make changes accordingly in member functions __init__(),
+append_settings() and save()
+(*) Change docstring accordingly
+
 From 31d7cc4 of Interferometry:
 ==============================
 
