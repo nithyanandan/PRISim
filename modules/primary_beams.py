@@ -78,6 +78,19 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 'ocoords'     [scalar string] specifies the coordinate system 
                               for key 'orientation'. Accepted values are 'altaz'
                               and 'dircos'. 
+                'element_locs'
+                              [2- or 3-column array] Element locations that
+                              constitute the tile. Each row specifies
+                              location of one element in the tile. The
+                              locations must be specified in local ENU
+                              coordinate system. First column specifies along
+                              local east, second along local north and the
+                              third along local up. If only two columns are 
+                              specified, the third column is assumed to be 
+                              zeros. If 'elements_locs' is not provided, it
+                              assumed to be a one-element system and not a
+                              phased array as far as determination of primary 
+                              beam is concerned.
                 'groundplane' [scalar] height of telescope element above the 
                               ground plane (in meteres). Default = None will
                               denote no ground plane effects.
@@ -112,18 +125,6 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
               center in a certain coordinate system. Default = None (pointing 
               centered at zenith). This dictionary consists of the following tags 
               and values:
-              'element_locs'    [2- or 3-column array] Element locations that
-                                constitute the tile. Each row specifies
-                                location of one element in the tile. The
-                                locations must be specified in local ENU
-                                coordinate system. First column specifies along
-                                local east, second along local north and the
-                                third along local up. If only two columns are 
-                                specified, the third column is assumed to be 
-                                zeros. If 'elements_locs' is not provided, it
-                                assumed to be a one-element system and not a
-                                phased array as far as determination of primary 
-                                beam is concerned.
               'gains'           [numpy array] Complex element gains. Must be of 
                                 size equal to the number of elements as 
                                 specified by the number of rows in antpos. If 
@@ -257,12 +258,12 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                     irap = irap[:,:,NP.newaxis]  # add an axis to be compatible with random ralizations
 
                 else: # Call the beamformer
-                    if 'element_locs' not in pointing_info:
+                    if 'element_locs' not in telescope:
                         nrand = 1
                         xlocs, ylocs = NP.meshgrid(1.1*NP.linspace(-1.5,1.5,4), 1.1*NP.linspace(1.5,-1.5,4))
                         element_locs = NP.hstack((xlocs.reshape(-1,1), ylocs.reshape(-1,1), NP.zeros(xlocs.size).reshape(-1,1)))
                     else:
-                        element_locs = pointing_info['element_locs']
+                        element_locs = telescope['element_locs']
                     pinfo = {}
                     gains = None
                     if 'delays' in pointing_info:
@@ -338,11 +339,11 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
 
         if pointing_info is not None: # Call the beamformer
 
-            if 'element_locs' not in pointing_info:
+            if 'element_locs' not in telescope:
                 nrand = 1
                 irap = NP.ones(skypos.shape[0]*frequency.size).reshape(skypos.shape[0],frequency.size,nrand)
             else:
-                element_locs = pointing_info['element_locs']
+                element_locs = telescope['element_locs']
                 pinfo = {}
                 gains = None
                 gainerr = None

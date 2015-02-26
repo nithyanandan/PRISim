@@ -1,3 +1,20 @@
+From 31d7cc4 of Interferometry:
+==============================
+
+In primary_beams.py,
+
+(*) In primary_beam_generator(), move 'element_locs' from being a key
+in input parameter dictionary pointing_info to being a key in input
+parameter dictionary telescope.
+(*) Change docstring accordingly.
+
+In interferometry.py,
+
+(*) Fix a bug in antenna_power() where 'element_locs' for phased array
+power pattern computation was not being used and therefore was not
+functional.
+(*) Change docstring accordingly
+
 From 61fd4c9 of Interferometry:
 ==============================
 

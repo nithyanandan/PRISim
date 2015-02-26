@@ -447,6 +447,19 @@ def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
               'ocoords'     [scalar string] specifies the coordinate system 
                             for key 'orientation'. Accepted values are 'altaz'
                             and 'dircos'. 
+              'element_locs'
+                            [2- or 3-column array] Element locations that
+                            constitute the tile. Each row specifies
+                            location of one element in the tile. The
+                            locations must be specified in local ENU
+                            coordinate system. First column specifies along
+                            local east, second along local north and the
+                            third along local up. If only two columns are 
+                            specified, the third column is assumed to be 
+                            zeros. If 'elements_locs' is not provided, it
+                            assumed to be a one-element system and not a
+                            phased array as far as determination of primary 
+                            beam is concerned.
               'groundplane' [scalar] height of telescope element above the 
                             ground plane (in meteres). Default = None will
                             denote no ground plane effects.
@@ -595,6 +608,8 @@ def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
         pinfo = {}
         pinfo['pointing_center'] = pointings_altaz[i,:]
         pinfo['pointing_coords'] = 'altaz'
+        if 'element_locs' in telescope_info:
+            pinfo['element_locs'] = telescope_info['element_locs']
         
         upper_hemisphere_ind = sky_altaz[i][:,0] >= 0.0
         upper_skymodel = skymodel.subset(indices=NP.where(upper_hemisphere_ind)[0])
