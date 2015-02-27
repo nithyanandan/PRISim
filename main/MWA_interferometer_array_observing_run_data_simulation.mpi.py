@@ -406,6 +406,7 @@ if (delayerr_str == '') and (gainerr_str == ''):
 
 delaygain_err_str = delayerr_str + gainerr_str + nrandom_str
     
+element_locs = None
 if phased_array:
     try:
         element_locs = NP.loadtxt(phased_elements_file, skiprows=1, comments='#', usecols=(0,1,2))
@@ -415,6 +416,9 @@ if phased_array:
 if telescope_id == 'mwa':
     xlocs, ylocs = NP.meshgrid(1.1*NP.linspace(-1.5,1.5,4), 1.1*NP.linspace(1.5,-1.5,4))
     element_locs = NP.hstack((xlocs.reshape(-1,1), ylocs.reshape(-1,1), NP.zeros(xlocs.size).reshape(-1,1)))
+
+if element_locs is not None:
+    telescope['element_locs'] = element_locs
 
 if pointing_file is not None:
     pointing_init = None
@@ -1266,7 +1270,7 @@ if mpi_on_src: # MPI based on source multiplexing
                 pbinfo = {}
                 pbinfo['delays'] = delays[j,:]
                 if (telescope_id == 'mwa') or (phased_array):
-                    pbinfo['element_locs'] = element_locs
+                    # pbinfo['element_locs'] = element_locs
                     pbinfo['delayerr'] = delayerr
                     pbinfo['gainerr'] = gainerr
                     pbinfo['nrand'] = nrand
@@ -1331,7 +1335,7 @@ else: # MPI based on baseline multiplexing
                         pbinfo = {}
                         pbinfo['delays'] = delays[j,:]
                         if (telescope_id == 'mwa') or (phased_array):
-                            pbinfo['element_locs'] = element_locs
+                            # pbinfo['element_locs'] = element_locs
                             pbinfo['delayerr'] = delayerr
                             pbinfo['gainerr'] = gainerr
                             pbinfo['nrand'] = nrand
@@ -1396,7 +1400,7 @@ else: # MPI based on baseline multiplexing
                             pbinfo['pointing_coords'] = 'altaz'
                             
                         if (telescope_id == 'mwa') or (phased_array):
-                            pbinfo['element_locs'] = element_locs
+                            # pbinfo['element_locs'] = element_locs
                             pbinfo['delayerr'] = delayerr
                             pbinfo['gainerr'] = gainerr
                             pbinfo['nrand'] = nrand

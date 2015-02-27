@@ -1,3 +1,13 @@
+From 0d217a8 of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) In antenna_power(), move 'element_locs' from being a key under
+dictionary pinfo to that under dictionary telescope
+(*) Test these changes in branch phased_array by adjusting main
+programs. Find them to be compatible after adjustments.
+
 From dc7db1e of Interferometry:
 ==============================
 

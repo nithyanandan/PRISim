@@ -608,8 +608,8 @@ def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
         pinfo = {}
         pinfo['pointing_center'] = pointings_altaz[i,:]
         pinfo['pointing_coords'] = 'altaz'
-        if 'element_locs' in telescope_info:
-            pinfo['element_locs'] = telescope_info['element_locs']
+        # if 'element_locs' in telescope_info:
+        #     pinfo['element_locs'] = telescope_info['element_locs']
         
         upper_hemisphere_ind = sky_altaz[i][:,0] >= 0.0
         upper_skymodel = skymodel.subset(indices=NP.where(upper_hemisphere_ind)[0])
