@@ -2338,7 +2338,7 @@ class ROI_parameters(object):
                             raise ValueError('Number of columns of primary beam in key "pbeam" of dictionary roi_info must be equal to number of frequency channels.')
 
                         if NP.asarray(roi_info['ind']).size == pb.shape[0]:
-                            self.info['pbeam'] += [roi_info['pbeam']]
+                            self.info['pbeam'] += [roi_info['pbeam'].astype(NP.float32)]
                         else:
                             raise ValueError('Number of elements in values in key "ind" and number of rows of values in key "pbeam" must be identical.')
                         pbeam_input = True
@@ -2464,7 +2464,7 @@ class ROI_parameters(object):
             else:
                 pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
 
-            self.info['pbeam'] += [pbeam]
+            self.info['pbeam'] += [pbeam.astype(NP.float32)]
 
     #############################################################################
 

@@ -22,7 +22,9 @@ import my_DSP_modules as DSP
 import my_operations as OPS
 import primary_beams as PB
 import baseline_delay_horizon as DLY
+import lookup_operations as LKP
 import ipdb as PDB
+import sys
 
 ## Set MPI parameters
 
@@ -65,9 +67,6 @@ antenna_element_group.add_argument('--ocoords', help='Coordinates of dipole orie
 antenna_element_group.add_argument('--phased-array', dest='phased_array', action='store_true')
 antenna_element_group.add_argument('--phased-array-file', help='Locations of antenna elements to be phased', default='/data3/t_nithyanandan/project_MWA/MWA_tile_dipole_locations.txt', type=file, dest='phased_elements_file')
 antenna_element_group.add_argument('--groundplane', help='Height of antenna element above ground plane (in meters) [float]', default=None, type=float, dest='ground_plane')
-antenna_element_group.add_argument('--ground-modify', help='Apply modification to ground plane effect', dest='ground_modify', action='store_true')
-antenna_element_group.add_argument('--ground-modify-scale', help='Scaling factor to apply to modification to ground plane effect', dest='ground_modify_scale', default=1.0, type=float, nargs='?')
-antenna_element_group.add_argument('--ground-modify-max', help='Max value of modification to ground plane effect', dest='ground_modify_max', default=2.0, type=float, nargs='?')
 
 obsparm_group = parser.add_argument_group('Observation setup', 'Parameters specifying the observation')
 obsparm_group.add_argument('-f', '--freq', help='Foreground center frequency in Hz [float, Default=185e6]', default=185e6, type=float, dest='freq')
@@ -93,28 +92,6 @@ snapshot_selection_group.add_argument('--snap-sampling', dest='snapshot_sampling
 snapshot_selection_group.add_argument('--snap-pick', dest='pick_snapshots', default=None, type=int, nargs='*')
 snapshot_selection_group.add_argument('--snap-range', dest='snapshots_range', default=None, nargs=2, type=int)
 snapshot_selection_group.add_argument('--all-snaps', dest='all_snapshots', action='store_true')
-
-pb_modify_group = parser.add_mutually_exclusive_group()
-pb_modify_group.add_argument('--pb-modify-distance', dest='pb_modify_distance', action='store_true')
-pb_modify_group.add_argument('--pb-modify-region', dest='pb_modify_region', action='store_true')
-
-pb_modify_by_distance_group = pb_modify_group.add_argument_group()
-
-# pb_modify_by_distance_group = parser.add_argument('Power pattern modification by angluar distance and threshold', 'Parameters to modify power pattern manually in regions in certain angular distance ranges exceeding a threshold')
-pb_modify_by_distance_group.add_argument('--pb-modify-rmin', dest='pb_modify_rmin', default=0.0, nargs='*', type=float, help='modify power pattern beyond angular radius lower limit (in degrees)')
-pb_modify_by_distance_group.add_argument('--pb-modify-rmax', dest='pb_modify_rmax', default=180.0, nargs='*', type=float, help='modify power pattern within angular radius upper limit (in degrees)')
-pb_modify_by_distance_group.add_argument('--pb-modify-llim', dest='pb_modify_llim', default=0.0, nargs='*', type=float, help='modify power pattern above this lower limit threshold [default=0.0]')
-pb_modify_by_distance_group.add_argument('--pb-modify-factor-by-radius', dest='pb_modify_factor_radius', default=1.0, nargs='*', type=float, help='power pattern modification factor in range of radii [default=1.0]')
-pb_modify_by_distance_group.add_argument('--snap-to-modify-pb-by-distance', dest='snap_modify_pb_distance', default=None, nargs='*', type=int, help='snapshots to modify by distance and threshold [None denotes all snapshots]')
-
-pb_modify_by_region_group = pb_modify_group.add_argument_group()
-# pb_modify_by_region_group = parser.add_argument('Power pattern modification by region', 'Parameters to modify power pattern manually in regions')
-pb_modify_by_region_group.add_argument('--pb-modify-lat-center', dest='pb_modify_lat_center', default=None, nargs='+', type=float, help='central latitude of region to be modified (in degrees)')
-pb_modify_by_region_group.add_argument('--pb-modify-lon-center', dest='pb_modify_lon_center', default=None, nargs='+', type=float, help='central longitude of region to be modified (in degrees)')
-pb_modify_by_region_group.add_argument('--pb-modify-ang-radius', dest='pb_modify_ang_radius', default=None, nargs='+', type=float, help='Angular radius of region to be modified (in degrees)')
-pb_modify_by_region_group.add_argument('--pb-modify-coords', dest='pb_modify_coords', default='altaz', choices=['radec', 'altaz'], type=str)
-pb_modify_by_region_group.add_argument('--pb-modify-factor-by-region', dest='pb_modify_factor_region', default=1.0, nargs='*', type=float, help='power pattern modification factor in regions')
-pb_modify_by_region_group.add_argument('--snap-to-modify-pb-by-region', dest='snap_modify_pb_region', default=None, nargs='*', type=int, help='snapshots to modify by region [None denotes all snapshots]')
 
 pointing_group = parser.add_mutually_exclusive_group(required=True)
 pointing_group.add_argument('--pointing-file', dest='pointing_file', type=str, nargs=1, default=None)
@@ -147,31 +124,38 @@ freq_flags_group.add_argument('--bp-flag-repeat', help='If set, will repeat any 
 freq_flags_group.add_argument('--flag-edge-channels', help='Flag edge channels in the band. If flag_repeat_edge_channels is set, specified number of channels leading and trailing the coarse channel edges are flagged. First number includes the coarse channel minimum while the second number does not. Otherwise, specified number of channels are flagged at the beginning and end of the band. [int,int Default=0,0]', dest='n_edge_flag', nargs=2, default=[0,0], metavar=('NEDGE1','NEDGE2'), type=int)
 freq_flags_group.add_argument('--flag-repeat-edge-channels', help='If set, will flag the leading and trailing channels whose number is specified in n_edge_flag. Otherwise, will flag the beginning and end of the band.', action='store_true', dest='flag_repeat_edge_channels')
 
-fgmodel_group = parser.add_mutually_exclusive_group(required=True)
-fgmodel_group.add_argument('--ASM', action='store_true') # Diffuse (GSM) + Compact (NVSS+SUMSS) All-sky model 
-fgmodel_group.add_argument('--DSM', action='store_true') # Diffuse all-sky model
-fgmodel_group.add_argument('--CSM', action='store_true') # Point source model (NVSS+SUMSS)
-fgmodel_group.add_argument('--SUMSS', action='store_true') # SUMSS catalog
-fgmodel_group.add_argument('--NVSS', action='store_true') # NVSS catalog
-fgmodel_group.add_argument('--MSS', action='store_true') # Molonglo Sky Survey
-fgmodel_group.add_argument('--GLEAM', action='store_true') # GLEAM catalog
-fgmodel_group.add_argument('--PS', action='store_true') # Point sources 
-fgmodel_group.add_argument('--USM', action='store_true') # Uniform all-sky model
+skymodel_group = parser.add_mutually_exclusive_group(required=True)
+skymodel_group.add_argument('--ASM', action='store_true') # Diffuse (GSM) + Compact (NVSS+SUMSS) All-sky model 
+skymodel_group.add_argument('--DSM', action='store_true') # Diffuse all-sky model
+skymodel_group.add_argument('--CSM', action='store_true') # Point source model (NVSS+SUMSS)
+skymodel_group.add_argument('--SUMSS', action='store_true') # SUMSS catalog
+skymodel_group.add_argument('--NVSS', action='store_true') # NVSS catalog
+skymodel_group.add_argument('--MSS', action='store_true') # Molonglo Sky Survey
+skymodel_group.add_argument('--GLEAM', action='store_true') # GLEAM catalog
+skymodel_group.add_argument('--PS', action='store_true') # Point sources 
+skymodel_group.add_argument('--USM', action='store_true') # Uniform all-sky model
+skymodel_group.add_argument('--HI-monopole', action='store_true') # Global EoR model
+skymodel_group.add_argument('--HI-fluctuations', action='store_true') # HI EoR fluctuations
+skymodel_group.add_argument('--HI-cube', action='store_true') # HI EoR simulation cube
+
+skyparm_group = parser.add_argument_group('Sky Model Setup', 'Parameters describing sky model')
+skyparm_group.add_argument('--flux-unit', help='Units of flux density [str, Default="Jy"]', type=str, dest='flux_unit', default='Jy', choices=['Jy','K'])
+skyparm_group.add_argument('--lidz', help='Simulations of Adam Lidz', action='store_true')
+skyparm_group.add_argument('--21cmfast', help='21CMFAST Simulations of Andrei Mesinger', action='store_true')
+
+skycat_group = parser.add_argument_group('Catalog files', 'Catalog file locations')
+skycat_group.add_argument('--dsm-file-prefix', help='Diffuse sky model filename prefix [str]', type=str, dest='DSM_file_prefix', default='/data3/t_nithyanandan/project_MWA/foregrounds/gsmdata')
+skycat_group.add_argument('--sumss-file', help='SUMSS catalog file [str]', type=str, dest='SUMSS_file', default='/data3/t_nithyanandan/project_MWA/foregrounds/sumsscat.Mar-11-2008.txt')
+skycat_group.add_argument('--nvss-file', help='NVSS catalog file [str]', type=file, dest='NVSS_file', default='/data3/t_nithyanandan/project_MWA/foregrounds/NVSS_catalog.fits')
+skycat_group.add_argument('--GLEAM-file', help='GLEAM catalog file [str]', type=str, dest='GLEAM_file', default='/data3/t_nithyanandan/project_MWA/foregrounds/mwacs_b1_131016.csv')
+skycat_group.add_argument('--PS-file', help='Point source catalog file [str]', type=str, dest='PS_file', default='/data3/t_nithyanandan/project_MWA/foregrounds/PS_catalog.txt')
+# skycat_group.add_argument('--HI-file-prefix', help='EoR simulation filename [str]', type=str, dest='HI_file_prefix', default='/data3/t_nithyanandan/EoR_simulations/Adam_Lidz/Boom_tiles/hpxextn_138.915-195.235_MHz_80.0_kHz_nside_64.fits')
 
 fgparm_group = parser.add_argument_group('Foreground Setup', 'Parameters describing foreground sky')
-fgparm_group.add_argument('--flux-unit', help='Units of flux density [str, Default="Jy"]', type=str, dest='flux_unit', default='Jy', choices=['Jy','K'])
 fgparm_group.add_argument('--spindex', help='Spectral index, ~ f^spindex [float, Default=0.0]', type=float, dest='spindex', default=0.0)
 fgparm_group.add_argument('--spindex-rms', help='Spectral index rms [float, Default=0.0]', type=float, dest='spindex_rms', default=0.0)
 fgparm_group.add_argument('--spindex-seed', help='Spectral index seed [float, Default=None]', type=int, dest='spindex_seed', default=None)
 fgparm_group.add_argument('--nside', help='nside parameter for healpix map [int, Default=64]', type=int, dest='nside', default=64, choices=[64, 128])
-
-fgcat_group = parser.add_argument_group('Catalog files', 'Catalog file locations')
-fgcat_group.add_argument('--dsm-file-prefix', help='Diffuse sky model filename prefix [str]', type=str, dest='DSM_file_prefix', default='/data3/t_nithyanandan/project_MWA/foregrounds/gsmdata')
-fgcat_group.add_argument('--sumss-file', help='SUMSS catalog file [str]', type=str, dest='SUMSS_file', default='/data3/t_nithyanandan/project_MWA/foregrounds/sumsscat.Mar-11-2008.txt')
-fgcat_group.add_argument('--nvss-file', help='NVSS catalog file [str]', type=file, dest='NVSS_file', default='/data3/t_nithyanandan/project_MWA/foregrounds/NVSS_catalog.fits')
-fgcat_group.add_argument('--GLEAM-file', help='GLEAM catalog file [str]', type=str, dest='GLEAM_file', default='/data3/t_nithyanandan/project_MWA/foregrounds/mwacs_b1_131016.csv')
-fgcat_group.add_argument('--PS-file', help='Point source catalog file [str]', type=str, dest='PS_file', default='/data3/t_nithyanandan/project_MWA/foregrounds/PS_catalog.txt')
-# parser.add_argument('--', help='', type=, dest='', required=True)
 
 parser.add_argument('--plots', help='Create plots', action='store_true', dest='plots')
 
@@ -309,9 +293,6 @@ else:
         ground_plane_str = '{0:.1f}m_ground_'.format(ground_plane)
     else:
         raise ValueError('Height of antenna element above ground plane must be positive.')
-ground_modify = args['ground_modify']
-ground_modify_scale = args['ground_modify_scale']
-ground_modify_max = args['ground_modify_max']
 
 telescope = {}
 if telescope_id in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'mwa_tools']:
@@ -321,15 +302,6 @@ telescope['size'] = element_size
 telescope['orientation'] = element_orientation
 telescope['ocoords'] = element_ocoords
 telescope['groundplane'] = ground_plane
-if ground_plane is not None:
-    if ground_modify:
-        telescope['ground_modify'] = {}
-        if ground_modify_scale <= 0.0:
-            raise ValueError('ground_modify_scale must be positive')
-        if ground_modify_max <= 0.0:
-            raise ValueError('ground_modify_max must be positive')
-        telescope['ground_modify']['scale'] = ground_modify_scale
-        telescope['ground_modify']['max'] = ground_modify_max
 
 freq = args['freq']
 freq_resolution = args['freq_resolution']
@@ -420,6 +392,7 @@ if telescope_id == 'mwa':
 if element_locs is not None:
     telescope['element_locs'] = element_locs
 
+duration_str = ''
 if pointing_file is not None:
     pointing_init = None
     pointing_info_from_file = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(1,2,3), delimiter=',')
@@ -543,66 +516,7 @@ elif pointing_info is not None:
     lst_wrapped[lst_wrapped > 180.0] = lst_wrapped[lst_wrapped > 180.0] - 360.0
     lst_edges = NP.concatenate((lst_wrapped, [lst_wrapped[-1]+lst_wrapped[-1]-lst_wrapped[-2]]))
 
-pb_modify_distance = args['pb_modify_distance']
-if pb_modify_distance:
-    pb_modify_rmin = NP.asarray(args['pb_modify_rmin'])
-    pb_modify_rmax = NP.asarray(args['pb_modify_rmax'])
-    pb_modify_llim = NP.asarray(args['pb_modify_llim'])
-    pb_modify_factor_radius = NP.asarray(args['pb_modify_factor_radius'])
-    snap_modify_pb_distance = args['snap_modify_pb_distance']
-    if pb_modify_rmin.size != pb_modify_rmax.size:
-        raise ValueError('Power pattern modification radii ranges found to violate min < max')
-    if NP.any(NP.logical_or(pb_modify_rmin < 0.0, pb_modify_rmax > 180.0)):
-        raise ValueError('Power pattern modification radii ranges found to be invalid')
-    if pb_modify_llim.size == 1:
-        pb_modify_llim = pb_modify_llim * NP.ones(pb_modify_rmin.size)
-    if pb_modify_factor_radius.size == 1:
-        pb_modify_factor_radius = pb_modify_factor_radius * NP.ones(pb_modify_rmin.size)
-    if NP.any(pb_modify_factor_radius < 0.0):
-        raise ValueError('Power pattern modification factor cannot be negative.')
-    if pb_modify_factor_radius.size != pb_modify_rmin.size:
-        raise ValueError('Power pattern modification factor must be of same size as the number of radii ranges.')
-    if snap_modify_pb_distance is not None:
-        snap_modify_pb_distance = NP.asarray(snap_modify_pb_distance)
-        if snap_modify_pb_distance.size != pb_modify_rmin.size:
-            raise ValueError('Specified snapshot should be one per distance range in case of power pattern modification by distance and threshold')
-        if NP.any(NP.logical_and(snap_modify_pb_distance < 0, snap_modify_pb_distance >= lst.size)):
-            raise IndexError('Snapshot index for which the power pattern is to be modified has to be non-negative and not exceed number of snapshots available')
-
-pb_modify_region = args['pb_modify_region']
-if pb_modify_region:
-    if args['pb_modify_lat_center'] is not None:
-        pb_modify_lat_center = NP.asarray(args['pb_modify_lat_center'])
-    else:
-        raise ValueError('No latitude provided for region where power pattern is to be modified')
-    if args['pb_modify_lon_center'] is not None:
-        pb_modify_lon_center = NP.asarray(args['pb_modify_lon_center'])
-    else:
-        raise ValueError('No longitude provided for region where power pattern is to be modified')
-    if args['pb_modify_ang_radius'] is not None:
-        pb_modify_ang_radius = NP.asarray(args['pb_modify_ang_radius'])
-    else:
-        raise ValueError('No angular radius provided for region where power pattern is to be modified')
-    pb_modify_coords = args['pb_modify_coords']
-    pb_modify_factor_region = NP.asarray(args['pb_modify_factor_region'])
-    snap_modify_pb_region = args['snap_modify_pb_region']
-
-    if (pb_modify_lat_center.size != pb_modify_lon_center.size) or (pb_modify_lat_center.size != pb_modify_ang_radius.size):
-        raise ValueError('Incompatible sizes between central latitudes and longitudes and radii of regions')
-    if pb_modify_factor_region.size == 1:
-        pb_modify_factor_region = pb_modify_factor_region * NP.ones(pb_modify_ang_radius.size)
-    if NP.any(pb_modify_factor_region < 0.0):
-        raise ValueError('Power pattern cannot be modified to be a negative value')
-    if pb_modify_factor_region.size != pb_modify_ang_radius.size:
-        raise ValueError('Incompatible sizes for central locations and radii of regions where power pattern is to be modified.')
-    if snap_modify_pb_region is not None:
-        snap_modify_pb_region = NP.asarray(snap_modify_pb_region)
-        if snap_modify_pb_region.size != pb_modify_ang_radius.size:
-            raise ValueError('Incompatible size for central locations and snapshots where power pattern is to be modified.')
-        if NP.any(NP.logical_and(snap_modify_pb_region < 0, snap_modify_pb_region >= lst.size)):
-            raise IndexError('Snapshot index for which the power pattern is to be modified has to be non-negative and not exceed number of snapshots available')
-    if NP.any(NP.logical_or(pb_modify_lat_center < -90.0, pb_modify_lat_center > 90.0)):
-        raise ValueError('Power pattern modification latitudes outside valid range.')
+    duration_str = '_{0:0d}x{1:.1f}s'.format(n_snaps, t_snap[0])
 
 n_channels = args['n_channels']
 bpass_shape = args['bpass_shape']
@@ -627,6 +541,7 @@ bl = bl[sortind,:]
 bl_id = bl_id[sortind]
 bl_length = bl_length[sortind]
 bl_orientation = bl_orientation[sortind]
+bl_count = bl_count[sortind]
 neg_bl_orientation_ind = bl_orientation < 0.0
 # neg_bl_orientation_ind = NP.logical_or(bl_orientation < -0.5*180.0/n_bins_baseline_orientation, bl_orientation > 180.0 - 0.5*180.0/n_bins_baseline_orientation)
 bl[neg_bl_orientation_ind,:] = -1.0 * bl[neg_bl_orientation_ind,:]
@@ -655,6 +570,8 @@ nchan = n_channels
 base_bpass = 1.0*NP.ones(nchan)
 bandpass_shape = 1.0*NP.ones(nchan)
 chans = (freq + (NP.arange(nchan) - 0.5 * nchan) * freq_resolution)/ 1e9 # in GHz
+bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(nchan, freq_resolution/1e3)
+
 flagged_edge_channels = []
 pfb_str = ''
 if pfb_method is not None:
@@ -721,6 +638,7 @@ n_sky_sectors = args['n_sky_sectors']
 if (n_sky_sectors < 1):
     n_sky_sectors = 1
 
+nside = args['nside']
 use_GSM = args['ASM']
 use_DSM = args['DSM']
 use_CSM = args['CSM']
@@ -730,6 +648,23 @@ use_MSS = args['MSS']
 use_GLEAM = args['GLEAM']
 use_PS = args['PS']
 use_USM = args['USM']
+use_HI_monopole = args['HI_monopole']
+use_HI_fluctuations = args['HI_fluctuations']
+use_HI_cube = args['HI_cube']
+use_lidz = args['lidz']
+use_21cmfast = args['21cmfast']
+
+if use_HI_monopole or use_HI_fluctuations or use_HI_cube:
+    if use_lidz and use_21cmfast:
+        raise ValueError('Only one of Adam Lidz or 21CMFAST simulations can be chosen')
+    if not use_lidz and not use_21cmfast:
+        use_lidz = True
+        use_21cmfast = False
+        eor_simfile = '/data3/t_nithyanandan/EoR_simulations/Adam_Lidz/Boom_tiles/hpxcube_138.915-195.235_MHz_80.0_kHz_nside_{0:0d}.fits'.format(nside)
+    elif use_lidz:
+        eor_simfile = '/data3/t_nithyanandan/EoR_simulations/Adam_Lidz/Boom_tiles/hpxcube_138.915-195.235_MHz_80.0_kHz_nside_{0:0d}.fits'.format(nside)
+    elif use_21cmfast:
+        pass
 
 # if plots:
 #     if rank == 0:
@@ -809,7 +744,6 @@ use_USM = args['USM']
 #         PLT.savefig('/data3/t_nithyanandan/project_MWA/figures/bandpass_properties.png', bbox_inches=0)
 
 fg_str = ''
-nside = args['nside']
 flux_unit = args['flux_unit']
 spindex_seed = args['spindex_seed']
 spindex_rms = args['spindex_rms']
@@ -823,7 +757,57 @@ else:
 if spindex_seed is not None:
     spindex_seed_str = '{0:0d}_'.format(spindex_seed)
 
-if use_GSM:
+if use_HI_monopole or use_HI_fluctuations or use_HI_cube:
+    # if freq_resolution != 80e3:
+    #     raise ValueError('Currently frequency resolution can only be set to 80 kHz')
+
+    fg_str = 'HI_cube'
+    hdulist = fits.open(eor_simfile)
+    nexten = hdulist['PRIMARY'].header['NEXTEN']
+    fitstype = hdulist['PRIMARY'].header['FITSTYPE']
+    temperatures = None
+    extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,nexten+1)]
+    if fitstype == 'IMAGE':
+        eor_simfreq = hdulist['FREQUENCY'].data['Frequency [MHz]']
+    else:
+        eor_simfreq = [float(extname.split(' ')[0]) for extname in extnames]
+        eor_simfreq = NP.asarray(eor_simfreq)
+
+    eor_freq_resolution = eor_simfreq[1] - eor_simfreq[0]
+    ind_chans, ind_eor_simfreq, dfrequency = LKP.find_1NN(eor_simfreq.reshape(-1,1), 1e3*chans.reshape(-1,1), distance_ULIM=0.5*eor_freq_resolution, remove_oob=True)
+
+    eor_simfreq = eor_simfreq[ind_eor_simfreq]
+    if fitstype == 'IMAGE':
+        temperatures = hdulist['TEMPERATURE'].data[:,ind_eor_simfreq]
+    else:
+        for i in xrange(eor_simfreq.size):
+            if i == 0:
+                temperatures = hdulist[ind_eor_simfreq[i]+1].data['Temperature'].reshape(-1,1)
+            else:
+                temperatures = NP.hstack((temperatures, hdulist[ind_eor_simfreq[i]+1].data['Temperature'].reshape(-1,1)))
+
+    if use_HI_monopole:
+        shp_temp = temperatures.shape
+        temperatures = NP.mean(temperatures, axis=0, keepdims=True) + NP.zeros(shp_temp)
+        fg_str = 'HI_monopole'
+    elif use_HI_fluctuations:
+        temperatures = temperatures - NP.mean(temperatures, axis=0, keepdims=True)
+        fg_str = 'HI_fluctuations'
+
+    pixres = hdulist['PRIMARY'].header['PIXAREA']
+    coords_table = hdulist['COORDINATE'].data
+    ra_deg_EoR = coords_table['RA']
+    dec_deg_EoR = coords_table['DEC']
+    fluxes_EoR = temperatures * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
+    freq_EoR = freq/1e9
+    hdulist.close()
+
+    catlabel = 'HI-cube'
+    spec_type = 'spectrum'
+    spec_parms = {}
+    skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), spec_type, spectrum=fluxes_EoR, spec_parms=None)
+
+elif use_GSM:
     fg_str = 'asm'
 
     dsm_file = args['DSM_file_prefix']+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
@@ -835,7 +819,7 @@ if use_GSM:
     temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
     fluxes_DSM = temperatures * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
     spindex = dsm_table['spindex'] + 2.0
-    freq_DSM = 0.185 # in GHz
+    freq_DSM = freq/1e9 # in GHz
     freq_catalog = freq_DSM * 1e9 + NP.zeros(fluxes_DSM.size)
     catlabel = NP.repeat('DSM', fluxes_DSM.size)
     ra_deg = ra_deg_DSM + 0.0
@@ -959,7 +943,7 @@ elif use_DSM:
     temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
     fluxes_DSM = temperatures * (2.0 * FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
     spindex = dsm_table['spindex'] + 2.0
-    freq_DSM = 0.185 # in GHz
+    freq_DSM = freq/1e9 # in GHz
     freq_catalog = freq_DSM * 1e9 + NP.zeros(fluxes_DSM.size)
     catlabel = NP.repeat('DSM', fluxes_DSM.size)
     ra_deg = ra_deg_DSM
@@ -1255,7 +1239,7 @@ if mpi_on_src: # MPI based on source multiplexing
 
         ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')    
 
-        progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' [', right='] '), PGB.Counter(), '/{0:0d} snapshots '.format(n_snaps), PGB.ETA()], maxval=n_snaps).start()
+        progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
         for j in range(n_snaps):
             src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
             roi_ind = NP.where(src_altaz_current[:,0] >= 0.0)[0]
@@ -1297,7 +1281,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ia.generate_noise()
             ia.add_noise()
             ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
-            outfile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_str+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+            outfile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+fg_str+'_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_str+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
             ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
         else:
             comm.send(ia.skyvis_freq, dest=0)
@@ -1320,10 +1304,10 @@ else: # MPI based on baseline multiplexing
                 process_sequence.append(rank)
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, count)
 
-                outfile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[count]],bl_length[min(baseline_bin_indices[count]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_str+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(count)
+                outfile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[count]],bl_length[min(baseline_bin_indices[count]+baseline_chunk_size-1,total_baselines-1)])+fg_str+'_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_str+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(count)
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')        
 
-                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' [', right='] '), PGB.Counter(), '/{0:0d} snapshots '.format(n_snaps), PGB.ETA()], maxval=n_snaps).start()
+                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
                 for j in range(n_snaps):
                     if (obs_mode == 'custom') or (obs_mode == 'dns'):
                         timestamp = obs_id[j]
@@ -1379,7 +1363,7 @@ else: # MPI based on baseline multiplexing
 
             if rank == 0: # Compute ROI parameters for only one process and broadcast to all
                 roi = RI.ROI_parameters()
-                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' [', right='] '), PGB.Counter(), '/{0:0d} snapshots '.format(n_snaps), PGB.ETA()], maxval=n_snaps).start()
+                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
                 for j in range(n_snaps):
                     src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
                     hemisphere_current = src_altaz_current[:,0] >= 0.0
@@ -1418,46 +1402,17 @@ else: # MPI based on baseline multiplexing
                     roiinfo['center_coords'] = 'radec'
 
                     roi.append_settings(skymod, chans, pinfo=pbinfo, latitude=latitude, lst=lst[j], roi_info=roiinfo, telescope=telescope, freq_scale='GHz')
-                    if pb_modify_region:
-                        for ri in xrange(pb_modify_lat_center.size):
-                            dist = None
-                            if snap_modify_pb_region is None:
-                                if pb_modify_coords == 'altaz':
-                                    m1, m2, dist = GEOM.spherematch(pb_modify_lon_center[ri], pb_modify_lat_center[ri], lon2=src_altaz_current[roi_subset,1], lat2=src_altaz_current[roi_subset,0], matchrad=pb_modify_ang_radius[ri], maxmatches=0)
-                                elif fgmod.coords == 'radec':
-                                    m1, m2, dist = GEOM.spherematch(pb_modify_lon_center[ri], pb_modify_lat_center[ri], lon2=fgmod.location[:,0], lat2=fgmod.location[:,1], matchrad=pb_modify_ang_radius[ri], maxmatches=0)
-                            elif snap_modify_pb_region[ri] == j:
-                                if pb_modify_coords == 'altaz':
-                                    m1, m2, dist = GEOM.spherematch(pb_modify_lon_center[ri], pb_modify_lat_center[ri], lon2=src_altaz_current[roi_subset,1], lat2=src_altaz_current[roi_subset,0], matchrad=pb_modify_ang_radius[ri], maxmatches=0)
-                                elif fgmod.coords == 'radec':
-                                    m1, m2, dist = GEOM.spherematch(pb_modify_lon_center[ri], pb_modify_lat_center[ri], lon2=fgmod.location[:,0], lat2=fgmod.location[:,1], matchrad=pb_modify_ang_radius[ri], maxmatches=0)
-                            if dist is not None:
-                                if dist.size != 0:
-                                    roi.info['pbeam'][-1][m2,:] *= pb_modify_factor_region[ri]
-
-                    if pb_modify_distance:
-                        for mi in xrange(pb_modify_rmin.size):
-                            dist = None
-                            if snap_modify_pb_distance is None:
-                                dist = GEOM.sphdist(pointings_radec[j,0], pointings_radec[j,1], fgmod.location[:,0], fgmod.location[:,1])
-                            elif snap_modify_pb_distance[mi] == j:
-                                dist = GEOM.sphdist(pointings_radec[j,0], pointings_radec[j,1], fgmod.location[:,0], fgmod.location[:,1])
-                            if dist is not None:
-                                # ind_dist_in_range = NP.where(NP.logical_and(NP.mean(roi.info['pbeam'][-1], axis=1) >= pb_modify_llim[mi], NP.logical_and(dist >= pb_modify_rmin[mi], dist <= pb_modify_rmax[mi])))[0].tolist()
-                                ind_dist_in_range = NP.where(NP.logical_and(roi.info['pbeam'][-1][:,n_channels/2] >= pb_modify_llim[mi], NP.logical_and(dist >= pb_modify_rmin[mi], dist <= pb_modify_rmax[mi])))[0].tolist()
-                                if ind_dist_in_range:
-                                    ind_dist_in_range = NP.asarray(ind_dist_in_range)
-                                    roi.info['pbeam'][-1][ind_dist_in_range,:] *= pb_modify_factor_radius[mi]
                     
                     progress.update(j+1)
                 progress.finish()
             else:
                 roi = None
                 pbinfo = None
+
             roi = comm.bcast(roi, root=0) # Broadcast information in ROI instance to all processes
             pbinfo = comm.bcast(pbinfo, root=0) # Broadcast PB synthesis info
             if (rank == 0):
-                roifile = '/data3/t_nithyanandan/'+project_dir+'/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)
+                roifile = '/data3/t_nithyanandan/'+project_dir+'/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)
                 roi.save(roifile, tabtype='BinTableHDU', overwrite=True, verbose=True)
 
                 if plots:
@@ -1494,11 +1449,10 @@ else: # MPI based on baseline multiplexing
             for i in range(cumm_bl_chunks[rank], cumm_bl_chunks[rank+1]):
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i])
         
-                outfile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
-
+                outfile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')        
         
-                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' [', right='] '), PGB.Counter(), '/{0:0d} snapshots '.format(n_snaps), PGB.ETA()], maxval=n_snaps).start()
+                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
                 for j in range(n_snaps):
                     if (obs_mode == 'custom') or (obs_mode == 'dns'):
                         timestamp = obs_id[j]

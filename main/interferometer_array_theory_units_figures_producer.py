@@ -217,7 +217,6 @@ else:
 
 n_bl_chunks = 32
 baseline_chunk_size = 64
-total_baselines = ref_bl_length.size
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
 bl_chunk = range(len(baseline_bin_indices))
 bl_chunk = bl_chunk[:n_bl_chunks]
@@ -1493,7 +1492,6 @@ if plot_05 or plot_06 or plot_07 or plot_09 or plot_16:
 
             PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.png', bbox_inches=0)
             PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noisy_PS_sim_data_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}_snapshot_{1:1d}'.format(oversampling_factor, j)+'.eps', bbox_inches=0)
-
 
     for j in xrange(n_snaps):
     

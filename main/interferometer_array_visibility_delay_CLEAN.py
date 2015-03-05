@@ -68,7 +68,7 @@ else:
     else:
         raise ValueError('Height of antenna element above ground plane must be positive.')
 
-delayerr = 0.0     # delay error rms in ns
+delayerr = 0.05     # delay error rms in ns
 if delayerr is None:
     delayerr_str = ''
     delayerr = 0.0
@@ -277,7 +277,7 @@ for k in range(n_sky_sectors):
 
     if astropy.__version__ == '0.4':
         columns = fits.ColDefs(cols, tbtype='BinTableHDU')
-    elif astropy.__version__ == '0.4.2':
+    elif (astropy.__version__ == '0.4.2') or (astropy.__version__ == u'1.0'):
         columns = fits.ColDefs(cols, ascii=False)
 
     tbhdu = fits.new_table(columns)

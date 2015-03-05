@@ -1,3 +1,13 @@
+From c13ae50 of Interferometry:
+==============================
+
+Add new main programs to git version control
+
+In interferometry.py,
+
+(*) In append_settings() member function of class ROI_parameters,
+force primary beam storage to be of type float32 to save memory
+
 From 0d217a8 of Interferometry:
 ==============================
 
