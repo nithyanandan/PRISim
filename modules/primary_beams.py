@@ -7,7 +7,7 @@ import geometry as GEOM
 
 def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                            skyunits='degrees', east2ax1=0.0, pointing_info=None,
-                           pointing_center=None):
+                           pointing_center=None, half_wave_dipole_approx=False):
 
     """
     -----------------------------------------------------------------------------
@@ -176,6 +176,11 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 MWA, pointing_center is used in place of pointing_info. For MWA,
                 this is used if pointing_info is not provided.
 
+    half_wave_dipole_approx
+                [boolean] if True, indicates half-wave dipole approximation
+                is to be used. Otherwise, a more accurate expression is used
+                for the dipole pattern. Default=False
+
     Output:
 
     [Numpy array] Power pattern at the specified sky positions. 
@@ -241,7 +246,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 ep = dipole_field_pattern(0.74, skypos, dipole_coords=ocoords,
                                           dipole_orientation=orientation,
                                           skycoords=skyunits, wavelength=FCNST.c/frequency, 
-                                          half_wave_dipole_approx=False)
+                                          half_wave_dipole_approx=half_wave_dipole_approx)
                 ep = ep[:,:,NP.newaxis]  # add an axis to be compatible with random ralizations
                 if pointing_info is None: # Use analytical formula
                     if skyunits == 'altaz':
@@ -310,7 +315,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 ep = dipole_field_pattern(0.74, skypos, dipole_coords=ocoords,
                                           dipole_orientation=orientation,
                                           skycoords=skyunits, wavelength=FCNST.c/frequency, 
-                                          half_wave_dipole_approx=False)
+                                          half_wave_dipole_approx=half_wave_dipole_approx)
                 pb = NP.abs(ep)**2 # Power pattern is square of the field pattern
             else:
                 raise ValueError('skyunits must be in Alt-Az or direction cosine coordinates for MWA dipole.')
@@ -327,7 +332,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                                       dipole_coords=telescope['ocoords'],
                                       dipole_orientation=telescope['orientation'],
                                       skycoords=skyunits, wavelength=FCNST.c/frequency, 
-                                      half_wave_dipole_approx=False)
+                                      half_wave_dipole_approx=half_wave_dipole_approx)
             ep = ep[:,:,NP.newaxis]   # add an axis to be compatible with random ralizations
         elif telescope['shape'] == 'dish':
             ep = airy_disk_pattern(telescope['size'], skypos, frequency, skyunits=skyunits,
@@ -1034,9 +1039,7 @@ def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None,
         field_pattern = (NP.cos(k*h*NP.cos(angles)) - NP.cos(k*h)) / NP.sin(angles)
 
     if n_zero_angles > 0:
-        # field_pattern[zero_angles_ind.ravel(), :] = NP.repeat(k.reshape(1,-1), n_zero_angles, axis=0) * h * NP.tan(0.5 * NP.repeat(angles[zero_angles_ind].reshape(-1,1), k.size, axis=1)) * NP.sin(0.5 * NP.repeat(k.reshape(1,-1), n_zero_angles, axis=0) * h * (1.0 + NP.cos(NP.repeat(angles[zero_angles_ind].reshape(-1,1), k.size, axis=1)))) # new stuff L'Hospital rule
-        # field_pattern[zero_angles_ind.ravel(), :] = k.reshape(1,-1) * h * NP.tan(0.5*angles[zero_angles_ind].reshape(-1,1)) * NP.sin(0.5*k.reshape(1,-1)*h*(1.0+NP.cos(angles[zero_angles_ind].reshape(-1,1)))) # L'Hospital rule
-        field_pattern[zero_angles_ind.ravel(),:] = k*h * NP.sin(k*h * NP.cos(angles[zero_angles_ind])) * NP.tan(angles[zero_angles_ind]) # Coorect expression from L' Hospital rule
+        field_pattern[zero_angles_ind.ravel(),:] = k*h * NP.sin(k*h * NP.cos(angles[zero_angles_ind])) * NP.tan(angles[zero_angles_ind]) # Correct expression from L' Hospital rule
     
     return field_pattern / max_pattern
 

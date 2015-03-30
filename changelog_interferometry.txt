@@ -1,3 +1,11 @@
+From 13bb741 of Interferometry:
+==============================
+
+In primary_beams.py,
+
+(*) Add keyword input parameter half_wave_dipole_approx to
+primary_beam_generator(). Change code and docstring accordingly
+
 From 9743a28 of Interferometry:
 ==============================
 

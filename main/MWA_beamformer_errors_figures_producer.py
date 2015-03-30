@@ -442,7 +442,7 @@ if plot_02:
         pby_MWA_vect = NP.empty(xvect.size)
         pby_MWA_vect.fill(NP.nan)
     
-        pb[roi_altaz] = PB.primary_beam_generator(altaz[roi_altaz,:], chans, telescope=telescope, skyunits='altaz', freq_scale='Hz', pointing_info=pinfo[i])
+        pb[roi_altaz] = PB.primary_beam_generator(altaz[roi_altaz,:], freq, telescope=telescope, skyunits='altaz', freq_scale='Hz', pointing_info=pinfo[i], half_wave_dipole_approx=True)
         if (telescope_id == 'mwa') or (phased_array):
             pbx_MWA, pby_MWA = MWAPB.MWA_Tile_analytic(NP.radians(90.0-altaz[roi_altaz,0]).reshape(-1,1), NP.radians(altaz[roi_altaz,1]).reshape(-1,1), freq=185e6, delays=pinfo[i]['delays']/435e-12, power=True)
             # pbx_MWA, pby_MWA = MWAPB.MWA_Tile_advanced(NP.radians(90.0-altaz[roi_altaz,0]).reshape(-1,1), NP.radians(altaz[roi_altaz,1]).reshape(-1,1), freq=185e6, delays=pinfo[i]['delays']/435e-12, power=True)
