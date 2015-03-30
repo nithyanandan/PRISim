@@ -2508,6 +2508,7 @@ class ROI_parameters(object):
         hdulist = []
 
         hdulist += [fits.PrimaryHDU()]
+        hdulist[0].header['EXTNAME'] = 'PRIMARY'
         hdulist[0].header['n_obs'] = (len(self.info['ind']), 'Number of observations')
         if 'id' in self.telescope:
             hdulist[0].header['telescope'] = (self.telescope['id'], 'Telescope Name')
@@ -4254,6 +4255,7 @@ class InterferometerArray(object):
             self.baselines = NP.vstack(tuple([elem.baselines for elem in loo]))
             self.baseline_lengths = NP.sqrt(NP.sum(self.baselines**2, axis=1))
             self.baseline_orientations = NP.angle(self.baselines[:,0] + 1j * self.baselines[:,1])
+            self.projected_baselines = NP.vstack(tuple([elem.projected_baselines for elem in loo]))
             self.labels = [label for elem in loo for label in elem.labels]
             self.A_eff = NP.vstack(tuple([elem.A_eff for elem in loo]))
             self.eff_Q = NP.vstack(tuple([elem.eff_Q for elem in loo]))
@@ -4275,7 +4277,7 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def save(self, file, tabtype='BinTableHDU', overwrite=False, verbose=True):
+    def save(self, outfile, tabtype='BinTableHDU', overwrite=False, verbose=True):
 
         """
         ----------------------------------------------------------------------------
@@ -4283,7 +4285,7 @@ class InterferometerArray(object):
 
         Inputs:
 
-        file         [string] Filename with full path to be saved to. Will be
+        outfile      [string] Filename with full path to be saved to. Will be
                      appended with '.fits' extension
 
         Keyword Input(s):
@@ -4302,11 +4304,11 @@ class InterferometerArray(object):
         """
 
         try:
-            file
+            outfile
         except NameError:
             raise NameError('No filename provided. Aborting InterferometerArray.save()...')
 
-        filename = file + '.fits' 
+        filename = outfile + '.fits' 
 
         if verbose:
             print '\nSaving information about interferometer...'

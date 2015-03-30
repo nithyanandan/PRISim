@@ -359,10 +359,10 @@ if plot_01:
 
     pointing_file = '/data3/t_nithyanandan/project_MWA/Aug23_obsinfo.txt'
     
-    pointing_info_from_file = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(1,2,3), delimiter=',')
-    obs_id = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(0,), delimiter=',', dtype=str)
+    pointing_info_from_file = NP.loadtxt(pointing_file, comments='#', usecols=(1,2,3), delimiter=',')
+    obs_id = NP.loadtxt(pointing_file, comments='#', usecols=(0,), delimiter=',', dtype=str)
     if (telescope_id == 'mwa') or (phased_array):
-        delays_str = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(4,), delimiter=',', dtype=str)
+        delays_str = NP.loadtxt(pointing_file, comments='#', usecols=(4,), delimiter=',', dtype=str)
         delays_list = [NP.fromstring(delaystr, dtype=float, sep=';', count=-1) for delaystr in delays_str]
         delay_settings = NP.asarray(delays_list)
         delay_settings *= 435e-12
@@ -373,8 +373,8 @@ if plot_01:
     if (telescope_id == 'mwa') or (phased_array):
         delays = delay_settings[:min(n_snaps, pointing_info_from_file.shape[0]),:]
     n_snaps = min(n_snaps, pointing_info_from_file.shape[0])
-    pointings_altaz = OPS.reverse(pointing_info_from_file[:,:2].reshape(-1,2), axis=1)
-    pointings_altaz_orig = OPS.reverse(pointing_info_from_file[:,:2].reshape(-1,2), axis=1)
+    pointings_altaz = pointing_info_from_file[:,:2].reshape(-1,2)
+    pointings_altaz_orig = pointing_info_from_file[:,:2].reshape(-1,2)
     lst = 15.0 * pointing_info_from_file[:,2]
     lst_wrapped = lst + 0.0
     lst_wrapped[lst_wrapped > 180.0] = lst_wrapped[lst_wrapped > 180.0] - 360.0
@@ -1116,10 +1116,10 @@ if plot_05 or plot_06 or plot_07 or plot_09 or plot_16:
     ## Read in FHD data and other required information
     
     pointing_file = '/data3/t_nithyanandan/project_MWA/Aug23_obsinfo.txt'
-    pointing_info_from_file = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(1,2,3), delimiter=',')
-    obs_id = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(0,), delimiter=',', dtype=str)
+    pointing_info_from_file = NP.loadtxt(pointing_file, comments='#', usecols=(1,2,3), delimiter=',')
+    obs_id = NP.loadtxt(pointing_file, comments='#', usecols=(0,), delimiter=',', dtype=str)
     obsfile_lst = 15.0 * pointing_info_from_file[:,2]
-    obsfile_pointings_altaz = OPS.reverse(pointing_info_from_file[:,:2].reshape(-1,2), axis=1)
+    obsfile_pointings_altaz = pointing_info_from_file[:,:2].reshape(-1,2)
     obsfile_pointings_dircos = GEOM.altaz2dircos(obsfile_pointings_altaz, units='degrees')
     obsfile_pointings_hadec = GEOM.altaz2hadec(obsfile_pointings_altaz, latitude, units='degrees')
     
@@ -2355,7 +2355,6 @@ if plot_10 or plot_11 or plot_12 or plot_13 or plot_14:
 
         PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_dsm_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
         PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_PS_'+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_dsm_csm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
-
 
         select_bl_id = ['47-21']
         # select_bl_id = ['125-124', '93-28', '95-51', '84-58', '167-166', '85-61', '94-23', '47-21', '63-58', '67-51', '68-18', '93-86']

@@ -9,23 +9,35 @@ import interferometry as RI
 import my_DSP_modules as DSP 
 import baseline_delay_horizon as DLY
 import CLEAN_wrapper as CLN
+import ipdb as PDB
+
+rootdir = '/data3/t_nithyanandan/'
+# rootdir = '/data3/MWA/lstbin_RA0/NT/'
+
+filenaming_convention = 'new'
+# filenaming_convention = 'old'
 
 project_MWA = False
-project_HERA = False
-project_beams = True
+project_LSTbin = False
+project_HERA = True
+project_beams = False
 project_drift_scan = False
 project_global_EoR = False
 
-if project_MWA: project_dir = 'project_MWA'
-if project_HERA: project_dir = 'project_HERA'
-if project_beams: project_dir = 'project_beams'
-if project_drift_scan: project_dir = 'project_drift_scan'
-if project_global_EoR: project_dir = 'project_global_EoR'
+project_dir = ''
+if project_MWA: project_dir = 'project_MWA/'
+if project_LSTbin:
+    if rootdir == '/data3/t_nithyanandan/':
+        project_dir = 'project_LSTbin/'
+if project_HERA: project_dir = 'project_HERA/'
+if project_beams: project_dir = 'project_beams/'
+if project_drift_scan: project_dir = 'project_drift_scan/'
+if project_global_EoR: project_dir = 'project_global_EoR/'
 
 telescope_id = 'custom'
-element_size = 0.74
-element_shape = 'delta'
-phased_array = True
+element_size = 14.0
+element_shape = 'dish'
+phased_array = False
 
 if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole'):
     element_size = 0.74
@@ -59,7 +71,7 @@ if telescope_id == 'custom':
         telescope_id = telescope_id + '_array'
 telescope_str = telescope_id+'_'
 
-ground_plane = 0.3 # height of antenna element above ground plane
+ground_plane = None # height of antenna element above ground plane
 if ground_plane is None:
     ground_plane_str = 'no_ground_'
 else:
@@ -68,7 +80,7 @@ else:
     else:
         raise ValueError('Height of antenna element above ground plane must be positive.')
 
-delayerr = 0.05     # delay error rms in ns
+delayerr = 0.0     # delay error rms in ns
 if delayerr is None:
     delayerr_str = ''
     delayerr = 0.0
@@ -102,32 +114,61 @@ if (delayerr_str == '') and (gainerr_str == ''):
 
 delaygain_err_str = delayerr_str + gainerr_str + nrandom_str
 
-antenna_file = '/data3/t_nithyanandan/project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt'
-ant_locs = NP.loadtxt(antenna_file, skiprows=6, comments='#', usecols=(0,1,2,3))
-bl, bl_id = RI.baseline_generator(ant_locs[:,1:], ant_id=ant_locs[:,0].astype(int).astype(str), auto=False, conjugate=False)
+# array_layout = 'MWA-128T'
+array_layout = 'HERA-331'
+
+if array_layout == 'MWA-128T':
+    ant_info = NP.loadtxt('/data3/t_nithyanandan/project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', skiprows=6, comments='#', usecols=(0,1,2,3))
+    ant_id = ant_info[:,0].astype(int).astype(str)
+    ant_locs = ant_info[:,1:]
+elif array_layout == 'HERA-7':
+    ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=7)
+elif array_layout == 'HERA-19':
+    ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=19)
+elif array_layout == 'HERA-37':
+    ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=37)
+elif array_layout == 'HERA-61':
+    ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=61)
+elif array_layout == 'HERA-91':
+    ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=91)
+elif array_layout == 'HERA-127':
+    ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=127)
+elif array_layout == 'HERA-169':
+    ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=169)
+elif array_layout == 'HERA-217':
+    ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=217)
+elif array_layout == 'HERA-271':
+    ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=271)
+elif array_layout == 'HERA-331':
+    ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=331)
+
+bl, bl_id = RI.baseline_generator(ant_locs, ant_id=ant_id, auto=False, conjugate=False)
+bl, select_bl_ind, bl_count = RI.uniq_baselines(bl)
+bl_id = bl_id[select_bl_ind]
 bl_length = NP.sqrt(NP.sum(bl**2, axis=1))
 sortind = NP.argsort(bl_length, kind='mergesort')
 bl = bl[sortind,:]
-bl_length = bl_length[sortind]
 bl_id = bl_id[sortind]
+bl_length = bl_length[sortind]
 total_baselines = bl_length.size
 
-n_bl_chunks = 32
-baseline_chunk_size = 64
+n_bl_chunks = 16
+baseline_chunk_size = 40
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
 
-Tsys = 95.0 # System temperature in K
-freq = 185.0 * 1e6 # foreground center frequency in Hz
-freq_resolution = 80e3 # in Hz
+Tsys = 300.0 # System temperature in K
+freq = 150.0 * 1e6 # foreground center frequency in Hz
+freq_resolution = 128e3 # in Hz
 bpass_shape = 'bhw'
 f_pad = 1.0
 oversampling_factor = 1.0 + f_pad
-n_channels = 384
+n_channels = 64
 nchan = n_channels
 window = n_channels * DSP.windowing(n_channels, shape=bpass_shape, pad_width=0, centering=True, area_normalize=True) 
 bw = n_channels * freq_resolution
+bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(nchan, freq_resolution/1e3)
 
-use_pfb = True
+use_pfb = False
 
 pfb_instr = ''
 pfb_outstr = ''
@@ -135,7 +176,9 @@ if not use_pfb:
     pfb_instr = '_no_pfb'
     pfb_outstr = 'no_pfb_'
 
-obs_mode = 'custom'
+# obs_mode = 'custom'
+# obs_mode = 'lstbin'
+obs_mode = 'drift'
 avg_drifts = False
 beam_switch = False
 snapshots_range = None
@@ -146,6 +189,13 @@ if beam_switch:
     snapshot_type_str = 'beam_switches_'
 if snapshots_range is not None:
     snapshot_type_str = 'snaps_{0[0]:0d}-{0[1]:0d}_'.format(snapshots_range)
+
+duration_str = ''
+if obs_mode in ['track', 'drift']:
+    t_snap = 1080.0    # in seconds
+    n_snaps = 40
+    if (t_snap is not None) and (n_snaps is not None):
+        duration_str = '_{0:0d}x{1:.1f}s'.format(n_snaps, t_snap)
 
 # pc = NP.asarray([90.0, 90.0]).reshape(1,-1)
 # pc = NP.asarray([266.416837, -29.00781]).reshape(1,-1)
@@ -167,7 +217,7 @@ else:
 if spindex_seed is not None:
     spindex_seed_str = '{0:0d}_'.format(spindex_seed)
 
-nside = 64
+nside = 128
 use_GSM = True
 use_DSM = False
 use_CSM = False
@@ -203,7 +253,12 @@ for k in range(n_sky_sectors):
     else:
         sky_sector_str = '_sky_sector_{0:0d}_'.format(k)
 
-    infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_instr
+    if filenaming_convention == 'old':
+        infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_instr
+        outfile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_outstr+bpass_shape        
+    else:
+        infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_instr
+        outfile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_outstr+bpass_shape                
 
     # infile = '/data3/t_nithyanandan/project_MWA/multi_baseline_visibilities_'+avg_drifts_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+'_{0:0d}_'.format(nside)+'{0:.1f}_MHz'.format(nchan*freq_resolution/1e6)
     
@@ -267,7 +322,6 @@ for k in range(n_sky_sectors):
     # ccres = (1+npad*1.0/ia.channels.size) * DSP.downsampler(ccres, 1+npad*1.0/ia.channels.size, axis=1)
     # lags = DSP.downsampler(lags, 1+npad*1.0/ia.channels.size, axis=-1)
     
-    outfile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_outstr+bpass_shape
     hdulist = []
     hdulist += [fits.PrimaryHDU()]
     

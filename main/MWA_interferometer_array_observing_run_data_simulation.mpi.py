@@ -422,8 +422,8 @@ if element_locs is not None:
 
 if pointing_file is not None:
     pointing_init = None
-    pointing_info_from_file = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(1,2,3), delimiter=',')
-    obs_id = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(0,), delimiter=',', dtype=str)
+    pointing_info_from_file = NP.loadtxt(pointing_file, comments='#', usecols=(1,2,3), delimiter=',')
+    obs_id = NP.loadtxt(pointing_file, comments='#', usecols=(0,), delimiter=',', dtype=str)
     if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
         delays_str = NP.loadtxt(pointing_file, skiprows=2, comments='#', usecols=(4,), delimiter=',', dtype=str)
         delays_list = [NP.fromstring(delaystr, dtype=float, sep=';', count=-1) for delaystr in delays_str]
@@ -437,8 +437,8 @@ if pointing_file is not None:
     if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
         delays = delay_settings[:min(n_snaps, pointing_info_from_file.shape[0]),:]
     n_snaps = min(n_snaps, pointing_info_from_file.shape[0])
-    pointings_altaz = OPS.reverse(pointing_info_from_file[:,:2].reshape(-1,2), axis=1)
-    pointings_altaz_orig = OPS.reverse(pointing_info_from_file[:,:2].reshape(-1,2), axis=1)
+    pointings_altaz = pointing_info_from_file[:,:2].reshape(-1,2)
+    pointings_altaz_orig = pointing_info_from_file[:,:2].reshape(-1,2)
     lst = 15.0 * pointing_info_from_file[:,2]
     lst_wrapped = lst + 0.0
     lst_wrapped[lst_wrapped > 180.0] = lst_wrapped[lst_wrapped > 180.0] - 360.0

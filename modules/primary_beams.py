@@ -780,7 +780,6 @@ def ground_plane_field_pattern(height, skypos, skycoords=None, wavelength=1.0,
     k = 2 * NP.pi / wavelength
 
     skypos_altaz = GEOM.dircos2altaz(skypos_dircos, units='radians')
-    # ground_pattern = 2 * NP.sin(NP.repeat(k.reshape(1,-1), skypos.shape[0], axis=0) * height * NP.cos(NP.pi/2-NP.repeat(skypos_altaz[:,0].reshape(-1,1), k.size, axis=1))) # new stuff
     ground_pattern = 2 * NP.sin(k.reshape(1,-1) * height * NP.sin(skypos_altaz[:,0].reshape(-1,1))) # array broadcasting
 
     if modifier is not None:
@@ -793,8 +792,8 @@ def ground_plane_field_pattern(height, skypos, skycoords=None, wavelength=1.0,
             val = val[:,NP.newaxis]
             ground_pattern *= val
 
-    max_pattern = 2.0
-    ground_pattern /= max_pattern
+    max_pattern = 2 * NP.sin(k.reshape(1,-1) * height * NP.sin(NP.pi/2).reshape(-1,1)) # array broadcasting
+    ground_pattern = ground_pattern / max_pattern
 
     return ground_pattern
 

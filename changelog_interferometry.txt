@@ -1,3 +1,21 @@
+From 9743a28 of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) In member function save() of class InterferometerArray, rename input
+parameter file to outfile in order to not confuse with in-built python
+variable 'file'
+(*) In member function concatenate() of class InterferometerArray,
+concatenate attribute projected_baselines which was not done earlier
+(*) In save() member function of class ROI_parameters, add field
+EXTNAME='PRIMARY' to the primary header extension while writing out the
+information to FITS file on disk
+
+In primary_beams.py,
+
+(*) Use correct max value of ground_pattern instead of a fixed value 2
+
 From c13ae50 of Interferometry:
 ==============================
 

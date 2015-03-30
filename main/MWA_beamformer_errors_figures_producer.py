@@ -27,7 +27,7 @@ import ipdb as PDB
 
 # 01) Plot pointings information
 
-# 02) Plot power patterns for snapshots
+# 02) Plot power patterns for snapshots and ratios relative to nominal power patterns
 
 # 03) Plot foreground models with power pattern contours for snapshots
 
@@ -64,12 +64,12 @@ import ipdb as PDB
 # 19) Plot delay spectrum of uniform sky model with a uniform power pattern
 
 plot_01 = False
-plot_02 = False
+plot_02 = True
 plot_03 = False
 plot_04 = False
 plot_05 = False
 plot_06 = False
-plot_07 = True
+plot_07 = False
 plot_08 = False
 plot_09 = False
 plot_10 = False
@@ -100,7 +100,9 @@ if project_global_EoR: project_dir = 'project_global_EoR'
 
 telescope_id = 'custom'
 element_size = 0.74
-element_shape = 'delta'
+element_shape = 'dipole'
+element_orientation = NP.asarray([0.0, 90.0]).reshape(1,-1)
+element_ocoords = 'altaz'
 phased_array = True
 
 if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole'):
@@ -123,17 +125,7 @@ elif telescope_id == 'custom':
 else:
     raise ValueError('telescope ID must be specified.')
 
-if telescope_id == 'custom':
-    if element_shape == 'delta':
-        telescope_id = 'delta'
-    else:
-        telescope_id = '{0:.1f}m_{1:}'.format(element_size, element_shape)
-
-    if phased_array:
-        telescope_id = telescope_id + '_array'
-telescope_str = telescope_id+'_'
-
-ground_plane = 0.3 # height of antenna element above ground plane
+ground_plane = 0.278 # height of antenna element above ground plane
 if ground_plane is None:
     ground_plane_str = 'no_ground_'
 else:
@@ -286,6 +278,7 @@ bpass_shape = 'bhw'
 max_abs_delay = 1.5 # in micro seconds
 coarse_channel_resolution = 1.28e6 # in Hz
 bw = nchan * freq_resolution
+chans = (freq + (NP.arange(nchan) - 0.5 * nchan) * freq_resolution) # in Hz
 
 dsm_base_freq = 408e6 # Haslam map frequency
 csm_base_freq = 1.420e9 # NVSS frequency
@@ -311,9 +304,42 @@ elif use_NVSS:
 else:
     fg_str = 'other'
 
-roifile = '/data3/t_nithyanandan/'+project_dir+'/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
-roi = RI.ROI_parameters(init_file=roifile)
-telescope = roi.telescope
+# roifile = '/data3/t_nithyanandan/'+project_dir+'/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+'_gaussian_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
+# roi = RI.ROI_parameters(init_file=roifile)
+# telescope = roi.telescope
+
+telescope = {}
+if telescope_id in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'mwa_tools']:
+    telescope['id'] = telescope_id
+telescope['shape'] = element_shape
+telescope['size'] = element_size
+telescope['orientation'] = element_orientation
+telescope['ocoords'] = element_ocoords
+telescope['groundplane'] = ground_plane
+element_locs = None
+if phased_array:
+    phased_elements_file = '/data3/t_nithyanandan/project_MWA/MWA_tile_dipole_locations.txt'
+    try:
+        element_locs = NP.loadtxt(phased_elements_file, skiprows=1, comments='#', usecols=(0,1,2))
+    except IOError:
+        raise IOError('Could not open the specified file for phased array of antenna elements.')
+
+if telescope_id == 'mwa':
+    xlocs, ylocs = NP.meshgrid(1.1*NP.linspace(-1.5,1.5,4), 1.1*NP.linspace(1.5,-1.5,4))
+    element_locs = NP.hstack((xlocs.reshape(-1,1), ylocs.reshape(-1,1), NP.zeros(xlocs.size).reshape(-1,1)))
+
+if element_locs is not None:
+    telescope['element_locs'] = element_locs
+
+if telescope_id == 'custom':
+    if element_shape == 'delta':
+        telescope_id = 'delta'
+    else:
+        telescope_id = '{0:.1f}m_{1:}'.format(element_size, element_shape)
+
+    if phased_array:
+        telescope_id = telescope_id + '_array'
+telescope_str = telescope_id+'_'
 
 if (telescope['shape'] == 'dipole') or (telescope['shape'] == 'delta'):
     A_eff = (0.5*wavelength)**2
@@ -321,6 +347,18 @@ if (telescope['shape'] == 'dipole') or (telescope['shape'] == 'delta'):
         A_eff *= 16
 if telescope['shape'] == 'dish':
     A_eff = NP.pi * (0.5*element_size)**2
+
+fhd_obsid = [1061309344, 1061316544]
+
+pointing_file = '/data3/t_nithyanandan/project_MWA/Aug23_obsinfo.txt'
+pointing_info_from_file = NP.loadtxt(pointing_file, comments='#', usecols=(1,2,3), delimiter=',')
+obs_id = NP.loadtxt(pointing_file, comments='#', usecols=(0,), delimiter=',', dtype=str)
+if (telescope_id == 'mwa') or (phased_array):
+    delays_str = NP.loadtxt(pointing_file, comments='#', usecols=(4,), delimiter=',', dtype=str)
+    delays_list = [NP.fromstring(delaystr, dtype=float, sep=';', count=-1) for delaystr in delays_str]
+    delay_settings = NP.asarray(delays_list)
+    delay_settings *= 435e-12
+    delays = NP.copy(delay_settings)
 
 pc = NP.asarray([0.0, 0.0, 1.0]).reshape(1,-1)
 pc_coords = 'dircos'
@@ -353,6 +391,110 @@ def kperp(u, z):
     return 2 * NP.pi * u / cosmodel100.comoving_transverse_distance(z).value
 
 ##########################################
+
+if plot_02:
+
+    # infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+'.fits'
+    # hdulist = fits.open(infile)
+    # n_snaps = hdulist[0].header['n_acc']
+    # lst = hdulist['POINTING AND PHASE CENTER INFO'].data['LST']
+    # hdulist.close()
+    
+    backdrop_xsize = 100
+    xmin = -180.0
+    xmax = 180.0
+    ymin = -90.0
+    ymax = 90.0
+
+    xgrid, ygrid = NP.meshgrid(NP.linspace(xmax, xmin, backdrop_xsize), NP.linspace(ymin, ymax, backdrop_xsize/2))
+    xvect = xgrid.ravel()
+    yvect = ygrid.ravel()
+
+    pinfo = []
+    pb_snapshots = []
+    pbx_MWA_snapshots = []
+    pby_MWA_snapshots = []
+
+    for i in xrange(n_snaps):
+        havect = lst[i] - xvect
+        altaz = GEOM.hadec2altaz(NP.hstack((havect.reshape(-1,1),yvect.reshape(-1,1))), latitude, units='degrees')
+        dircos = GEOM.altaz2dircos(altaz, units='degrees')
+        roi_altaz = NP.asarray(NP.where(altaz[:,0] >= 0.0)).ravel()
+        az = altaz[:,1] + 0.0
+        az[az > 360.0 - 0.5*180.0/n_sky_sectors] -= 360.0
+        roi_sector_altaz = NP.asarray(NP.where(NP.logical_or(NP.logical_and(az[roi_altaz] >= -0.5*180.0/n_sky_sectors + sky_sector*180.0/n_sky_sectors, az[roi_altaz] < -0.5*180.0/n_sky_sectors + (sky_sector+1)*180.0/n_sky_sectors), NP.logical_and(az[roi_altaz] >= 180.0 - 0.5*180.0/n_sky_sectors + sky_sector*180.0/n_sky_sectors, az[roi_altaz] < 180.0 - 0.5*180.0/n_sky_sectors + (sky_sector+1)*180.0/n_sky_sectors)))).ravel()
+
+        pinfo += [{}]
+        if (telescope_id == 'mwa') or (phased_array):
+            pinfo[i]['delays'] = delays[obs_id==str(fhd_obsid[i]),:].ravel()
+            pinfo[i]['delayerr'] = delayerr
+            pinfo[i]['gainerr'] = gainerr
+            pinfo[i]['nrand'] = nrand
+        else:
+            p_altaz = pointing_info_from_file[obs_id==str(fhd_obsid[i]),:2].reshape(1,-1)
+            pinfo[i]['pointing_coords'] = 'altaz'
+            pinfo[i]['pointing_center'] = p_altaz
+
+        pb = NP.empty(xvect.size)
+        pb.fill(NP.nan)
+        pbx_MWA_vect = NP.empty(xvect.size)
+        pbx_MWA_vect.fill(NP.nan)
+        pby_MWA_vect = NP.empty(xvect.size)
+        pby_MWA_vect.fill(NP.nan)
+    
+        pb[roi_altaz] = PB.primary_beam_generator(altaz[roi_altaz,:], chans, telescope=telescope, skyunits='altaz', freq_scale='Hz', pointing_info=pinfo[i])
+        if (telescope_id == 'mwa') or (phased_array):
+            pbx_MWA, pby_MWA = MWAPB.MWA_Tile_analytic(NP.radians(90.0-altaz[roi_altaz,0]).reshape(-1,1), NP.radians(altaz[roi_altaz,1]).reshape(-1,1), freq=185e6, delays=pinfo[i]['delays']/435e-12, power=True)
+            # pbx_MWA, pby_MWA = MWAPB.MWA_Tile_advanced(NP.radians(90.0-altaz[roi_altaz,0]).reshape(-1,1), NP.radians(altaz[roi_altaz,1]).reshape(-1,1), freq=185e6, delays=pinfo[i]['delays']/435e-12, power=True)
+            
+            pbx_MWA_vect[roi_altaz] = pbx_MWA.ravel()
+            pby_MWA_vect[roi_altaz] = pby_MWA.ravel()
+    
+        pb_snapshots += [pb]
+        pbx_MWA_snapshots += [pbx_MWA_vect]
+        pby_MWA_snapshots += [pby_MWA_vect]
+
+    col_descriptor_str = ['off-zenith', 'zenith']
+    row_descriptor_str = ['Model', 'MWA']
+    fig, axs = PLT.subplots(ncols=n_snaps, nrows=2, sharex=True, sharey=True, figsize=(9,5))
+    for i in range(2):
+        for j in xrange(n_snaps):
+            if i == 0:
+                pbsky = axs[i,j].imshow(pb_snapshots[j].reshape(-1,backdrop_xsize), origin='lower', extent=(NP.amax(xvect), NP.amin(xvect), NP.amin(yvect), NP.amax(yvect)), norm=PLTC.LogNorm(vmin=1e-3, vmax=1.0), cmap=CM.jet)
+            else:
+                pbsky = axs[i,j].imshow(pbx_MWA_snapshots[j].reshape(-1,backdrop_xsize), origin='lower', extent=(NP.amax(xvect), NP.amin(xvect), NP.amin(yvect), NP.amax(yvect)), norm=PLTC.LogNorm(vmin=1e-3, vmax=1.0), cmap=CM.jet)                
+            axs[i,j].set_xlim(xvect.max(), xvect.min())
+            axs[i,j].set_ylim(yvect.min(), yvect.max())
+            axs[i,j].grid(True, which='both')
+            axs[i,j].set_aspect('auto')
+            axs[i,j].tick_params(which='major', length=12, labelsize=12)
+            axs[i,j].tick_params(which='minor', length=6)
+            axs[i,j].locator_params(axis='x', nbins=5)
+            axs[i,j].text(0.5, 0.9, row_descriptor_str[i]+' '+col_descriptor_str[j], transform=axs[i,j].transAxes, fontsize=14, weight='semibold', ha='center', color='black')
+    
+    cbax = fig.add_axes([0.9, 0.122, 0.02, 0.84])
+    cbar = fig.colorbar(pbsky, cax=cbax, orientation='vertical')
+
+    fig.subplots_adjust(hspace=0,wspace=0)
+    big_ax = fig.add_subplot(111)
+    big_ax.set_axis_bgcolor('none')
+    big_ax.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+    big_ax.set_xticks([])
+    big_ax.set_yticks([])
+    big_ax.set_ylabel(r'$\delta$ [degrees]', fontsize=16, weight='medium', labelpad=30)
+    big_ax.set_xlabel(r'$\alpha$ [degrees]', fontsize=16, weight='medium', labelpad=20)
+
+    # PLT.tight_layout()
+    fig.subplots_adjust(right=0.9)
+    fig.subplots_adjust(top=0.98)
+
+    PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'.png', bbox_inches=0)
+    PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'powerpattern_'+ground_plane_str+snapshot_type_str+obs_mode+'.eps', bbox_inches=0)
+
+
+
+
+##########################################    
 
 if plot_05 or plot_06 or plot_07 or plot_09 or plot_16:
 
