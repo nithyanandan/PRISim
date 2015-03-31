@@ -1,3 +1,12 @@
+From 1d6d03d of Interferometry:
+==============================
+
+In primary_beams.py,
+
+(*) Add keyword input short_dipole_approx to dipole_field_pattern()
+and primary_beam_generator()
+(*) Change docstrings accordingly
+
 From 13bb741 of Interferometry:
 ==============================
 

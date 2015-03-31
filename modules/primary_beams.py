@@ -7,7 +7,8 @@ import geometry as GEOM
 
 def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                            skyunits='degrees', east2ax1=0.0, pointing_info=None,
-                           pointing_center=None, half_wave_dipole_approx=False):
+                           pointing_center=None, short_dipole_approx=False,
+                           half_wave_dipole_approx=False):
 
     """
     -----------------------------------------------------------------------------
@@ -176,6 +177,14 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 MWA, pointing_center is used in place of pointing_info. For MWA,
                 this is used if pointing_info is not provided.
 
+    short_dipole_approx
+                [boolean] if True, indicates short dipole approximation
+                is to be used. Otherwise, a more accurate expression is used
+                for the dipole pattern. Default=False. Both
+                short_dipole_approx and half_wave_dipole_approx cannot be set 
+                to True at the same time
+
+
     half_wave_dipole_approx
                 [boolean] if True, indicates half-wave dipole approximation
                 is to be used. Otherwise, a more accurate expression is used
@@ -246,6 +255,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 ep = dipole_field_pattern(0.74, skypos, dipole_coords=ocoords,
                                           dipole_orientation=orientation,
                                           skycoords=skyunits, wavelength=FCNST.c/frequency, 
+                                          short_dipole_approx=short_dipole_approx,
                                           half_wave_dipole_approx=half_wave_dipole_approx)
                 ep = ep[:,:,NP.newaxis]  # add an axis to be compatible with random ralizations
                 if pointing_info is None: # Use analytical formula
@@ -315,6 +325,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 ep = dipole_field_pattern(0.74, skypos, dipole_coords=ocoords,
                                           dipole_orientation=orientation,
                                           skycoords=skyunits, wavelength=FCNST.c/frequency, 
+                                          short_dipole_approx=short_dipole_approx,
                                           half_wave_dipole_approx=half_wave_dipole_approx)
                 pb = NP.abs(ep)**2 # Power pattern is square of the field pattern
             else:
@@ -332,6 +343,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                                       dipole_coords=telescope['ocoords'],
                                       dipole_orientation=telescope['orientation'],
                                       skycoords=skyunits, wavelength=FCNST.c/frequency, 
+                                      short_dipole_approx=short_dipole_approx,
                                       half_wave_dipole_approx=half_wave_dipole_approx)
             ep = ep[:,:,NP.newaxis]   # add an axis to be compatible with random ralizations
         elif telescope['shape'] == 'dish':
@@ -806,7 +818,7 @@ def ground_plane_field_pattern(height, skypos, skycoords=None, wavelength=1.0,
 
 def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None, 
                          dipole_orientation=None, wavelength=1.0, angle_units=None, 
-                         half_wave_dipole_approx=True):
+                         short_dipole_approx=False, half_wave_dipole_approx=True):
 
     """
     -----------------------------------------------------------------------------
@@ -850,18 +862,27 @@ def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None,
                      cosines are aligned with the local East, North, and Up
 
     wavelength       [scalar, list or numpy vector] Wavelengths at which the field 
-                     dipole pattern is to be estimated. Must be in the same units as 
-                     the dipole length
+                     dipole pattern is to be estimated. Must be in the same units 
+                     as the dipole length
 
     angle_units      [string] Units of angles used when Alt-Az coordinates are 
                      used in case of skypos or dipole_orientation. Accepted 
                      values are 'degrees' and 'radians'. If none given,
                      default='degrees' is used.
 
+    short_dipole_approx
+                     [boolean] if True, indicates short dipole approximation
+                     is to be used. Otherwise, a more accurate expression is used
+                     for the dipole pattern. Default=False. Both
+                     short_dipole_approx and half_wave_dipole_approx cannot be set 
+                     to True at the same time
+
     half_wave_dipole_approx
                      [boolean] if True, indicates half-wave dipole approximation
                      is to be used. Otherwise, a more accurate expression is used
-                     for the dipole pattern. Default=True
+                     for the dipole pattern. Default=True. Both
+                     short_dipole_approx and half_wave_dipole_approx cannot be set 
+                     to True at the same time
 
     Output:
 
@@ -881,6 +902,9 @@ def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None,
 
     if length <= 0.0:
         raise ValueError('Dipole length should be positive.')
+
+    if short_dipole_approx and half_wave_dipole_approx:
+        raise ValueError('Both short dipole and half-wave dipole approximations cannot be made at the same time')
 
     if isinstance(wavelength, list):
         wavelength = NP.asarray(wavelength)
@@ -1031,15 +1055,19 @@ def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None,
     reasonable_angles_ind = NP.abs(NP.abs(dot_product) - 1.0) > eps
 
     max_pattern = 1.0 # Normalization factor
-    if half_wave_dipole_approx:
-        field_pattern = NP.cos(0.5 * NP.pi * NP.cos(angles)) / NP.sin(angles)
+    if short_dipole_approx:
+        field_pattern = NP.sin(angles)
         field_pattern = NP.repeat(field_pattern.reshape(-1,1), wavelength.size, axis=1) # Repeat along wavelength axis
     else:
-        max_pattern = 1.0 - NP.cos(k * h) # Maximum occurs at angle = NP.pi / 2
-        field_pattern = (NP.cos(k*h*NP.cos(angles)) - NP.cos(k*h)) / NP.sin(angles)
+        if half_wave_dipole_approx:
+            field_pattern = NP.cos(0.5 * NP.pi * NP.cos(angles)) / NP.sin(angles)
+            field_pattern = NP.repeat(field_pattern.reshape(-1,1), wavelength.size, axis=1) # Repeat along wavelength axis
+        else:
+            max_pattern = 1.0 - NP.cos(k * h) # Maximum occurs at angle = NP.pi / 2
+            field_pattern = (NP.cos(k*h*NP.cos(angles)) - NP.cos(k*h)) / NP.sin(angles)
 
-    if n_zero_angles > 0:
-        field_pattern[zero_angles_ind.ravel(),:] = k*h * NP.sin(k*h * NP.cos(angles[zero_angles_ind])) * NP.tan(angles[zero_angles_ind]) # Correct expression from L' Hospital rule
+        if n_zero_angles > 0:
+            field_pattern[zero_angles_ind.ravel(),:] = k*h * NP.sin(k*h * NP.cos(angles[zero_angles_ind])) * NP.tan(angles[zero_angles_ind]) # Correct expression from L' Hospital rule
     
     return field_pattern / max_pattern
 
