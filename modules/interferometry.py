@@ -2107,12 +2107,25 @@ class ROI_parameters(object):
                             else:
                                 self.pinfo[-1]['delayerr'] = delayerr
     
-                        if 'POINTING_CENTER_{0:0d}'.format(i) in extnames:
-                            self.pinfo[-1]['pointing_center'] = hdulist['POINTING_CENTER_{0:0d}'.format(i)].data
-                            try:
-                                self.pinfo[-1]['pointing_coords'] = hdulist['POINTING_CENTER_{0:0d}'.format(i)].header['pointing_coords']
-                            except KeyError:
-                                raise KeyError('Header of extension POINTING_CENTER_{0:0d} not found to contain key "pointing_coords" in init_file'.format(i))
+                len_pinfo = len(self.pinfo)
+                if len_pinfo > 0:
+                    if len_pinfo != n_obs:
+                        raise ValueError('Inconsistency in number of pointings in header and number of phased array delay settings')
+
+                for i in range(n_obs):
+                    if 'POINTING_CENTER_{0:0d}'.format(i) in extnames:
+                        if len_pinfo == 0:
+                            self.pinfo += [{}]
+                        self.pinfo[i]['pointing_center'] = hdulist['POINTING_CENTER_{0:0d}'.format(i)].data
+                        try:
+                            self.pinfo[i]['pointing_coords'] = hdulist['POINTING_CENTER_{0:0d}'.format(i)].header['pointing_coords']
+                        except KeyError:
+                            raise KeyError('Header of extension POINTING_CENTER_{0:0d} not found to contain key "pointing_coords" in init_file'.format(i))
+
+                len_pinfo = len(self.pinfo)
+                if len_pinfo > 0:
+                    if len_pinfo != n_obs:
+                        raise ValueError('Inconsistency in number of pointings in header and number of pointing centers')
 
                 hdulist.close()
                 init_file_success = True
@@ -2468,7 +2481,7 @@ class ROI_parameters(object):
 
     #############################################################################
 
-    def save(self, file, tabtype='BinTableHDU', overwrite=False, verbose=True):
+    def save(self, infile, tabtype='BinTableHDU', overwrite=False, verbose=True):
 
         """
         ------------------------------------------------------------------------
@@ -2477,7 +2490,7 @@ class ROI_parameters(object):
 
         Inputs:
 
-        file         [string] Filename with full path to be saved to. Will be
+        infile       [string] Filename with full path to be saved to. Will be
                      appended with '.fits' extension
 
         Keyword Input(s):
@@ -2496,11 +2509,11 @@ class ROI_parameters(object):
         """
 
         try:
-            file
+            infile
         except NameError:
             raise NameError('No filename provided. Aborting ROI_parameters.save()...')
 
-        filename = file + '.fits' 
+        filename = infile + '.fits' 
 
         if verbose:
             print '\nSaving information about regions of interest...'

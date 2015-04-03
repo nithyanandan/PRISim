@@ -99,6 +99,8 @@ parser.add_argument('--plots', help='Create plots', action='store_true', dest='p
 
 args = vars(parser.parse_args())
 
+rootdir = '/data3/t_nithyanandan/'
+
 project_MWA = args['project_MWA']
 project_HERA = args['project_HERA']
 project_beams = args['project_beams']
@@ -210,6 +212,8 @@ freq_resolution = args['freq_resolution']
 n_channels = args['n_channels']
 nchan = n_channels
 chans = (freq + (NP.arange(nchan) - 0.5 * nchan) * freq_resolution)/ 1e9 # in GHz
+bw = n_channels * freq_resolution
+bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(nchan, freq_resolution/1e3)
 
 if args['A_eff'] is None:
     if (telescope['shape'] == 'dipole') or (telescope['shape'] == 'delta'):
@@ -226,7 +230,7 @@ t_snap = args['t_snap']
 t_obs = args['t_obs']
 n_snaps = args['n_snaps']
 
-snapshot_type_str = obs_mode+'_'
+snapshot_type_str = obs_mode
 
 pointing_file = args['pointing_file']
 if pointing_file is not None:
@@ -359,6 +363,11 @@ elif pointing_info is not None:
     lst_wrapped = lst + 0.0
     lst_wrapped[lst_wrapped > 180.0] = lst_wrapped[lst_wrapped > 180.0] - 360.0
     lst_edges = NP.concatenate((lst_wrapped, [lst_wrapped[-1]+lst_wrapped[-1]-lst_wrapped[-2]]))
+
+duration_str = ''
+if obs_mode in ['track', 'drift']:
+    if (t_snap is not None) and (n_snaps is not None):
+        duration_str = '_{0:0d}x{1:.1f}s'.format(n_snaps, NP.asarray(t_snap)[0])
 
 pointing_info = {}
 pointing_info['pointing_center'] = pointings_altaz
@@ -798,6 +807,8 @@ elif use_PS:
 antpower_Jy = RI.antenna_power(skymod, telescope, pointing_info, freq_scale='Hz')
 antpower_K = antpower_Jy * CNST.Jy / pixres / (2.0* FCNST.k * (1e9*chans.reshape(1,-1))**2 / FCNST.c**2)
 
+outfile = 'antenna_power_'+telescope_str+ground_plane_str+latitude_str+snapshot_type_str+duration_str+'_'+fg_str+'_sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+'{0}_{1:.1f}_MHz'.format(bandpass_str, freq/1e6)
+
 if plots:
     fig = PLT.figure(figsize=(6,6))
     ax = fig.add_subplot(111)
@@ -807,23 +818,71 @@ if plots:
         ax.plot(lst/15, antpower_K[:,nchan/2], 'k-', lw=2)
     ax.set_xlim(0, 24)
     ax.set_xlabel('RA [hours]', fontsize=18, weight='medium')
-    ax.set_ylabel(r'$T_\mathrm{sky}$'+' [ '+flux_unit+' ]', fontsize=16, weight='medium')
+    ax.set_ylabel(r'$T_\mathrm{ant}$'+' [ '+flux_unit+' ]', fontsize=16, weight='medium')
     ax_y2 = ax.twinx()
     if flux_unit == 'Jy':
         ax_y2.set_yticks(Jy2K(ax.get_yticks(), chans[nchan/2]*1e9, pixres))
         ax_y2.set_ylim(Jy2K(NP.asarray(ax.get_ylim())), chans[nchan/2]*1e9, pixres)
-        ax_y2.set_ylabel(r'$T_\mathrm{sky}$'+' [ K ]', fontsize=16, weight='medium')
+        ax_y2.set_ylabel(r'$T_\mathrm{ant}$'+' [ K ]', fontsize=16, weight='medium')
     elif flux_unit == 'K':
         ax_y2.set_yticks(K2Jy(ax.get_yticks(), chans[nchan/2]*1e9, pixres))
         ax_y2.set_ylim(K2Jy(NP.asarray(ax.get_ylim()), chans[nchan/2]*1e9, pixres))
-        ax_y2.set_ylabel(r'$T_\mathrm{sky}$'+' [ Jy ]', fontsize=16, weight='medium')
+        ax_y2.set_ylabel(r'$T_\mathrm{ant}$'+' [ Jy ]', fontsize=16, weight='medium')
 
     ax.text(0.5, 0.9, '{0:.1f} MHz'.format(chans[nchan/2]*1e3), transform=ax.transAxes, fontsize=12, weight='medium', ha='center', color='black')
 
     fig.subplots_adjust(right=0.85)
     fig.subplots_adjust(left=0.15)
 
-    PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/antenna_power_'+telescope_str+ground_plane_str+latitude_str+snapshot_type_str+'FG_model_'+fg_str+'_nside_{0:0d}'.format(nside)+'_sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'{0:.1f}_MHz_{1:.1f}_MHz_'.format(freq/1e6,nchan*freq_resolution/1e6)+'{0:.1f}_hrs'.format(NP.sum(t_snap)/3.6e3)+'.png', bbox_inches=0)
+    PLT.savefig(rootdir+project_dir+'/figures/'+outfile+'.png', bbox_inches=0)
+
+hdulist = []
+hdulist += [fits.PrimaryHDU()]
+hdulist[0].header['EXTNAME'] = 'PRIMARY'
+hdulist[0].header['telescope_id'] = (telescope_id, 'Telescope ID')
+hdulist[0].header['element_shape'] = (telescope['shape'], 'Antenna element shape')
+hdulist[0].header['element_size'] = (telescope['size'], 'Antenna element size (m)')
+hdulist[0].header['A_eff'] = (A_eff, 'Effective area [m^2]')    
+if telescope['ocoords'] is not None:
+    hdulist[0].header['element_ocoords'] = (telescope['ocoords'], 'Antenna element orientation coordinates')
+if telescope['groundplane'] is not None:
+    hdulist[0].header['ground_plane'] = (telescope['groundplane'], 'Antenna element height above ground plane [m]')
+hdulist[0].header['latitude'] = (latitude, 'Latitude of telescope')
+hdulist[0].header['obs_mode'] = (obs_mode, 'Observing mode')
+hdulist[0].header['t_snap'] = (NP.mean(t_snap), 'Average snapshot duration (s)')
+hdulist[0].header['n_snaps'] = (n_snaps, 'Number of snapshots')
+hdulist[0].header['center_freq'] = (freq, 'Center Frequency')
+hdulist[0].header['freq_resolution'] = (freq_resolution, 'Frequency Resolution')
+hdulist[0].header['freq_unit'] = ('Hz', 'Frequency Units')
+hdulist[0].header['nchan'] = (nchan, 'Number of frequency channels')
+hdulist[0].header['pointing_coords'] = ('RADEC', 'Pointing coordinate system')
+hdulist[0].header['fgmodel'] = (fg_str, 'Foreground model')
+hdulist[0].header['Temperature_unit'] = ('K', 'Antenna temperature unit')
+hdulist[0].header['Power_unit'] = ('Jy', 'Antenna power unit')
+    
+if telescope['orientation'] is not None:
+    hdulist += [fits.ImageHDU(telescope['orientation'], name='Antenna element orientation')]
+    
+if 'element_locs' in telescope:
+    hdulist += [fits.ImageHDU(telescope['element_locs'], name='Antenna element locations')]
+    hdulist[0].header['phased_array'] = (telescope['element_locs'].shape[0], 'Number of phased array elements')
+
+hdulist += [fits.ImageHDU(t_snap, name='Snapshot duration')]    
+hdulist += [fits.ImageHDU(chans*1e9, name='Frequencies')]
+
+cols = []
+cols += [fits.Column(name='LST', format='D', array=NP.asarray(lst).ravel())]
+cols += [fits.Column(name='pointing_center', format='2D', array=pointings_radec)]
+columns = fits.ColDefs(cols, ascii=False)
+tbhdu = fits.new_table(columns)
+tbhdu.header.set('EXTNAME', 'POINTINGS')
+hdulist += [tbhdu]
+
+hdulist += [fits.ImageHDU(antpower_K, name='Antenna Temperature')]
+hdulist += [fits.ImageHDU(antpower_Jy, name='Antenna Power')]
+
+hdu = fits.HDUList(hdulist)
+hdu.writeto(rootdir+project_dir+'/'+outfile+'.fits', clobber=True)
 
 PDB.set_trace()
 

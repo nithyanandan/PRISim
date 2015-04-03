@@ -1,3 +1,14 @@
+From f36d152 of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) In member function save() of class ROI_parameters, rename input
+parameter file to outfile in order to not confuse with in-built python
+variable 'file'
+(*) In member function __init__() of class ROI_parameters, modify to
+read pointing center information which was getting skipped earlier
+
 From 1d6d03d of Interferometry:
 ==============================
 

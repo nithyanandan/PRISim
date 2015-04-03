@@ -1474,7 +1474,6 @@ else: # MPI based on baseline multiplexing
                     roiinfo['center'] = NP.asarray(roiinfo_center_radec).reshape(1,-1)
                     roiinfo['center_coords'] = 'radec'
 
-                    PDB.set_trace()
                     roi.append_settings(skymod, chans, pinfo=pbinfo, latitude=latitude, lst=lst[j], roi_info=roiinfo, telescope=telescope, freq_scale='GHz')
                     
                     progress.update(j+1)
@@ -1487,7 +1486,6 @@ else: # MPI based on baseline multiplexing
             pbinfo = comm.bcast(pbinfo, root=0) # Broadcast PB synthesis info
             if (rank == 0):
                 roifile = '/data3/t_nithyanandan/'+project_dir+'/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)
-                PDB.set_trace()
                 roi.save(roifile, tabtype='BinTableHDU', overwrite=True, verbose=True)
 
                 if plots:

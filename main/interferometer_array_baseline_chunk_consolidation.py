@@ -161,7 +161,7 @@ freq_resolution = 128e3 # in Hz
 bpass_shape = 'rect'
 f_pad = 1.0
 oversampling_factor = 1.0 + f_pad
-n_channels = 64
+n_channels = 128
 nchan = n_channels
 bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(nchan, freq_resolution/1e3)
 
@@ -191,7 +191,7 @@ if snapshots_range is not None:
 duration_str = ''
 if obs_mode in ['track', 'drift']:
     t_snap = 1080.0    # in seconds
-    n_snaps = 40
+    n_snaps = 80
     if (t_snap is not None) and (n_snaps is not None):
         duration_str = '_{0:0d}x{1:.1f}s'.format(n_snaps, t_snap)
 
@@ -208,7 +208,7 @@ else:
 if spindex_seed is not None:
     spindex_seed_str = '{0:0d}_'.format(spindex_seed)
 
-nside = 128
+nside = 64
 use_GSM = True
 use_DSM = False
 use_CSM = False
