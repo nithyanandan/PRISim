@@ -580,6 +580,7 @@ if global_HI_parms is not None:
     dz_half = global_HI_parms[2]
 
 bl, bl_id = RI.baseline_generator(ant_locs, ant_id=ant_id, auto=False, conjugate=False)
+bl_id = NP.asarray(bl_id, dtype=('a4,a4'))
 bl, select_bl_ind, bl_count = RI.uniq_baselines(bl)
 bl_id = bl_id[select_bl_ind]
 bl_length = NP.sqrt(NP.sum(bl**2, axis=1))
@@ -596,7 +597,6 @@ bl[neg_bl_orientation_ind,:] = -1.0 * bl[neg_bl_orientation_ind,:]
 bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
 
 if use_HI_monopole:
-    PDB.set_trace()
     bllstr = map(str, bl_length)
     uniq_bllstr, ind_uniq_bll = NP.unique(bllstr, return_index=True)
     count_uniq_bll = [bllstr.count(ubll) for ubll in uniq_bllstr]
@@ -626,8 +626,6 @@ if bl_chunk is None:
 if n_bl_chunks is None:
     n_bl_chunks = len(bl_chunk)
 bl_chunk = bl_chunk[:n_bl_chunks]
-
-PDB.set_trace()
 
 mpi_on_src = args['mpi_on_src']
 mpi_on_bl = args['mpi_on_bl']
@@ -886,7 +884,6 @@ elif use_HI_monopole:
     spec_parms['z-width'] = dz_half + NP.zeros(ra_deg_EoR.size)
 
     skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), spec_type, spec_parms=spec_parms)
-    PDB.set_trace()
     spectrum = skymod.generate_spectrum()
 
 elif use_GSM:
@@ -1318,7 +1315,6 @@ elif use_PS:
 
 ## Set up the observing run
 
-PDB.set_trace()
 if mpi_on_src: # MPI based on source multiplexing
 
     for i in range(len(bl_chunk)):
@@ -1537,7 +1533,7 @@ else: # MPI based on baseline multiplexing
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i])
         
                 outfile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
-                ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')        
+                ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')
         
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
                 for j in range(n_snaps):

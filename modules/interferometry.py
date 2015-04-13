@@ -385,7 +385,7 @@ def baseline_generator(antenna_locations, ant_id=None, auto=False,
             antenna_pairs += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]            
 
         baseline_locations = NP.asarray(baseline_locations)
-        # antenna_pairs = NP.asarray(antenna_pairs)
+        # antenna_pairs = NP.asarray(antenna_pairs, dtype=('a3,a3'))
 
     return baseline_locations, antenna_pairs
 
@@ -3006,6 +3006,59 @@ class InterferometerArray(object):
             proj_baselines[:,:,i] = NP.dot(eq_baselines, rot_matrix.T)
 
         self.projected_baselines = proj_baselines
+
+    #############################################################################
+
+    def conjugate(self, ind=None, verbose=True):
+
+        """
+        ------------------------------------------------------------------------
+        Flips the baseline vectors and conjugates the visibilies for a specified
+        subset of baselines.
+
+        Inputs:
+
+        ind      [scalar, list or numpy array] Indices pointing to specific
+                 baseline vectors which need to be flipped. Default = None means
+                 no flipping or conjugation. If all baselines are to be 
+                 flipped, either provide all the indices in ind or set ind="all"
+
+        verbose  [boolean] If set to True (default), print diagnostic and 
+                 progress messages. If set to False, no such messages are
+                 printed.
+        ------------------------------------------------------------------------
+        """
+
+        if ind is not None:
+            if isinstance(ind, str):
+                if ind != 'all':
+                    raise ValueError('Value of ind must be "all" if set to string')
+                ind = NP.arange(self.baselines.shape[0])
+            elif isinstance(ind, int):
+                ind = [ind]
+            elif isinstance(ind, NP.ndarray):
+                ind = ind.tolist()
+            elif not isinstance(ind, list):
+                raise TypeError('ind must be string "all", scalar interger, list or numpy array')
+                
+            ind = NP.asarray(ind)
+            if NP.any(ind >= self.baselines.shape[0]):
+                raise IndexError('Out of range indices found.')
+
+            self.labels = [tuple(reversed(self.labels[i])) if i in ind else self.labels[i] for i in xrange(len(self.labels))]
+            self.baselines[ind,:] = -self.baselines[ind,:]
+            self.baseline_orientations = NP.angle(self.baselines[:,0] + 1j * self.baselines[:,1])
+            if self.vis_freq is not None:
+                self.vis_freq[ind,:,:] = self.vis_freq[ind,:,:].conj()
+            if self.skyvis_freq is not None:
+                self.skyvis_freq[ind,:,:] = self.skyvis_freq[ind,:,:].conj()
+            if self.vis_noise_freq is not None:
+                self.vis_noise_freq[ind,:,:] = self.vis_noise_freq[ind,:,:].conj()
+            if self.projected_baselines is not None:
+                self.projected_baselines[ind,:,:] = -self.projected_baselines[ind,:,:] 
+
+            if verbose:
+                print 'Some baselines have been flipped and their visibilities conjugated. Use delay_transform() to update the delay spectra.'
 
     #############################################################################
 

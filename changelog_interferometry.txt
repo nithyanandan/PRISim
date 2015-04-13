@@ -1,3 +1,10 @@
+From 402fde6 of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Add member function conjugate() to class InterferometerArray
+
 From c50675c of Interferometry:
 ==============================
 
