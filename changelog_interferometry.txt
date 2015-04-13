@@ -1,3 +1,16 @@
+From 0de453c of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) In __init__() member function of class InterferometerArray,
+modify initialization of attribute labels from init_file as a list of
+tuples
+(*) In save() member funciton of class InterferometerArray, add
+extension name for primary HDU as 'PRIMARY'
+(*) In save() member function of class InterferometerArray, write
+Tsys without checking conditions of its existence
+
 From 8dc191c of Interferometry:
 ==============================
 

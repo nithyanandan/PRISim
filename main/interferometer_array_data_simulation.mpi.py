@@ -1561,6 +1561,6 @@ else: # MPI based on baseline multiplexing
                 ia.project_baselines()
                 ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
         pte_str = str(DT.datetime.now())                
-
+ 
 print 'Process {0} has completed.'.format(rank)
 PDB.set_trace()

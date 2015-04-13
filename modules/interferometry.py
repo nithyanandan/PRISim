@@ -1892,7 +1892,10 @@ class InterferometerArray(object):
                 self.projected_baselines = hdulist['PROJ_BASELINES'].data
 
             if 'LABELS' in extnames:
-                self.labels = hdulist['LABELS'].data.tolist()
+                # self.labels = hdulist['LABELS'].data.tolist()
+                a1 = hdulist['LABELS'].data['A1']
+                a2 = hdulist['LABELS'].data['A2']
+                self.labels = zip(a2,a1)
             else:
                 self.labels = ['B{0:0d}'.format(i+1) for i in range(self.baseline_lengths.size)]
 
@@ -3298,6 +3301,7 @@ class InterferometerArray(object):
         hdulist[0].header['t_obs'] = (self.t_obs, 'Observing duration (s)')
         hdulist[0].header['n_acc'] = (self.n_acc, 'Number of accumulations')        
         hdulist[0].header['flux_unit'] = (self.flux_unit, 'Unit of flux density')
+        hdulist[0].header['EXTNAME'] = 'PRIMARY'
 
         if verbose:
             print '\tCreated a primary HDU.'
@@ -3395,11 +3399,10 @@ class InterferometerArray(object):
         if verbose:
             print '\tCreated extension table containing timestamps.'
 
-        if (self.Tsys is not None) and (self.Tsys != []):
-            hdulist += [fits.ImageHDU(self.Tsys, name='Tsys')]
-            if verbose:
-                print '\tCreated an extension for Tsys.'
-
+        hdulist += [fits.ImageHDU(self.Tsys, name='Tsys')]
+        if verbose:
+            print '\tCreated an extension for Tsys.'
+        
         if self.vis_rms_freq is not None:
             hdulist += [fits.ImageHDU(self.vis_rms_freq, name='freq_channel_noise_rms_visibility')]
             if verbose:
