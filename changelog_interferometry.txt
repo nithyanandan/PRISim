@@ -1,3 +1,12 @@
+From c50675c of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Modify function baseline_generator() to return baseline labels as
+tuples made of antenna labels
+(*) Remove unwanted commented sections
+
 From d33b4ff of Interferometry:
 ==============================
 
