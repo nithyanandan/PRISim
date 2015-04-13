@@ -1,3 +1,11 @@
+From d33b4ff of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Add a function to create circular antenna layout, namely,
+circular_antenna_array()
+
 From f36d152 of Interferometry:
 ==============================
 

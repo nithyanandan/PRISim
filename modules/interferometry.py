@@ -20,6 +20,7 @@ try:
     from mwapy.pb import primary_beam as MWAPB
 except ImportError:
     mwa_tools_found = False
+import ipdb as PDB
 
 ################################################################################
 
@@ -159,6 +160,83 @@ def hexagon_generator(spacing, n_total=None, n_side=None, orientation=None,
 
 ################################################################################
 
+def circular_antenna_array(antsize, minR, maxR=None):
+
+    """
+    ---------------------------------------------------------------------------
+    Create antenna layout in a circular ring of minimum and maximum radius with
+    antennas of a given size
+
+    Inputs:
+
+    antsize   [scalar] Antenna size. Critical to determining number of antenna
+              elements that can be placed on a circle. No default.
+
+    minR      [scalar] Minimum radius of the circular ring. Must be in same 
+              units as antsize. No default. Must be greater than 0.5*antsize.
+
+    maxR      [scalar] Maximum radius of circular ring. Must be >= minR. 
+              Default=None means maxR is set equal to minR.
+
+    Outputs:
+
+    xy        [2-column numpy array] Antenna locations in the same units as 
+              antsize returned as a 2-column numpy array where the number of
+              rows equals the number of antenna locations generated and x, 
+              and y locations make the two columns.
+    ---------------------------------------------------------------------------
+    """
+    
+    try:
+        antsize, minR
+    except NameError:
+        raise NameError('antsize, and minR must be specified')
+
+    if (antsize is None) or (minR is None):
+        raise ValueError('antsize and minR cannot be NoneType')
+
+    if not isinstance(antsize, (int, float)):
+        raise TypeError('antsize must be a scalar')
+    if antsize <= 0.0:
+        raise ValueError('antsize must be positive')
+
+    if not isinstance(minR, (int, float)):
+        raise TypeError('minR must be a scalar')
+    if minR <= 0.0:
+        raise ValueError('minR must be positive')
+
+    if minR < 0.5*antsize:
+        minR = 0.5*antsize
+
+    if maxR is None:
+        maxR = minR
+        
+    if not isinstance(maxR, (int, float)):
+        raise TypeError('maxR must be a scalar')
+    elif maxR < minR:
+        maxR = minR
+
+    if maxR - minR < antsize:
+        radii = minR + NP.zeros(1)
+    else:    
+        radii = minR + antsize * NP.arange((maxR-minR)/antsize)
+    nants = 2 * NP.pi * radii / antsize
+    nants = nants.astype(NP.int)
+
+    x = [(radii[i] * NP.cos(2*NP.pi*NP.arange(nants[i])/nants[i])).tolist() for i in range(radii.size)]
+    y = [(radii[i] * NP.sin(2*NP.pi*NP.arange(nants[i])/nants[i])).tolist() for i in range(radii.size)]
+
+    xpos = [xi for sublist in x for xi in sublist]
+    ypos = [yi for sublist in y for yi in sublist]
+    x = NP.asarray(xpos)
+    y = NP.asarray(ypos)
+
+    xy = NP.hstack((x.reshape(-1,1), y.reshape(-1,1)))
+
+    return (xy, map(str, range(NP.sum(nants))))
+
+################################################################################
+
 def baseline_generator(antenna_locations, ant_id=None, auto=False,
                        conjugate=False):
 
@@ -267,32 +345,42 @@ def baseline_generator(antenna_locations, ant_id=None, auto=False,
         if auto:
             baseline_locations = [antenna_locations[j]-antenna_locations[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
             antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            # antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
         else:
             baseline_locations = [antenna_locations[j]-antenna_locations[i] for i in range(0,num_ants) for j in range(0,num_ants) if j > i]                
             antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            # antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
         if conjugate:
             baseline_locations += [antenna_locations[j]-antenna_locations[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
             antenna_pairs += [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            # antenna_pairs += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
     elif inp_type == 'lot':
         if auto:
             baseline_locations = [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
             antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            # antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]            
         else:
             baseline_locations = [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
             antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            # antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]            
         if conjugate:
             baseline_locations += [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
             antenna_pairs += [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            # antenna_pairs += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]            
     elif inp_type == 'npa':
         if auto:
             baseline_locations = [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
             antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            # antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]            
         else:
             baseline_locations = [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]  
-            antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]      
+            antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            # antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]                  
         if conjugate:
             baseline_locations += [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]         
             antenna_pairs += [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            # antenna_pairs += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]            
+
         baseline_locations = NP.asarray(baseline_locations)
         antenna_pairs = NP.asarray(antenna_pairs)
 

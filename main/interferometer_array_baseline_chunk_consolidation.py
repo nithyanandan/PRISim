@@ -7,13 +7,13 @@ import interferometry as RI
 rootdir = '/data3/t_nithyanandan/'
 # rootdir = '/data3/MWA/lstbin_RA0/NT/'
 
-filenaming_convention = 'new'
-# filenaming_convention = 'old'
+# filenaming_convention = 'new'
+filenaming_convention = 'old'
 
 project_MWA = False
 project_LSTbin = False
-project_HERA = True
-project_beams = False
+project_HERA = False
+project_beams = True
 project_drift_scan = False
 project_global_EoR = False
 
@@ -28,9 +28,9 @@ if project_drift_scan: project_dir = 'project_drift_scan/'
 if project_global_EoR: project_dir = 'project_global_EoR/'
 
 telescope_id = 'custom'
-element_size = 14.0
-element_shape = 'dish'
-phased_array = False
+element_size = 0.74
+element_shape = 'delta'
+phased_array = True
 
 if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole'):
     element_size = 0.74
@@ -64,7 +64,7 @@ if telescope_id == 'custom':
         telescope_id = telescope_id + '_array'
 telescope_str = telescope_id+'_'
 
-ground_plane = None # height of antenna element above ground plane in m
+ground_plane = 0.3 # height of antenna element above ground plane in m
 if ground_plane is None:
     ground_plane_str = 'no_ground_'
 else:
@@ -73,7 +73,7 @@ else:
     else:
         raise ValueError('Height of antenna element above ground plane must be positive.')
 
-delayerr = 0.0     # delay error rms in ns
+delayerr = 0.05     # delay error rms in ns
 if delayerr is None:
     delayerr_str = ''
     delayerr = 0.0
@@ -83,7 +83,7 @@ else:
     delayerr_str = 'derr_{0:.3f}ns'.format(delayerr)
 delayerr *= 1e-9
 
-gainerr = 0.0      # Gain error rms in dB
+gainerr = 0.5      # Gain error rms in dB
 if gainerr is None:
     gainerr_str = ''
     gainerr = 0.0
@@ -92,7 +92,7 @@ elif gainerr < 0.0:
 else:
     gainerr_str = '_gerr_{0:.2f}dB'.format(gainerr)
 
-nrand = 1       # Number of random realizations
+nrand = 100       # Number of random realizations
 if nrand is None:
     nrandom_str = ''
     nrand = 1
@@ -107,8 +107,8 @@ if (delayerr_str == '') and (gainerr_str == ''):
 
 delaygain_err_str = delayerr_str + gainerr_str + nrandom_str
 
-# array_layout = 'MWA-128T'
-array_layout = 'HERA-331'
+array_layout = 'MWA-128T'
+# array_layout = 'HERA-331'
 
 if array_layout == 'MWA-128T':
     ant_info = NP.loadtxt('/data3/t_nithyanandan/project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', skiprows=6, comments='#', usecols=(0,1,2,3))
@@ -145,8 +145,8 @@ bl_id = bl_id[sortind]
 bl_length = bl_length[sortind]
 total_baselines = bl_length.size
 
-n_bl_chunks = 16
-baseline_chunk_size = 40
+n_bl_chunks = 32
+baseline_chunk_size = 64
 baseline_bin_indices = range(0, int(NP.ceil(1.0*total_baselines/baseline_chunk_size)+1)*baseline_chunk_size, baseline_chunk_size)
 
 bl_chunk = range(len(baseline_bin_indices)-1)
@@ -155,17 +155,17 @@ bl = bl[:min(baseline_bin_indices[n_bl_chunks], total_baselines),:]
 bl_length = bl_length[:min(baseline_bin_indices[n_bl_chunks], total_baselines)]
 bl_id = bl_id[:min(baseline_bin_indices[n_bl_chunks], total_baselines)]
 
-Tsys = 300.0 # System temperature in K
-freq = 150.0 * 1e6 # foreground center frequency in Hz
-freq_resolution = 128e3 # in Hz
+Tsys = 95.0 # System temperature in K
+freq = 185.0 * 1e6 # foreground center frequency in Hz
+freq_resolution = 80e3 # in Hz
 bpass_shape = 'rect'
 f_pad = 1.0
 oversampling_factor = 1.0 + f_pad
-n_channels = 128
+n_channels = 384
 nchan = n_channels
 bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(nchan, freq_resolution/1e3)
 
-use_pfb = False
+use_pfb = True
 
 pfb_instr = ''
 pfb_outstr = ''
@@ -173,8 +173,8 @@ if not use_pfb:
     pfb_instr = 'no_pfb_'
     pfb_outstr = '_no_pfb'
 
-obs_mode = 'drift'
-# obs_mode = 'custom'
+# obs_mode = 'drift'
+obs_mode = 'custom'
 # obs_mode = 'lstbin'
 avg_drifts = False
 beam_switch = False
@@ -209,7 +209,7 @@ if spindex_seed is not None:
     spindex_seed_str = '{0:0d}_'.format(spindex_seed)
 
 nside = 64
-use_GSM = True
+use_GSM = False
 use_DSM = False
 use_CSM = False
 use_NVSS = False
@@ -217,7 +217,7 @@ use_SUMSS = False
 use_MSS = False
 use_GLEAM = False
 use_PS = False
-use_USM = False
+use_USM = True
 use_HI_monopole = False
 use_HI_fluctuations = False
 use_HI_cube = False

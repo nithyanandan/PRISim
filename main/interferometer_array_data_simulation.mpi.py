@@ -48,7 +48,11 @@ project_group.add_argument('--project-global-EoR', dest='project_global_EoR', ac
 
 array_config_group = parser.add_mutually_exclusive_group(required=True)
 array_config_group.add_argument('--antenna-file', help='File containing antenna locations', type=file, dest='antenna_file')
-array_config_group.add_argument('--array-layout', help='Identifier specifying antenna array layout', choices=['MWA-128T', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331'], type=str, dest='array_layout')
+array_config_group.add_argument('--array-layout', help='Identifier specifying antenna array layout', choices=['MWA-128T', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331', 'CIRC'], type=str, dest='array_layout')
+
+array_parms_group = parser.add_argument_group('Array Layout Parameters', 'Array Layout Specifications')
+array_parms_group.add_argument('--minR', help='Minimum radius of circular antenna layout', dest='minR', type=float, default=None, nargs='?')
+array_parms_group.add_argument('--maxR', help='Maximum radius of circular antenna layout', dest='maxR', type=float, default=None, nargs='?')
 
 # parser.add_argument('--antenna-file', help='File containing antenna locations', default='/data3/t_nithyanandan/project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', type=file, dest='antenna_file')
 
@@ -144,7 +148,7 @@ skyparm_group = parser.add_argument_group('Sky Model Setup', 'Parameters describ
 skyparm_group.add_argument('--flux-unit', help='Units of flux density [str, Default="Jy"]', type=str, dest='flux_unit', default='Jy', choices=['Jy','K'])
 skyparm_group.add_argument('--lidz', help='Simulations of Adam Lidz', action='store_true')
 skyparm_group.add_argument('--21cmfast', help='21CMFAST Simulations of Andrei Mesinger', action='store_true')
-skyparm_group.add_argument('--HI-monopole-parms', help='Parameters defining global HI signal', dest='global_HI_parms', default=None, type=float, nargs=3, metavar=('T_xi0', 'freq_half', 'dfreq_half'))
+skyparm_group.add_argument('--HI-monopole-parms', help='Parameters defining global HI signal', dest='global_HI_parms', default=None, type=float, nargs=3, metavar=('T_xi0', 'freq_half', 'dz_half'))
 
 skycat_group = parser.add_argument_group('Catalog files', 'Catalog file locations')
 skycat_group.add_argument('--dsm-file-prefix', help='Diffuse sky model filename prefix [str]', type=str, dest='DSM_file_prefix', default='/data3/t_nithyanandan/project_MWA/foregrounds/gsmdata')
@@ -178,46 +182,6 @@ if project_beams: project_dir = 'project_beams'
 if project_drift_scan: project_dir = 'project_drift_scan'
 if project_global_EoR: project_dir = 'project_global_EoR'
 
-antenna_file = args['antenna_file']
-array_layout = args['array_layout']
-
-if antenna_file is not None: 
-    try:
-        ant_info = NP.loadtxt(antenna_file, skiprows=6, comments='#', usecols=(0,1,2,3))
-        ant_id = ant_info[:,0].astype(int).astype(str)
-        ant_locs = ant_info[:,1:]
-    except IOError:
-        raise IOError('Could not open file containing antenna locations.')
-else:
-    if array_layout == 'MWA-128T':
-        ant_info = NP.loadtxt('/data3/t_nithyanandan/project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', skiprows=6, comments='#', usecols=(0,1,2,3))
-        ant_id = ant_info[:,0].astype(int).astype(str)
-        ant_locs = ant_info[:,1:]
-    elif array_layout == 'HERA-7':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=7)
-    elif array_layout == 'HERA-19':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=19)
-    elif array_layout == 'HERA-37':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=37)
-    elif array_layout == 'HERA-61':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=61)
-    elif array_layout == 'HERA-91':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=91)
-    elif array_layout == 'HERA-127':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=127)
-    elif array_layout == 'HERA-169':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=169)
-    elif array_layout == 'HERA-217':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=217)
-    elif array_layout == 'HERA-271':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=271)
-    elif array_layout == 'HERA-331':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=331)
-
-n_bins_baseline_orientation = args['n_bins_baseline_orientation']
-baseline_chunk_size = args['baseline_chunk_size']
-bl_chunk = args['bl_chunk']
-n_bl_chunks = args['n_bl_chunks']
 telescope_id = args['telescope_id']
 element_shape = args['antenna_element_shape']
 element_size = args['antenna_element_size']
@@ -307,6 +271,51 @@ telescope['size'] = element_size
 telescope['orientation'] = element_orientation
 telescope['ocoords'] = element_ocoords
 telescope['groundplane'] = ground_plane
+
+antenna_file = args['antenna_file']
+array_layout = args['array_layout']
+minR = args['minR']
+maxR = args['maxR']
+
+if antenna_file is not None: 
+    try:
+        ant_info = NP.loadtxt(antenna_file, skiprows=6, comments='#', usecols=(0,1,2,3))
+        ant_id = ant_info[:,0].astype(int).astype(str)
+        ant_locs = ant_info[:,1:]
+    except IOError:
+        raise IOError('Could not open file containing antenna locations.')
+else:
+    if array_layout == 'MWA-128T':
+        ant_info = NP.loadtxt('/data3/t_nithyanandan/project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', skiprows=6, comments='#', usecols=(0,1,2,3))
+        ant_id = ant_info[:,0].astype(int).astype(str)
+        ant_locs = ant_info[:,1:]
+    elif array_layout == 'HERA-7':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=7)
+    elif array_layout == 'HERA-19':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=19)
+    elif array_layout == 'HERA-37':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=37)
+    elif array_layout == 'HERA-61':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=61)
+    elif array_layout == 'HERA-91':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=91)
+    elif array_layout == 'HERA-127':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=127)
+    elif array_layout == 'HERA-169':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=169)
+    elif array_layout == 'HERA-217':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=217)
+    elif array_layout == 'HERA-271':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=271)
+    elif array_layout == 'HERA-331':
+        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=331)
+    elif array_layout == 'CIRC':
+        ant_locs, ant_id = RI.circular_antenna_array(element_size, minR, maxR=maxR)
+
+n_bins_baseline_orientation = args['n_bins_baseline_orientation']
+baseline_chunk_size = args['baseline_chunk_size']
+bl_chunk = args['bl_chunk']
+n_bl_chunks = args['n_bl_chunks']
 
 freq = args['freq']
 freq_resolution = args['freq_resolution']
@@ -568,7 +577,7 @@ global_HI_parms = args['global_HI_parms']
 if global_HI_parms is not None:
     T_xi0 = global_HI_parms[0]
     freq_half = global_HI_parms[1]
-    dfreq_half = global_HI_parms[2]
+    dz_half = global_HI_parms[2]
 
 bl, bl_id = RI.baseline_generator(ant_locs, ant_id=ant_id, auto=False, conjugate=False)
 bl, select_bl_ind, bl_count = RI.uniq_baselines(bl)
@@ -587,6 +596,7 @@ bl[neg_bl_orientation_ind,:] = -1.0 * bl[neg_bl_orientation_ind,:]
 bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
 
 if use_HI_monopole:
+    PDB.set_trace()
     bllstr = map(str, bl_length)
     uniq_bllstr, ind_uniq_bll = NP.unique(bllstr, return_index=True)
     count_uniq_bll = [bllstr.count(ubll) for ubll in uniq_bllstr]
@@ -616,6 +626,8 @@ if bl_chunk is None:
 if n_bl_chunks is None:
     n_bl_chunks = len(bl_chunk)
 bl_chunk = bl_chunk[:n_bl_chunks]
+
+PDB.set_trace()
 
 mpi_on_src = args['mpi_on_src']
 mpi_on_bl = args['mpi_on_bl']
@@ -871,9 +883,10 @@ elif use_HI_monopole:
     spec_parms['freq-ref'] = freq_half + NP.zeros(ra_deg_EoR.size)
     spec_parms['flux-scale'] = T_xi0 * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
     spec_parms['flux-offset'] = 0.5*spec_parms['flux-scale'] + NP.zeros(ra_deg_EoR.size)
-    spec_parms['freq-width'] = dfreq_half + NP.zeros(ra_deg_EoR.size)
+    spec_parms['z-width'] = dz_half + NP.zeros(ra_deg_EoR.size)
 
     skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), spec_type, spec_parms=spec_parms)
+    PDB.set_trace()
     spectrum = skymod.generate_spectrum()
 
 elif use_GSM:
@@ -1067,7 +1080,7 @@ elif use_USM:
     spec_parms['power-law-index'] = spindex
     # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
     spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
-    spec_parms['flux-scale'] = fluxes
+    spec_parms['flux-scale'] = fluxes_USM
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
     spec_parms['freq-width'] = NP.zeros(ra_deg.size)
 
@@ -1305,6 +1318,7 @@ elif use_PS:
 
 ## Set up the observing run
 
+PDB.set_trace()
 if mpi_on_src: # MPI based on source multiplexing
 
     for i in range(len(bl_chunk)):
