@@ -3325,8 +3325,12 @@ class InterferometerArray(object):
         if verbose:
             print '\tCreated pointing and phase center information table.'
 
+        maxlen = max(len(label) for label in self.labels)
+        labels = NP.asarray(self.labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
         cols = []
-        cols += [fits.Column(name='labels', format='5A', array=NP.asarray(self.labels))]
+        cols += [fits.Column(name='A1', format='{0:0d}A'.format(maxlen), array=labels['A1'])]
+        cols += [fits.Column(name='A2', format='{0:0d}A'.format(maxlen), array=labels['A2'])]        
+        # cols += [fits.Column(name='labels', format='5A', array=NP.asarray(self.labels))]
 
         if astropy.__version__ == '0.4':
             columns = fits.ColDefs(cols, tbtype=tabtype)
