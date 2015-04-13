@@ -580,7 +580,6 @@ if global_HI_parms is not None:
     dz_half = global_HI_parms[2]
 
 bl, bl_id = RI.baseline_generator(ant_locs, ant_id=ant_id, auto=False, conjugate=False)
-bl_id = NP.asarray(bl_id, dtype=('a4,a4'))
 bl, select_bl_ind, bl_count = RI.uniq_baselines(bl)
 bl_id = bl_id[select_bl_ind]
 bl_length = NP.sqrt(NP.sum(bl**2, axis=1))
@@ -1552,7 +1551,7 @@ else: # MPI based on baseline multiplexing
                     # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                     progress.update(j+1)
                 progress.finish()
-    
+
                 te0 = time.time()
                 print 'Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60, bl_chunk[i])
                 ia.t_obs = t_obs

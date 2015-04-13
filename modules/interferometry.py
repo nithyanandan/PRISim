@@ -272,11 +272,12 @@ def baseline_generator(antenna_locations, ant_id=None, auto=False,
                         Nb x 3 with each row specifying one baseline 
                         vector)
 
-    antenna_pairs       [List of 2-string tuples] IDs of antennas in 
-                        the pair used to produce the baseline vector.
-                        The baseline vector is obtained by position of
-                        second element in tuple minus position of 
-                        first element in tuple.
+    antenna_pairs       [Numpy structured array tuples] IDs of antennas 
+                        in the pair used to produce the baseline vector
+                        under fields 'A2' and 'A1' for second and first 
+                        antenna respectively. The baseline vector is 
+                        obtained by position of antennas under 'A2' 
+                        minus position of antennas under 'A1'
 
     -------------------------------------------------------------------
     """
@@ -385,7 +386,8 @@ def baseline_generator(antenna_locations, ant_id=None, auto=False,
             antenna_pairs += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]            
 
         baseline_locations = NP.asarray(baseline_locations)
-        # antenna_pairs = NP.asarray(antenna_pairs, dtype=('a3,a3'))
+        maxlen = max(len(aid) for aid in ant_id)
+        antenna_pairs = NP.asarray(antenna_pairs, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
 
     return baseline_locations, antenna_pairs
 

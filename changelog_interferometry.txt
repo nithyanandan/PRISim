@@ -1,3 +1,12 @@
+From 2873037 of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) In baseline_generator(), return antenna_pairs as a numpy record or
+structured array of tuples under fields 'A1' and 'A2'
+(*) Change docstring accordingly
+
 From 402fde6 of Interferometry:
 ==============================
 
