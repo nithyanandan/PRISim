@@ -3,19 +3,20 @@ from astropy.io import fits
 from astropy.io import ascii
 import progressbar as PGB
 import interferometry as RI
+import ipdb as PDB
 
 rootdir = '/data3/t_nithyanandan/'
 # rootdir = '/data3/MWA/lstbin_RA0/NT/'
 
-# filenaming_convention = 'new'
-filenaming_convention = 'old'
+filenaming_convention = 'new'
+# filenaming_convention = 'old'
 
 project_MWA = False
 project_LSTbin = False
 project_HERA = False
-project_beams = True
+project_beams = False
 project_drift_scan = False
-project_global_EoR = False
+project_global_EoR = True
 
 project_dir = ''
 if project_MWA: project_dir = 'project_MWA/'
@@ -28,9 +29,9 @@ if project_drift_scan: project_dir = 'project_drift_scan/'
 if project_global_EoR: project_dir = 'project_global_EoR/'
 
 telescope_id = 'custom'
-element_size = 0.74
-element_shape = 'delta'
-phased_array = True
+element_size = 2.0
+element_shape = 'dish'
+phased_array = False
 
 if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole'):
     element_size = 0.74
@@ -64,7 +65,7 @@ if telescope_id == 'custom':
         telescope_id = telescope_id + '_array'
 telescope_str = telescope_id+'_'
 
-ground_plane = 0.3 # height of antenna element above ground plane in m
+ground_plane = None # height of antenna element above ground plane in m
 if ground_plane is None:
     ground_plane_str = 'no_ground_'
 else:
@@ -73,7 +74,7 @@ else:
     else:
         raise ValueError('Height of antenna element above ground plane must be positive.')
 
-delayerr = 0.05     # delay error rms in ns
+delayerr = 0.0     # delay error rms in ns
 if delayerr is None:
     delayerr_str = ''
     delayerr = 0.0
@@ -83,7 +84,7 @@ else:
     delayerr_str = 'derr_{0:.3f}ns'.format(delayerr)
 delayerr *= 1e-9
 
-gainerr = 0.5      # Gain error rms in dB
+gainerr = 0.0      # Gain error rms in dB
 if gainerr is None:
     gainerr_str = ''
     gainerr = 0.0
@@ -92,7 +93,7 @@ elif gainerr < 0.0:
 else:
     gainerr_str = '_gerr_{0:.2f}dB'.format(gainerr)
 
-nrand = 100       # Number of random realizations
+nrand = 1       # Number of random realizations
 if nrand is None:
     nrandom_str = ''
     nrand = 1
@@ -107,8 +108,12 @@ if (delayerr_str == '') and (gainerr_str == ''):
 
 delaygain_err_str = delayerr_str + gainerr_str + nrandom_str
 
-array_layout = 'MWA-128T'
+array_layout = 'CIRC'
+# array_layout = 'MWA-128T'
 # array_layout = 'HERA-331'
+
+minR = 10.0
+maxR = None
 
 if array_layout == 'MWA-128T':
     ant_info = NP.loadtxt('/data3/t_nithyanandan/project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', skiprows=6, comments='#', usecols=(0,1,2,3))
@@ -134,6 +139,8 @@ elif array_layout == 'HERA-271':
     ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=271)
 elif array_layout == 'HERA-331':
     ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=331)
+elif array_layout == 'CIRC':
+    ant_locs, ant_id = RI.circular_antenna_array(element_size, minR, maxR=maxR)
 
 bl, bl_id = RI.baseline_generator(ant_locs, ant_id=ant_id, auto=False, conjugate=False)
 bl, select_bl_ind, bl_count = RI.uniq_baselines(bl)
@@ -145,9 +152,67 @@ bl_id = bl_id[sortind]
 bl_length = bl_length[sortind]
 total_baselines = bl_length.size
 
-n_bl_chunks = 32
-baseline_chunk_size = 64
+n_bl_chunks = 16
+baseline_chunk_size = 30
+
+nside = 64
+use_GSM = True
+use_DSM = False
+use_CSM = False
+use_NVSS = False
+use_SUMSS = False
+use_MSS = False
+use_GLEAM = False
+use_PS = False
+use_USM = False
+use_HI_monopole = False
+use_HI_fluctuations = False
+use_HI_cube = False
+
+if use_GSM:
+    fg_str = 'asm'
+elif use_DSM:
+    fg_str = 'dsm'
+elif use_CSM:
+    fg_str = 'csm'
+elif use_SUMSS:
+    fg_str = 'sumss'
+elif use_GLEAM:
+    fg_str = 'gleam'
+elif use_PS:
+    fg_str = 'point'
+elif use_NVSS:
+    fg_str = 'nvss'
+elif use_USM:
+    fg_str = 'usm'
+elif use_HI_monopole:
+    fg_str = 'HI_monopole'
+elif use_HI_fluctuations:
+    fg_str = 'HI_fluctuations'
+elif use_HI_cube:
+    fg_str = 'HI_cube'
+else:
+    fg_str = 'other'
+
+if use_HI_monopole:
+    bllstr = map(str, bl_length)
+    uniq_bllstr, ind_uniq_bll = NP.unique(bllstr, return_index=True)
+    count_uniq_bll = [bllstr.count(ubll) for ubll in uniq_bllstr]
+    count_uniq_bll = NP.asarray(count_uniq_bll)
+
+    bl = bl[ind_uniq_bll,:]
+    bl_id = bl_id[ind_uniq_bll]
+    bl_length = bl_length[ind_uniq_bll]
+
+    sortind = NP.argsort(bl_length, kind='mergesort')
+    bl = bl[sortind,:]
+    bl_id = bl_id[sortind]
+    bl_length = bl_length[sortind]
+    count_uniq_bll = count_uniq_bll[sortind]
+
+total_baselines = bl_length.size
 baseline_bin_indices = range(0, int(NP.ceil(1.0*total_baselines/baseline_chunk_size)+1)*baseline_chunk_size, baseline_chunk_size)
+n_bl_chunks = int(NP.ceil(1.0*total_baselines/baseline_chunk_size))
 
 bl_chunk = range(len(baseline_bin_indices)-1)
 bl_chunk = bl_chunk[:n_bl_chunks]
@@ -155,17 +220,17 @@ bl = bl[:min(baseline_bin_indices[n_bl_chunks], total_baselines),:]
 bl_length = bl_length[:min(baseline_bin_indices[n_bl_chunks], total_baselines)]
 bl_id = bl_id[:min(baseline_bin_indices[n_bl_chunks], total_baselines)]
 
-Tsys = 95.0 # System temperature in K
-freq = 185.0 * 1e6 # foreground center frequency in Hz
-freq_resolution = 80e3 # in Hz
+Tsys = 300.0 # System temperature in K
+freq = 150.0 * 1e6 # foreground center frequency in Hz
+freq_resolution = 400e3 # in Hz
 bpass_shape = 'rect'
 f_pad = 1.0
 oversampling_factor = 1.0 + f_pad
-n_channels = 384
+n_channels = 256
 nchan = n_channels
 bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(nchan, freq_resolution/1e3)
 
-use_pfb = True
+use_pfb = False
 
 pfb_instr = ''
 pfb_outstr = ''
@@ -173,8 +238,8 @@ if not use_pfb:
     pfb_instr = 'no_pfb_'
     pfb_outstr = '_no_pfb'
 
-# obs_mode = 'drift'
-obs_mode = 'custom'
+obs_mode = 'drift'
+# obs_mode = 'custom'
 # obs_mode = 'lstbin'
 avg_drifts = False
 beam_switch = False
@@ -207,45 +272,6 @@ else:
 
 if spindex_seed is not None:
     spindex_seed_str = '{0:0d}_'.format(spindex_seed)
-
-nside = 64
-use_GSM = False
-use_DSM = False
-use_CSM = False
-use_NVSS = False
-use_SUMSS = False
-use_MSS = False
-use_GLEAM = False
-use_PS = False
-use_USM = True
-use_HI_monopole = False
-use_HI_fluctuations = False
-use_HI_cube = False
-
-if use_GSM:
-    fg_str = 'asm'
-elif use_DSM:
-    fg_str = 'dsm'
-elif use_CSM:
-    fg_str = 'csm'
-elif use_SUMSS:
-    fg_str = 'sumss'
-elif use_GLEAM:
-    fg_str = 'gleam'
-elif use_PS:
-    fg_str = 'point'
-elif use_NVSS:
-    fg_str = 'nvss'
-elif use_USM:
-    fg_str = 'usm'
-elif use_HI_monopole:
-    fg_str = 'HI_monopole'
-elif use_HI_fluctuations:
-    fg_str = 'HI_fluctuations'
-elif use_HI_cube:
-    fg_str = 'HI_cube'
-else:
-    fg_str = 'other'
 
 for k in range(n_sky_sectors):
     if n_sky_sectors == 1:

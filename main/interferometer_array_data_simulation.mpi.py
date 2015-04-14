@@ -162,7 +162,7 @@ fgparm_group = parser.add_argument_group('Foreground Setup', 'Parameters describ
 fgparm_group.add_argument('--spindex', help='Spectral index, ~ f^spindex [float, Default=0.0]', type=float, dest='spindex', default=0.0)
 fgparm_group.add_argument('--spindex-rms', help='Spectral index rms [float, Default=0.0]', type=float, dest='spindex_rms', default=0.0)
 fgparm_group.add_argument('--spindex-seed', help='Spectral index seed [float, Default=None]', type=int, dest='spindex_seed', default=None)
-fgparm_group.add_argument('--nside', help='nside parameter for healpix map [int, Default=64]', type=int, dest='nside', default=64, choices=[64, 128])
+fgparm_group.add_argument('--nside', help='nside parameter for healpix map [int, Default=64]', type=int, dest='nside', default=64, choices=[64, 128, 256])
 
 parser.add_argument('--plots', help='Create plots', action='store_true', dest='plots')
 
@@ -615,6 +615,7 @@ if use_HI_monopole:
 
 total_baselines = bl_length.size
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
+
 try:
     labels = bl_id.tolist()
 except NameError:
@@ -857,11 +858,11 @@ if use_HI_fluctuations or use_HI_cube:
     freq_EoR = freq/1e9
     hdulist.close()
 
+    flux_unit = 'Jy'
     catlabel = 'HI-cube'
     spec_type = 'spectrum'
     spec_parms = {}
     skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), spec_type, spectrum=fluxes_EoR, spec_parms=None)
-
 elif use_HI_monopole:
     fg_str = 'HI_monopole'
 
@@ -881,6 +882,7 @@ elif use_HI_monopole:
     spec_parms['flux-scale'] = T_xi0 * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
     spec_parms['flux-offset'] = 0.5*spec_parms['flux-scale'] + NP.zeros(ra_deg_EoR.size)
     spec_parms['z-width'] = dz_half + NP.zeros(ra_deg_EoR.size)
+    flux_unit = 'Jy'
 
     skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), spec_type, spec_parms=spec_parms)
     spectrum = skymod.generate_spectrum()
@@ -1007,6 +1009,7 @@ elif use_GSM:
     spec_parms['flux-scale'] = fluxes
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
     spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+    flux_unit = 'Jy'
 
     skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
 
@@ -1021,6 +1024,7 @@ elif use_DSM:
     dec_deg_DSM = dsm_table['DEC']
     temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
     fluxes_DSM = temperatures * (2.0 * FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
+    flux_unit = 'Jy'
     spindex = dsm_table['spindex'] + 2.0
     freq_DSM = freq/1e9 # in GHz
     freq_catalog = freq_DSM * 1e9 + NP.zeros(fluxes_DSM.size)
@@ -1069,6 +1073,7 @@ elif use_USM:
     # ctlgobj = SM.Catalog(catlabel, freq_catalog, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fluxes_USM, spectral_index=spindex, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes_USM.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     hdulist.close()  
 
+    flux_unit = 'Jy'
     spec_type = 'func'
     spec_parms = {}
     # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
@@ -1181,6 +1186,7 @@ elif use_CSM:
     spec_parms['flux-scale'] = fluxes
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
     spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+    flux_unit = 'Jy'
 
     skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
 
@@ -1242,6 +1248,7 @@ elif use_SUMSS:
     spec_parms['flux-scale'] = fluxes
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
     spec_parms['freq-width'] = 1.0e-3 + NP.zeros(ra_deg.size)
+    flux_unit = 'Jy'
 
     skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
 
@@ -1267,6 +1274,7 @@ elif use_GLEAM:
     spec_parms['flux-scale'] = fluxes
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
     spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+    flux_unit = 'Jy'
 
     skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
 
@@ -1295,6 +1303,7 @@ elif use_PS:
     spec_parms['flux-scale'] = fluxes
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
     spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+    flux_unit = 'Jy'
 
     skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
 

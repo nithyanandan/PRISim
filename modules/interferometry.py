@@ -20,7 +20,6 @@ try:
     from mwapy.pb import primary_beam as MWAPB
 except ImportError:
     mwa_tools_found = False
-import ipdb as PDB
 
 ################################################################################
 
@@ -1520,9 +1519,9 @@ class InterferometerArray(object):
 
     channels    [list or numpy vector] frequency channels in Hz
 
-    eff_Q       [scalar, list or numpy vector] Efficiency of the interferometers, 
-                one value for each interferometer. Default = 0.89, appropriate for
-                the VLA. Has to be between 0 and 1. If only a scalar value
+    eff_Q       [scalar, list or numpy vector] Efficiency of the interferometers,
+                one value for each interferometer. Default = 0.89, appropriate 
+                for the VLA. Has to be between 0 and 1. If only a scalar value
                 provided, it will be assumed to be identical for all the 
                 interferometers. Otherwise, one value must be provided for each
                 of the interferometers.
@@ -1530,8 +1529,8 @@ class InterferometerArray(object):
     freq_resolution
                 [scalar] Frequency resolution (in Hz)
 
-    labels:     [list] A unique identifier (preferably a string) for each of the 
-                interferometers. 
+    labels:     [list of 2-element tuples] A unique identifier (tuple of 
+                strings) for each of the interferometers. 
 
     lags        [numpy vector] Time axis obtained when the frequency axis is
                 inverted using a FFT. Same size as channels. This is 
@@ -1734,6 +1733,9 @@ class InterferometerArray(object):
     project_baselines() Project baseline vectors with respect to a reference 
                         point (usually pointing center) on the sky.
 
+
+    conjugate()         Flips the baseline vectors and conjugates the visibilies 
+                        for a specified subset of baselines.
 
     delay_transform()  Transforms the visibilities from frequency axis onto 
                        delay (time) axis using an IFFT. This is performed for 
@@ -3063,7 +3065,7 @@ class InterferometerArray(object):
                 self.projected_baselines[ind,:,:] = -self.projected_baselines[ind,:,:] 
 
             if verbose:
-                print 'Some baselines have been flipped and their visibilities conjugated. Use delay_transform() to update the delay spectra.'
+                print 'Certain baselines have been flipped and their visibilities conjugated. Use delay_transform() to update the delay spectra.'
 
     #############################################################################
 

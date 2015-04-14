@@ -1,3 +1,10 @@
+From 1381c2e of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Update docstring of class InterferometerArray
+
 From 0de453c of Interferometry:
 ==============================
 

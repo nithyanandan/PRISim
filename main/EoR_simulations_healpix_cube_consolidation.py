@@ -14,14 +14,14 @@ def process_healpix(filename, out_nside):
     pixval = HP.read_map(filename, verbose=False)
     nside = HP.npix2nside(pixval.size)
     out_pixres = HP.nside2resol(out_nside)
-    # print 'Before: ', NP.mean(pixval), NP.std(pixval)
+    print 'Before: ', pixval.min(), pixval.max(), NP.mean(pixval), NP.std(pixval)
     if nside > out_nside:
         if nside/out_nside > 4:
             pixval = HP.ud_grade(pixval, 4*out_nside)
             nside = 4*out_nside
         pix_smoothed = HP.smoothing(pixval, fwhm=out_pixres, regression=False, verbose=False)
     pix_resampled = HP.ud_grade(pix_smoothed, out_nside)
-    # print 'After: ', NP.mean(pix_resampled), NP.std(pix_resampled)
+    print 'After: ', pixval.min(), pixval.max(), NP.mean(pix_resampled), NP.std(pix_resampled)
     return pix_resampled
 
 def unwrap_process_healpix(arg):
@@ -30,7 +30,7 @@ def unwrap_process_healpix(arg):
 indir = '/data3/piyanat/model/21cm/healpix/'
 infile_prefix = 'hpx_interp_delta_21cm_l128_'
 
-out_nside = 128
+out_nside = 256
 
 outdir = '/data3/t_nithyanandan/EoR_simulations/Adam_Lidz/Boom_tiles/'
 
@@ -49,9 +49,9 @@ infiles_freq = NP.asarray(infiles_freq)
 infiles = infiles[sortind_infiles_freq]
 infiles_freq = infiles_freq[sortind_infiles_freq]
 
-infiles = infiles[:10]
-infiles_freq = infiles_freq[:10]
-nproc = max(MP.cpu_count()/2, 1)
+infiles = infiles
+infiles_freq = infiles_freq
+nproc = max(MP.cpu_count()/2-1, 1)
 chunksize = int(ceil(len(infiles)/float(nproc)))
 pool = MP.Pool(processes=nproc)
 resampled_pixvals = pool.map(unwrap_process_healpix, IT.izip(infiles, IT.repeat(out_nside)))
