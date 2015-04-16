@@ -29,7 +29,7 @@ if project_drift_scan: project_dir = 'project_drift_scan/'
 if project_global_EoR: project_dir = 'project_global_EoR/'
 
 telescope_id = 'custom'
-element_size = 2.0
+element_size = 14.0
 element_shape = 'dish'
 phased_array = False
 
@@ -112,7 +112,7 @@ array_layout = 'CIRC'
 # array_layout = 'MWA-128T'
 # array_layout = 'HERA-331'
 
-minR = 10.0
+minR = 141.0
 maxR = None
 
 if array_layout == 'MWA-128T':
@@ -152,8 +152,8 @@ bl_id = bl_id[sortind]
 bl_length = bl_length[sortind]
 total_baselines = bl_length.size
 
-n_bl_chunks = 16
-baseline_chunk_size = 30
+n_bl_chunks = 32
+baseline_chunk_size = 62
 
 nside = 64
 use_GSM = True
@@ -255,7 +255,7 @@ if snapshots_range is not None:
 
 duration_str = ''
 if obs_mode in ['track', 'drift']:
-    t_snap = 1080.0    # in seconds
+    t_snap = 540.0    # in seconds
     n_snaps = 80
     if (t_snap is not None) and (n_snaps is not None):
         duration_str = '_{0:0d}x{1:.1f}s'.format(n_snaps, t_snap)

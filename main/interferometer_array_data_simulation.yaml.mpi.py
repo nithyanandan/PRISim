@@ -1,8 +1,8 @@
-from mpi4py import MPI 
+from mpi4py import MPI
+import yaml
 import argparse
 import numpy as NP 
-from astropy.io import fits
-from astropy.io import ascii
+from astropy.io import fits, ascii
 from astropy.coordinates import Galactic, FK5
 from astropy import units
 import scipy.constants as FCNST
@@ -38,13 +38,160 @@ name = MPI.Get_processor_name()
 
 parser = argparse.ArgumentParser(description='Program to simulate interferometer array data')
 
-project_group = parser.add_mutually_exclusive_group(required=True)
-project_group.add_argument('--project-MWA', dest='project_MWA', action='store_true')
-project_group.add_argument('--project-LSTbin', dest='project_LSTbin', action='store_true')
-project_group.add_argument('--project-HERA', dest='project_HERA', action='store_true')
-project_group.add_argument('--project-beams', dest='project_beams', action='store_true')
-project_group.add_argument('--project-drift-scan', dest='project_drift_scan', action='store_true')
-project_group.add_argument('--project-global-EoR', dest='project_global_EoR', action='store_true') 
+input_group = parser.add_argument_group('Input parameters', 'Input specifications')
+input_group.add_argument('-i', '--infile', dest='infile', default='/home/t_nithyanandan/codes/mine/python/interferometry/main/simparameters.yaml', type=file, required=False, help='File specifying input parameters')
+
+args = vars(parser.parse_args())
+
+rootdir = '/data3/t_nithyanandan/'
+
+with args['infile'] as parms_file:
+    parms = yaml.safe_load(parms_file)
+
+project = parms['project']
+telescope_id = parms['telescope']['id']
+label_prefix = parms['telescope']['label_prefix']
+Tsys = parms['telescope']['Tsys']
+A_eff = parms['telescope']['A_eff']
+latitude = parms['telescope']['latitude']
+pfb_method = parms['telescope']['pfb_method']
+pfb_file = parms['telescope']['pfb_file']
+element_shape = parms['antenna']['shape']
+element_size = parms['antenna']['size']
+element_ocoords = parms['antenna']['ocoords']
+element_orientation = parms['antenna']['orientation']
+ground_plane = parms['antenna']['ground_plane']
+phased_array = parms['antenna']['phased_array']
+phased_elements_file = parms['phasedarray']['file']
+delayerr = parms['phasedarray']['delayerr']
+gainerr = parms['phasedarray']['gainerr']
+nrand = parms['phasedarray']['nrand']
+antenna_file = parms['array']['file']
+array_layout = parms['array']['layout']
+minR = parms['array']['minR']
+maxR = parms['array']['maxR']
+obs_mode = parms['obsparm']['obs_mode']
+n_snaps = parms['obsparm']['n_snaps']
+t_snap = parms['obsparm']['t_snap']
+t_obs = parms['obsparm']['t_obs']
+freq = parms['obsparm']['freq']
+freq_resolution = parms['obsparm']['freq_resolution']
+nchan = parms['obsparm']['nchan']
+avg_drifts = parms['snapshot']['avg_drifts']
+beam_switch = parms['snapshot']['beam_switch']
+pick_snapshots = parms['snapshot']['pick']
+all_snapshots = parms['snapshot']['all']
+snapshots_range = parms['snapshot']['range']
+pointing_file = parms['pointing']['file']
+pointing_info = parms['pointing']['initial']
+n_bins_baseline_orientation = parms['processing']['n_bins_blo']
+baseline_chunk_size = parms['processing']['bl_chunk_size']
+bl_chunk = parms['processing']['bl_chunk']
+n_bl_chunks = parms['processing']['n_bl_chunks']
+n_sky_sectors = parms['processing']['n_sky_sectors']
+bpass_shape = parms['processing']['bpass_shape']
+max_abs_delay = parms['processing']['max_abs_delay']
+f_pad = parms['processing']['f_pad']
+n_pad = parms['processing']['n_pad']
+coarse_channel_width = parms['processing']['coarse_channel_width']
+bandpass_correct = parms['processing']['bp_correct']
+noise_bandpass_correct = parms['processing']['noise_bp_correct']
+flag_chan = NP.asarray(parms['flags']['flag_chan']).reshape(-1)
+bp_flag_repeat = parms['flags']['bp_flag_repeat']
+n_edge_flag = NP.asarray(parms['flags']['n_edge_flag']).reshape(-1)
+flag_repeat_edge_channels = parms['flags']['flag_repeat_edge_channels']
+fg_str = parms['fgparm']['model']
+nside = parms['fgparm']['nside']
+flux_unit = parms['fgparm']['flux_unit']
+spindex = parms['fgparm']['spindex']
+spindex_rms = parms['fgparm']['spindex_rms']
+spindex_seed = parms['fgparm']['spindex_seed']
+use_lidz = parms['fgparm']['lidz']
+use_21cmfast = parms['fgparm']['21cmfast']
+global_HI_parms = parms['fgparm']['global_HI_parms']
+DSM_file_prefix = parms['catalog']['DSM_file_prefix']
+SUMSS_file = parms['catalog']['SUMSS_file']
+NVSS_file = parms['catalog']['NVSS_file']
+MWACS_file = parms['catalog']['MWACS_file']
+GLEAM_file = parms['catalog']['GLEAM_file']
+PS_file = parms['catalog']['PS_file']
+pc = parms['phasing']['center']
+pc_coords = parms['phasing']['coords']
+mpi_key = parms['pp']['key']
+mpi_sync = parms['pp']['sync']
+plots = args['plots']
+
+if project not in ['project_MWA', 'project_global_EoR', 'project_HERA', 'project_drift_scan', 'project_beams', 'project_LSTbin']:
+    raise ValueError('Invalid project specified')
+else:
+    project_dir = project + '/'
+
+if telescope_id not in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'custom', 'paper_dipole', 'mwa_tools']:
+    raise ValueError('Invalid telescope specified')
+
+if element_shape is None:
+    element_shape = 'delta'
+elif element_shape not in ['dish', 'delta', 'dipole']:
+    raise ValueError('Invalid antenna element shape specified')
+
+if element_shape != 'delta':
+    if element_size is None:
+        raise ValueError('No antenna element size specified')
+    elif element_size <= 0.0:
+        raise ValueError('Antenna element size must be positive')
+
+if element_ocoords is None:
+    if element_shape == 'dipole':
+        raise ValueError('Orientation of the antenna element must be specified')
+elif element_ocoords not in ['altaz', 'dircos']:
+    raise ValueError('Antenna element orientation must be "altaz" or "dircos"')
+        
+if element_orientation is None:
+    if element_ocoords == 'altaz':
+        element_orientation = NP.asarray([0.0, 90.0])
+    elif element_ocoords == 'dircos':
+        element_orientation = NP.asarray([1.0, 0.0, 0.0])
+else:
+    element_orientation = NP.asarray(element_orientation)
+
+if ground_plane is not None:
+    if ground_plane < 0.0:
+        raise ValueError('Ground plane height must be positive.')
+
+if not isinstance(phased_array, bool):
+    raise TypeError('phased_array specification must be boolean')
+
+if delayerr is None:
+    delayerr_str = ''
+    delayerr = 0.0
+elif delayerr < 0.0:
+    raise ValueError('delayerr must be non-negative.')
+else:
+    delayerr_str = 'derr_{0:.3f}ns'.format(delayerr)
+delayerr *= 1e-9
+
+if gainerr is None:
+    gainerr_str = ''
+    gainerr = 0.0
+elif gainerr < 0.0:
+    raise ValueError('gainerr must be non-negative.')
+else:
+    gainerr_str = '_gerr_{0:.2f}dB'.format(gainerr)
+
+if nrand is None:
+    nrandom_str = ''
+    nrand = 1
+elif nrand < 1:
+    raise ValueError('nrandom must be positive')
+else:
+    nrandom_str = '_nrand_{0:0d}_'.format(nrand)
+
+if (delayerr_str == '') and (gainerr_str == ''):
+    nrand = 1
+    nrandom_str = ''
+
+delaygain_err_str = delayerr_str + gainerr_str + nrandom_str
+
 
 array_config_group = parser.add_mutually_exclusive_group(required=True)
 array_config_group.add_argument('--antenna-file', help='File containing antenna locations', type=file, dest='antenna_file')

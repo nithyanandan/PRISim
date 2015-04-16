@@ -1,3 +1,9 @@
+From e04fcb0 of Interferometry:
+==============================
+
+(*) Develop some preliminary global EoR codes
+(*) Start developing yaml-based input parameters file for simulations
+
 From 1381c2e of Interferometry:
 ==============================
 

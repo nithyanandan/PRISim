@@ -1,7 +1,7 @@
 import numpy as NP
 import geometry as GEOM
 import scipy.constants as FCNST
-import ipdb as PDB
+
 #################################################################################
 
 def delay_envelope(bl, dircos, units='mks'):
