@@ -594,6 +594,9 @@ neg_bl_orientation_ind = bl_orientation < 0.0
 # neg_bl_orientation_ind = NP.logical_or(bl_orientation < -0.5*180.0/n_bins_baseline_orientation, bl_orientation > 180.0 - 0.5*180.0/n_bins_baseline_orientation)
 bl[neg_bl_orientation_ind,:] = -1.0 * bl[neg_bl_orientation_ind,:]
 bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
+maxlen = max(max(len(aid[0]), len(aid[1])) for aid in bl_id)
+bl_id = [tuple(reversed(bl_id[i])) if neg_bl_orientation_ind[i] else bl_id[i] for i in xrange(bl_id.size)]
+bl_id = NP.asarray(bl_id, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
 
 if use_HI_monopole:
     bllstr = map(str, bl_length)
@@ -1496,16 +1499,19 @@ else: # MPI based on baseline multiplexing
                     
                     progress.update(j+1)
                 progress.finish()
+                roifile = '/data3/t_nithyanandan/'+project_dir+'/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)
+                roi.save(roifile, tabtype='BinTableHDU', overwrite=True, verbose=True)
             else:
                 roi = None
                 pbinfo = None
+                roifile = None
 
-            roi = comm.bcast(roi, root=0) # Broadcast information in ROI instance to all processes
+            roifile = comm.bcast(roifile, root=0) # Broadcast saved RoI filename
             pbinfo = comm.bcast(pbinfo, root=0) # Broadcast PB synthesis info
-            if (rank == 0):
-                roifile = '/data3/t_nithyanandan/'+project_dir+'/roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)
-                roi.save(roifile, tabtype='BinTableHDU', overwrite=True, verbose=True)
 
+            if (rank != 0):
+                roi = RI.ROI_parameters(init_file=roifile+'.fits') # Other processes read in the RoI information
+            else:
                 if plots:
                     for j in xrange(n_snaps):
                         src_ra = roi.skymodel.location[roi.info['ind'][j],0]
@@ -1536,7 +1542,6 @@ else: # MPI based on baseline multiplexing
                         big_ax.set_xlabel(r'$\alpha$ [degrees]', fontsize=16, weight='medium', labelpad=20)
 
                         fig.subplots_adjust(right=0.88)
-
             for i in range(cumm_bl_chunks[rank], cumm_bl_chunks[rank+1]):
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i])
         

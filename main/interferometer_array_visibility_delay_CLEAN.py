@@ -19,10 +19,10 @@ filenaming_convention = 'new'
 
 project_MWA = False
 project_LSTbin = False
-project_HERA = False
+project_HERA = True
 project_beams = False
 project_drift_scan = False
-project_global_EoR = True
+project_global_EoR = False
 
 project_dir = ''
 if project_MWA: project_dir = 'project_MWA/'
@@ -114,9 +114,9 @@ if (delayerr_str == '') and (gainerr_str == ''):
 
 delaygain_err_str = delayerr_str + gainerr_str + nrandom_str
 
-array_layout = 'CIRC'
+# array_layout = 'CIRC'
 # array_layout = 'MWA-128T'
-# array_layout = 'HERA-331'
+array_layout = 'HERA-331'
 
 minR = 141.0
 maxR = None
@@ -158,13 +158,13 @@ bl_id = bl_id[sortind]
 bl_length = bl_length[sortind]
 total_baselines = bl_length.size
 
-n_bl_chunks = 32
-baseline_chunk_size = 62
+n_bl_chunks = 64
+baseline_chunk_size = 10
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
 
-nside = 64
-use_GSM = True
-use_DSM = False
+nside = 256
+use_GSM = False
+use_DSM = True
 use_CSM = False
 use_NVSS = False
 use_SUMSS = False
@@ -229,11 +229,11 @@ bl_id = bl_id[:min(baseline_bin_indices[n_bl_chunks], total_baselines)]
 
 Tsys = 300.0 # System temperature in K
 freq = 150.0 * 1e6 # foreground center frequency in Hz
-freq_resolution = 400e3 # in Hz
+freq_resolution = 320e3 # in Hz
 bpass_shape = 'bhw'
 f_pad = 1.0
 oversampling_factor = 1.0 + f_pad
-n_channels = 256
+n_channels = 128
 nchan = n_channels
 window = n_channels * DSP.windowing(n_channels, shape=bpass_shape, pad_width=0, centering=True, area_normalize=True) 
 bw = n_channels * freq_resolution
@@ -263,7 +263,7 @@ if snapshots_range is not None:
 
 duration_str = ''
 if obs_mode in ['track', 'drift']:
-    t_snap = 540.0    # in seconds
+    t_snap = 1080.0    # in seconds
     n_snaps = 80
     if (t_snap is not None) and (n_snaps is not None):
         duration_str = '_{0:0d}x{1:.1f}s'.format(n_snaps, t_snap)

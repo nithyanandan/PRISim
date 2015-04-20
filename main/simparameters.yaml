@@ -1,6 +1,14 @@
+########## Directory information #########
+
+directory:
+                                # Directory information
+
+    rootdir         : '/data3/t_nithyanandan/'
+                                # Base directory
+
 ########## Project information #########
 
-project  : project_global_EoR
+project  : project_HERA
                                 # Accepted values are project_MWA,
                                 # project_global_EoR, project_HERA, 
                                 # project_drift_scan, project_beams,
@@ -24,7 +32,7 @@ telescope:
                                 # 34.079 for VLA,
                                 # 19.0965 for GMRT
 
-    A_eff           : 3.14
+    A_eff           : 154
                                 # Effective area of antenna element
                                 # in m^2
 
@@ -50,20 +58,44 @@ array   :                       # Parameters 'file' and 'layout'
     file            : null
                                 # File containing antenna locations
 
-    layout          : 'CIRC'
+    layout          : 'HERA-331'
                                 # Accepted values are 'MWA-128T',
                                 # 'HERA-7', 'HERA-19', 'HERA-37',
                                 # 'HERA-61', 'HERA-91', 'HERA-127',
                                 # 'HERA-169', 'HERA-217', 'HERA-271',
                                 # 'HERA-331', 'CIRC', or null
 
-    minR            : 10.0
+    minR            : 141.0
                                 # Minimum radius of circular ring.
                                 # Applies only when layout = 'CIRC'
 
-    maxR            : 10.0
+    maxR            : 141.0
                                 # Maximum radius of circular ring.
                                 # Applies only when layout = 'CIRC'
+
+########## Baseline Selection #########
+
+baseline :                      # Parameters specifying baseline
+                                # selection criteria
+
+    min             : null
+                                # Minimum baseline in distance
+                                # units (m). Default = 0 (null)
+
+    max             : null
+                                # Maximum baseline in distance
+                                # units (m). Default = max (null)
+
+    direction       : null
+                                # Default = null (all directions).
+                                # Other accepted values are 'E' (east)
+                                # 'SE' (south-east), 'NE' (north-east),
+                                # and 'N' (north). Multiple values from
+                                # this accepted list can be specified
+                                # as a list of strings.
+                                # e.g., ['N', 'E'], ['NE', 'SE', 'E'],
+                                # ['SE', 'E', 'NE', 'N'] which is
+                                # equivalent to null, etc.
 
 ########## Antenna Element information #########                      
 
@@ -75,12 +107,12 @@ antenna  :
                                 # and 'delta' or null (defaults to
                                 # 'delta')
 
-    size            : 2.0      
+    size            : 14.0      
                                 # Size of antenna element (in m)
                                 # diameter for dish, linear size for
                                 # dipole
                     
-    orientation     : [0.0, 90.0]
+    orientation     : [90.0, 270.0]
                                 # Orientation of antenna element
                                 # Applicable in case of dipoles
                                 # Coordinate system as specified in
@@ -130,10 +162,11 @@ obsparm  :
     freq            : 150000000.0
                                 # Center frequency (in Hz)
 
-    freq_resolution : 400000.0
+    freq_resolution : 80000.0
                                 # Frequency resolution (in Hz)
 
-    nchan           : 256       # Number of channels
+    nchan           : 128
+                                # Number of channels
 
     obs_mode        : 'drift'  
                                 # Observing mode. Accepted values are
@@ -220,7 +253,7 @@ snapshot :                      # Parameters below are mutually
 
 fgparm   :
 
-    model           : 'asm'
+    model           : 'HI_cube'
                                 # Foreground model. Accepted values
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both
@@ -232,10 +265,10 @@ fgparm   :
                                 # sky model), 'mwacs' (MWACS catalog),
                                 # 'HI_monopole' (global EoR), HI_cube
                                 # (HI cube from external simulations), 
-                                # and 'HI_fluctuations' (HI fluctuations
+                                # and'HI_fluctuations' (HI fluctuations
                                 # with the global mean signal removed)
 
-    nside           : 64
+    nside           : 256
                                 # Healpix nside parameter for foreground
                                 # model input map. Accepted values are
                                 # valid nside values
@@ -257,7 +290,7 @@ fgparm   :
                                 # Random seed for generation of random
                                 # spectral indices
 
-    lidz            : false
+    lidz            : true
                                 # Use simulations of Adam Lidz. Only
                                 # one of lidz or 21cmfast can be set
                                 # to true
@@ -303,13 +336,13 @@ catalog  :
 
 processing:
 
-    n_bl_chunks     : 16
+    n_bl_chunks     : 64
                                 # Upper limit on number of baseline
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
                                 # processing
 
-    bl_chunk_size   : 30
+    bl_chunk_size   : 10
                                 # Baseline chunk size. Will be used
                                 # in a single process during parallel
                                 # processing
@@ -338,7 +371,8 @@ processing:
 
     coarse_channel_width : 32
                                 # Coarse channel width in number of
-                                # fine channels
+                                # fine channels. Used only is PFB
+                                # settings are to be used
 
     bp_correct      : false
                                 # Correct bandpass shape if set to
@@ -374,7 +408,7 @@ pp       :
                                 # 'src' (sources) or 'freq' (frequency),
                                 # for parallel processing
 
-    sync            : true
+    eqvol           : true
                                 # if set to true, load is split equally
                                 # between the parallel processes. If
                                 # set to false, load may be split
@@ -414,6 +448,6 @@ flags    :
 
 ########## Create plots ##########
 
-plots    : true
+plots    : false
                                 # If true, create relevant plots
 

@@ -51,6 +51,9 @@ antenna_file = parms['array']['file']
 array_layout = parms['array']['layout']
 minR = parms['array']['minR']
 maxR = parms['array']['maxR']
+minbl = parms['baseline']['min']
+maxbl = parms['baseline']['max']
+bldirection = parms['baseline']['direction']
 obs_mode = parms['obsparm']['obs_mode']
 n_snaps = parms['obsparm']['n_snaps']
 t_snap = parms['obsparm']['t_snap']
@@ -98,12 +101,10 @@ if element_shape != 'delta':
     elif element_size <= 0.0:
         raise ValueError('Antenna element size must be positive')
 
-if element_ocoords is None:
-    if element_shape == 'dipole':
-        raise ValueError('Orientation of the antenna element must be specified')
-elif element_ocoords not in ['altaz', 'dircos']:
-    raise ValueError('Antenna element orientation must be "altaz" or "dircos"')
-        
+if element_ocoords not in ['altaz', 'dircos']:
+    if element_ocoords is not None:
+        raise ValueError('Antenna element orientation must be "altaz" or "dircos"')
+
 if element_orientation is None:
     if element_ocoords == 'altaz':
         element_orientation = NP.asarray([0.0, 90.0])
@@ -112,9 +113,13 @@ if element_orientation is None:
 else:
     element_orientation = NP.asarray(element_orientation)
 
-if ground_plane is not None:
-    if ground_plane < 0.0:
-        raise ValueError('Ground plane height must be positive.')
+if ground_plane is None:
+    ground_plane_str = 'no_ground_'
+else:
+    if ground_plane > 0.0:
+        ground_plane_str = '{0:.1f}m_ground_'.format(ground_plane)
+    else:
+        raise ValueError('Height of antenna element above ground plane must be positive.')
 
 if not isinstance(phased_array, bool):
     raise TypeError('phased_array specification must be boolean')
@@ -299,8 +304,6 @@ elif (pointing_file is not None) and (pointing_info is not None):
 
 duration_str = ''
 if obs_mode in ['track', 'drift']:
-    t_snap = 1080.0    # in seconds
-    n_snaps = 80
     if (t_snap is not None) and (n_snaps is not None):
         duration_str = '_{0:0d}x{1:.1f}s'.format(n_snaps, t_snap)
         geor_duration_str = '_{0:0d}x{1:.1f}s'.format(1, t_snap)    
@@ -455,10 +458,60 @@ bl_id = bl_id[sortind]
 bl_length = bl_length[sortind]
 bl_orientation = bl_orientation[sortind]
 bl_count = bl_count[sortind]
-neg_bl_orientation_ind = bl_orientation < 0.0
+neg_bl_orientation_ind = (bl_orientation < -67.5) | (bl_orientation > 112.5)
 # neg_bl_orientation_ind = NP.logical_or(bl_orientation < -0.5*180.0/n_bins_baseline_orientation, bl_orientation > 180.0 - 0.5*180.0/n_bins_baseline_orientation)
 bl[neg_bl_orientation_ind,:] = -1.0 * bl[neg_bl_orientation_ind,:]
 bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
+
+if minbl is None:
+    minbl = 0.0
+elif not isinstance(minbl, (int,float)):
+    raise TypeError('Minimum baseline length must be a scalar')
+elif minbl < 0.0:
+    minbl = 0.0
+
+if maxbl is None:
+    maxbl = bl_length.max()
+elif not isinstance(maxbl, (int,float)):
+    raise TypeError('Maximum baseline length must be a scalar')
+elif maxbl < minbl:
+    maxbl = bl_length.max()
+
+min_blo = -67.5
+max_blo = 112.5
+select_bl_ind = NP.zeros(bl_length.size, dtype=NP.bool)
+
+if bldirection is not None:
+    if isinstance(bldirection, str):
+        if bldirection not in ['SE', 'E', 'NE', 'N']:
+            raise ValueError('Invalid baseline direction criterion specified')
+        else:
+            bldirection = [bldirection]
+    if isinstance(bldirection, list):
+        for direction in bldirection:
+            if direction in ['SE', 'E', 'NE', 'N']:
+                if direction == 'SE':
+                    oind = (bl_orientation >= -67.5) & (bl_orientation < -22.5)
+                    select_bl_ind[oind] = True
+                elif direction == 'E':
+                    oind = (bl_orientation >= -22.5) & (bl_orientation < 22.5)
+                    select_bl_ind[oind] = True
+                elif direction == 'NE':
+                    oind = (bl_orientation >= 22.5) & (bl_orientation < 67.5)
+                    select_bl_ind[oind] = True
+                else:
+                    oind = (bl_orientation >= 67.5) & (bl_orientation < 112.5)
+                    select_bl_ind[oind] = True
+    else:
+        raise TypeError('Baseline direction criterion must specified as string or list of strings')
+else:
+    select_bl_ind = NP.ones(bl_length.size, dtype=NP.bool)
+
+select_bl_ind = select_bl_ind & (bl_length >= minbl) & (bl_length <= maxbl)
+bl_id = bl_id[select_bl_ind]
+bl = bl[select_bl_ind,:]
+bl_length = bl_length[select_bl_ind]
+bl_orientation = bl_orientation[select_bl_ind]
 
 total_baselines = bl_length.size
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
@@ -518,17 +571,23 @@ elif fg_str == 'HI_cube':
     use_HI_cube = True
 
 spindex_seed_str = ''
+if not isinstance(spindex_rms, (int,float)):
+    raise TypeError('Spectral Index rms must be a scalar')
 if spindex_rms > 0.0:
     spindex_rms_str = '{0:.1f}'.format(spindex_rms)
 else:
     spindex_rms = 0.0
 
 if spindex_seed is not None:
+    if not isinstance(spindex_seed, (int, float)):
+        raise TypeError('Spectral index random seed must be a scalar')
     spindex_seed_str = '{0:0d}_'.format(spindex_seed)
 
 if n_sky_sectors == 1:
     sky_sector_str = '_all_sky_'
 
+freq = NP.float(freq)
+freq_resolution = NP.float(freq_resolution)
 wavelength = FCNST.c / freq  # in meters
 redshift = CNST.rest_freq_HI / freq - 1
 bw = nchan * freq_resolution
@@ -583,6 +642,7 @@ geor_clean_infile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visi
 
 fg_clean_infile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+'no_pfb_'+bpass_shape+'.fits'                
 
+PDB.set_trace()
 ia = RI.InterferometerArray(None, None, None, init_file=fg_infile)
 
 hdulist = fits.open(geor_clean_infile)

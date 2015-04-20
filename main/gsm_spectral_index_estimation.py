@@ -8,7 +8,7 @@ import foregrounds as FG
 
 freqs = [140.0e6, 150.0e6, 160.0e6, 170.0e6, 185.0e6, 200.0e6] # frequencies in Hz
 freq_center = 150.0e6
-out_nside = 64
+out_nside = 256
 
 nsides = []
 for i in xrange(len(freqs)):
