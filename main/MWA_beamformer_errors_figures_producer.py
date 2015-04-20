@@ -38,15 +38,15 @@ import ipdb as PDB
 
 # 06) Plot FHD data to simulation ratio on all baselines combined
 
-# 07) Plot uncertainties in FHD data to simulation ratio on all baselines combined
+# 07) Plot FHD data to simulation ratio on baselines binned by orientation
 
-# 08) Plot ratio of differences between FHD data and simulation to expected error on all baselines combined
+# 08) Plot simulation to reference simulation ratio on all baselines combined
 
-# 09) Plot histogram of fractional differences between FHD data and simulation 
+# 09) Plot simulation to reference simulation ratio on baselines binned by orientation
 
-# 10) Plot noiseless delay spectra from simulations for diffuse, compact and all-sky models
+# 10) Plot simulation to data ratio hisograms on all baselines
 
-# 11) Plot noiseless delay spectra for all sky models broken down by baseline orientation
+# 11) Plot uniform sky model simulation to reference simulation ratio on all baselines combined (Similar to #08 but with unifrom sky model)
 
 # 12) Plot delay spectra on northward and eastward baselines along with delay maps and sky models (with and without power pattern contours)
 
@@ -550,12 +550,9 @@ if plot_02:
     PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'powerpattern_'+ground_plane_str+delaygain_err_str+snapshot_type_str+obs_mode+'.png', bbox_inches=0)
     PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'powerpattern_'+ground_plane_str+delaygain_err_str+snapshot_type_str+obs_mode+'.eps', bbox_inches=0)
 
-
-
-
 ##########################################    
 
-if plot_05 or plot_06 or plot_07 or plot_08 or plot_09 or plot_10:
+if plot_05 or plot_06 or plot_07 or plot_08 or plot_09 or plot_10 or plot_11:
 
     # 05) Plot FHD data and simulations on baselines by orientation and all combined
 
@@ -564,6 +561,8 @@ if plot_05 or plot_06 or plot_07 or plot_08 or plot_09 or plot_10:
     infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_'+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)
     asm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
     ref_asm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+ref_delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape    
+    usm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_usm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
+    ref_usm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_usm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+ref_delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape    
     if use_alt_spindex:
         alt_asm_CLEAN_infile = '/data3/t_nithyanandan/'+project_dir+'/'+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(alt_spindex_rms)+alt_spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+bpass_shape
 
@@ -644,6 +643,52 @@ if plot_05 or plot_06 or plot_07 or plot_08 or plot_09 or plot_10:
     ref_asm_cc_skyvis_lag = DSP.downsampler(ref_asm_cc_skyvis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
     ref_asm_cc_vis_lag = DSP.downsampler(ref_asm_cc_vis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
     
+    hdulist = fits.open(usm_CLEAN_infile+'.fits')
+    usm_cc_skyvis = hdulist['CLEAN NOISELESS VISIBILITIES REAL'].data + 1j * hdulist['CLEAN NOISELESS VISIBILITIES IMAG'].data
+    usm_cc_skyvis_res = hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS REAL'].data + 1j * hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS IMAG'].data
+    usm_cc_vis = hdulist['CLEAN NOISY VISIBILITIES REAL'].data + 1j * hdulist['CLEAN NOISY VISIBILITIES IMAG'].data
+    usm_cc_vis_res = hdulist['CLEAN NOISY VISIBILITIES RESIDUALS REAL'].data + 1j * hdulist['CLEAN NOISY VISIBILITIES RESIDUALS IMAG'].data
+    hdulist.close()
+    
+    usm_cc_skyvis[simdata_neg_bl_orientation_ind,:,:] = usm_cc_skyvis[simdata_neg_bl_orientation_ind,:,:].conj()
+    usm_cc_skyvis_res[simdata_neg_bl_orientation_ind,:,:] = usm_cc_skyvis_res[simdata_neg_bl_orientation_ind,:,:].conj()
+    usm_cc_vis[simdata_neg_bl_orientation_ind,:,:] = usm_cc_vis[simdata_neg_bl_orientation_ind,:,:].conj()
+    usm_cc_vis_res[simdata_neg_bl_orientation_ind,:,:] = usm_cc_vis_res[simdata_neg_bl_orientation_ind,:,:].conj()
+    
+    usm_cc_skyvis_lag = NP.fft.fftshift(NP.fft.ifft(usm_cc_skyvis, axis=1),axes=1) * usm_cc_skyvis.shape[1] * freq_resolution
+    usm_ccres_sky = NP.fft.fftshift(NP.fft.ifft(usm_cc_skyvis_res, axis=1),axes=1) * usm_cc_skyvis.shape[1] * freq_resolution
+    usm_cc_skyvis_lag = usm_cc_skyvis_lag + usm_ccres_sky
+    
+    usm_cc_vis_lag = NP.fft.fftshift(NP.fft.ifft(usm_cc_vis, axis=1),axes=1) * usm_cc_vis.shape[1] * freq_resolution
+    usm_ccres = NP.fft.fftshift(NP.fft.ifft(usm_cc_vis_res, axis=1),axes=1) * usm_cc_vis.shape[1] * freq_resolution
+    usm_cc_vis_lag = usm_cc_vis_lag + usm_ccres
+    
+    usm_cc_skyvis_lag = DSP.downsampler(usm_cc_skyvis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
+    usm_cc_vis_lag = DSP.downsampler(usm_cc_vis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
+
+    hdulist = fits.open(ref_usm_CLEAN_infile+'.fits')
+    ref_usm_cc_skyvis = hdulist['CLEAN NOISELESS VISIBILITIES REAL'].data + 1j * hdulist['CLEAN NOISELESS VISIBILITIES IMAG'].data
+    ref_usm_cc_skyvis_res = hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS REAL'].data + 1j * hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS IMAG'].data
+    ref_usm_cc_vis = hdulist['CLEAN NOISY VISIBILITIES REAL'].data + 1j * hdulist['CLEAN NOISY VISIBILITIES IMAG'].data
+    ref_usm_cc_vis_res = hdulist['CLEAN NOISY VISIBILITIES RESIDUALS REAL'].data + 1j * hdulist['CLEAN NOISY VISIBILITIES RESIDUALS IMAG'].data
+    hdulist.close()
+    
+    ref_usm_cc_skyvis[simdata_neg_bl_orientation_ind,:,:] = ref_usm_cc_skyvis[simdata_neg_bl_orientation_ind,:,:].conj()
+    ref_usm_cc_skyvis_res[simdata_neg_bl_orientation_ind,:,:] = ref_usm_cc_skyvis_res[simdata_neg_bl_orientation_ind,:,:].conj()
+    ref_usm_cc_vis[simdata_neg_bl_orientation_ind,:,:] = ref_usm_cc_vis[simdata_neg_bl_orientation_ind,:,:].conj()
+    ref_usm_cc_vis_res[simdata_neg_bl_orientation_ind,:,:] = ref_usm_cc_vis_res[simdata_neg_bl_orientation_ind,:,:].conj()
+    
+    ref_usm_cc_skyvis_lag = NP.fft.fftshift(NP.fft.ifft(ref_usm_cc_skyvis, axis=1),axes=1) * ref_usm_cc_skyvis.shape[1] * freq_resolution
+    ref_usm_ccres_sky = NP.fft.fftshift(NP.fft.ifft(ref_usm_cc_skyvis_res, axis=1),axes=1) * ref_usm_cc_skyvis.shape[1] * freq_resolution
+    ref_usm_cc_skyvis_lag = ref_usm_cc_skyvis_lag + ref_usm_ccres_sky
+    
+    ref_usm_cc_vis_lag = NP.fft.fftshift(NP.fft.ifft(ref_usm_cc_vis, axis=1),axes=1) * ref_usm_cc_vis.shape[1] * freq_resolution
+    ref_usm_ccres = NP.fft.fftshift(NP.fft.ifft(ref_usm_cc_vis_res, axis=1),axes=1) * ref_usm_cc_vis.shape[1] * freq_resolution
+    ref_usm_cc_vis_lag = ref_usm_cc_vis_lag + ref_usm_ccres
+    
+    ref_usm_cc_skyvis_lag = DSP.downsampler(ref_usm_cc_skyvis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
+    ref_usm_cc_vis_lag = DSP.downsampler(ref_usm_cc_vis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
+
     if use_alt_spindex:
         alt_hdulist = fits.open(alt_asm_CLEAN_infile+'.fits')
         alt_asm_cc_skyvis = alt_hdulist['CLEAN NOISELESS VISIBILITIES REAL'].data + 1j * alt_hdulist['CLEAN NOISELESS VISIBILITIES IMAG'].data
@@ -677,6 +722,8 @@ if plot_05 or plot_06 or plot_07 or plot_08 or plot_09 or plot_10:
     ref_asm_cc_skyvis_lag = ref_asm_cc_skyvis_lag[truncated_ref_bl_ind,:,:]
     ref_asm_cc_vis_lag = ref_asm_cc_vis_lag[truncated_ref_bl_ind,:,:]
     vis_noise_lag = vis_noise_lag[truncated_ref_bl_ind,:,:]
+    usm_cc_skyvis_lag = usm_cc_skyvis_lag[truncated_ref_bl_ind,:,:]    
+    ref_usm_cc_skyvis_lag = ref_usm_cc_skyvis_lag[truncated_ref_bl_ind,:,:]
 
     delaymat = DLY.delay_envelope(ia.baselines[truncated_ref_bl_ind,:], pc, units='mks')
     min_delay = -delaymat[0,:,1]-delaymat[0,:,0]
@@ -710,6 +757,8 @@ if plot_05 or plot_06 or plot_07 or plot_08 or plot_09 or plot_10:
         asm_cc_skyvis_lag = asm_cc_skyvis_lag[:,small_delays_ind,:]
         ref_asm_cc_vis_lag = ref_asm_cc_vis_lag[:,small_delays_ind,:]
         ref_asm_cc_skyvis_lag = ref_asm_cc_skyvis_lag[:,small_delays_ind,:]
+        usm_cc_skyvis_lag = usm_cc_skyvis_lag[:,small_delays_ind,:]
+        ref_usm_cc_skyvis_lag = ref_usm_cc_skyvis_lag[:,small_delays_ind,:]
         if use_alt_spindex:
             alt_asm_cc_vis_lag = alt_asm_cc_vis_lag[:,small_delays_ind,:]
             alt_asm_cc_skyvis_lag = alt_asm_cc_skyvis_lag[:,small_delays_ind,:]
@@ -828,6 +877,7 @@ if plot_05 or plot_06 or plot_07 or plot_08 or plot_09 or plot_10:
     
     data_sim_ratio = []
     sim_refsim_ratio = []
+    usm_sim_refsim_ratio = []
     data_refsim_ratio = []
     data_sim_difference_fraction = []
 
@@ -843,6 +893,7 @@ if plot_05 or plot_06 or plot_07 or plot_08 or plot_09 or plot_10:
         data_sim_ratio += [NP.abs(fhd_info[fhd_obsid[j]]['vis_lag_noisy'][:,:,0].T) / NP.abs(asm_cc_vis_lag[common_bl_ind_in_ref_snapshots[j],:,j].T)]
         data_refsim_ratio += [NP.abs(fhd_info[fhd_obsid[j]]['vis_lag_noisy'][:,:,0].T) / NP.abs(ref_asm_cc_vis_lag[common_bl_ind_in_ref_snapshots[j],:,j].T)]        
         sim_refsim_ratio += [NP.abs(asm_cc_skyvis_lag[:,:,j].T) / NP.abs(ref_asm_cc_skyvis_lag[:,:,j].T)]
+        usm_sim_refsim_ratio += [NP.abs(usm_cc_skyvis_lag[:,:,j].T) / NP.abs(ref_usm_cc_skyvis_lag[:,:,j].T)]        
         data_sim_difference_fraction += [(NP.abs(fhd_info[fhd_obsid[j]]['vis_lag_noisy'][:,:,0].T) - NP.abs(asm_cc_vis_lag[common_bl_ind_in_ref_snapshots[j],:,j].T)) / NP.abs(fhd_info[fhd_obsid[j]]['vis_lag_noisy'][:,:,0].T)]
         if use_alt_spindex:
             alt_data_sim_ratio += [NP.abs(fhd_info[fhd_obsid[j]]['vis_lag_noisy'][:,:,0].T) / NP.abs(alt_asm_cc_vis_lag[common_bl_ind_in_ref_snapshots[j],:,j].T)]
@@ -1257,10 +1308,10 @@ if plot_05 or plot_06 or plot_07 or plot_08 or plot_09 or plot_10:
                 alt_sig = NP.std(NP.log10(alt_data_sim_ratio[j][relevant_wedge_window[j]]))
                 print NP.median(NP.abs(NP.log10(data_sim_ratio[j][relevant_wedge_window[j]]) - NP.median(NP.log10(data_sim_ratio[j][relevant_wedge_window[j]])))), NP.median(NP.abs(NP.log10(alt_data_sim_ratio[j][relevant_wedge_window[j]]) - NP.median(NP.log10(alt_data_sim_ratio[j][relevant_wedge_window[j]]))))
             else:
-                pass
-                # print NP.median(NP.abs(NP.log10(data_sim_ratio[j][relevant_wedge_window[j]]) - NP.median(NP.log10(data_sim_ratio[j][relevant_wedge_window[j]]))))
-                # print NP.median(NP.abs(NP.log10(data_refsim_ratio[j][relevant_wedge_window[j]]) - NP.median(NP.log10(data_refsim_ratio[j][relevant_wedge_window[j]]))))
-            print mu, sig, ref_mu, ref_sig
+                # pass
+                print NP.median(NP.abs(NP.log10(data_sim_ratio[j][relevant_wedge_window[j]]) - NP.median(NP.log10(data_sim_ratio[j][relevant_wedge_window[j]]))))
+                print NP.median(NP.abs(NP.log10(data_refsim_ratio[j][relevant_wedge_window[j]]) - NP.median(NP.log10(data_refsim_ratio[j][relevant_wedge_window[j]]))))
+            # print mu, sig, ref_mu, ref_sig
             gauss_model = mlab.normpdf(bins, mu, sig)
             modl = axs[j].plot(bins, gauss_model, 'k-')
             axs[j].set_xlabel(r'$\log_{10}\,\rho$', fontsize=24, weight='medium')
@@ -1284,3 +1335,64 @@ if plot_05 or plot_06 or plot_07 or plot_08 or plot_09 or plot_10:
 
         PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'histogram_wedge_data_sim_log_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
         PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'histogram_wedge_data_sim_log_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+
+    if plot_11:
+
+        # 11) Plot uniform sky model simulation to reference simulation ratio on all baselines combined
+
+        fig, axs = PLT.subplots(n_snaps, sharex=True, sharey=True, figsize=(6,6))
+        for j in xrange(n_snaps):
+            imdspec = axs[j].pcolorfast(truncated_ref_bl_length, 1e6*clean_lags, NP.log10(usm_sim_refsim_ratio[j][:-1,:-1]), vmin=-1.0, vmax=1.0)
+
+            horizonb = axs[j].plot(truncated_ref_bl_length, 1e6*min_delay.ravel(), color='white', ls=':', lw=1.5)
+            horizont = axs[j].plot(truncated_ref_bl_length, 1e6*max_delay.ravel(), color='white', ls=':', lw=1.5)
+            axs[j].set_ylim(0.9*NP.amin(clean_lags*1e6), 0.9*NP.amax(clean_lags*1e6))
+            axs[j].set_aspect('auto')
+            axs[j].text(0.5, 0.9, descriptor_str[j], transform=axs[j].transAxes, fontsize=14, weight='semibold', ha='center', color='white')
+    
+        for j in xrange(n_snaps):
+            axs_kprll = axs[j].twinx()
+            axs_kprll.set_yticks(kprll(axs[j].get_yticks()*1e-6, redshift))
+            axs_kprll.set_ylim(kprll(NP.asarray(axs[j].get_ylim())*1e-6, redshift))
+            yformatter = FuncFormatter(lambda y, pos: '{0:.2f}'.format(y))
+            axs_kprll.yaxis.set_major_formatter(yformatter)
+            if j == 0:
+                axs_kperp = axs[j].twiny()
+                axs_kperp.set_xticks(kperp(axs[j].get_xticks()*freq/FCNST.c, redshift))
+                axs_kperp.set_xlim(kperp(NP.asarray(axs[j].get_xlim())*freq/FCNST.c, redshift))
+                xformatter = FuncFormatter(lambda x, pos: '{0:.3f}'.format(x))
+                axs_kperp.xaxis.set_major_formatter(xformatter)
+
+        fig.subplots_adjust(hspace=0)
+        big_ax = fig.add_subplot(111)
+        big_ax.set_axis_bgcolor('none')
+        big_ax.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+        big_ax.set_xticks([])
+        big_ax.set_yticks([])
+        big_ax.set_ylabel(r'$\tau$ [$\mu$s]', fontsize=16, weight='medium', labelpad=30)
+        big_ax.set_xlabel(r'$|\mathbf{b}|$ [m]', fontsize=16, weight='medium', labelpad=30)
+
+        big_axr = big_ax.twinx()
+        big_axr.set_axis_bgcolor('none')
+        big_axr.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+        big_axr.set_xticks([])
+        big_axr.set_yticks([])
+        big_axr.set_ylabel(r'$k_\parallel$ [$h$ Mpc$^{-1}$]', fontsize=16, weight='medium', labelpad=40)
+
+        big_axt = big_ax.twiny()
+        big_axt.set_axis_bgcolor('none')
+        big_axt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+        big_axt.set_xticks([])
+        big_axt.set_yticks([])
+        big_axt.set_xlabel(r'$k_\perp$ [$h$ Mpc$^{-1}$]', fontsize=16, weight='medium', labelpad=30)
+
+        cbax = fig.add_axes([0.9, 0.125, 0.02, 0.74])
+        cbar = fig.colorbar(imdspec, cax=cbax, orientation='vertical')
+        
+        # PLT.tight_layout()
+        fig.subplots_adjust(right=0.72)
+        fig.subplots_adjust(top=0.88)
+
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_visibilities_sim_refsim_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_usm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.png', bbox_inches=0)
+        PLT.savefig('/data3/t_nithyanandan/'+project_dir+'/figures/'+telescope_str+'multi_baseline_CLEAN_noiseless_visibilities_sim_refsim_ratio_'+ground_plane_str+snapshot_type_str+obs_mode+'_FG_model_usm'+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6,nchan*freq_resolution/1e6)+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'.eps', bbox_inches=0)
+        
