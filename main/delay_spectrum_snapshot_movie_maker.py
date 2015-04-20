@@ -224,11 +224,15 @@ total_baselines = ref_bl_length.size
 Tsys = 300.0 # System temperature in K
 freq = 150.0e6 # center frequency in Hz
 freq_resolution = 320e3 # in Hz
+eor_freq_resolution = 80e3 # in Hz
 n_channels = 128
 nchan = n_channels
+eor_nchan = 128
 bw = n_channels * freq_resolution
+eor_bw = eor_nchan * eor_freq_resolution
 chans = (freq + (NP.arange(nchan) - 0.5 * nchan) * freq_resolution) # in Hz
 bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(nchan, freq_resolution/1e3)
+eor_bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(eor_nchan, eor_freq_resolution/1e3)
 bpass_shape = 'bhw'
 max_abs_delay = 1.5 # in micro seconds
 # coarse_channel_resolution = 1.28e6 # in Hz
@@ -286,7 +290,7 @@ else:
 if spindex_seed is not None:
     spindex_seed_str = '{0:0d}_'.format(spindex_seed)
 
-nside = 64
+nside = 256
 use_GSM = True
 use_DSM = False
 use_CSM = False
@@ -478,7 +482,8 @@ else:
     asm_infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_instr
     asm_CLEAN_infile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_outstr+bpass_shape
     dsm_CLEAN_infile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'dsm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_outstr+bpass_shape
-    csm_CLEAN_infile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'csm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_outstr+bpass_shape                    
+    csm_CLEAN_infile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'csm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_outstr+bpass_shape
+    eor_infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'HI_cube'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, eor_bandpass_str, freq/1e6)+pfb_instr
 
 ia = RI.InterferometerArray(None, None, None, init_file=asm_infile+'.fits') 
 simdata_bl_orientation = NP.angle(ia.baselines[:,0] + 1j * ia.baselines[:,1], deg=True)
@@ -532,6 +537,11 @@ csm_cc_vis = hdulist['CLEAN NOISY VISIBILITIES REAL'].data + 1j * hdulist['CLEAN
 csm_cc_vis_res = hdulist['CLEAN NOISY VISIBILITIES RESIDUALS REAL'].data + 1j * hdulist['CLEAN NOISY VISIBILITIES RESIDUALS IMAG'].data
 hdulist.close()
 
+eor_ia = RI.InterferometerArray(None, None, None, init_file=eor_infile+'.fits') 
+if NP.sum(simdata_neg_bl_orientation_ind) > 0:
+    eor_ia.conjugate(ind=NP.where(simdata_neg_bl_orientation_ind)[0])
+eor_ia.delay_transform(oversampling_factor-1.0)
+
 asm_cc_skyvis[simdata_neg_bl_orientation_ind,:,:] = asm_cc_skyvis[simdata_neg_bl_orientation_ind,:,:].conj()
 asm_cc_skyvis_res[simdata_neg_bl_orientation_ind,:,:] = asm_cc_skyvis_res[simdata_neg_bl_orientation_ind,:,:].conj()
 asm_cc_vis[simdata_neg_bl_orientation_ind,:,:] = asm_cc_vis[simdata_neg_bl_orientation_ind,:,:].conj()
@@ -571,12 +581,15 @@ csm_cc_vis_lag = NP.fft.fftshift(NP.fft.ifft(csm_cc_vis, axis=1),axes=1) * csm_c
 csm_ccres = NP.fft.fftshift(NP.fft.ifft(csm_cc_vis_res, axis=1),axes=1) * csm_cc_vis.shape[1] * freq_resolution
 csm_cc_vis_lag = csm_cc_vis_lag + csm_ccres
 
+eor_skyvis_lag = eor_ia.skyvis_lag
+
 asm_cc_skyvis_lag = DSP.downsampler(asm_cc_skyvis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
 asm_cc_vis_lag = DSP.downsampler(asm_cc_vis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
 dsm_cc_skyvis_lag = DSP.downsampler(dsm_cc_skyvis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
 dsm_cc_vis_lag = DSP.downsampler(dsm_cc_vis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
 csm_cc_skyvis_lag = DSP.downsampler(csm_cc_skyvis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
 csm_cc_vis_lag = DSP.downsampler(csm_cc_vis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
+# eor_skyvis_lag = DSP.downsampler(eor_skyvis_lag, 1.0*clean_lags.size/eor_ia.lags.size, axis=1)
 
 clean_lags = DSP.downsampler(clean_lags, 1.0*clean_lags.size/ia.lags.size, axis=-1)
 clean_lags = clean_lags.ravel()
@@ -589,6 +602,7 @@ dsm_cc_skyvis_lag = dsm_cc_skyvis_lag[truncated_ref_bl_ind,:,:]
 dsm_cc_vis_lag = dsm_cc_vis_lag[truncated_ref_bl_ind,:,:]
 csm_cc_skyvis_lag = csm_cc_skyvis_lag[truncated_ref_bl_ind,:,:]
 csm_cc_vis_lag = csm_cc_vis_lag[truncated_ref_bl_ind,:,:]
+eor_skyvis_lag = eor_skyvis_lag[truncated_ref_bl_ind,:,:]
 
 delaymat = DLY.delay_envelope(ia.baselines[truncated_ref_bl_ind,:], pc, units='mks')
 min_delay = -delaymat[0,:,1]-delaymat[0,:,0]
@@ -619,6 +633,7 @@ T_rms_freq_theory = vis_rms_freq_theory / (2.0 * FCNST.k) * NP.mean(ia.A_eff[tru
 
 if max_abs_delay is not None:
     small_delays_ind = NP.abs(clean_lags) <= max_abs_delay * 1e-6
+    eor_small_delays_ind = NP.abs(eor_ia.lags) <= max_abs_delay * 1e-6    
     clean_lags = clean_lags[small_delays_ind]
     asm_cc_vis_lag = asm_cc_vis_lag[:,small_delays_ind,:]
     asm_cc_skyvis_lag = asm_cc_skyvis_lag[:,small_delays_ind,:]
@@ -626,9 +641,11 @@ if max_abs_delay is not None:
     dsm_cc_skyvis_lag = dsm_cc_skyvis_lag[:,small_delays_ind,:]
     csm_cc_vis_lag = csm_cc_vis_lag[:,small_delays_ind,:]
     csm_cc_skyvis_lag = csm_cc_skyvis_lag[:,small_delays_ind,:]
+    eor_skyvis_lag = eor_skyvis_lag[:,eor_small_delays_ind,:]
 
 if (dspec_min is None) or (dspec_max is None):
-    dspec_min = NP.abs(asm_cc_vis_lag).min()
+    # dspec_min = NP.abs(asm_cc_vis_lag).min()
+    dspec_min = NP.abs(eor_skyvis_lag).min()
     dspec_max = NP.abs(asm_cc_vis_lag).max()
     dspec_min = dspec_min**2 * volfactor1 * volfactor2 * Jy2K**2
     dspec_max = dspec_max**2 * volfactor1 * volfactor2 * Jy2K**2
@@ -998,21 +1015,192 @@ anttemp_lst[anttemp_lst > 180.0] -= 360.0
 #     progress.update(j+1)
 # progress.finish()
 
+# progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_snaps), PGB.ETA()], maxval=n_snaps).start()
+# for j in range(n_snaps):
+#     fig = PLT.figure(figsize=(11,8))
+#     gs1 = GS.GridSpec(3,1)
+#     gs2 = GS.GridSpec(3,1)
+#     gs1.update(left=0.08, right=0.4, top=0.93, bottom=0.07, hspace=0)
+#     gs2.update(left=0.55, right=0.84, top=0.93, bottom=0.07, hspace=0)
+#     ax10 = PLT.subplot(gs1[0,0])
+#     ax11 = PLT.subplot(gs1[1,0], sharex=ax10, sharey=ax10)
+#     ax12 = PLT.subplot(gs1[2,0], sharex=ax10)
+#     # big_ax1 = PLT.subplot(gs1[:2,0])
+#     # big_ax1 = fig.add_axes([0.55, 0.07, 0.27, 0.86])
+#     ax20 = PLT.subplot(gs2[0,0])
+#     ax21 = PLT.subplot(gs2[1,0], sharex=ax20, sharey=ax20)
+#     ax22 = PLT.subplot(gs2[2,0], sharex=ax20, sharey=ax20)    
+
+#     dsmsky = ax10.imshow(dsm_snapshots[j].reshape(-1,backdrop_xsize), origin='lower', extent=(NP.amax(xvect), NP.amin(xvect), NP.amin(yvect), NP.amax(yvect)), norm=PLTC.LogNorm(vmin=dsm.min(), vmax=dsm.max()), cmap=CM.jet)
+#     pbskyc0 = ax10.contour(xgrid[0,:], ygrid[:,0], pb_snapshots[j].reshape(-1,backdrop_xsize), levels=[1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 0.9], colors='k', linewidths=1.5)
+#     ax10.text(0.5, 0.9, 'Diffuse', transform=ax10.transAxes, fontsize=14, weight='semibold', ha='center', color='black')
+
+#     csmsky = ax11.scatter(ra_deg_wrapped[src_ind_csm_snapshots[j]], dec_deg[src_ind_csm_snapshots[j]], c=csm_fluxes[src_ind_csm_snapshots[j]], norm=PLTC.LogNorm(vmin=csm_fluxes.min(), vmax=csm_fluxes.max()), cmap=CM.jet, edgecolor='none', s=20)
+#     pbskyc1 = ax11.contour(xgrid[0,:], ygrid[:,0], pb_snapshots[j].reshape(-1,backdrop_xsize), levels=[1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 0.9], colors='k', linewidths=1.5)
+#     ax11.text(0.5, 0.9, 'Point Sources', transform=ax11.transAxes, fontsize=14, weight='semibold', ha='center', color='black')
+    
+#     ax12.plot(anttemp_lst, antpower_K[:,anttemp_nchan/2], '.', lw=2, color='gray')
+#     ax12.plot(anttemp_lst[m2[j]], antpower_K[m2[j],anttemp_nchan/2], 'ko', ms=8, mew=2, mfc='none')
+#     ax12.text(0.3, 0.9, 'LST = {0:.1f} deg'.format(anttemp_lst[m2[j]]), transform=ax12.transAxes, fontsize=14, ha='center', color='black')
+#     ax12.text(0.3, 0.8, r'$T_\mathrm{ant} = $'+'{0:0d} K'.format(int(NP.round(antpower_K[m2[j],anttemp_nchan/2]))), transform=ax12.transAxes, fontsize=14, ha='center', color='black')
+#     ax12.set_xlim(xvect.max(), xvect.min())
+#     ax12.set_ylim(0, 1.05*antpower_K[:,anttemp_nchan/2].max())
+#     ax12.set_xlabel('RA [degrees]', fontsize=18, weight='medium')
+#     ax12.set_ylabel(r'$T_\mathrm{ant}$'+' [ K ]', fontsize=16, weight='medium')
+#     # ax12.text(0.5, 0.9, 'Diffuse + Point Sources', transform=ax12.transAxes, fontsize=14, weight='semibold', ha='center', color='black')
+
+#     ax10.set_xlim(xvect.max(), xvect.min())
+#     ax10.set_ylim(yvect.min(), yvect.max())
+#     ax10.grid(True, which='both')
+#     ax10.set_aspect('auto')
+#     ax10.tick_params(which='major', length=12, labelsize=12)
+#     ax10.tick_params(which='minor', length=6)
+#     ax10.locator_params(axis='x', nbins=5)
+#     PLT.setp(ax10.get_xticklabels(), visible=False)
+
+#     ax11.set_xlim(xvect.max(), xvect.min())
+#     ax11.set_ylim(yvect.min(), yvect.max())
+#     ax11.grid(True, which='both')
+#     ax11.set_aspect('auto')
+#     ax11.tick_params(which='major', length=12, labelsize=12)
+#     ax11.tick_params(which='minor', length=6)
+#     ax11.locator_params(axis='x', nbins=5)
+#     PLT.setp(ax11.get_xticklabels(), visible=False)
+
+#     ax_ha = ax10.twiny()
+#     ax_ha.set_xticks(lst[j]-ax10.get_xticks())
+#     ax_ha.set_xlim(lst[j]-NP.asarray(ax10.get_xlim()))
+#     # ax_ha.set_xticks(ha(ax10.get_xticks(), lst[j]))
+#     # ax_ha.set_xlim(ha(NP.asarray(ax10.get_xlim()), lst[j]))
+#     # ha_ticks = lst[j] - ax10.get_xticks()
+#     # ha_ticks[ha_ticks > 180.0] = ha_ticks[ha_ticks > 180.0] - 360.0
+#     # ha_ticks[ha_ticks > 180.0] = ha_ticks[ha_ticks > 180.0] - 360.0    
+#     # ha_ticks[ha_ticks <= -180.0] = ha_ticks[ha_ticks <= -180.0] + 360.0
+#     # ha_ticks[ha_ticks <= -180.0] = ha_ticks[ha_ticks <= -180.0] + 360.0
+#     # ax_ha.set_xticks(ha_ticks)
+#     # if lst[j] <= 180.0:
+#     #     ha_xlim = lst[j] - NP.asarray(ax10.get_xlim())
+#     # else:
+#     #     ha_xlim = lst[j]-360 - NP.asarray(ax10.get_xlim())
+#     # ax_ha.set_xlim(ha_xlim)
+#     xformatter = FuncFormatter(lambda x, pos: '{0:.1f}'.format(x))
+#     ax_ha.xaxis.set_major_formatter(xformatter)
+#     ax_ha.set_xlabel('HA [degrees]', fontsize=16, weight='medium')
+
+#     pos10 = ax10.get_position()
+#     pos11 = ax11.get_position()
+#     x0 = pos10.x0
+#     x1 = pos10.x1
+#     y0 = pos11.y0
+#     y1 = pos10.y1
+#     big_ax1 = fig.add_axes([x0, y0, x1-x0, y1-y0])
+#     big_ax1.set_axis_bgcolor('none')
+#     big_ax1.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+#     big_ax1.set_xticks([])
+#     big_ax1.set_yticks([])
+#     big_ax1.set_ylabel(r'$\delta$ [degrees]', fontsize=16, weight='medium', labelpad=30)
+
+#     cbax10 = fig.add_axes([0.43, 1.02*pos10.y0, 0.02, 0.98*pos10.y1-1.02*pos10.y0])
+#     cbar10 = fig.colorbar(dsmsky, cax=cbax10, orientation='vertical')
+#     cbar10.set_ticks(dsm_fg_ticks.tolist())
+#     cbar10.set_ticklabels(dsm_fg_ticks.tolist())
+#     cbax10.set_ylabel('Temperature [K]', labelpad=-65, fontsize=14)
+
+#     cbax11 = fig.add_axes([0.43, 1.02*pos11.y0, 0.02, 0.98*pos11.y1-1.02*pos11.y0])
+#     cbar11 = fig.colorbar(csmsky, cax=cbax11, orientation='vertical')
+#     cbar11.set_ticks(csm_fg_ticks.tolist())
+#     cbar11.set_ticklabels(csm_fg_ticks.tolist())
+#     cbax11.set_ylabel('Flux Density [Jy]', labelpad=-60, fontsize=14)
+
+#     dsmdspec = ax20.pcolorfast(truncated_ref_bl_length, 1e6*clean_lags, NP.abs(dsm_cc_skyvis_lag[:-1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e6)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=dspec_max))
+#     horizonb = ax20.plot(truncated_ref_bl_length, 1e6*min_delay.ravel(), color='white', ls=':', lw=1.5)
+#     horizont = ax20.plot(truncated_ref_bl_length, 1e6*max_delay.ravel(), color='white', ls=':', lw=1.5)
+#     ax20.set_ylim(0.9*NP.amin(clean_lags*1e6), 0.9*NP.amax(clean_lags*1e6))
+#     ax20.set_aspect('auto')
+#     ax20.text(0.5, 0.9, 'Diffuse', transform=ax20.transAxes, fontsize=14, weight='semibold', ha='center', color='white')
+
+#     csmspec = ax21.pcolorfast(truncated_ref_bl_length, 1e6*clean_lags, NP.abs(csm_cc_skyvis_lag[:-1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e6)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=dspec_max))
+#     horizonb = ax21.plot(truncated_ref_bl_length, 1e6*min_delay.ravel(), color='white', ls=':', lw=1.5)
+#     horizont = ax21.plot(truncated_ref_bl_length, 1e6*max_delay.ravel(), color='white', ls=':', lw=1.5)
+#     ax21.set_ylim(0.9*NP.amin(clean_lags*1e6), 0.9*NP.amax(clean_lags*1e6))
+#     ax21.set_aspect('auto')
+#     ax21.text(0.5, 0.9, 'Point Sources', transform=ax21.transAxes, fontsize=14, weight='semibold', ha='center', color='white')
+
+#     asmdspec = ax22.pcolorfast(truncated_ref_bl_length, 1e6*clean_lags, NP.abs(asm_cc_vis_lag[:-1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e6)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=dspec_max))
+#     horizonb = ax22.plot(truncated_ref_bl_length, 1e6*min_delay.ravel(), color='white', ls=':', lw=1.5)
+#     horizont = ax22.plot(truncated_ref_bl_length, 1e6*max_delay.ravel(), color='white', ls=':', lw=1.5)
+#     ax22.set_ylim(0.9*NP.amin(clean_lags*1e6), 0.9*NP.amax(clean_lags*1e6))
+#     ax22.set_aspect('auto')
+#     ax22.text(0.5, 0.9, 'Diffuse + Point Sources', transform=ax22.transAxes, fontsize=14, weight='semibold', ha='center', color='white')
+
+#     axs = [ax20, ax21, ax22]
+#     for k in xrange(len(axs)):
+#         axs_kprll = axs[k].twinx()
+#         axs_kprll.set_yticks(kprll(axs[k].get_yticks()*1e-6, redshift))
+#         axs_kprll.set_ylim(kprll(NP.asarray(axs[k].get_ylim())*1e-6, redshift))
+#         yformatter = FuncFormatter(lambda y, pos: '{0:.2f}'.format(y))
+#         axs_kprll.yaxis.set_major_formatter(yformatter)
+#         if k == 0:
+#             axs_kperp = axs[k].twiny()
+#             axs_kperp.set_xticks(kperp(axs[k].get_xticks()*freq/FCNST.c, redshift))
+#             axs_kperp.set_xlim(kperp(NP.asarray(axs[k].get_xlim())*freq/FCNST.c, redshift))
+#             xformatter = FuncFormatter(lambda x, pos: '{0:.3f}'.format(x))
+#             axs_kperp.xaxis.set_major_formatter(xformatter)
+                
+#     # fig.subplots_adjust(wspace=0, hspace=0)
+#     # big_ax2 = fig.add_subplot(111)
+#     big_ax2 = fig.add_axes([gs2.left, gs2.bottom, gs2.right-gs2.left, gs2.top-gs2.bottom])
+#     big_ax2.set_axis_bgcolor('none')
+#     big_ax2.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+#     big_ax2.set_xticks([])
+#     big_ax2.set_yticks([])
+#     big_ax2.set_ylabel(r'$\tau$ [$\mu$s]', fontsize=16, weight='medium', labelpad=30)
+#     big_ax2.set_xlabel(r'$|\mathbf{b}|$ [m]', fontsize=16, weight='medium', labelpad=15)
+
+#     big_axr2 = big_ax2.twinx()
+#     big_axr2.set_axis_bgcolor('none')
+#     big_axr2.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+#     big_axr2.set_xticks([])
+#     big_axr2.set_yticks([])
+#     big_axr2.set_ylabel(r'$k_\parallel$ [$h$ Mpc$^{-1}$]', fontsize=16, weight='medium', labelpad=35)
+
+#     big_axt2 = big_ax2.twiny()
+#     big_axt2.set_axis_bgcolor('none')
+#     big_axt2.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+#     big_axt2.set_xticks([])
+#     big_axt2.set_yticks([])
+#     big_axt2.set_xlabel(r'$k_\perp$ [$h$ Mpc$^{-1}$]', fontsize=16, weight='medium', labelpad=25)
+
+#     cbax2 = fig.add_axes([0.93, 1.02*gs2.bottom, 0.02, 0.98*gs2.top-1.02*gs2.bottom])
+#     cbar2 = fig.colorbar(asmdspec, cax=cbax2, orientation='vertical')
+#     cbax2.set_xlabel(r'K$^2$(Mpc/h)$^3$', labelpad=10, fontsize=12)
+#     cbax2.xaxis.set_label_position('top')
+    
+#     # PLT.tight_layout()
+#     # fig.subplots_adjust(right=0.72)
+#     # fig.subplots_adjust(top=0.92)
+
+#     PLT.savefig(rootdir+project_dir+'figures/'+telescope_str+'delay_PS_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_instr+'_snapshot_{0:03d}'.format(j)+'.png', bbox_inches=0)
+#     PLT.savefig(rootdir+project_dir+'figures/'+telescope_str+'delay_PS_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_instr+'_snapshot_{0:03d}'.format(j)+'.eps', bbox_inches=0)
+#     PLT.close()
+    
+#     progress.update(j+1)
+# progress.finish()
+
 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_snaps), PGB.ETA()], maxval=n_snaps).start()
 for j in range(n_snaps):
-    fig = PLT.figure(figsize=(11,8))
+    fig = PLT.figure(figsize=(13,8))
     gs1 = GS.GridSpec(3,1)
-    gs2 = GS.GridSpec(3,1)
-    gs1.update(left=0.08, right=0.4, top=0.93, bottom=0.07, hspace=0)
-    gs2.update(left=0.55, right=0.84, top=0.93, bottom=0.07, hspace=0)
+    gs2 = GS.GridSpec(2,2)
+    gs1.update(left=0.08, right=0.35, top=0.93, bottom=0.07, hspace=0)
+    gs2.update(left=0.49, right=0.86, top=0.93, bottom=0.07, hspace=0, wspace=0)
     ax10 = PLT.subplot(gs1[0,0])
     ax11 = PLT.subplot(gs1[1,0], sharex=ax10, sharey=ax10)
     ax12 = PLT.subplot(gs1[2,0], sharex=ax10)
-    # big_ax1 = PLT.subplot(gs1[:2,0])
-    # big_ax1 = fig.add_axes([0.55, 0.07, 0.27, 0.86])
     ax20 = PLT.subplot(gs2[0,0])
-    ax21 = PLT.subplot(gs2[1,0], sharex=ax20, sharey=ax20)
-    ax22 = PLT.subplot(gs2[2,0], sharex=ax20, sharey=ax20)    
+    ax21 = PLT.subplot(gs2[0,1], sharex=ax20, sharey=ax20)
+    ax22 = PLT.subplot(gs2[1,0], sharex=ax20, sharey=ax20)
+    ax23 = PLT.subplot(gs2[1,1], sharex=ax21, sharey=ax22)
 
     dsmsky = ax10.imshow(dsm_snapshots[j].reshape(-1,backdrop_xsize), origin='lower', extent=(NP.amax(xvect), NP.amin(xvect), NP.amin(yvect), NP.amax(yvect)), norm=PLTC.LogNorm(vmin=dsm.min(), vmax=dsm.max()), cmap=CM.jet)
     pbskyc0 = ax10.contour(xgrid[0,:], ygrid[:,0], pb_snapshots[j].reshape(-1,backdrop_xsize), levels=[1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 0.9], colors='k', linewidths=1.5)
@@ -1083,55 +1271,63 @@ for j in range(n_snaps):
     big_ax1.set_yticks([])
     big_ax1.set_ylabel(r'$\delta$ [degrees]', fontsize=16, weight='medium', labelpad=30)
 
-    cbax10 = fig.add_axes([0.43, 1.02*pos10.y0, 0.02, 0.98*pos10.y1-1.02*pos10.y0])
+    cbax10 = fig.add_axes([0.38, 1.02*pos10.y0, 0.02, 0.98*pos10.y1-1.02*pos10.y0])
     cbar10 = fig.colorbar(dsmsky, cax=cbax10, orientation='vertical')
     cbar10.set_ticks(dsm_fg_ticks.tolist())
     cbar10.set_ticklabels(dsm_fg_ticks.tolist())
     cbax10.set_ylabel('Temperature [K]', labelpad=-65, fontsize=14)
 
-    cbax11 = fig.add_axes([0.43, 1.02*pos11.y0, 0.02, 0.98*pos11.y1-1.02*pos11.y0])
+    cbax11 = fig.add_axes([0.38, 1.02*pos11.y0, 0.02, 0.98*pos11.y1-1.02*pos11.y0])
     cbar11 = fig.colorbar(csmsky, cax=cbax11, orientation='vertical')
     cbar11.set_ticks(csm_fg_ticks.tolist())
     cbar11.set_ticklabels(csm_fg_ticks.tolist())
     cbax11.set_ylabel('Flux Density [Jy]', labelpad=-60, fontsize=14)
 
-    dsmdspec = ax20.pcolorfast(truncated_ref_bl_length, 1e6*clean_lags, NP.abs(dsm_cc_skyvis_lag[:-1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e6)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=dspec_max))
+    dsmdspec = ax20.pcolorfast(truncated_ref_bl_length, 1e6*clean_lags, NP.abs(dsm_cc_skyvis_lag[:-1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e-2)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=dspec_max))
     horizonb = ax20.plot(truncated_ref_bl_length, 1e6*min_delay.ravel(), color='white', ls=':', lw=1.5)
     horizont = ax20.plot(truncated_ref_bl_length, 1e6*max_delay.ravel(), color='white', ls=':', lw=1.5)
     ax20.set_ylim(0.9*NP.amin(clean_lags*1e6), 0.9*NP.amax(clean_lags*1e6))
     ax20.set_aspect('auto')
-    ax20.text(0.5, 0.9, 'Diffuse', transform=ax20.transAxes, fontsize=14, weight='semibold', ha='center', color='white')
+    ax20.text(0.5, 0.9, 'Diffuse', transform=ax20.transAxes, fontsize=14, weight='semibold', ha='center', color='black')
 
-    csmspec = ax21.pcolorfast(truncated_ref_bl_length, 1e6*clean_lags, NP.abs(csm_cc_skyvis_lag[:-1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e6)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=dspec_max))
+    csmspec = ax21.pcolorfast(truncated_ref_bl_length, 1e6*clean_lags, NP.abs(csm_cc_skyvis_lag[:-1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e-2)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=dspec_max))
     horizonb = ax21.plot(truncated_ref_bl_length, 1e6*min_delay.ravel(), color='white', ls=':', lw=1.5)
     horizont = ax21.plot(truncated_ref_bl_length, 1e6*max_delay.ravel(), color='white', ls=':', lw=1.5)
     ax21.set_ylim(0.9*NP.amin(clean_lags*1e6), 0.9*NP.amax(clean_lags*1e6))
     ax21.set_aspect('auto')
-    ax21.text(0.5, 0.9, 'Point Sources', transform=ax21.transAxes, fontsize=14, weight='semibold', ha='center', color='white')
+    ax21.text(0.5, 0.9, 'Point Sources', transform=ax21.transAxes, fontsize=14, weight='semibold', ha='center', color='black')
 
-    asmdspec = ax22.pcolorfast(truncated_ref_bl_length, 1e6*clean_lags, NP.abs(asm_cc_vis_lag[:-1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e6)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=dspec_max))
+    asmdspec = ax22.pcolorfast(truncated_ref_bl_length, 1e6*clean_lags, NP.abs(asm_cc_skyvis_lag[:-1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e-2)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=dspec_max))
     horizonb = ax22.plot(truncated_ref_bl_length, 1e6*min_delay.ravel(), color='white', ls=':', lw=1.5)
     horizont = ax22.plot(truncated_ref_bl_length, 1e6*max_delay.ravel(), color='white', ls=':', lw=1.5)
     ax22.set_ylim(0.9*NP.amin(clean_lags*1e6), 0.9*NP.amax(clean_lags*1e6))
     ax22.set_aspect('auto')
-    ax22.text(0.5, 0.9, 'Diffuse + Point Sources', transform=ax22.transAxes, fontsize=14, weight='semibold', ha='center', color='white')
+    ax22.text(0.5, 0.9, 'Diffuse + Point', transform=ax22.transAxes, fontsize=14, weight='semibold', ha='center', color='black')
 
-    axs = [ax20, ax21, ax22]
+    eordspec = ax23.pcolorfast(truncated_ref_bl_length, 1e6*eor_ia.lags[eor_small_delays_ind], NP.abs(eor_skyvis_lag[:-1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e-2)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=dspec_max))
+    horizonb = ax23.plot(truncated_ref_bl_length, 1e6*min_delay.ravel(), color='white', ls=':', lw=1.5)
+    horizont = ax23.plot(truncated_ref_bl_length, 1e6*max_delay.ravel(), color='white', ls=':', lw=1.5)
+    ax23.set_ylim(0.9*NP.amin(clean_lags*1e6), 0.9*NP.amax(clean_lags*1e6))
+    ax23.set_aspect('auto')
+    ax23.text(0.5, 0.9, 'HI signal', transform=ax23.transAxes, fontsize=14, weight='semibold', ha='center', color='black')
+
+    
+    axs = [ax20, ax21, ax22, ax23]
     for k in xrange(len(axs)):
-        axs_kprll = axs[k].twinx()
-        axs_kprll.set_yticks(kprll(axs[k].get_yticks()*1e-6, redshift))
-        axs_kprll.set_ylim(kprll(NP.asarray(axs[k].get_ylim())*1e-6, redshift))
-        yformatter = FuncFormatter(lambda y, pos: '{0:.2f}'.format(y))
-        axs_kprll.yaxis.set_major_formatter(yformatter)
-        if k == 0:
+        if k%2 == 1:
+            axs_kprll = axs[k].twinx()
+            axs_kprll.set_yticks(kprll(axs[k].get_yticks()*1e-6, redshift))
+            axs_kprll.set_ylim(kprll(NP.asarray(axs[k].get_ylim())*1e-6, redshift))
+            yformatter = FuncFormatter(lambda y, pos: '{0:.2f}'.format(y))
+            axs_kprll.yaxis.set_major_formatter(yformatter)
+            axs[k].yaxis.set_ticklabels([])
+        if k/2 == 0:
             axs_kperp = axs[k].twiny()
             axs_kperp.set_xticks(kperp(axs[k].get_xticks()*freq/FCNST.c, redshift))
             axs_kperp.set_xlim(kperp(NP.asarray(axs[k].get_xlim())*freq/FCNST.c, redshift))
-            xformatter = FuncFormatter(lambda x, pos: '{0:.3f}'.format(x))
+            xformatter = FuncFormatter(lambda x, pos: '{0:.2f}'.format(x))
             axs_kperp.xaxis.set_major_formatter(xformatter)
                 
-    # fig.subplots_adjust(wspace=0, hspace=0)
-    # big_ax2 = fig.add_subplot(111)
     big_ax2 = fig.add_axes([gs2.left, gs2.bottom, gs2.right-gs2.left, gs2.top-gs2.bottom])
     big_ax2.set_axis_bgcolor('none')
     big_ax2.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
@@ -1159,13 +1355,10 @@ for j in range(n_snaps):
     cbax2.set_xlabel(r'K$^2$(Mpc/h)$^3$', labelpad=10, fontsize=12)
     cbax2.xaxis.set_label_position('top')
     
-    # PLT.tight_layout()
-    # fig.subplots_adjust(right=0.72)
-    # fig.subplots_adjust(top=0.92)
-
     PLT.savefig(rootdir+project_dir+'figures/'+telescope_str+'delay_PS_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_instr+'_snapshot_{0:03d}'.format(j)+'.png', bbox_inches=0)
     PLT.savefig(rootdir+project_dir+'figures/'+telescope_str+'delay_PS_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_instr+'_snapshot_{0:03d}'.format(j)+'.eps', bbox_inches=0)
     PLT.close()
-    
+
     progress.update(j+1)
 progress.finish()
+

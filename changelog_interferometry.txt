@@ -1,3 +1,9 @@
+From ec3f10a of Interferometry:
+==============================
+
+(*) Add EoR signal simulation in main level programs. No change in
+modules
+
 From d26fe5d of Interferometry:
 ==============================
 

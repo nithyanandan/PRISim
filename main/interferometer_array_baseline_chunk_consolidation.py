@@ -157,7 +157,7 @@ baseline_chunk_size = 10
 
 nside = 256
 use_GSM = False
-use_DSM = True
+use_DSM = False
 use_CSM = False
 use_NVSS = False
 use_SUMSS = False
@@ -167,7 +167,7 @@ use_PS = False
 use_USM = False
 use_HI_monopole = False
 use_HI_fluctuations = False
-use_HI_cube = False
+use_HI_cube = True
 
 if use_GSM:
     fg_str = 'asm'
@@ -222,7 +222,7 @@ bl_id = bl_id[:min(baseline_bin_indices[n_bl_chunks], total_baselines)]
 
 Tsys = 300.0 # System temperature in K
 freq = 150.0 * 1e6 # foreground center frequency in Hz
-freq_resolution = 320e3 # in Hz
+freq_resolution = 80e3 # in Hz
 bpass_shape = 'rect'
 f_pad = 1.0
 oversampling_factor = 1.0 + f_pad
