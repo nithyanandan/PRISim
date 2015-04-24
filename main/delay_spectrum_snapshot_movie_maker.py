@@ -491,6 +491,9 @@ simdata_neg_bl_orientation_ind = simdata_bl_orientation > 90.0 + 0.5*180.0/n_bin
 simdata_bl_orientation[simdata_neg_bl_orientation_ind] -= 180.0
 ia.baselines[simdata_neg_bl_orientation_ind,:] = -ia.baselines[simdata_neg_bl_orientation_ind,:]
 
+# PDB.set_trace()
+# mwdt = ia.multi_window_delay_transform([4e6, 8e6], freq_center=[145e6, 160e6], shape='bhw')
+
 hdulist = fits.open(asm_infile+'.fits')
 latitude = hdulist[0].header['latitude']
 pointing_coords = hdulist[0].header['pointing_coords']

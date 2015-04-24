@@ -1,3 +1,11 @@
+From e874d67 of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Add member function multi_window_delay_transform() to class
+InterferometerArray
+
 From ec3f10a of Interferometry:
 ==============================
 

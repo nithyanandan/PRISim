@@ -162,7 +162,7 @@ obsparm  :
     freq            : 150000000.0
                                 # Center frequency (in Hz)
 
-    freq_resolution : 80000.0
+    freq_resolution : 320000.0
                                 # Frequency resolution (in Hz)
 
     nchan           : 128
@@ -253,7 +253,7 @@ snapshot :                      # Parameters below are mutually
 
 fgparm   :
 
-    model           : 'HI_cube'
+    model           : 'asm'
                                 # Foreground model. Accepted values
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both
