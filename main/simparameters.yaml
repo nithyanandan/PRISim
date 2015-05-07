@@ -9,7 +9,7 @@ directory:
 ########## Project information #########
 
 project  : project_HERA
-                                # Accepted values are project_MWA,
+                                # Example values are project_MWA,
                                 # project_global_EoR, project_HERA, 
                                 # project_drift_scan, project_beams,
                                 # project_LSTbin
@@ -24,6 +24,7 @@ telescope:
                                 # Accepts 'mwa', 'vla', 'gmrt',
                                 # 'hera', 'mwa_dipole', 'custom',
                                 # 'paper_dipole', 'mwa_tools'
+                                # This name sets the dish type
 
     latitude        : -30.7224
                                 # Latitude in degrees
@@ -58,12 +59,13 @@ array   :                       # Parameters 'file' and 'layout'
     file            : null
                                 # File containing antenna locations
 
-    layout          : 'HERA-331'
+    layout          : 'HERA-331' 
                                 # Accepted values are 'MWA-128T',
                                 # 'HERA-7', 'HERA-19', 'HERA-37',
                                 # 'HERA-61', 'HERA-91', 'HERA-127',
                                 # 'HERA-169', 'HERA-217', 'HERA-271',
                                 # 'HERA-331', 'CIRC', or null
+                           
 
     minR            : 141.0
                                 # Minimum radius of circular ring.
@@ -90,7 +92,8 @@ baseline :                      # Parameters specifying baseline
                                 # Default = null (all directions).
                                 # Other accepted values are 'E' (east)
                                 # 'SE' (south-east), 'NE' (north-east),
-                                # and 'N' (north). Multiple values from
+                                # and 'N' (north), 45 deg width
+                                # Multiple values from
                                 # this accepted list can be specified
                                 # as a list of strings.
                                 # e.g., ['N', 'E'], ['NE', 'SE', 'E'],
@@ -98,7 +101,7 @@ baseline :                      # Parameters specifying baseline
                                 # equivalent to null, etc.
 
 ########## Antenna Element information #########                      
-
+# activated when telescope.id='custom's 
 antenna  :
 
     shape           : dish      
@@ -135,7 +138,7 @@ antenna  :
                                 # (null) means no ground plane
 
 ########## Phased array parameters #########
-
+# used when antenna.phased_array is set to true 
 phasedarray:
 
     file            : '/data3/t_nithyanandan/project_MWA/MWA_tile_dipole_locations.txt'
@@ -147,7 +150,7 @@ phasedarray:
                                 # delayerr is not applicable
 
     gainerr         : 0.0
-                                # Gain error rms in dB. null means
+                                # fGain error rms in dB. null means
                                 # gainerr is not applicable
 
     nrand           : 1
@@ -172,6 +175,8 @@ obsparm  :
                                 # Observing mode. Accepted values are
                                 # 'drift', 'track', 'dns' and 
                                 # 'custom' or null (default)
+                                # dns=drift n' shift  
+                                # requires pointing file (see below)
 
     t_obs           : null      
                                 # Duration of observation (in seconds)
@@ -204,7 +209,7 @@ pointing :                      # Parameters below are mutually
                                 # be specified
 
 ######### Phase center information #########
-
+#NOT USED.  Phase center is always = pointing center.
 phasing :                       # Phase center parameters
 
     center          : [90.0, 270.0]
@@ -220,7 +225,7 @@ phasing :                       # Phase center parameters
                                 # 'dircos'
 
 ######### Snapshot selection ##########
-
+# use this to cut down your run for diagnostic purposes.
 snapshot :                      # Parameters below are mutually
                                 # exclusive. Only one of them can be
                                 # set to True or non-null values
@@ -249,7 +254,7 @@ snapshot :                      # Parameters below are mutually
                                 # Consider all snapshots if set to
                                 # true. Default = false
 
-######### Foreground model ##########
+######### Sky model ##########
 
 fgparm   :
 
@@ -280,7 +285,8 @@ fgparm   :
                                 # density in Jy
 
     spindex         : -0.83
-                                # Spectral indices of point sources
+                                # Default spectral index to use if
+                                # none is found in catalog
 
     spindex_rms     : 0.0
                                 # rms in distribution of spectral
@@ -336,13 +342,16 @@ catalog  :
 
 processing:
 
-    n_bl_chunks     : 64
+    n_bl_chunks     : null
                                 # Upper limit on number of baseline
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
                                 # processing
+                                #NB: This number is redundant with uvmax, 
+                                # and is best left as null.
 
     bl_chunk_size   : 10
+                                # number of baselines in a parallel process
                                 # Baseline chunk size. Will be used
                                 # in a single process during parallel
                                 # processing
@@ -350,46 +359,63 @@ processing:
     bl_chunk        : null
                                 # Baseline chunk indices to process.
                                 # null means process all chunks.
-                                # Should be given as a list
+                                # Should be given as a list eg [1,3,4]
 
-    n_bins_blo      : 4
+    n_bins_blo      : null
+                                #  OBSOLETE, doesn't do anything
                                 # Number of bins in baseline
                                 # orientation
 
     n_sky_sectors   : 1
+                                # produces this many seperate outputs 
+                                # one for each sky slice
                                 # Number of sky sectors
 
     bpass_shape     : 'bhw'
+                                # used in any delay transforms. not really
+                                #    important for simulation of visibilities
                                 # Bandpass shape. Accepted values are
                                 # 'rect' (rectangular), 'bnw'
                                 # (Blackman-Nuttall window), and 'bhw'
                                 # (Blackman-Harris window)
 
     f_pad           : 1.0
+                                # See bpass_shape...
                                 # frequency padding fraction for
                                 # delay transform
 
     coarse_channel_width : 32
                                 # Coarse channel width in number of
-                                # fine channels. Used only is PFB
-                                # settings are to be used
+                                # fine channels. Used only if PFB (MWA-like passband)
+                                # settings are to be used. 
+                                # 32 for 40kHz
+                                # 16 for 80kHz
+                                # etc
 
     bp_correct      : false
+                                # divide out by the applied bassband.
+                                #   cancels effect of any applied pb
+                                #   TODO, seperate out "True" from "Model" passband
                                 # Correct bandpass shape if set to
                                 # true. Do not correct if set to
-                                # false
+                                # false 
+                                # in other words, false applies the pb
+                                #   true gives you a flat pb
 
     noise_bp_correct : false
                                 # Bandpass correction for Tsys if
                                 # set to true, no correction if set
                                 # to false
+                                # EXPERIMENTAL/MWA
 
-    n_pad           : 0
+    n_pad           : 0         # useful during dspec computation
                                 # Bandpass window padding length.
                                 # Will be applied only if f_pad is
                                 # not set
+                        
 
     max_abs_delay   : 1.0
+                                # useful during dspec plotting
                                 # Maximum delay (in micro-seconds)
                                 # above which will be considered
                                 # thermal noise window. Keep this
@@ -400,6 +426,7 @@ processing:
 pp       :
 
     nproc           : 1
+                                # used with multiprocessing, set on cmd line for mpi
                                 # Number of parallel processes.
                                 # 1 means serial processing.
 
