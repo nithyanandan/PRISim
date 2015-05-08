@@ -253,7 +253,7 @@ snapshot :                      # Parameters below are mutually
 
 fgparm   :
 
-    model           : 'asm'
+    model           : 'csm'
                                 # Foreground model. Accepted values
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both
@@ -268,7 +268,7 @@ fgparm   :
                                 # and'HI_fluctuations' (HI fluctuations
                                 # with the global mean signal removed)
 
-    nside           : 256
+    nside           : 128
                                 # Healpix nside parameter for foreground
                                 # model input map. Accepted values are
                                 # valid nside values
@@ -336,13 +336,13 @@ catalog  :
 
 processing:
 
-    n_bl_chunks     : 64
+    n_bl_chunks     : 1
                                 # Upper limit on number of baseline
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
                                 # processing
 
-    bl_chunk_size   : 10
+    bl_chunk_size   : 640
                                 # Baseline chunk size. Will be used
                                 # in a single process during parallel
                                 # processing

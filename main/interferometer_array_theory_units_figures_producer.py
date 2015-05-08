@@ -586,7 +586,7 @@ if plot_02 or plot_03 or plot_04 or plot_12:
         dsm_ra_deg = dsm_table['RA']
         dsm_dec_deg = dsm_table['DEC']
         dsm_temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
-        dsm = HP.cartview(dsm_temperatures.ravel(), coord=['G','E'], rot=[0,0,0], xsize=backdrop_xsize, return_projected_map=True)
+        dsm = HP.cartview(dsm_temperatures.ravel(), coord=['G','C'], rot=[0,0,0], xsize=backdrop_xsize, return_projected_map=True)
         dsm = dsm.ravel()
 
     for i in xrange(n_snaps):

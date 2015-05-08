@@ -225,7 +225,7 @@ total_baselines = ref_bl_length.size
 Tsys = 300.0 # System temperature in K
 freq = 150.0e6 # center frequency in Hz
 freq_resolution = 320e3 # in Hz
-eor_freq_resolution = 80e3 # in Hz
+eor_freq_resolution = 160e3 # in Hz
 n_channels = 128
 nchan = n_channels
 eor_nchan = 128
@@ -481,176 +481,159 @@ if filenaming_convention == 'old':
     asm_CLEAN_infile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'gaussian_FG_model_asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1:.1f}_MHz_{2:.1f}_MHz_'.format(Tsys, freq/1e6, nchan*freq_resolution/1e6)+pfb_outstr+bpass_shape        
 else:
     asm_infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_instr
+    dsm_infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'dsm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_instr
+    csm_infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'csm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_instr    
     asm_CLEAN_infile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'asm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_outstr+bpass_shape
     dsm_CLEAN_infile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'dsm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_outstr+bpass_shape
     csm_CLEAN_infile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'csm'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_outstr+bpass_shape
     eor_infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+'HI_cube'+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, eor_bandpass_str, freq/1e6)+pfb_instr
 
-ia = RI.InterferometerArray(None, None, None, init_file=asm_infile+'.fits') 
-simdata_bl_orientation = NP.angle(ia.baselines[:,0] + 1j * ia.baselines[:,1], deg=True)
-simdata_neg_bl_orientation_ind = simdata_bl_orientation > 90.0 + 0.5*180.0/n_bins_baseline_orientation
-simdata_bl_orientation[simdata_neg_bl_orientation_ind] -= 180.0
-ia.baselines[simdata_neg_bl_orientation_ind,:] = -ia.baselines[simdata_neg_bl_orientation_ind,:]
+asmsim = RI.InterferometerArray(None, None, None, init_file=asm_infile+'.fits')
+dsmsim = RI.InterferometerArray(None, None, None, init_file=dsm_infile+'.fits')
+csmsim = RI.InterferometerArray(None, None, None, init_file=csm_infile+'.fits')
+eorsim = RI.InterferometerArray(None, None, None, init_file=eor_infile+'.fits')
 
-# PDB.set_trace()
-# mwdt = ia.multi_window_delay_transform([4e6, 8e6], freq_center=[145e6, 160e6], shape='bhw')
+asmsim_blo = NP.angle(asmsim.baselines[:,0] + 1j * asmsim.baselines[:,1], deg=True)
+asmsim_neg_blo_ind = asmsim_blo > 90.0 + 0.5*180.0/n_bins_baseline_orientation
+asm_conj_bl_ind, = NP.where(asmsim_neg_blo_ind)
+if asm_conj_bl_ind.size > 0: asmsim.conjugate(ind=asm_conj_bl_ind)
 
-hdulist = fits.open(asm_infile+'.fits')
-latitude = hdulist[0].header['latitude']
-pointing_coords = hdulist[0].header['pointing_coords']
-pointings_table = hdulist['POINTING AND PHASE CENTER INFO'].data
-lst = pointings_table['LST']
+dsmsim_blo = NP.angle(dsmsim.baselines[:,0] + 1j * dsmsim.baselines[:,1], deg=True)
+dsmsim_neg_blo_ind = dsmsim_blo > 90.0 + 0.5*180.0/n_bins_baseline_orientation
+dsm_conj_bl_ind, = NP.where(dsmsim_neg_blo_ind)
+if dsm_conj_bl_ind.size > 0: dsmsim.conjugate(ind=dsm_conj_bl_ind)
+
+csmsim_blo = NP.angle(csmsim.baselines[:,0] + 1j * csmsim.baselines[:,1], deg=True)
+csmsim_neg_blo_ind = csmsim_blo > 90.0 + 0.5*180.0/n_bins_baseline_orientation
+csm_conj_bl_ind, = NP.where(csmsim_neg_blo_ind)
+if csm_conj_bl_ind.size > 0: csmsim.conjugate(ind=csm_conj_bl_ind)
+
+eorsim_blo = NP.angle(eorsim.baselines[:,0] + 1j * eorsim.baselines[:,1], deg=True)
+eorsim_neg_blo_ind = eorsim_blo > 90.0 + 0.5*180.0/n_bins_baseline_orientation
+eor_conj_bl_ind, = NP.where(eorsim_neg_blo_ind)
+if eor_conj_bl_ind.size > 0: eorsim.conjugate(ind=eor_conj_bl_ind)
+
+latitude = asmsim.latitude
+pointing_coords = asmsim.pointing_coords
+pointings = asmsim.pointing_center
+lst = NP.asarray(asmsim.lst)
 n_snaps = lst.size
-hdulist.close()
 
 if pointing_coords == 'altaz':
-    pointings_altaz = NP.hstack((pointings_table['pointing_latitude'].reshape(-1,1), pointings_table['pointing_longitude'].reshape(-1,1)))
+    pointings_altaz = NP.copy(pointings)
     pointings_hadec = GEOM.altaz2hadec(pointings_altaz, latitude, units='degrees')
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
 elif pointing_coords == 'radec':
-    pointings_radec = NP.hstack((pointings_table['pointing_longitude'].reshape(-1,1), pointings_table['pointing_latitude'].reshape(-1,1)))
+    pointings_radec = NP.copy(pointings)
     pointings_hadec = NP.hstack(((lst-pointings_radec[:,0]).reshape(-1,1), pointings_radec[:,1].reshape(-1,1)))
     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
 elif pointing_coords == 'hadec':
-    pointings_hadec = NP.hstack((pointings_table['pointing_longitude'].reshape(-1,1), pointings_table['pointing_latitude'].reshape(-1,1)))
+    pointings_hadec = NP.copy(pointings)
     pointings_radec = NP.hstack(((lst-pointings_hadec[:,0]).reshape(-1,1), pointings_hadec[:,1].reshape(-1,1)))
     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
+    
+frac_width_fg_window = DSP.window_N2width(n_window=None, shape=bpass_shape)
+fg_bw_eff = NP.asarray(bw * frac_width_fg_window).reshape(-1)
+fg_freq_center = NP.asarray(freq).reshape(-1)
 
-hdulist = fits.open(asm_CLEAN_infile+'.fits')
-clean_lags = hdulist['SPECTRAL INFO'].data['lag']
-clean_lags_orig = NP.copy(clean_lags)
-asm_cc_skyvis = hdulist['CLEAN NOISELESS VISIBILITIES REAL'].data + 1j * hdulist['CLEAN NOISELESS VISIBILITIES IMAG'].data
-asm_cc_skyvis_res = hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS REAL'].data + 1j * hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS IMAG'].data
-asm_cc_vis = hdulist['CLEAN NOISY VISIBILITIES REAL'].data + 1j * hdulist['CLEAN NOISY VISIBILITIES IMAG'].data
-asm_cc_vis_res = hdulist['CLEAN NOISY VISIBILITIES RESIDUALS REAL'].data + 1j * hdulist['CLEAN NOISY VISIBILITIES RESIDUALS IMAG'].data
-hdulist.close()
+eor_bw_eff = 8e6    # Effective bandwidth of spectral window for EoR signal in Hz
+eor_freq_center = NP.asarray([145e6, 150e6, 155e6])  # Spectral window center frequencies
 
-hdulist = fits.open(dsm_CLEAN_infile+'.fits')
-dsm_cc_skyvis = hdulist['CLEAN NOISELESS VISIBILITIES REAL'].data + 1j * hdulist['CLEAN NOISELESS VISIBILITIES IMAG'].data
-dsm_cc_skyvis_res = hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS REAL'].data + 1j * hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS IMAG'].data
-dsm_cc_vis = hdulist['CLEAN NOISY VISIBILITIES REAL'].data + 1j * hdulist['CLEAN NOISY VISIBILITIES IMAG'].data
-dsm_cc_vis_res = hdulist['CLEAN NOISY VISIBILITIES RESIDUALS REAL'].data + 1j * hdulist['CLEAN NOISY VISIBILITIES RESIDUALS IMAG'].data
-hdulist.close()
+asm_DT_dict = asmsim.multi_window_delay_transform(fg_bw_eff, freq_center=fg_freq_center, shape=bpass_shape)
+dsm_DT_dict = dsmsim.multi_window_delay_transform(fg_bw_eff, freq_center=fg_freq_center, shape=bpass_shape)
+csm_DT_dict = csmsim.multi_window_delay_transform(fg_bw_eff, freq_center=fg_freq_center, shape=bpass_shape)
+eor_DT_dict = eorsim.multi_window_delay_transform(eor_bw_eff, freq_center=eor_freq_center, shape=bpass_shape)
 
-hdulist = fits.open(csm_CLEAN_infile+'.fits')
-csm_cc_skyvis = hdulist['CLEAN NOISELESS VISIBILITIES REAL'].data + 1j * hdulist['CLEAN NOISELESS VISIBILITIES IMAG'].data
-csm_cc_skyvis_res = hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS REAL'].data + 1j * hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS IMAG'].data
-csm_cc_vis = hdulist['CLEAN NOISY VISIBILITIES REAL'].data + 1j * hdulist['CLEAN NOISY VISIBILITIES IMAG'].data
-csm_cc_vis_res = hdulist['CLEAN NOISY VISIBILITIES RESIDUALS REAL'].data + 1j * hdulist['CLEAN NOISY VISIBILITIES RESIDUALS IMAG'].data
-hdulist.close()
+fg_lag_corr_length = asm_DT_dict['lag_corr_length']
+eor_lag_corr_length = eor_DT_dict['lag_corr_length']
 
-eor_ia = RI.InterferometerArray(None, None, None, init_file=eor_infile+'.fits') 
-if NP.sum(simdata_neg_bl_orientation_ind) > 0:
-    eor_ia.conjugate(ind=NP.where(simdata_neg_bl_orientation_ind)[0])
-eor_ia.delay_transform(oversampling_factor-1.0)
+fg_lags = asmsim.lags
+eor_lags = eorsim.lags
 
-asm_cc_skyvis[simdata_neg_bl_orientation_ind,:,:] = asm_cc_skyvis[simdata_neg_bl_orientation_ind,:,:].conj()
-asm_cc_skyvis_res[simdata_neg_bl_orientation_ind,:,:] = asm_cc_skyvis_res[simdata_neg_bl_orientation_ind,:,:].conj()
-asm_cc_vis[simdata_neg_bl_orientation_ind,:,:] = asm_cc_vis[simdata_neg_bl_orientation_ind,:,:].conj()
-asm_cc_vis_res[simdata_neg_bl_orientation_ind,:,:] = asm_cc_vis_res[simdata_neg_bl_orientation_ind,:,:].conj()
+asm_skyvis_lag = asm_DT_dict['skyvis_lag']
+dsm_skyvis_lag = dsm_DT_dict['skyvis_lag']
+csm_skyvis_lag = csm_DT_dict['skyvis_lag']
+eor_skyvis_lag = eor_DT_dict['skyvis_lag']
+asm_vis_noise_lag = asm_DT_dict['vis_noise_lag']
+dsm_vis_noise_lag = dsm_DT_dict['vis_noise_lag']
+csm_vis_noise_lag = csm_DT_dict['vis_noise_lag']
+eor_vis_noise_lag = eor_DT_dict['vis_noise_lag']
 
-dsm_cc_skyvis[simdata_neg_bl_orientation_ind,:,:] = dsm_cc_skyvis[simdata_neg_bl_orientation_ind,:,:].conj()
-dsm_cc_skyvis_res[simdata_neg_bl_orientation_ind,:,:] = dsm_cc_skyvis_res[simdata_neg_bl_orientation_ind,:,:].conj()
-dsm_cc_vis[simdata_neg_bl_orientation_ind,:,:] = dsm_cc_vis[simdata_neg_bl_orientation_ind,:,:].conj()
-dsm_cc_vis_res[simdata_neg_bl_orientation_ind,:,:] = dsm_cc_vis_res[simdata_neg_bl_orientation_ind,:,:].conj()
+asm_skyvis_lag = asm_skyvis_lag[truncated_ref_bl_ind,:,:,:]
+dsm_skyvis_lag = dsm_skyvis_lag[truncated_ref_bl_ind,:,:,:]
+csm_skyvis_lag = csm_skyvis_lag[truncated_ref_bl_ind,:,:,:]
+eor_skyvis_lag = eor_skyvis_lag[truncated_ref_bl_ind,:,:,:]
+asm_vis_noise_lag = asm_vis_noise_lag[truncated_ref_bl_ind,:,:,:]
+dsm_vis_noise_lag = dsm_vis_noise_lag[truncated_ref_bl_ind,:,:,:]
+csm_vis_noise_lag = csm_vis_noise_lag[truncated_ref_bl_ind,:,:,:]
+eor_vis_noise_lag = eor_vis_noise_lag[truncated_ref_bl_ind,:,:,:]
 
-csm_cc_skyvis[simdata_neg_bl_orientation_ind,:,:] = csm_cc_skyvis[simdata_neg_bl_orientation_ind,:,:].conj()
-csm_cc_skyvis_res[simdata_neg_bl_orientation_ind,:,:] = csm_cc_skyvis_res[simdata_neg_bl_orientation_ind,:,:].conj()
-csm_cc_vis[simdata_neg_bl_orientation_ind,:,:] = csm_cc_vis[simdata_neg_bl_orientation_ind,:,:].conj()
-csm_cc_vis_res[simdata_neg_bl_orientation_ind,:,:] = csm_cc_vis_res[simdata_neg_bl_orientation_ind,:,:].conj()
+asm_skyvis_lag_ds = DSP.downsampler(asm_skyvis_lag, fg_lag_corr_length[0], axis=2)
+dsm_skyvis_lag_ds = DSP.downsampler(dsm_skyvis_lag, fg_lag_corr_length[0], axis=2)
+csm_skyvis_lag_ds = DSP.downsampler(csm_skyvis_lag, fg_lag_corr_length[0], axis=2)
+eor_skyvis_lag_ds = DSP.downsampler(eor_skyvis_lag, eor_lag_corr_length[1], axis=2)
+asm_vis_noise_lag_ds = DSP.downsampler(asm_vis_noise_lag, fg_lag_corr_length[0], axis=2)
+dsm_vis_noise_lag_ds = DSP.downsampler(dsm_vis_noise_lag, fg_lag_corr_length[0], axis=2)
+csm_vis_noise_lag_ds = DSP.downsampler(csm_vis_noise_lag, fg_lag_corr_length[0], axis=2)
+eor_vis_noise_lag_ds = DSP.downsampler(eor_vis_noise_lag, eor_lag_corr_length[1], axis=2)
 
-asm_cc_skyvis_lag = NP.fft.fftshift(NP.fft.ifft(asm_cc_skyvis, axis=1),axes=1) * asm_cc_skyvis.shape[1] * freq_resolution
-asm_ccres_sky = NP.fft.fftshift(NP.fft.ifft(asm_cc_skyvis_res, axis=1),axes=1) * asm_cc_skyvis.shape[1] * freq_resolution
-asm_cc_skyvis_lag = asm_cc_skyvis_lag + asm_ccres_sky
+fg_lags_ds = DSP.downsampler(fg_lags, fg_lag_corr_length[0], axis=-1)
+eor_lags_ds = DSP.downsampler(eor_lags, eor_lag_corr_length[1], axis=-1)
 
-asm_cc_vis_lag = NP.fft.fftshift(NP.fft.ifft(asm_cc_vis, axis=1),axes=1) * asm_cc_vis.shape[1] * freq_resolution
-asm_ccres = NP.fft.fftshift(NP.fft.ifft(asm_cc_vis_res, axis=1),axes=1) * asm_cc_vis.shape[1] * freq_resolution
-asm_cc_vis_lag = asm_cc_vis_lag + asm_ccres
+fg_lags_ds = fg_lags_ds.ravel()
+eor_lags_ds = eor_lags_ds.ravel()
 
-dsm_cc_skyvis_lag = NP.fft.fftshift(NP.fft.ifft(dsm_cc_skyvis, axis=1),axes=1) * dsm_cc_skyvis.shape[1] * freq_resolution
-dsm_ccres_sky = NP.fft.fftshift(NP.fft.ifft(dsm_cc_skyvis_res, axis=1),axes=1) * dsm_cc_skyvis.shape[1] * freq_resolution
-dsm_cc_skyvis_lag = dsm_cc_skyvis_lag + dsm_ccres_sky
-
-dsm_cc_vis_lag = NP.fft.fftshift(NP.fft.ifft(dsm_cc_vis, axis=1),axes=1) * dsm_cc_vis.shape[1] * freq_resolution
-dsm_ccres = NP.fft.fftshift(NP.fft.ifft(dsm_cc_vis_res, axis=1),axes=1) * dsm_cc_vis.shape[1] * freq_resolution
-dsm_cc_vis_lag = dsm_cc_vis_lag + dsm_ccres
-
-csm_cc_skyvis_lag = NP.fft.fftshift(NP.fft.ifft(csm_cc_skyvis, axis=1),axes=1) * csm_cc_skyvis.shape[1] * freq_resolution
-csm_ccres_sky = NP.fft.fftshift(NP.fft.ifft(csm_cc_skyvis_res, axis=1),axes=1) * csm_cc_skyvis.shape[1] * freq_resolution
-csm_cc_skyvis_lag = csm_cc_skyvis_lag + csm_ccres_sky
-
-csm_cc_vis_lag = NP.fft.fftshift(NP.fft.ifft(csm_cc_vis, axis=1),axes=1) * csm_cc_vis.shape[1] * freq_resolution
-csm_ccres = NP.fft.fftshift(NP.fft.ifft(csm_cc_vis_res, axis=1),axes=1) * csm_cc_vis.shape[1] * freq_resolution
-csm_cc_vis_lag = csm_cc_vis_lag + csm_ccres
-
-eor_skyvis_lag = eor_ia.skyvis_lag
-
-asm_cc_skyvis_lag = DSP.downsampler(asm_cc_skyvis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
-asm_cc_vis_lag = DSP.downsampler(asm_cc_vis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
-dsm_cc_skyvis_lag = DSP.downsampler(dsm_cc_skyvis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
-dsm_cc_vis_lag = DSP.downsampler(dsm_cc_vis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
-csm_cc_skyvis_lag = DSP.downsampler(csm_cc_skyvis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
-csm_cc_vis_lag = DSP.downsampler(csm_cc_vis_lag, 1.0*clean_lags.size/ia.lags.size, axis=1)
-# eor_skyvis_lag = DSP.downsampler(eor_skyvis_lag, 1.0*clean_lags.size/eor_ia.lags.size, axis=1)
-
-clean_lags = DSP.downsampler(clean_lags, 1.0*clean_lags.size/ia.lags.size, axis=-1)
-clean_lags = clean_lags.ravel()
-
-vis_noise_lag = NP.copy(ia.vis_noise_lag)
-vis_noise_lag = vis_noise_lag[truncated_ref_bl_ind,:,:]
-asm_cc_skyvis_lag = asm_cc_skyvis_lag[truncated_ref_bl_ind,:,:]
-asm_cc_vis_lag = asm_cc_vis_lag[truncated_ref_bl_ind,:,:]
-dsm_cc_skyvis_lag = dsm_cc_skyvis_lag[truncated_ref_bl_ind,:,:]
-dsm_cc_vis_lag = dsm_cc_vis_lag[truncated_ref_bl_ind,:,:]
-csm_cc_skyvis_lag = csm_cc_skyvis_lag[truncated_ref_bl_ind,:,:]
-csm_cc_vis_lag = csm_cc_vis_lag[truncated_ref_bl_ind,:,:]
-eor_skyvis_lag = eor_skyvis_lag[truncated_ref_bl_ind,:,:]
-
-delaymat = DLY.delay_envelope(ia.baselines[truncated_ref_bl_ind,:], pc, units='mks')
+delaymat = DLY.delay_envelope(asmsim.baselines[truncated_ref_bl_ind,:], pc, units='mks')
 min_delay = -delaymat[0,:,1]-delaymat[0,:,0]
 max_delay = delaymat[0,:,0]-delaymat[0,:,1]
-clags = clean_lags.reshape(1,-1)
+fglags = fg_lags_ds.reshape(1,-1)
+eorlags = eor_lags_ds.reshape(1,-1)
 min_delay = min_delay.reshape(-1,1)
 max_delay = max_delay.reshape(-1,1)
-thermal_noise_window = NP.abs(clags) >= max_abs_delay*1e-6
-thermal_noise_window = NP.repeat(thermal_noise_window, ia.baselines[truncated_ref_bl_ind,:].shape[0], axis=0)
-EoR_window = NP.logical_or(clags > max_delay+1/bw, clags < min_delay-1/bw)
-strict_EoR_window = NP.copy(EoR_window)
+eorsim_thermal_noise_window = NP.abs(eorlags) >= max_abs_delay*1e-6
+eorsim_thermal_noise_window = NP.repeat(eorsim_thermal_noise_window, eorsim.baselines[truncated_ref_bl_ind,:].shape[0], axis=0)
+eorsim_EoR_window = NP.logical_or(eorlags > max_delay+1/bw, eorlags < min_delay-1/bw)
+eorsim_strict_EoR_window = NP.copy(eorsim_EoR_window)
 if coarse_channel_resolution is not None:
-    strict_EoR_window = NP.logical_and(EoR_window, NP.abs(clags) < 1/coarse_channel_resolution)
-wedge_window = NP.logical_and(clags <= max_delay, clags >= min_delay)
-non_wedge_window = NP.logical_not(wedge_window)
-# vis_rms_lag = OPS.rms(asm_cc_vis_lag.reshape(-1,n_snaps), mask=NP.logical_not(NP.repeat(thermal_noise_window.reshape(-1,1), n_snaps, axis=1)), axis=0)
+    eorsim_strict_EoR_window = NP.logical_and(eorsim_EoR_window, NP.abs(eorlags) < 1/coarse_channel_resolution)
+eorsim_wedge_window = NP.logical_and(eorlags <= max_delay, eorlags >= min_delay)
+eorsim_non_wedge_window = NP.logical_not(eorsim_wedge_window)
+fgsim_thermal_noise_window = NP.abs(fglags) >= max_abs_delay*1e-6
+fgsim_thermal_noise_window = NP.repeat(fgsim_thermal_noise_window, asmsim.baselines[truncated_ref_bl_ind,:].shape[0], axis=0)
+fgsim_EoR_window = NP.logical_or(fglags > max_delay+1/bw, fglags < min_delay-1/bw)
+fgsim_strict_EoR_window = NP.copy(fgsim_EoR_window)
+if coarse_channel_resolution is not None:
+    fgsim_strict_EoR_window = NP.logical_and(fgsim_EoR_window, NP.abs(fglags) < 1/coarse_channel_resolution)
+fgsim_wedge_window = NP.logical_and(fglags <= max_delay, fglags >= min_delay)
+fgsim_non_wedge_window = NP.logical_not(fgsim_wedge_window)
+
+# vis_rms_lag = OPS.rms(asm_cc_vis_lag, mask=NP.logical_not(NP.repeat(thermal_noise_window[:,:,NP.newaxis], n_snaps, axis=2)), axis=1)
 # vis_rms_freq = NP.abs(vis_rms_lag) / NP.sqrt(nchan) / freq_resolution
-# T_rms_freq = vis_rms_freq / (2.0 * FCNST.k) * NP.mean(ia.A_eff) * NP.mean(ia.eff_Q) * NP.sqrt(2.0*freq_resolution*NP.asarray(ia.t_acc).reshape(1,-1)) * CNST.Jy
-# vis_rms_lag_theory = OPS.rms(vis_noise_lag.reshape(-1,n_snaps), mask=NP.logical_not(NP.repeat(EoR_window.reshape(-1,1), n_snaps, axis=1)), axis=0)
+# T_rms_freq = vis_rms_freq / (2.0 * FCNST.k) * NP.mean(ia.A_eff[truncated_ref_bl_ind,:]) * NP.mean(ia.eff_Q[truncated_ref_bl_ind,:]) * NP.sqrt(2.0*freq_resolution*NP.asarray(ia.t_acc).reshape(1,1,-1)) * CNST.Jy
+# vis_rms_lag_theory = OPS.rms(vis_noise_lag, mask=NP.logical_not(NP.repeat(EoR_window[:,:,NP.newaxis], n_snaps, axis=2)), axis=1)
 # vis_rms_freq_theory = NP.abs(vis_rms_lag_theory) / NP.sqrt(nchan) / freq_resolution
-# T_rms_freq_theory = vis_rms_freq_theory / (2.0 * FCNST.k) * NP.mean(ia.A_eff) * NP.mean(ia.eff_Q) * NP.sqrt(2.0*freq_resolution*NP.asarray(ia.t_acc).reshape(1,-1)) * CNST.Jy
-vis_rms_lag = OPS.rms(asm_cc_vis_lag, mask=NP.logical_not(NP.repeat(thermal_noise_window[:,:,NP.newaxis], n_snaps, axis=2)), axis=1)
-vis_rms_freq = NP.abs(vis_rms_lag) / NP.sqrt(nchan) / freq_resolution
-T_rms_freq = vis_rms_freq / (2.0 * FCNST.k) * NP.mean(ia.A_eff[truncated_ref_bl_ind,:]) * NP.mean(ia.eff_Q[truncated_ref_bl_ind,:]) * NP.sqrt(2.0*freq_resolution*NP.asarray(ia.t_acc).reshape(1,1,-1)) * CNST.Jy
-vis_rms_lag_theory = OPS.rms(vis_noise_lag, mask=NP.logical_not(NP.repeat(EoR_window[:,:,NP.newaxis], n_snaps, axis=2)), axis=1)
-vis_rms_freq_theory = NP.abs(vis_rms_lag_theory) / NP.sqrt(nchan) / freq_resolution
-T_rms_freq_theory = vis_rms_freq_theory / (2.0 * FCNST.k) * NP.mean(ia.A_eff[truncated_ref_bl_ind,:]) * NP.mean(ia.eff_Q[truncated_ref_bl_ind,:]) * NP.sqrt(2.0*freq_resolution*NP.asarray(ia.t_acc).reshape(1,1,-1)) * CNST.Jy
+# T_rms_freq_theory = vis_rms_freq_theory / (2.0 * FCNST.k) * NP.mean(ia.A_eff[truncated_ref_bl_ind,:]) * NP.mean(ia.eff_Q[truncated_ref_bl_ind,:]) * NP.sqrt(2.0*freq_resolution*NP.asarray(ia.t_acc).reshape(1,1,-1)) * CNST.Jy
 
 if max_abs_delay is not None:
-    small_delays_ind = NP.abs(clean_lags) <= max_abs_delay * 1e-6
-    eor_small_delays_ind = NP.abs(eor_ia.lags) <= max_abs_delay * 1e-6    
-    clean_lags = clean_lags[small_delays_ind]
-    asm_cc_vis_lag = asm_cc_vis_lag[:,small_delays_ind,:]
-    asm_cc_skyvis_lag = asm_cc_skyvis_lag[:,small_delays_ind,:]
-    dsm_cc_vis_lag = dsm_cc_vis_lag[:,small_delays_ind,:]
-    dsm_cc_skyvis_lag = dsm_cc_skyvis_lag[:,small_delays_ind,:]
-    csm_cc_vis_lag = csm_cc_vis_lag[:,small_delays_ind,:]
-    csm_cc_skyvis_lag = csm_cc_skyvis_lag[:,small_delays_ind,:]
-    eor_skyvis_lag = eor_skyvis_lag[:,eor_small_delays_ind,:]
+    fg_small_delays_ind = NP.abs(fg_lags_ds) <= max_abs_delay * 1e-6
+    eor_small_delays_ind = NP.abs(eor_lags_ds) <= max_abs_delay * 1e-6    
+    fg_lags_ds = fg_lags_ds[fg_small_delays_ind]
+    eor_lags_ds = eor_lags_ds[eor_small_delays_ind]
+    asm_skyvis_lag_ds = asm_skyvis_lag_ds[:,:,fg_small_delays_ind,:]
+    asm_vis_noise_lag_ds = asm_vis_noise_lag_ds[:,:,fg_small_delays_ind,:]
+    dsm_skyvis_lag_ds = dsm_skyvis_lag_ds[:,:,fg_small_delays_ind,:]
+    dsm_vis_noise_lag_ds = dsm_vis_noise_lag_ds[:,:,fg_small_delays_ind,:]
+    csm_skyvis_lag_ds = csm_skyvis_lag_ds[:,:,fg_small_delays_ind,:]
+    csm_vis_noise_lag_ds = csm_vis_noise_lag_ds[:,:,fg_small_delays_ind,:]
+    eor_skyvis_lag_ds = eor_skyvis_lag_ds[:,:,eor_small_delays_ind,:]
+    eor_vis_noise_lag_ds = eor_vis_noise_lag_ds[:,:,eor_small_delays_ind,:]    
 
 if (dspec_min is None) or (dspec_max is None):
     # dspec_min = NP.abs(asm_cc_vis_lag).min()
     dspec_min = NP.abs(eor_skyvis_lag).min()
-    dspec_max = NP.abs(asm_cc_vis_lag).max()
+    dspec_max = NP.abs(asm_skyvis_lag).max()
     dspec_min = dspec_min**2 * volfactor1 * volfactor2 * Jy2K**2
     dspec_max = dspec_max**2 * volfactor1 * volfactor2 * Jy2K**2
 
@@ -658,16 +641,26 @@ cardinal_blo = 180.0 / n_bins_baseline_orientation * (NP.arange(n_bins_baseline_
 cardinal_bll = 100.0
 cardinal_bl = cardinal_bll * NP.hstack((NP.cos(NP.radians(cardinal_blo)), NP.sin(NP.radians(cardinal_blo)), NP.zeros_like(cardinal_blo)))
 
-small_delays_EoR_window = EoR_window.T
-small_delays_strict_EoR_window = strict_EoR_window.T
-small_delays_wedge_window = wedge_window.T
+small_delays_eorsim_EoR_window = eorsim_EoR_window.T
+small_delays_eorsim_strict_EoR_window = eorsim_strict_EoR_window.T
+small_delays_eorsim_wedge_window = eorsim_wedge_window.T
 if max_abs_delay is not None:
-    small_delays_EoR_window = small_delays_EoR_window[small_delays_ind,:]
-    small_delays_strict_EoR_window = small_delays_strict_EoR_window[small_delays_ind,:]
-    small_delays_wedge_window = small_delays_wedge_window[small_delays_ind,:]
+    small_delays_eorsim_EoR_window = small_delays_eorsim_EoR_window[eor_small_delays_ind,:]
+    small_delays_eorsim_strict_EoR_window = small_delays_eorsim_strict_EoR_window[eor_small_delays_ind,:]
+    small_delays_eorsim_wedge_window = small_delays_eorsim_wedge_window[eor_small_delays_ind,:]
 
-small_delays_non_wedge_window = NP.logical_not(small_delays_wedge_window)
-    
+small_delays_eorsim_non_wedge_window = NP.logical_not(small_delays_eorsim_wedge_window)
+
+small_delays_fgsim_EoR_window = fgsim_EoR_window.T
+small_delays_fgsim_strict_EoR_window = fgsim_strict_EoR_window.T
+small_delays_fgsim_wedge_window = fgsim_wedge_window.T
+if max_abs_delay is not None:
+    small_delays_fgsim_EoR_window = small_delays_fgsim_EoR_window[fg_small_delays_ind,:]
+    small_delays_fgsim_strict_EoR_window = small_delays_fgsim_strict_EoR_window[fg_small_delays_ind,:]
+    small_delays_fgsim_wedge_window = small_delays_fgsim_wedge_window[fg_small_delays_ind,:]
+
+small_delays_fgsim_non_wedge_window = NP.logical_not(small_delays_fgsim_wedge_window)
+
 backdrop_xsize = 500
 xmin = -180.0
 xmax = 180.0
@@ -1287,34 +1280,34 @@ for j in range(n_snaps):
     cbar11.set_ticklabels(csm_fg_ticks.tolist())
     cbax11.set_ylabel('Flux Density [Jy]', labelpad=-60, fontsize=14)
 
-    dsmdspec = ax20.pcolorfast(truncated_ref_bl_length, 1e6*clean_lags, NP.abs(dsm_cc_skyvis_lag[:-1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e0)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=(1e9)**2 * volfactor1 * volfactor2 * Jy2K**2))
+    dsmdspec = ax20.pcolorfast(truncated_ref_bl_length, 1e6*fg_lags_ds, NP.abs(dsm_skyvis_lag_ds[:-1,0,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e0)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=(1e9)**2 * volfactor1 * volfactor2 * Jy2K**2))
     horizonb = ax20.plot(truncated_ref_bl_length, 1e6*min_delay.ravel(), color='white', ls=':', lw=1.5)
     horizont = ax20.plot(truncated_ref_bl_length, 1e6*max_delay.ravel(), color='white', ls=':', lw=1.5)
-    ax20.set_ylim(0.9*NP.amin(clean_lags*1e6), 0.9*NP.amax(clean_lags*1e6))
+    ax20.set_ylim(0.9*NP.amin(fg_lags_ds*1e6), 0.9*NP.amax(fg_lags_ds*1e6))
     ax20.set_aspect('auto')
-    ax20.text(0.5, 0.9, 'Diffuse', transform=ax20.transAxes, fontsize=14, weight='semibold', ha='center', color='black')
+    ax20.text(0.5, 0.9, 'Diffuse', transform=ax20.transAxes, fontsize=14, weight='semibold', ha='center', color='white')
 
-    csmspec = ax21.pcolorfast(truncated_ref_bl_length, 1e6*clean_lags, NP.abs(csm_cc_skyvis_lag[:-1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e0)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=(1e9)**2 * volfactor1 * volfactor2 * Jy2K**2))
+    csmdspec = ax21.pcolorfast(truncated_ref_bl_length, 1e6*fg_lags_ds, NP.abs(csm_skyvis_lag_ds[:-1,0,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e0)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=(1e9)**2 * volfactor1 * volfactor2 * Jy2K**2))
     horizonb = ax21.plot(truncated_ref_bl_length, 1e6*min_delay.ravel(), color='white', ls=':', lw=1.5)
     horizont = ax21.plot(truncated_ref_bl_length, 1e6*max_delay.ravel(), color='white', ls=':', lw=1.5)
-    ax21.set_ylim(0.9*NP.amin(clean_lags*1e6), 0.9*NP.amax(clean_lags*1e6))
+    ax21.set_ylim(0.9*NP.amin(fg_lags_ds*1e6), 0.9*NP.amax(fg_lags_ds*1e6))
     ax21.set_aspect('auto')
-    ax21.text(0.5, 0.9, 'Point Sources', transform=ax21.transAxes, fontsize=14, weight='semibold', ha='center', color='black')
+    ax21.text(0.5, 0.9, 'Point', transform=ax21.transAxes, fontsize=14, weight='semibold', ha='center', color='white')
 
-    asmdspec = ax22.pcolorfast(truncated_ref_bl_length, 1e6*clean_lags, NP.abs(asm_cc_skyvis_lag[:-1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e0)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=(1e9)**2 * volfactor1 * volfactor2 * Jy2K**2))
+    asmdspec = ax22.pcolorfast(truncated_ref_bl_length, 1e6*fg_lags_ds, NP.abs(asm_skyvis_lag_ds[:-1,0,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e0)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=(1e9)**2 * volfactor1 * volfactor2 * Jy2K**2))
     horizonb = ax22.plot(truncated_ref_bl_length, 1e6*min_delay.ravel(), color='white', ls=':', lw=1.5)
     horizont = ax22.plot(truncated_ref_bl_length, 1e6*max_delay.ravel(), color='white', ls=':', lw=1.5)
-    ax22.set_ylim(0.9*NP.amin(clean_lags*1e6), 0.9*NP.amax(clean_lags*1e6))
+    ax22.set_ylim(0.9*NP.amin(fg_lags_ds*1e6), 0.9*NP.amax(fg_lags_ds*1e6))
     ax22.set_aspect('auto')
-    ax22.text(0.5, 0.9, 'Diffuse + Point', transform=ax22.transAxes, fontsize=14, weight='semibold', ha='center', color='black')
-
-    eordspec = ax23.pcolorfast(truncated_ref_bl_length, 1e6*eor_ia.lags[eor_small_delays_ind], NP.abs(eor_skyvis_lag[:-1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e0)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=(1e9)**2 * volfactor1 * volfactor2 * Jy2K**2))
+    ax22.text(0.5, 0.9, 'Diffuse + Point', transform=ax22.transAxes, fontsize=14, weight='semibold', ha='center', color='white')
+    
+    eordspec = ax23.pcolorfast(truncated_ref_bl_length, 1e6*eor_lags_ds, NP.abs(eor_skyvis_lag_ds[:-1,1,:-1,j].T)**2 * volfactor1 * volfactor2 * Jy2K**2, norm=PLTC.LogNorm(vmin=(1e0)**2 * volfactor1 * volfactor2 * Jy2K**2, vmax=(1e9)**2 * volfactor1 * volfactor2 * Jy2K**2))
     horizonb = ax23.plot(truncated_ref_bl_length, 1e6*min_delay.ravel(), color='white', ls=':', lw=1.5)
     horizont = ax23.plot(truncated_ref_bl_length, 1e6*max_delay.ravel(), color='white', ls=':', lw=1.5)
-    ax23.set_ylim(0.9*NP.amin(clean_lags*1e6), 0.9*NP.amax(clean_lags*1e6))
+    ax23.set_ylim(0.9*NP.amin(eor_lags_ds*1e6), 0.9*NP.amax(eor_lags_ds*1e6))
     ax23.set_aspect('auto')
-    ax23.text(0.5, 0.9, 'HI signal', transform=ax23.transAxes, fontsize=14, weight='semibold', ha='center', color='black')
-
+    ax23.text(0.5, 0.9, 'HI signal', transform=ax23.transAxes, fontsize=14, weight='semibold', ha='center', color='white')
+    
     axs = [ax20, ax21, ax22, ax23]
     for k in xrange(len(axs)):
         if k%2 == 1:
@@ -1358,8 +1351,8 @@ for j in range(n_snaps):
     cbax2.set_xlabel(r'K$^2$(Mpc/h)$^3$', labelpad=10, fontsize=12)
     cbax2.xaxis.set_label_position('top')
     
-    PLT.savefig(rootdir+project_dir+'figures/'+telescope_str+'CLEAN_delay_PS_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_instr+'_'+bpass_shape+'_snapshot_{0:03d}'.format(j)+'.png', bbox_inches=0)
-    # PLT.savefig(rootdir+project_dir+'figures/'+telescope_str+'CLEAN_delay_PS_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_instr+'_'+bpass_shape+'_snapshot_{0:03d}'.format(j)+'.eps', bbox_inches=0)
+    PLT.savefig(rootdir+project_dir+'figures/'+telescope_str+'windowed_delay_PS_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_instr+'_'+bpass_shape+'_snapshot_{0:03d}'.format(j)+'.png', bbox_inches=0)
+    # PLT.savefig(rootdir+project_dir+'figures/'+telescope_str+'windowed_delay_PS_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}'.format(ref_bl_length[baseline_bin_indices[0]],ref_bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_instr+'_'+bpass_shape+'_snapshot_{0:03d}'.format(j)+'.eps', bbox_inches=0)
     PLT.close()
 
     progress.update(j+1)

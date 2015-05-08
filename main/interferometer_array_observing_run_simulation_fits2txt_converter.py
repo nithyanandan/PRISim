@@ -1,5 +1,4 @@
-from astropy.io import fits
-from astropy.io import ascii
+from astropy.io import fits, ascii
 from astropy.table import Table
 import numpy as NP
 
