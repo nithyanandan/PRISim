@@ -1,3 +1,24 @@
+From c802b72 of Interferometry:
+==============================
+
+(*) Add main programs EoR_and_foregrounds_snapshot_delay_spectra.py,
+skymodel_manager.py. The latter converts sky models in (non-)HEALPIX
+format(s) to HEALPIX format
+
+(*) Fix major bug in
+interferometer_array_theory_units_figures_producer.py where healpy
+module's cartview() function returned a map in 'ecliptic' coordinates
+rather than in 'equatorial' coordinates. Fix this by setting input
+parameter coord in cartview() to 'C' instead of 'E' (happening earlier)
+
+From e874d67 of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Add member function multi_window_delay_transform() to class
+InterferometerArray
+
 From ec3f10a of Interferometry:
 ==============================
 

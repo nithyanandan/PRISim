@@ -222,7 +222,7 @@ bl_id = bl_id[:min(baseline_bin_indices[n_bl_chunks], total_baselines)]
 
 Tsys = 300.0 # System temperature in K
 freq = 150.0 * 1e6 # foreground center frequency in Hz
-freq_resolution = 80e3 # in Hz
+freq_resolution = 160e3 # in Hz
 bpass_shape = 'rect'
 f_pad = 1.0
 oversampling_factor = 1.0 + f_pad

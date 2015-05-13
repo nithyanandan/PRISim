@@ -165,7 +165,7 @@ obsparm  :
     freq            : 150000000.0
                                 # Center frequency (in Hz)
 
-    freq_resolution : 80000.0
+    freq_resolution : 320000.0
                                 # Frequency resolution (in Hz)
 
     nchan           : 128
@@ -258,7 +258,7 @@ snapshot :                      # Parameters below are mutually
 
 fgparm   :
 
-    model           : 'HI_cube'
+    model           : 'csm'
                                 # Foreground model. Accepted values
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both
@@ -273,7 +273,7 @@ fgparm   :
                                 # and'HI_fluctuations' (HI fluctuations
                                 # with the global mean signal removed)
 
-    nside           : 256
+    nside           : 128
                                 # Healpix nside parameter for foreground
                                 # model input map. Accepted values are
                                 # valid nside values
@@ -342,7 +342,8 @@ catalog  :
 
 processing:
 
-    n_bl_chunks     : null
+
+    n_bl_chunks     : 1
                                 # Upper limit on number of baseline
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
@@ -350,8 +351,8 @@ processing:
                                 #NB: This number is redundant with uvmax, 
                                 # and is best left as null.
 
-    bl_chunk_size   : 10
-                                # number of baselines in a parallel process
+
+    bl_chunk_size   : 640
                                 # Baseline chunk size. Will be used
                                 # in a single process during parallel
                                 # processing

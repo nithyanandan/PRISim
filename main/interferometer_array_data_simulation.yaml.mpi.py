@@ -3,7 +3,7 @@ import yaml
 import argparse
 import numpy as NP 
 from astropy.io import fits, ascii
-from astropy.coordinates import Galactic, FK5
+from astropy.coordinates import Galactic, FK5, SkyCoord
 from astropy import units
 import scipy.constants as FCNST
 from scipy import interpolate
@@ -1089,7 +1089,9 @@ elif use_CSM:
         NP.random.seed(2*spindex_seed)
         spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
 
-    not_in_SUMSS_ind = NP.logical_and(dec_deg_NVSS > -30.0, dec_deg_NVSS <= min(90.0, latitude+90.0))
+    not_in_SUMSS_ind = dec_deg_NVSS > -30.0
+    # not_in_SUMSS_ind = NP.logical_and(dec_deg_NVSS > -30.0, dec_deg_NVSS <= min(90.0, latitude+90.0))
+    
     bright_source_ind = nvss_fpeak >= 10.0 * (freq_NVSS*1e9/freq)**(spindex_NVSS)
     PS_ind = NP.sqrt(nvss_majax**2-(0.75/60.0)**2) < 14.0/3.6e3
     count_valid = NP.sum(NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind))
