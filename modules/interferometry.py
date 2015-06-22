@@ -951,10 +951,10 @@ class ROI_parameters(object):
                 else:
                     self.telescope['latitude'] = None
 
-                # if 'longitude' in hdulist[0].header:
-                #     self.telescope['longitude'] = hdulist[0].header['longitude']
-                # else:
-                #     self.telescope['longitude'] = 0.0
+                if 'longitude' in hdulist[0].header:
+                    self.telescope['longitude'] = hdulist[0].header['longitude']
+                else:
+                    self.telescope['longitude'] = 0.0
                     
                 try:
                     self.telescope['shape'] = hdulist[0].header['element_shape']
@@ -1275,18 +1275,12 @@ class ROI_parameters(object):
 
                 if not pbeam_input: # Will require sky positions in Alt-Az coordinates
                     if skymodel.coords == 'radec':
-                        # if latitude is None:
-                        #     raise ValueError('Latitude of the observatory must be provided.')
                         if self.telescope['latitude'] is None:
                             raise ValueError('Latitude of the observatory must be provided.')                        
                         if lst is None:
                             raise ValueError('LST must be provided.')
-                        # skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), latitude, units='degrees')
                         skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')                        
                     elif skymodel.coords == 'hadec':
-                        # if latitude is None:
-                        #     raise ValueError('Latitude of the observatory must be provided.')
-                        # skypos_altaz = GEOM.hadec2altaz(skymodel.location, latitude, units='degrees')
                         if self.telescope['latitude'] is None:
                             raise ValueError('Latitude of the observatory must be provided.')
                         skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
@@ -1317,13 +1311,11 @@ class ROI_parameters(object):
                 elif roi_info['center_coords'] == 'altaz':
                     self.info['center'] += [roi_info['center']]
                 elif roi_info['center_coords'] == 'hadec':
-                    # self.info['center'] += [GEOM.hadec2altaz(roi_info['center'], self.latitude, units='degrees')]
                     self.info['center'] += [GEOM.hadec2altaz(roi_info['center'], self.telescope['latitude'], units='degrees')]
                 elif roi_info['center_coords'] == 'radec':
                     if lst is None:
                         raise KeyError('LST not provided for coordinate conversion')
                     hadec = NP.asarray([lst-roi_info['center'][0,0], roi_info['center'][0,1]]).reshape(1,-1)
-                    # self.info['center'] += [GEOM.hadec2altaz(hadec, self.latitude, units='degrees')]
                     self.info['center'] += [GEOM.hadec2altaz(hadec, self.telescope['latitude'], units='degrees')]                    
                 elif roi_info['center_coords'] == 'dircos':
                     self.info['center'] += [GEOM.dircos2altaz(roi_info['center'], units='degrees')]
@@ -1331,19 +1323,13 @@ class ROI_parameters(object):
                     raise ValueError('Invalid coordinate system specified for center')
 
             if skymodel.coords == 'radec':
-                # if latitude is None:
-                #     raise ValueError('Latitude of the observatory must be provided.')
                 if self.telescope['latitude'] is None:
                     raise ValueError('Latitude of the observatory must be provided.')
 
                 if lst is None:
                     raise ValueError('LST must be provided.')
-                # skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), latitude, units='degrees')
                 skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')                
             elif skymodel.coords == 'hadec':
-                # if latitude is None:
-                #     raise ValueError('Latitude of the observatory must be provided.')
-                # skypos_altaz = GEOM.hadec2altaz(skymodel.location, latitude, units='degrees')
                 if self.telescope['latitude'] is None:
                     raise ValueError('Latitude of the observatory must be provided.')
                 skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
@@ -1373,18 +1359,14 @@ class ROI_parameters(object):
 
             if 'pointing_coords' in pinfo: # Convert pointing coordinate to Alt-Az
                 if (pinfo['pointing_coords'] != 'dircos') and (pinfo['pointing_coords'] != 'altaz'):
-                    # if latitude is None:
-                    #     raise ValueError('Latitude of the observatory must be provided.')
                     if self.telescope['latitude'] is None:
                         raise ValueError('Latitude of the observatory must be provided.')
                     if pinfo['pointing_coords'] == 'radec':
                         if lst is None:
                             raise ValueError('LST must be provided.')
                         self.pinfo[-1]['pointing_center'] = NP.asarray([lst-pinfo['pointing_center'][0,0], pinfo['pointing_center'][0,1]]).reshape(1,-1)
-                        # self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(self.pinfo[-1]['pointing_center'], latitude, units='degrees')
                         self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(self.pinfo[-1]['pointing_center'], self.telescope['latitude'], units='degrees')
                     elif pinfo[-1]['pointing_coords'] == 'hadec':
-                        # self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(pinfo[-1]['pointing_center'], self.latitude, units='degrees')
                         self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(pinfo[-1]['pointing_center'], self.telescope['latitude'], units='degrees')
                     else:
                         raise ValueError('pointing_coords in dictionary pinfo must be "dircos", "altaz", "hadec" or "radec".')
@@ -1467,7 +1449,7 @@ class ROI_parameters(object):
         hdulist[0].header['element_ocoords'] = (self.telescope['ocoords'], 'Antenna element orientation coordinates')
         if self.telescope['latitude'] is not None:
             hdulist[0].header['latitude'] = (self.telescope['latitude'], 'Latitude (in degrees)')
-        # hdulist[0].header['longitude'] = (self.telescope['longitude'], 'Longitude (in degrees)')
+        hdulist[0].header['longitude'] = (self.telescope['longitude'], 'Longitude (in degrees)')
         if self.telescope['groundplane'] is not None:
             hdulist[0].header['ground_plane'] = (self.telescope['groundplane'], 'Antenna element height above ground plane [m]')
             if 'ground_modify' in self.telescope:
@@ -1795,9 +1777,9 @@ class InterferometerArray(object):
     """
 
     def __init__(self, labels, baselines, channels, telescope=None, eff_Q=0.89,
-                 latitude=34.0790, skycoords='radec', A_eff=NP.pi*(25.0/2)**2, 
-                 pointing_coords='hadec', baseline_coords='localenu',
-                 freq_scale=None, init_file=None):
+                 latitude=34.0790, longitude=0.0, skycoords='radec',
+                 A_eff=NP.pi*(25.0/2)**2, pointing_coords='hadec',
+                 baseline_coords='localenu', freq_scale=None, init_file=None):
         
         """
         ------------------------------------------------------------------------
@@ -1805,12 +1787,12 @@ class InterferometerArray(object):
         multi-element interferometer.
 
         Class attributes initialized are:
-        labels, baselines, channels, telescope, latitude, skycoords, eff_Q, A_eff,
-        pointing_coords, baseline_coords, baseline_lengths, channels, bp, bp_wts,
-        freq_resolution, lags, lst, obs_catalog_indices, pointing_center,
-        skyvis_freq, skyvis_lag, timestamp, t_acc, Tsys, vis_freq, vis_lag, 
-        t_obs, n_acc, vis_noise_freq, vis_noise_lag, vis_rms_freq,
-        geometric_delays, and projected_baselines.
+        labels, baselines, channels, telescope, latitude, longitude, skycoords, 
+        eff_Q, A_eff, pointing_coords, baseline_coords, baseline_lengths, 
+        channels, bp, bp_wts, freq_resolution, lags, lst, obs_catalog_indices, 
+        pointing_center, skyvis_freq, skyvis_lag, timestamp, t_acc, Tsys, 
+        vis_freq, vis_lag, t_obs, n_acc, vis_noise_freq, vis_noise_lag, 
+        vis_rms_freq, geometric_delays, and projected_baselines.
 
         Read docstring of class InterferometerArray for details on these
         attributes.
@@ -1848,6 +1830,12 @@ class InterferometerArray(object):
             except KeyError:
                 print '\tKeyword "latitude" not found in header. Assuming 34.0790 degrees for attribute latitude.'
                 self.latitude = 34.0790
+
+            try:
+                self.longitude = hdulist[0].header['longitude']
+            except KeyError:
+                print '\tKeyword "longitude" not found in header. Assuming 0.0 degrees for attribute longitude.'
+                self.longitude = 0.0
                 
             self.telescope = {}
             if 'telescope' in hdulist[0].header:
@@ -2081,6 +2069,7 @@ class InterferometerArray(object):
             self.telescope['groundplane'] = None
 
         self.latitude = latitude
+        self.longitude = longitude
         self.vis_freq = None
         self.skyvis_freq = None
         # self.pb = None
@@ -3484,6 +3473,7 @@ class InterferometerArray(object):
 
         hdulist += [fits.PrimaryHDU()]
         hdulist[0].header['latitude'] = (self.latitude, 'Latitude of interferometer')
+        hdulist[0].header['longitude'] = (self.longitude, 'Longitude of interferometer')        
         hdulist[0].header['baseline_coords'] = (self.baseline_coords, 'Baseline coordinate system')
         hdulist[0].header['freq_resolution'] = (self.freq_resolution, 'Frequency Resolution (Hz)')
         hdulist[0].header['pointing_coords'] = (self.pointing_coords, 'Pointing coordinate system')

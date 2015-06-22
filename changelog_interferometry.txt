@@ -1,10 +1,24 @@
+From 30bc19a of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Initialize longitude in __init__() member function of class
+ROI_parameters
+(*) Save longitude information in save() member function of
+class ROI_parameters
+(*) Initialize longitude in __init__() member function of class
+InterferometerArray
+(*) Save longitude information in save() member function of
+class InterferometerArray
+
 From 30b511a of Interferometry:
 ==============================
 
 In interferometry.py,
 
-(*) Initialize latitude and longitude in __init__() member function of
-class ROI_parameters
+(*) Initialize latitude in __init__() member function of class
+ROI_parameters
 (*) Remove latitude keyword input to member function append_settings()
 of class ROI_parameters
 (*) Change all occurrences of latitude to key 'latitude' of dictionary

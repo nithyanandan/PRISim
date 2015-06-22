@@ -32,6 +32,14 @@ telescope:
                                 # 34.079 for VLA,
                                 # 19.0965 for GMRT
 
+    longitude       : null
+                                # Longitude of observatory (in degrees)
+                                # Default (null) implies 0.0 degrees
+                                # corresponding to GMT.
+                                # -107.6184 for VLA, +116.670815 for MWA
+                                # +21.4278 for PAPER and HERA,
+                                # +74.0497 for GMRT
+
     A_eff           : 154
                                 # Effective area of antenna element
                                 # in m^2
