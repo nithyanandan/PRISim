@@ -816,6 +816,11 @@ class ROI_parameters(object):
                               'max'   [scalar] positive value to clip the 
                                       modified and scaled values to. If not set, 
                                       there is no upper limit
+                'latitude'    [scalar] specifies latitude of the telescope site
+                              (in degrees). Default = None (advisable to specify
+                              a real value)
+                'longitude'   [scalar] specifies latitude of the telescope site
+                              (in degrees). Default = 0 (GMT)
                 'pol'         [string] specifies polarization when using
                               MWA_Tools for primary beam computation. Value of 
                               key 'id' in attribute dictionary telescope must be
@@ -941,6 +946,16 @@ class ROI_parameters(object):
                 if 'id' in hdulist[0].header:
                     self.telescope['id'] = hdulist[0].header['telescope']
 
+                if 'latitude' in hdulist[0].header:
+                    self.telescope['latitude'] = hdulist[0].header['latitude']
+                else:
+                    self.telescope['latitude'] = None
+
+                # if 'longitude' in hdulist[0].header:
+                #     self.telescope['longitude'] = hdulist[0].header['longitude']
+                # else:
+                #     self.telescope['longitude'] = 0.0
+                    
                 try:
                     self.telescope['shape'] = hdulist[0].header['element_shape']
                 except KeyError:
@@ -1048,9 +1063,8 @@ class ROI_parameters(object):
 
     #############################################################################
 
-    def append_settings(self, skymodel, freq, pinfo=None, latitude=None,
-                        lst=None, roi_info=None, telescope=None,
-                        freq_scale='GHz'):
+    def append_settings(self, skymodel, freq, pinfo=None, lst=None,
+                        roi_info=None, telescope=None, freq_scale='GHz'):
 
         """
         ------------------------------------------------------------------------
@@ -1067,9 +1081,6 @@ class ROI_parameters(object):
 
         freq     [numpy vector] Frequency channels (with units specified by the
                  attribute freq_scale)
-
-        latitude [Scalar] Latitude of the interferometer's location. Default
-                 is 34.0790 degrees North corresponding to that of the VLA.
 
         pinfo    [list of dictionaries] Each dictionary element in the list
                  corresponds to a specific snapshot. It contains information
@@ -1188,6 +1199,14 @@ class ROI_parameters(object):
                               'max'   [scalar] positive value to clip the 
                                       modified and scaled values to. If not set, 
                                       there is no upper limit
+                'latitude'    [scalar] specifies latitude of the telescope site
+                              (in degrees). Default = None, otherwise should 
+                              equal the value specified during initialization 
+                              of the instance
+                'longitude'   [scalar] specifies latitude of the telescope site
+                              (in degrees). Default = None, otherwise should 
+                              equal the value specified during initialization 
+                              of the instance
                 'pol'         [string] specifies polarization when using
                               MWA_Tools for primary beam computation. Value of 
                               key 'id' in attribute dictionary telescope must be
@@ -1256,15 +1275,22 @@ class ROI_parameters(object):
 
                 if not pbeam_input: # Will require sky positions in Alt-Az coordinates
                     if skymodel.coords == 'radec':
-                        if latitude is None:
-                            raise ValueError('Latitude of the observatory must be provided.')
+                        # if latitude is None:
+                        #     raise ValueError('Latitude of the observatory must be provided.')
+                        if self.telescope['latitude'] is None:
+                            raise ValueError('Latitude of the observatory must be provided.')                        
                         if lst is None:
                             raise ValueError('LST must be provided.')
-                        skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), latitude, units='degrees')
+                        # skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), latitude, units='degrees')
+                        skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')                        
                     elif skymodel.coords == 'hadec':
-                        if latitude is None:
+                        # if latitude is None:
+                        #     raise ValueError('Latitude of the observatory must be provided.')
+                        # skypos_altaz = GEOM.hadec2altaz(skymodel.location, latitude, units='degrees')
+                        if self.telescope['latitude'] is None:
                             raise ValueError('Latitude of the observatory must be provided.')
-                        skypos_altaz = GEOM.hadec2altaz(skymodel.location, latitude, units='degrees')
+                        skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
+
                     elif skymodel.coords == 'dircos':
                         skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
                     elif skymodel.coords == 'altaz':
@@ -1291,27 +1317,36 @@ class ROI_parameters(object):
                 elif roi_info['center_coords'] == 'altaz':
                     self.info['center'] += [roi_info['center']]
                 elif roi_info['center_coords'] == 'hadec':
-                    self.info['center'] += [GEOM.hadec2altaz(roi_info['center'], self.latitude, units='degrees')]
+                    # self.info['center'] += [GEOM.hadec2altaz(roi_info['center'], self.latitude, units='degrees')]
+                    self.info['center'] += [GEOM.hadec2altaz(roi_info['center'], self.telescope['latitude'], units='degrees')]
                 elif roi_info['center_coords'] == 'radec':
                     if lst is None:
                         raise KeyError('LST not provided for coordinate conversion')
                     hadec = NP.asarray([lst-roi_info['center'][0,0], roi_info['center'][0,1]]).reshape(1,-1)
-                    self.info['center'] += [GEOM.hadec2altaz(hadec, self.latitude, units='degrees')]
+                    # self.info['center'] += [GEOM.hadec2altaz(hadec, self.latitude, units='degrees')]
+                    self.info['center'] += [GEOM.hadec2altaz(hadec, self.telescope['latitude'], units='degrees')]                    
                 elif roi_info['center_coords'] == 'dircos':
                     self.info['center'] += [GEOM.dircos2altaz(roi_info['center'], units='degrees')]
                 else:
                     raise ValueError('Invalid coordinate system specified for center')
 
             if skymodel.coords == 'radec':
-                if latitude is None:
+                # if latitude is None:
+                #     raise ValueError('Latitude of the observatory must be provided.')
+                if self.telescope['latitude'] is None:
                     raise ValueError('Latitude of the observatory must be provided.')
+
                 if lst is None:
                     raise ValueError('LST must be provided.')
-                skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), latitude, units='degrees')
+                # skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), latitude, units='degrees')
+                skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')                
             elif skymodel.coords == 'hadec':
-                if latitude is None:
+                # if latitude is None:
+                #     raise ValueError('Latitude of the observatory must be provided.')
+                # skypos_altaz = GEOM.hadec2altaz(skymodel.location, latitude, units='degrees')
+                if self.telescope['latitude'] is None:
                     raise ValueError('Latitude of the observatory must be provided.')
-                skypos_altaz = GEOM.hadec2altaz(skymodel.location, latitude, units='degrees')
+                skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
             elif skymodel.coords == 'dircos':
                 skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
             elif skymodel.coords == 'altaz':
@@ -1338,15 +1373,19 @@ class ROI_parameters(object):
 
             if 'pointing_coords' in pinfo: # Convert pointing coordinate to Alt-Az
                 if (pinfo['pointing_coords'] != 'dircos') and (pinfo['pointing_coords'] != 'altaz'):
-                    if latitude is None:
+                    # if latitude is None:
+                    #     raise ValueError('Latitude of the observatory must be provided.')
+                    if self.telescope['latitude'] is None:
                         raise ValueError('Latitude of the observatory must be provided.')
                     if pinfo['pointing_coords'] == 'radec':
                         if lst is None:
                             raise ValueError('LST must be provided.')
                         self.pinfo[-1]['pointing_center'] = NP.asarray([lst-pinfo['pointing_center'][0,0], pinfo['pointing_center'][0,1]]).reshape(1,-1)
-                        self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(self.pinfo[-1]['pointing_center'], latitude, units='degrees')
+                        # self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(self.pinfo[-1]['pointing_center'], latitude, units='degrees')
+                        self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(self.pinfo[-1]['pointing_center'], self.telescope['latitude'], units='degrees')
                     elif pinfo[-1]['pointing_coords'] == 'hadec':
-                        self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(pinfo[-1]['pointing_center'], self.latitude, units='degrees')
+                        # self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(pinfo[-1]['pointing_center'], self.latitude, units='degrees')
+                        self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(pinfo[-1]['pointing_center'], self.telescope['latitude'], units='degrees')
                     else:
                         raise ValueError('pointing_coords in dictionary pinfo must be "dircos", "altaz", "hadec" or "radec".')
                     self.pinfo[-1]['pointing_coords'] = 'altaz'
@@ -1426,6 +1465,9 @@ class ROI_parameters(object):
         hdulist[0].header['element_shape'] = (self.telescope['shape'], 'Antenna element shape')
         hdulist[0].header['element_size'] = (self.telescope['size'], 'Antenna element size [m]')
         hdulist[0].header['element_ocoords'] = (self.telescope['ocoords'], 'Antenna element orientation coordinates')
+        if self.telescope['latitude'] is not None:
+            hdulist[0].header['latitude'] = (self.telescope['latitude'], 'Latitude (in degrees)')
+        # hdulist[0].header['longitude'] = (self.telescope['longitude'], 'Longitude (in degrees)')
         if self.telescope['groundplane'] is not None:
             hdulist[0].header['ground_plane'] = (self.telescope['groundplane'], 'Antenna element height above ground plane [m]')
             if 'ground_modify' in self.telescope:

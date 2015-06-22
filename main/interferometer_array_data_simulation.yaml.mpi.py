@@ -303,6 +303,7 @@ telescope['size'] = element_size
 telescope['orientation'] = element_orientation
 telescope['ocoords'] = element_ocoords
 telescope['groundplane'] = ground_plane
+telescope['latitude'] = latitude
 
 if A_eff is None:
     if (telescope['shape'] == 'dipole') or (telescope['shape'] == 'delta'):
@@ -415,7 +416,7 @@ if pointing_file is not None:
             obs_mode = 'custom'
         else:
             t_snap = 112.0 + NP.zeros(n_snaps)   # in seconds (needs to be generalized)
-            lst = lst_wrapped + 0.5 * t_snap/3.6e3 * 15.0
+            lst = lst_wrapped[pick_snapshots] + 0.5 * t_snap/3.6e3 * 15.0
     if pick_snapshots is None:
         if obs_mode != 'lstbin':        
             if not beam_switch:
@@ -1239,6 +1240,7 @@ elif use_PS:
 
 ## Set up the observing run
 
+process_complete = False
 if mpi_on_src: # MPI based on source multiplexing
 
     for i in range(len(bl_chunk)):
@@ -1370,7 +1372,7 @@ else: # MPI based on baseline multiplexing
 
             if rank == 0: # Compute ROI parameters for only one process and broadcast to all
                 roi = RI.ROI_parameters()
-                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
+                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots'.format(n_snaps), PGB.ETA()], maxval=n_snaps).start()
                 for j in range(n_snaps):
                     src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
                     hemisphere_current = src_altaz_current[:,0] >= 0.0
@@ -1408,7 +1410,8 @@ else: # MPI based on baseline multiplexing
                     roiinfo['center'] = NP.asarray(roiinfo_center_radec).reshape(1,-1)
                     roiinfo['center_coords'] = 'radec'
 
-                    roi.append_settings(skymod, chans, pinfo=pbinfo, latitude=latitude, lst=lst[j], roi_info=roiinfo, telescope=telescope, freq_scale='GHz')
+                    # roi.append_settings(skymod, chans, pinfo=pbinfo, latitude=latitude, lst=lst[j], roi_info=roiinfo, telescope=telescope, freq_scale='GHz')
+                    roi.append_settings(skymod, chans, pinfo=pbinfo, lst=lst[j], roi_info=roiinfo, telescope=telescope, freq_scale='GHz')
                     
                     progress.update(j+1)
                 progress.finish()
@@ -1463,7 +1466,7 @@ else: # MPI based on baseline multiplexing
                 outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')
                 
-                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
+                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_snaps), PGB.ETA()], maxval=n_snaps).start()
                 for j in range(n_snaps):
                     roi_ind_snap = fits.getdata(roifile+'.fits', extname='IND_{0:0d}'.format(j))
                     roi_pbeam_snap = fits.getdata(roifile+'.fits', extname='PB_{0:0d}'.format(j))
@@ -1494,10 +1497,40 @@ else: # MPI based on baseline multiplexing
         pte_str = str(DT.datetime.now())                
  
 if rank == 0:
-    metafile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_str2+'.yaml'
+    metafile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_str2+'.yaml'
 
     with open(metafile, 'w') as mfile:
         yaml.dump(parms, mfile, default_flow_style=False)
 
+process_complete = True
+all_process_complete = comm.gather(process_complete, root=0)
+if rank == 0:
+    for k in range(n_sky_sectors):
+        if n_sky_sectors == 1:
+            sky_sector_str = '_all_sky_'
+        else:
+            sky_sector_str = '_sky_sector_{0:0d}_'.format(k)
+    
+        progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Baseline chunks '.format(n_bl_chunks), PGB.ETA()], maxval=n_bl_chunks).start()
+        for i in range(0, n_bl_chunks):
+            blchunk_infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+            if i == 0:
+                simvis = RI.InterferometerArray(None, None, None, init_file=blchunk_infile+'.fits')    
+            else:
+                simvis_next = RI.InterferometerArray(None, None, None, init_file=blchunk_infile+'.fits')    
+                simvis.concatenate(simvis_next, axis=0)
+
+            progress.update(i+1)
+        progress.finish()
+
+        consolidated_outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_str2
+        simvis.save(consolidated_outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
+            
 print 'Process {0} has completed.'.format(rank)
 PDB.set_trace()
+
+
+
+
+
+

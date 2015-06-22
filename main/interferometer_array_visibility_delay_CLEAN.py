@@ -18,8 +18,8 @@ filenaming_convention = 'new'
 # filenaming_convention = 'old'
 
 project_MWA = False
-project_LSTbin = False
-project_HERA = True
+project_LSTbin = True
+project_HERA = False
 project_beams = False
 project_drift_scan = False
 project_global_EoR = False
@@ -35,9 +35,9 @@ if project_drift_scan: project_dir = 'project_drift_scan/'
 if project_global_EoR: project_dir = 'project_global_EoR/'
 
 telescope_id = 'custom'
-element_size = 14.0
-element_shape = 'dish'
-phased_array = False
+element_size = 0.74
+element_shape = 'delta'
+phased_array = True
 
 if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole'):
     element_size = 0.74
@@ -71,7 +71,7 @@ if telescope_id == 'custom':
         telescope_id = telescope_id + '_array'
 telescope_str = telescope_id+'_'
 
-ground_plane = None # height of antenna element above ground plane
+ground_plane = 0.3 # height of antenna element above ground plane
 if ground_plane is None:
     ground_plane_str = 'no_ground_'
 else:
@@ -80,7 +80,7 @@ else:
     else:
         raise ValueError('Height of antenna element above ground plane must be positive.')
 
-delayerr = 0.0     # delay error rms in ns
+delayerr = 0.05     # delay error rms in ns
 if delayerr is None:
     delayerr_str = ''
     delayerr = 0.0
@@ -115,8 +115,8 @@ if (delayerr_str == '') and (gainerr_str == ''):
 delaygain_err_str = delayerr_str + gainerr_str + nrandom_str
 
 # array_layout = 'CIRC'
-# array_layout = 'MWA-128T'
-array_layout = 'HERA-331'
+array_layout = 'MWA-128T'
+# array_layout = 'HERA-331'
 
 minR = 141.0
 maxR = None
@@ -158,11 +158,11 @@ bl_id = bl_id[sortind]
 bl_length = bl_length[sortind]
 total_baselines = bl_length.size
 
-n_bl_chunks = 64
-baseline_chunk_size = 10
+n_bl_chunks = 16
+baseline_chunk_size = 128
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
 
-nside = 256
+nside = 64
 use_GSM = False
 use_DSM = True
 use_CSM = False
@@ -219,7 +219,8 @@ if use_HI_monopole:
 
 total_baselines = bl_length.size
 baseline_bin_indices = range(0, int(NP.ceil(1.0*total_baselines/baseline_chunk_size)+1)*baseline_chunk_size, baseline_chunk_size)
-n_bl_chunks = int(NP.ceil(1.0*total_baselines/baseline_chunk_size))
+if n_bl_chunks is None:
+    n_bl_chunks = int(NP.ceil(1.0*total_baselines/baseline_chunk_size))
 
 bl_chunk = range(len(baseline_bin_indices)-1)
 bl_chunk = bl_chunk[:n_bl_chunks]
@@ -227,19 +228,19 @@ bl = bl[:min(baseline_bin_indices[n_bl_chunks], total_baselines),:]
 bl_length = bl_length[:min(baseline_bin_indices[n_bl_chunks], total_baselines)]
 bl_id = bl_id[:min(baseline_bin_indices[n_bl_chunks], total_baselines)]
 
-Tsys = 300.0 # System temperature in K
-freq = 150.0 * 1e6 # foreground center frequency in Hz
-freq_resolution = 320e3 # in Hz
+Tsys = 95.0 # System temperature in K
+freq = 185.0 * 1e6 # foreground center frequency in Hz
+freq_resolution = 80e3 # in Hz
 bpass_shape = 'bhw'
 f_pad = 1.0
 oversampling_factor = 1.0 + f_pad
-n_channels = 128
+n_channels = 384
 nchan = n_channels
 window = n_channels * DSP.windowing(n_channels, shape=bpass_shape, pad_width=0, centering=True, area_normalize=True) 
 bw = n_channels * freq_resolution
 bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(nchan, freq_resolution/1e3)
 
-use_pfb = False
+use_pfb = True
 
 pfb_instr = ''
 pfb_outstr = ''
@@ -248,8 +249,8 @@ if not use_pfb:
     pfb_outstr = 'no_pfb_'
 
 # obs_mode = 'custom'
-# obs_mode = 'lstbin'
-obs_mode = 'drift'
+obs_mode = 'lstbin'
+# obs_mode = 'drift'
 avg_drifts = False
 beam_switch = False
 snapshots_range = None
@@ -275,7 +276,7 @@ pc_coords = 'dircos'
 if pc_coords == 'dircos':
     pc_dircos = pc
 
-n_sky_sectors = 1
+n_sky_sectors = 4
 
 spindex_rms = 0.0
 spindex_seed = None

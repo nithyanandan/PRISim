@@ -45,7 +45,7 @@ telescope:
                                 # values are 'theoretical' and
                                 # 'empirical'
 
-    pfb_file        : null
+    pfb_file        : '/data3/t_nithyanandan/project_MWA/foregrounds/PFB/Prabu/test_pfb_512x8.fits'
                                 # File containing PFB coefficients.
                                 # Applicable only is pfb_method is
                                 # set to non-null value
@@ -107,7 +107,7 @@ antenna  :
                                 # and 'delta' or null (defaults to
                                 # 'delta')
 
-    size            : 14.0      
+    size            : 14.0
                                 # Size of antenna element (in m)
                                 # diameter for dish, linear size for
                                 # dipole
@@ -123,15 +123,18 @@ antenna  :
                                 # [Alt, Az] in degrees (altaz) or
                                 # [l,m] (dircos)
                     
-    ocoords         : 'altaz'   # Coordinate system describing the
+    ocoords         : 'altaz'
+                                # Coordinate system describing the
                                 # orientation of antenna element.
                                 # Accepted values are 'altaz', 'dircos'
                     
-    phased_array    : false     # If true, the antenna is a phased
+    phased_array    : false
+                                # If true, the antenna is a phased
                                 # array of antenna elements.
                                 # Default = false
                     
-    ground_plane    : null      # Ground plane height (in m). Default
+    ground_plane    : null
+                                # Ground plane height (in m). Default
                                 # (null) means no ground plane
 
 ########## Phased array parameters #########
@@ -162,15 +165,15 @@ obsparm  :
     freq            : 150000000.0
                                 # Center frequency (in Hz)
 
-    freq_resolution : 320000.0
+    freq_resolution : 80000.0
                                 # Frequency resolution (in Hz)
 
-    nchan           : 128
+    nchan           : 384
                                 # Number of channels
 
     obs_mode        : 'drift'  
                                 # Observing mode. Accepted values are
-                                # 'drift', 'track', 'dns' and 
+                                # 'drift', 'track', 'dns', 'lstbin', and 
                                 # 'custom' or null (default)
 
     t_obs           : null      
@@ -178,11 +181,11 @@ obsparm  :
                                 # Only two of t_obs, n_snaps, t_snap
                                 # must be set
 
-    n_snaps         : 80      
+    n_snaps         : 2      
                                 # Number of accumulations. Only two of
                                 # t_obs, n_snaps, and t_snap must be set
 
-    t_snap          : 1080.0
+    t_snap          : 112.0
                                 # Accumulation time (in seconds) for
                                 # each snapshot. Only two of t_obs,
                                 # n_snaps, and t_snap must be set
@@ -196,6 +199,8 @@ pointing :                      # Parameters below are mutually
                                 # File containing pointing information
                                 # Only one of 'file' or 'initial' must
                                 # be specified
+                                # for example,
+                                # '/data3/MWA/lstbin_RA0/EoR0_high_sem1_1_obsinfo.txt'
 
     initial         : [0.0, 0.0, -30.7224]
                                 # initial LST (in hours), initial RA
@@ -268,7 +273,7 @@ fgparm   :
                                 # and'HI_fluctuations' (HI fluctuations
                                 # with the global mean signal removed)
 
-    nside           : 128
+    nside           : 64
                                 # Healpix nside parameter for foreground
                                 # model input map. Accepted values are
                                 # valid nside values
@@ -369,12 +374,12 @@ processing:
                                 # frequency padding fraction for
                                 # delay transform
 
-    coarse_channel_width : 32
+    coarse_channel_width : 16
                                 # Coarse channel width in number of
                                 # fine channels. Used only is PFB
                                 # settings are to be used
 
-    bp_correct      : false
+    bp_correct      : true
                                 # Correct bandpass shape if set to
                                 # true. Do not correct if set to
                                 # false
@@ -437,7 +442,7 @@ flags    :
                                 # Flag edge channels in the band. Two
                                 # element list. First and second
                                 # elements are number of channels
-                                # leading and rtailing the coarse
+                                # leading and trailing the coarse
                                 # channel edges respectively
 
     flag_repeat_edge_channels: false
