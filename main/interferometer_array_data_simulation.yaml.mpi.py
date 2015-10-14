@@ -1,7 +1,9 @@
 from mpi4py import MPI
 import yaml
 import argparse
-import numpy as NP 
+import copy
+import numpy as NP
+import ephem as EP
 from astropy.io import fits, ascii
 from astropy.coordinates import Galactic, FK5, SkyCoord
 from astropy import units
@@ -75,6 +77,7 @@ maxR = parms['array']['maxR']
 minbl = parms['baseline']['min']
 maxbl = parms['baseline']['max']
 bldirection = parms['baseline']['direction']
+obs_date = parms['obsparm']['obs_date']
 obs_mode = parms['obsparm']['obs_mode']
 n_snaps = parms['obsparm']['n_snaps']
 t_snap = parms['obsparm']['t_snap']
@@ -82,19 +85,23 @@ t_obs = parms['obsparm']['t_obs']
 freq = parms['obsparm']['freq']
 freq_resolution = parms['obsparm']['freq_resolution']
 nchan = parms['obsparm']['nchan']
+timeformat = parms['obsparm']['timeformat']
 avg_drifts = parms['snapshot']['avg_drifts']
 beam_switch = parms['snapshot']['beam_switch']
 pick_snapshots = parms['snapshot']['pick']
 all_snapshots = parms['snapshot']['all']
 snapshots_range = parms['snapshot']['range']
 pointing_file = parms['pointing']['file']
-pointing_info = parms['pointing']['initial']
+# pointing_info = parms['pointing']['initial']
+pointing_drift_init = parms['pointing']['drift_init']
+pointing_track_init = parms['pointing']['track_init']
 n_bins_baseline_orientation = parms['processing']['n_bins_blo']
 baseline_chunk_size = parms['processing']['bl_chunk_size']
 bl_chunk = parms['processing']['bl_chunk']
 n_bl_chunks = parms['processing']['n_bl_chunks']
 n_sky_sectors = parms['processing']['n_sky_sectors']
 bpass_shape = parms['processing']['bpass_shape']
+ant_bpass_file = parms['processing']['ant_bpass_file']
 max_abs_delay = parms['processing']['max_abs_delay']
 f_pad = parms['processing']['f_pad']
 n_pad = parms['processing']['n_pad']
@@ -106,6 +113,7 @@ bp_flag_repeat = parms['flags']['bp_flag_repeat']
 n_edge_flag = NP.asarray(parms['flags']['n_edge_flag']).reshape(-1)
 flag_repeat_edge_channels = parms['flags']['flag_repeat_edge_channels']
 fg_str = parms['fgparm']['model']
+fgcat_epoch = parms['fgparm']['epoch']
 nside = parms['fgparm']['nside']
 flux_unit = parms['fgparm']['flux_unit']
 spindex = parms['fgparm']['spindex']
@@ -344,10 +352,10 @@ if beam_switch and (obs_mode == 'dns'):
 if (snapshots_range is not None) and ((obs_mode == 'dns') or (obs_mode == 'lstbin')):
     snapshot_type_str = 'snaps_{0[0]:0d}-{0[1]:0d}_'.format(snapshots_range)
 
-if (pointing_file is None) and (pointing_info is None):
-    raise ValueError('One and only one of pointing file and initial pointing must be specified')
-elif (pointing_file is not None) and (pointing_info is not None):
-    raise ValueError('One and only one of pointing file and initial pointing must be specified')
+# if (pointing_file is None) and (pointing_info is None):
+#     raise ValueError('One and only one of pointing file and initial pointing must be specified')
+# elif (pointing_file is not None) and (pointing_info is not None):
+#     raise ValueError('One and only one of pointing file and initial pointing must be specified')
 
 duration_str = ''
 if pointing_file is not None:
@@ -438,11 +446,10 @@ if pointing_file is not None:
     pointings_radec = NP.hstack(((lst-pointings_hadec[:,0]).reshape(-1,1), pointings_hadec[:,1].reshape(-1,1)))
     pointings_radec[:,0] = pointings_radec[:,0] % 360.0
     t_obs = NP.sum(t_snap)
-elif pointing_info is not None:
-    pointing_info = NP.asarray(pointing_info)
-    pointing_init = NP.asarray(pointing_info[1:])
-    lst_init = pointing_info[0]
+# elif pointing_info is not None:
+elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     pointing_file = None
+    timestamps = []
     if t_snap is None:
         raise NameError('t_snap must be provided for an automated observing run')
 
@@ -454,25 +461,76 @@ elif pointing_info is not None:
         n_snaps = int(t_obs/t_snap)
     else:
         t_obs = n_snaps * t_snap
-    t_snap = t_snap + NP.zeros(n_snaps)
-    lst = (lst_init + (t_snap/3.6e3) * NP.arange(n_snaps)) * 15.0 # in degrees
+
     if obs_mode is None:
         obs_mode = 'track'
+    elif obs_mode not in ['track', 'drift']:
+        raise ValueError('Invalid specification for obs_mode')
 
+    lstobj = EP.FixedBody()
+    if obs_mode == 'drift':
+        alt = pointing_drift_init['alt']
+        az = pointing_drift_init['az']
+        ha = pointing_drift_init['ha']
+        dec = pointing_drift_init['dec']
+        lst_init = pointing_drift_init['lst']
+        lst_init *= 15.0 # initial LST is now in degrees
+        lstobj._epoch = obs_date
+       
+        if (alt is None) or (az is None):
+            if (ha is None) or (dec is None):
+                raise ValueError('One of alt-az or ha-dec pairs must be specified')
+            hadec_init = NP.asarray([ha, dec])
+        else:
+            altaz_init = NP.asarray([alt, az])
+            hadec_init = GEOM.altaz2hadec(altaz_init.reshape(1,-1), latitude, units='degrees')
+        pointings_hadec = NP.repeat(hadec_init.reshape(1,-1), n_snaps, axis=0)
+            
     if obs_mode == 'track':
-        pointings_radec = NP.repeat(NP.asarray(pointing_init).reshape(-1,2), n_snaps, axis=0)
-    else:
-        ha_init = lst_init * 15.0 - pointing_init[0]
-        pointings_radec = NP.hstack((NP.asarray(lst-ha_init).reshape(-1,1), pointing_init[1]+NP.zeros(n_snaps).reshape(-1,1)))
+        ra = pointing_track_init['ra']
+        dec = pointing_track_init['dec']
+        ha = pointing_track_init['ha']
+        epoch = pointing_track_init['epoch']
+        lst_init = ra + ha
+        lstobj._epoch = epoch
+        pointings_hadec = NP.hstack((ha + (t_snap/3.6e3)*15.0*NP.arange(n_snaps).reshape(-1,1), dec+NP.zeros(n_snaps).reshape(-1,1)))
+        
+    lstobj._ra = NP.radians(lst_init)
 
-    pointings_hadec = NP.hstack(((lst-pointings_radec[:,0]).reshape(-1,1), pointings_radec[:,1].reshape(-1,1)))
+    obsrvr = EP.Observer()
+    obsrvr.lat = NP.radians(latitude)
+    obsrvr.lon = NP.radians(longitude)
+    obsrvr.date = fgcat_epoch
+
+    lstobj.compute(obsrvr)
+    lst_init_fgcat_epoch = NP.degrees(lstobj.ra) / 15.0 # LST (hours) in epoch of foreground catalog
+    lst = (lst_init_fgcat_epoch + (t_snap/3.6e3) * NP.arange(n_snaps)) * 15.0 # in degrees at the epoch of the foreground catalog
+    t_snap = t_snap + NP.zeros(n_snaps)
     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
-
-    pointings_radec_orig = NP.copy(pointings_radec)
-    pointings_hadec_orig = NP.copy(pointings_hadec)
-    pointings_altaz_orig = NP.copy(pointings_altaz)
-    pointings_dircos_orig = NP.copy(pointings_dircos)
+    pointings_radec = NP.hstack(((lst-pointings_hadec[:,0]).reshape(-1,1), pointings_hadec[:,1].reshape(-1,1)))
+    
+    pntgobj = EP.FixedBody()
+    pntgobj._epoch = lstobj._epoch
+    obsrvr.date = obs_date # Now compute transit times for date of observation
+    last_localtime = -1.0
+    for j in xrange(n_snaps):
+        pntgobj._ra = NP.radians(lst[j])
+        pntgobj.compute(obsrvr)
+        localtime = obsrvr.next_transit(pntgobj)
+        # localtime = pntgobj.transit_time
+        if len(timestamps) > 0:
+            if localtime < last_localtime:
+                obsrvr.date = obsrvr.date + EP.hour * 24
+                pntgobj.compute(obsrvr)
+                localtime = obsrvr.next_transit(pntgobj)
+                # localtime = pntgobj.transit_time
+        last_localtime = copy.deepcopy(localtime)
+        obsrvr.date = last_localtime
+        if timeformat == 'JD':
+            timestamps += ['{0:.9f}'.format(EP.julian_date(localtime))]
+        else:
+            timestamps += ['{0}'.format(localtime.datetime())]
 
     lst_wrapped = lst + 0.0
     lst_wrapped[lst_wrapped > 180.0] = lst_wrapped[lst_wrapped > 180.0] - 360.0
@@ -482,6 +540,51 @@ elif pointing_info is not None:
         lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_snap/3.6e3*15))
 
     duration_str = '_{0:0d}x{1:.1f}s'.format(n_snaps, t_snap[0])
+
+# elif pointing_info is not None:
+#     pointing_info = NP.asarray(pointing_info)
+#     pointing_init = NP.asarray(pointing_info[1:])
+#     lst_init = pointing_info[0]
+#     pointing_file = None
+#     if t_snap is None:
+#         raise NameError('t_snap must be provided for an automated observing run')
+
+#     if (n_snaps is None) and (t_obs is None):
+#         raise NameError('n_snaps or t_obs must be provided for an automated observing run')
+#     elif (n_snaps is not None) and (t_obs is not None):
+#         raise ValueError('Only one of n_snaps or t_obs must be provided for an automated observing run')
+#     elif n_snaps is None:
+#         n_snaps = int(t_obs/t_snap)
+#     else:
+#         t_obs = n_snaps * t_snap
+#     t_snap = t_snap + NP.zeros(n_snaps)
+#     lst = (lst_init + (t_snap/3.6e3) * NP.arange(n_snaps)) * 15.0 # in degrees
+#     if obs_mode is None:
+#         obs_mode = 'track'
+
+#     if obs_mode == 'track':
+#         pointings_radec = NP.repeat(NP.asarray(pointing_init).reshape(-1,2), n_snaps, axis=0)
+#     else:
+#         ha_init = lst_init * 15.0 - pointing_init[0]
+#         pointings_radec = NP.hstack((NP.asarray(lst-ha_init).reshape(-1,1), pointing_init[1]+NP.zeros(n_snaps).reshape(-1,1)))
+
+#     pointings_hadec = NP.hstack(((lst-pointings_radec[:,0]).reshape(-1,1), pointings_radec[:,1].reshape(-1,1)))
+#     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
+#     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
+
+#     pointings_radec_orig = NP.copy(pointings_radec)
+#     pointings_hadec_orig = NP.copy(pointings_hadec)
+#     pointings_altaz_orig = NP.copy(pointings_altaz)
+#     pointings_dircos_orig = NP.copy(pointings_dircos)
+
+#     lst_wrapped = lst + 0.0
+#     lst_wrapped[lst_wrapped > 180.0] = lst_wrapped[lst_wrapped > 180.0] - 360.0
+#     if lst_wrapped.size > 1:
+#         lst_edges = NP.concatenate((lst_wrapped, [lst_wrapped[-1]+lst_wrapped[-1]-lst_wrapped[-2]]))
+#     else:
+#         lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_snap/3.6e3*15))
+
+#     duration_str = '_{0:0d}x{1:.1f}s'.format(n_snaps, t_snap[0])
 
 use_GSM = False
 use_DSM = False
@@ -693,6 +796,20 @@ if pfb_method is not None:
 else:
     pfb_str = 'no_pfb_'
     pfb_str2 = '_no_pfb'
+
+if ant_bpass_file is not None:
+    with NP.load(ant_bpass_file) as ant_bpass_fileobj:
+        ant_bpass_freq = ant_bpass_fileobj['faxis']
+        ant_bpass_ref = ant_bpass_fileobj['band']
+        ant_bpass_ref /= NP.abs(ant_bpass_ref).max()
+        ant_bpass_freq = ant_bpass_freq[ant_bpass_freq.size/2:]
+        ant_bpass_ref = ant_bpass_ref[ant_bpass_ref.size/2:]        
+        # ant_bpass_window = DSP.windowing(ant_bpass_freq.size, shape='bhw', pad_width=0, pad_value=0.0, peak=1.0, centering=True)
+        # ant_bpass_freq = ant_bpass_freq[1:-1]
+        # ant_bpass_ref = ant_bpass_ref[1:-1] / ant_bpass_window[1:-1]
+        chanind, ant_bpass, fdist = LKP.lookup_1NN_new(ant_bpass_freq.reshape(-1,1)/1e9, ant_bpass_ref.reshape(-1,1), chans.reshape(-1,1), distance_ULIM=freq_resolution/1e9, remove_oob=True)
+else:
+    ant_bpass = NP.ones(nchan)
 
 window = nchan * DSP.windowing(nchan, shape=bpass_shape, pad_width=n_pad, centering=True, area_normalize=True) 
 if bandpass_correct:
@@ -1364,7 +1481,7 @@ else: # MPI based on baseline multiplexing
         n_bl_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(bl_chunk)/nproc
         if len(bl_chunk) % nproc > 0:
             n_bl_chunk_per_rank[:len(bl_chunk)%nproc] += 1
-        cumm_bl_chunks = NP.concatenate(([0], NP.cumsum(n_bl_chunk_per_rank)))        
+        cumm_bl_chunks = NP.concatenate(([0], NP.cumsum(n_bl_chunk_per_rank)))
 
         ptb_str = str(DT.datetime.now())
 
@@ -1476,7 +1593,8 @@ else: # MPI based on baseline multiplexing
                     if obs_mode in ['custom', 'dns', 'lstbin']:
                         timestamp = obs_id[j]
                     else:
-                        timestamp = lst[j]
+                        # timestamp = lst[j]
+                        timestamp = timestamps[j]
                  
                     ts = time.time()
                     if j == 0:
@@ -1494,7 +1612,7 @@ else: # MPI based on baseline multiplexing
                 ia.t_obs = t_obs
                 ia.generate_noise()
                 ia.add_noise()
-                ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
+                ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
                 ia.project_baselines()
                 ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
         pte_str = str(DT.datetime.now())                
@@ -1531,9 +1649,5 @@ if rank == 0:
             
 print 'Process {0} has completed.'.format(rank)
 PDB.set_trace()
-
-
-
-
 
 

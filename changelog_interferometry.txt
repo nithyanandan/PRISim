@@ -1,3 +1,20 @@
+From 19bea28 (branch timing):
+============================
+
+In simparameters.yaml,
+
+(*) Make changes to initial conditions of drift and tracking
+pointing parameters
+
+In interferometer_array_data_simulation.yaml.mpi.py,
+
+(*) Import ephem module
+(*) Modify inputs to handle timing and timestamps tied to the
+longitude of the observatory
+(*) Needs more rigorous testing on accuracy of timing as well as
+making the change consistent throughout the simulation script.
+(*) Test to work for automated drift and track runs
+
 From 30bc19a of Interferometry:
 ==============================
 

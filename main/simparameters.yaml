@@ -32,7 +32,7 @@ telescope:
                                 # 34.079 for VLA,
                                 # 19.0965 for GMRT
 
-    longitude       : null
+    longitude       : +21.4278
                                 # Longitude of observatory (in degrees)
                                 # Default (null) implies 0.0 degrees
                                 # corresponding to GMT.
@@ -66,7 +66,7 @@ array   :                       # Parameters 'file' and 'layout'
     file            : null
                                 # File containing antenna locations
 
-    layout          : 'HERA-331'
+    layout          : 'HERA-19'
                                 # Accepted values are 'MWA-128T',
                                 # 'HERA-7', 'HERA-19', 'HERA-37',
                                 # 'HERA-61', 'HERA-91', 'HERA-127',
@@ -173,11 +173,14 @@ obsparm  :
     freq            : 150000000.0
                                 # Center frequency (in Hz)
 
-    freq_resolution : 80000.0
+    freq_resolution : 200000.0
                                 # Frequency resolution (in Hz)
 
-    nchan           : 384
+    nchan           : 512
                                 # Number of channels
+
+    obs_date        : '2013/08/23'
+                                # Observation start date yyyy/mm/dd
 
     obs_mode        : 'drift'  
                                 # Observing mode. Accepted values are
@@ -189,19 +192,26 @@ obsparm  :
                                 # Only two of t_obs, n_snaps, t_snap
                                 # must be set
 
-    n_snaps         : 2      
+    n_snaps         : 4     
                                 # Number of accumulations. Only two of
                                 # t_obs, n_snaps, and t_snap must be set
 
-    t_snap          : 112.0
+    t_snap          : 2160.0
                                 # Accumulation time (in seconds) for
                                 # each snapshot. Only two of t_obs,
                                 # n_snaps, and t_snap must be set
 
+    timeformat      : 'DT'
+                                # Output format for timestamp. Can
+                                # be 'DT' (default) for DateTime format
+                                # yyyy-mm-dd hh:mm:ss.s or 'JD' for
+                                # julian date format
+                                
 ######### Pointing information #########
 
-pointing :                      # Parameters below are mutually
-                                # exclusive
+pointing :                      # If pointing file is specified to be
+                                # non-null, other parameters like
+                                # drift_init and track_init are ignored
 
     file            : null
                                 # File containing pointing information
@@ -210,11 +220,55 @@ pointing :                      # Parameters below are mutually
                                 # for example,
                                 # '/data3/MWA/lstbin_RA0/EoR0_high_sem1_1_obsinfo.txt'
 
-    initial         : [0.0, 0.0, -30.7224]
-                                # initial LST (in hours), initial RA
-                                # (degrees) and initial decl. (degrees)
-                                # Only one of 'file' or 'initial' must
-                                # be specified
+    drift_init :
+                                # Applies in case of initializing pointing
+                                # information for drift scan mode
+
+        alt         : null
+                                # Altitude of telescope pointing (degrees)
+
+        az          : null
+                                # Azimuth of telescope pointing (degrees)
+
+        ha          : 0.0
+                                # Hour angle of telescope pointing
+                                # (degrees). Only one of the Alt-Az or
+                                # HA-Dec pairs must be specified and the
+                                # other pair must be set to null
+
+        dec         : -30.7224
+                                # Declination of telescope pointing
+                                # (degrees). Only one of the Alt-Az or
+                                # HA-Dec pairs must be specified and the
+                                # other pair must be set to null
+
+        lst         : 23.0
+                                # LST at start of observation (hours).
+                                # The epoch is assumed to be the date of
+                                # observation
+
+    track_init :
+
+        ra          : 0.0
+                                # RA of sky position to track (degrees)
+
+        dec         : -30.7224
+                                # Declination of sky position to track
+                                # (degrees)
+
+        ha          : -30.0
+                                # Hour angle (degrees) at start of
+                                # observation. 
+
+        epoch       : '2000'
+                                # Epoch in which the RA of the sky
+                                # position to track is specified
+
+    # initial         : [0.0, 0.0, -30.7224]
+    #                             # OBSOLETE! initial LST (in hours), initial RA
+    #                             # (degrees) and initial decl. (degrees)
+    #                             # Only one of 'file' or 'initial' must
+    #                             # be specified
 
 ######### Phase center information #########
 
@@ -240,7 +294,7 @@ snapshot :                      # Parameters below are mutually
 
     avg_drifts      : false
                                 # Consider durations equal to the
-                                # drfit duration before pointing
+                                # drift duration before pointing
                                 # changes
 
     beam_switch     : false
@@ -281,7 +335,11 @@ fgparm   :
                                 # and'HI_fluctuations' (HI fluctuations
                                 # with the global mean signal removed)
 
-    nside           : 64
+    epoch           : '2000'
+                                # Epoch of the coordinates of the
+                                # foreground model or EoR signal
+
+    nside           : 128
                                 # Healpix nside parameter for foreground
                                 # model input map. Accepted values are
                                 # valid nside values
@@ -355,7 +413,7 @@ processing:
                                 # used to split data for parallel
                                 # processing
 
-    bl_chunk_size   : 640
+    bl_chunk_size   : 30
                                 # Baseline chunk size. Will be used
                                 # in a single process during parallel
                                 # processing
@@ -373,11 +431,20 @@ processing:
                                 # Number of sky sectors
 
     bpass_shape     : 'bhw'
-                                # Bandpass shape. Accepted values are
+                                # Bandpass shape for tapering window
+                                # before delay transform. Accepted values are
                                 # 'rect' (rectangular), 'bnw'
                                 # (Blackman-Nuttall window), and 'bhw'
                                 # (Blackman-Harris window)
 
+    ant_bpass_file  : null
+                                # '/data3/t_nithyanandan/project_HERA/newGainfiltered.npz'
+                                # '/data3/t_nithyanandan/project_HERA/specGainfiltered.npz'
+                                # '/data3/t_nithyanandan/project_HERA/steepGainfiltered.npz'                                
+                                # Antenna bandpass file (.npz) which will be
+                                # stored in multiplication to that 
+                                # specified in bpass_shape
+                                
     f_pad           : 1.0
                                 # frequency padding fraction for
                                 # delay transform
@@ -463,4 +530,3 @@ flags    :
 
 plots    : false
                                 # If true, create relevant plots
-
