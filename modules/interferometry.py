@@ -2805,7 +2805,8 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def phase_centering(self, phase_center=None, phase_center_coords=None, verbose=True):
+    def phase_centering(self, phase_center=None, phase_center_coords=None,
+                        do_delay_transform=True, verbose=True):
 
         """
         -------------------------------------------------------------------------
@@ -2833,6 +2834,11 @@ class InterferometerArray(object):
                       [string scalar] Coordinate system of phase cneter. It can 
                       be 'altaz', 'radec', 'hadec' or 'dircos'. Default = None.
                       phase_center_coords must be provided.
+
+        do_delay_transform
+                      [boolean] If set to True (default), also recompute the
+                      delay transform after the visibilities are rotated to the
+                      new phase center
 
         verbose:      [boolean] If set to True (default), prints progress and
                       diagnostic messages.
@@ -2956,8 +2962,9 @@ class InterferometerArray(object):
         self.vis_freq = self.vis_freq * NP.exp(-1j * 2 * NP.pi * b_dot_l[:,NP.newaxis,:] * self.channels.reshape(1,-1,1) / FCNST.c)
         self.skyvis_freq = self.skyvis_freq * NP.exp(-1j * 2 * NP.pi * b_dot_l[:,NP.newaxis,:] * self.channels.reshape(1,-1,1) / FCNST.c)
         self.vis_noise_freq = self.vis_noise_freq * NP.exp(-1j * 2 * NP.pi * b_dot_l[:,NP.newaxis,:] * self.channels.reshape(1,-1,1) / FCNST.c)
-        self.delay_transform()
-        print 'Running delay_transform() with defaults inside phase_centering() after rotating visibility phases. Run delay_transform() again with appropriate inputs.'
+        if do_delay_transform:
+            self.delay_transform()
+            print 'Running delay_transform() with defaults inside phase_centering() after rotating visibility phases. Run delay_transform() again with appropriate inputs.'
 
     #############################################################################
 
@@ -3511,7 +3518,8 @@ class InterferometerArray(object):
         if verbose:
             print '\tCreated pointing and phase center information table.'
 
-        maxlen = max(len(label) for label in self.labels)
+        label_lengths = [len(label[0]) for label in self.labels]
+        maxlen = max(label_lengths)
         labels = NP.asarray(self.labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
         cols = []
         cols += [fits.Column(name='A1', format='{0:0d}A'.format(maxlen), array=labels['A1'])]
