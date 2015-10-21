@@ -1,3 +1,15 @@
+From 2e0aca5 (branch timing):
+============================
+
+In interferometry.py,
+
+(*) Fix bug in creating a record array of labels in member
+function save() of class InterferometerArray
+(*) Add input keyword do_delay_transform to member function
+phase_centering() of class InterferometerArray which will
+optionally recompute delay transform of the visibilities after they
+are rotated to the new phase center
+
 From 19bea28 (branch timing):
 ============================
 

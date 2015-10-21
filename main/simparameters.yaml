@@ -8,7 +8,7 @@ directory:
 
 ########## Project information #########
 
-project  : project_HERA
+project  : project_MWA
                                 # Accepted values are project_MWA,
                                 # project_global_EoR, project_HERA, 
                                 # project_drift_scan, project_beams,
@@ -25,14 +25,14 @@ telescope:
                                 # 'hera', 'mwa_dipole', 'custom',
                                 # 'paper_dipole', 'mwa_tools'
 
-    latitude        : -30.7224
+    latitude        : -26.701
                                 # Latitude in degrees
                                 # -26.701 for MWA,
                                 # -30.7224 for HERA, PAPER
                                 # 34.079 for VLA,
                                 # 19.0965 for GMRT
 
-    longitude       : +21.4278
+    longitude       : +116.670815
                                 # Longitude of observatory (in degrees)
                                 # Default (null) implies 0.0 degrees
                                 # corresponding to GMT.
@@ -40,11 +40,11 @@ telescope:
                                 # +21.4278 for PAPER and HERA,
                                 # +74.0497 for GMRT
 
-    A_eff           : 154
+    A_eff           : 16
                                 # Effective area of antenna element
                                 # in m^2
 
-    Tsys            : 300.0
+    Tsys            : 200.0
                                 # System temperature (in K)
 
     pfb_method      : null 
@@ -66,7 +66,7 @@ array   :                       # Parameters 'file' and 'layout'
     file            : null
                                 # File containing antenna locations
 
-    layout          : 'HERA-19'
+    layout          : 'MWA-128T'
                                 # Accepted values are 'MWA-128T',
                                 # 'HERA-7', 'HERA-19', 'HERA-37',
                                 # 'HERA-61', 'HERA-91', 'HERA-127',
@@ -109,13 +109,13 @@ baseline :                      # Parameters specifying baseline
 
 antenna  :
 
-    shape           : dish      
+    shape           : 'dipole'      
                                 # Shape of antenna element
                                 # Accepted values are 'dish', 'dipole',
                                 # and 'delta' or null (defaults to
                                 # 'delta')
 
-    size            : 14.0
+    size            : 0.74
                                 # Size of antenna element (in m)
                                 # diameter for dish, linear size for
                                 # dipole
@@ -136,7 +136,7 @@ antenna  :
                                 # orientation of antenna element.
                                 # Accepted values are 'altaz', 'dircos'
                     
-    phased_array    : false
+    phased_array    : true
                                 # If true, the antenna is a phased
                                 # array of antenna elements.
                                 # Default = false
@@ -173,10 +173,10 @@ obsparm  :
     freq            : 150000000.0
                                 # Center frequency (in Hz)
 
-    freq_resolution : 200000.0
+    freq_resolution : 40000.0
                                 # Frequency resolution (in Hz)
 
-    nchan           : 512
+    nchan           : 24
                                 # Number of channels
 
     obs_date        : '2013/08/23'
@@ -201,7 +201,7 @@ obsparm  :
                                 # each snapshot. Only two of t_obs,
                                 # n_snaps, and t_snap must be set
 
-    timeformat      : 'DT'
+    timeformat      : 'JD'
                                 # Output format for timestamp. Can
                                 # be 'DT' (default) for DateTime format
                                 # yyyy-mm-dd hh:mm:ss.s or 'JD' for
@@ -236,7 +236,7 @@ pointing :                      # If pointing file is specified to be
                                 # HA-Dec pairs must be specified and the
                                 # other pair must be set to null
 
-        dec         : -30.7224
+        dec         : -26.701
                                 # Declination of telescope pointing
                                 # (degrees). Only one of the Alt-Az or
                                 # HA-Dec pairs must be specified and the
@@ -252,7 +252,7 @@ pointing :                      # If pointing file is specified to be
         ra          : 0.0
                                 # RA of sky position to track (degrees)
 
-        dec         : -30.7224
+        dec         : -26.701
                                 # Declination of sky position to track
                                 # (degrees)
 
@@ -407,13 +407,13 @@ catalog  :
 
 processing:
 
-    n_bl_chunks     : 1
+    n_bl_chunks     : 8
                                 # Upper limit on number of baseline
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
                                 # processing
 
-    bl_chunk_size   : 30
+    bl_chunk_size   : 1016
                                 # Baseline chunk size. Will be used
                                 # in a single process during parallel
                                 # processing
