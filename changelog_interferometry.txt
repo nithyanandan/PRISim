@@ -1,3 +1,11 @@
+From 5724828 (branch timing):
+============================
+
+In interferometry.py,
+
+(*) Add more precision to timestamps saved in member function
+save() of class InterferometerArray
+
 From 2e0aca5 (branch timing):
 ============================
 

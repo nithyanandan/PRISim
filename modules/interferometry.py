@@ -3567,7 +3567,7 @@ class InterferometerArray(object):
                 print '\tCreated an extension for accumulation times.'
 
         cols = []
-        cols += [fits.Column(name='timestamps', format='12A', array=NP.asarray(self.timestamp))]
+        cols += [fits.Column(name='timestamps', format='16A', array=NP.asarray(self.timestamp))]
 
         columns = newcolumns(cols,tabtype)
 
