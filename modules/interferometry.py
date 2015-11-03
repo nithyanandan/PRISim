@@ -17,6 +17,8 @@ import my_DSP_modules as DSP
 import catalog as SM
 import lookup_operations as LKP
 mwa_tools_found = True
+import psutil
+from distutils.version import LooseVersion
 try:
     from mwapy.pb import primary_beam as MWAPB
 except ImportError:
@@ -2468,7 +2470,8 @@ class InterferometerArray(object):
                 skyvis = NP.zeros((self.baselines.shape[0], self.channels.size), dtype=NP.complex_)
                 memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 8.0 * 2 # bytes, 8 bytes per float, factor 2 is because the phase involves complex values
 
-            memory_available = OS.popen("free -b").readlines()[2].split()[3]
+            #memory_available = OS.popen("free -b").readlines()[2].split()[3]
+            memory_available = psutil.phymem_usage().available
             if float(memory_available) > memory_required:
                 if memsave:
                     phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float32) *  (self.geometric_delays[-1][:,:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64)
@@ -3472,9 +3475,7 @@ class InterferometerArray(object):
         if verbose:
             print '\nSaving information about interferometer...'
 
-        use_ascii = False
-        if tabtype == 'TableHDU':
-            use_ascii = True
+
 
         hdulist = []
 
@@ -3510,12 +3511,7 @@ class InterferometerArray(object):
             cols += [fits.Column(name='pointing_latitude', format='D', array=self.pointing_center[:,1])]
             cols += [fits.Column(name='phase_center_longitude', format='D', array=self.phase_center[:,0])]
             cols += [fits.Column(name='phase_center_latitude', format='D', array=self.phase_center[:,1])]
-
-        if astropy.__version__ == '0.4':
-            columns = fits.ColDefs(cols, tbtype=tabtype)
-        elif (astropy.__version__ == '0.4.2') or (astropy.__version__ == u'1.0'):
-            columns = fits.ColDefs(cols, ascii=use_ascii)
-
+        columns = newcolumns(cols,tabtype)
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'POINTING AND PHASE CENTER INFO')
         hdulist += [tbhdu]
@@ -3529,12 +3525,7 @@ class InterferometerArray(object):
         cols += [fits.Column(name='A1', format='{0:0d}A'.format(maxlen), array=labels['A1'])]
         cols += [fits.Column(name='A2', format='{0:0d}A'.format(maxlen), array=labels['A2'])]        
         # cols += [fits.Column(name='labels', format='5A', array=NP.asarray(self.labels))]
-
-        if astropy.__version__ == '0.4':
-            columns = fits.ColDefs(cols, tbtype=tabtype)
-        elif (astropy.__version__ == '0.4.2') or (astropy.__version__ == u'1.0'):
-            columns = fits.ColDefs(cols, ascii=use_ascii)
-
+        columns = newcolumns(cols,tabtype)
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'LABELS')
         hdulist += [tbhdu]
@@ -3562,12 +3553,8 @@ class InterferometerArray(object):
         cols += [fits.Column(name='frequency', format='D', array=self.channels)]
         if self.lags is not None:
             cols += [fits.Column(name='lag', format='D', array=self.lags)]
-
-        if astropy.__version__ == '0.4':
-            columns = fits.ColDefs(cols, tbtype=tabtype)
-        elif (astropy.__version__ == '0.4.2') or (astropy.__version__ == u'1.0'):
-            columns = fits.ColDefs(cols, ascii=use_ascii)
-
+        
+        columns = newcolumns(cols,tabtype)
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'SPECTRAL INFO')
         hdulist += [tbhdu]
@@ -3582,10 +3569,7 @@ class InterferometerArray(object):
         cols = []
         cols += [fits.Column(name='timestamps', format='16A', array=NP.asarray(self.timestamp))]
 
-        if astropy.__version__ == '0.4':
-            columns = fits.ColDefs(cols, tbtype=tabtype)
-        elif (astropy.__version__ == '0.4.2') or (astropy.__version__ == u'1.0'):
-            columns = fits.ColDefs(cols, ascii=use_ascii)
+        columns = newcolumns(cols,tabtype)
 
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'TIMESTAMPS')
@@ -3659,5 +3643,14 @@ class InterferometerArray(object):
 
         if verbose:
             print '\tInterferometer array information written successfully to FITS file on disk:\n\t\t{0}\n'.format(filename)
-
+        return True
+def newcolumns(cols,tabtype):
+    use_ascii = False
+    if tabtype == 'TableHDU':
+        use_ascii = True
+    if astropy.__version__ == '0.4':
+        columns = fits.ColDefs(cols, tbtype=tabtype)
+    elif LooseVersion(astropy.__version__)>=LooseVersion('0.4.2'):
+        columns = fits.ColDefs(cols, ascii=use_ascii)
+    return columns
 #################################################################################
