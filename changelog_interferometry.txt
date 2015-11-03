@@ -1,3 +1,11 @@
+From c5cb9fe (branch timing):
+============================
+
+In the 'main' simulator code,
+
+(*) Add definition of a sidereal day and adjust conversions between
+actual time and sidereal time using this factor
+
 From d568d1b (branch timing):
 ============================
 
