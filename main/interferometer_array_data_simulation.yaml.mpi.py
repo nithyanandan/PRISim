@@ -528,7 +528,8 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
         last_localtime = copy.deepcopy(localtime)
         obsrvr.date = last_localtime
         if timeformat == 'JD':
-            timestamps += ['{0:.9f}'.format(EP.julian_date(localtime))]
+            # timestamps += ['{0:.9f}'.format(EP.julian_date(localtime))]
+            timestamps += [EP.julian_date(localtime)]
         else:
             timestamps += ['{0}'.format(localtime.datetime())]
 

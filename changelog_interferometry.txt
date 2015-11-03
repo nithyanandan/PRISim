@@ -1,3 +1,19 @@
+From d568d1b (branch timing):
+============================
+
+In interferometry.py,
+
+(*) Type check for timestamps in save() member function of class
+InterferometerArray and save it in appropriate format
+(*) Import distutils for version checking of Astropy modules
+(*) Add global function _astropy_columns() (only for internal use) to
+check for Astropy version and create the FITS column data
+appropriately
+(*) Import psutil and comment out import of os module
+(*) Obtain available memory using psutil routines which replaces the
+use of os.popen() inside observe() member function. Comment out the
+use of os.popen() 
+
 From 5724828 (branch timing):
 ============================
 
