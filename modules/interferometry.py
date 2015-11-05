@@ -1306,7 +1306,7 @@ class ROI_parameters(object):
                 if 'pbeam' in roi_info:
                     if roi_info['pbeam'] is not None:
                         try:
-                            pb = roi_info['pbeam'].reshape(-1,len(self.channels))
+                            pb = roi_info['pbeam'].reshape(-1,self.freq.size)
                         except ValueError:
                             raise ValueError('Number of columns of primary beam in key "pbeam" of dictionary roi_info must be equal to number of frequency channels.')
 
@@ -1515,20 +1515,21 @@ class ROI_parameters(object):
         for i in range(len(self.info['ind'])):
             hdulist += [fits.ImageHDU(self.info['ind'][i], name='IND_{0:0d}'.format(i))]
             hdulist += [fits.ImageHDU(self.info['pbeam'][i], name='PB_{0:0d}'.format(i))]
-            if 'delays' in self.pinfo[i]:
-                hdulist += [fits.ImageHDU(self.pinfo[i]['delays'], name='DELAYS_{0:0d}'.format(i))]
-                if 'delayerr' in self.pinfo[i]:
-                    if self.pinfo[i]['delayerr'] is not None:
-                        hdulist[-1].header['delayerr'] = (self.pinfo[i]['delayerr'], 'Jitter in delays [s]')
+            if self.pinfo: # if self.pinfo is not empty
+                if 'delays' in self.pinfo[i]:
+                    hdulist += [fits.ImageHDU(self.pinfo[i]['delays'], name='DELAYS_{0:0d}'.format(i))]
+                    if 'delayerr' in self.pinfo[i]:
+                        if self.pinfo[i]['delayerr'] is not None:
+                            hdulist[-1].header['delayerr'] = (self.pinfo[i]['delayerr'], 'Jitter in delays [s]')
+                        else:
+                            hdulist[-1].header['delayerr'] = (0.0, 'Jitter in delays [s]')
+    
+                if 'pointing_center' in self.pinfo[i]:
+                    hdulist += [fits.ImageHDU(self.pinfo[i]['pointing_center'], name='POINTING_CENTER_{0:0d}'.format(i))]
+                    if 'pointing_coords' in self.pinfo[i]:
+                        hdulist[-1].header['pointing_coords'] = (self.pinfo[i]['pointing_coords'], 'Pointing coordinate system')
                     else:
-                        hdulist[-1].header['delayerr'] = (0.0, 'Jitter in delays [s]')
-
-            if 'pointing_center' in self.pinfo[i]:
-                hdulist += [fits.ImageHDU(self.pinfo[i]['pointing_center'], name='POINTING_CENTER_{0:0d}'.format(i))]
-                if 'pointing_coords' in self.pinfo[i]:
-                    hdulist[-1].header['pointing_coords'] = (self.pinfo[i]['pointing_coords'], 'Pointing coordinate system')
-                else:
-                    raise KeyError('Key "pointing_coords" not found in attribute pinfo.')
+                        raise KeyError('Key "pointing_coords" not found in attribute pinfo.')
                 
         if verbose:
             print '\t\tCreated HDU extensions for {0:0d} observations containing ROI indices and primary beams'.format(len(self.info['ind']))
@@ -3408,7 +3409,7 @@ class InterferometerArray(object):
         axis         [scalar] Axis along which visibility data sets are to be
                      concatenated. Accepted values are 0 (concatenate along
                      baseline axis), 1 (concatenate frequency channels), or 2 
-                     (concatenate along time/snapshot axis). Default=None
+                     (concatenate along time/snapshot axis). No default
         -------------------------------------------------------------------------
         """
 
@@ -3447,9 +3448,12 @@ class InterferometerArray(object):
         self.bp_wts = NP.concatenate(tuple([elem.bp_wts for elem in loo]), axis=axis)
         self.Tsys = NP.concatenate(tuple([elem.Tsys for elem in loo]), axis=axis)
         if axis != 1:
-            self.skyvis_lag = NP.concatenate(tuple([elem.skyvis_lag for elem in loo]), axis=axis)
-            self.vis_lag = NP.concatenate(tuple([elem.vis_lag for elem in loo]), axis=axis)
-            self.vis_noise_lag = NP.concatenate(tuple([elem.vis_noise_lag for elem in loo]), axis=axis)
+            if self.skyvis_lag is not None:
+                self.skyvis_lag = NP.concatenate(tuple([elem.skyvis_lag for elem in loo]), axis=axis)
+            if self.vis_lag is not None:
+                self.vis_lag = NP.concatenate(tuple([elem.vis_lag for elem in loo]), axis=axis)
+            if self.vis_noise_lag is not None:
+                self.vis_noise_lag = NP.concatenate(tuple([elem.vis_noise_lag for elem in loo]), axis=axis)
 
         if axis == 0: # baseline axis
             for elem in loo:

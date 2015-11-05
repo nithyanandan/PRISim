@@ -90,7 +90,7 @@ baseline :                      # Parameters specifying baseline
                                 # Minimum baseline in distance
                                 # units (m). Default = 0 (null)
 
-    max             : null
+    max             : 15.0
                                 # Maximum baseline in distance
                                 # units (m). Default = max (null)
 
@@ -166,6 +166,26 @@ phasedarray:
                                 # average. null means gainerr and 
                                 # delayerr are not applicable
 
+########## External beam #########
+
+beam    :
+
+    use_external    : true
+                                # If true, use an externally specified
+                                # antenna beam. If false, determine
+                                # analytically from antenna aperture
+                                # specifications
+
+    file            : '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
+                                # Full pathname to the FITS file
+                                # containing the external antenna
+                                # beam. Used only if use_external is
+                                # set to true
+
+    pol             : 'X'
+                                # Beam polarization. Accepted values
+                                # are 'X' and 'Y'
+
 ########## Observation setup ##########
 
 obsparm  :
@@ -173,7 +193,7 @@ obsparm  :
     freq            : 150000000.0
                                 # Center frequency (in Hz)
 
-    freq_resolution : 200000.0
+    freq_resolution : 195312.5
                                 # Frequency resolution (in Hz)
 
     nchan           : 512
@@ -192,11 +212,11 @@ obsparm  :
                                 # Only two of t_obs, n_snaps, t_snap
                                 # must be set
 
-    n_snaps         : 4     
+    n_snaps         : 1     
                                 # Number of accumulations. Only two of
                                 # t_obs, n_snaps, and t_snap must be set
 
-    t_snap          : 2160.0
+    t_snap          : 1080.0
                                 # Accumulation time (in seconds) for
                                 # each snapshot. Only two of t_obs,
                                 # n_snaps, and t_snap must be set
@@ -320,7 +340,7 @@ snapshot :                      # Parameters below are mutually
 
 fgparm   :
 
-    model           : 'csm'
+    model           : 'asm'
                                 # Foreground model. Accepted values
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both
@@ -339,7 +359,7 @@ fgparm   :
                                 # Epoch of the coordinates of the
                                 # foreground model or EoR signal
 
-    nside           : 128
+    nside           : 256
                                 # Healpix nside parameter for foreground
                                 # model input map. Accepted values are
                                 # valid nside values
@@ -423,6 +443,22 @@ processing:
                                 # null means process all chunks.
                                 # Should be given as a list
 
+    n_freq_chunks   : 16
+                                # Upper limit on number of frequency
+                                # chunks to be processed. Will be
+                                # used to split data for parallel
+                                # processing
+
+    freq_chunk_size : 32
+                                # Frequency chunk size. Will be used
+                                # in a single process during parallel
+                                # processing
+
+    freq_chunk      : null
+                                # Frequency chunk indices to process.
+                                # null means process all chunks.
+                                # Should be given as a list
+
     n_bins_blo      : 4
                                 # Number of bins in baseline
                                 # orientation
@@ -475,6 +511,9 @@ processing:
                                 # thermal noise window. Keep this
                                 # value below 0.5/freq_resolution
 
+    delay_transform : true
+                                # if true, compute delay transform
+
 ########## Parallel processing setup #########
 
 pp       :
@@ -483,7 +522,7 @@ pp       :
                                 # Number of parallel processes.
                                 # 1 means serial processing.
 
-    key             : 'bl'
+    key             : 'freq'
                                 # Split the data by 'bl' (baselines),
                                 # 'src' (sources) or 'freq' (frequency),
                                 # for parallel processing

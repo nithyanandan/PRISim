@@ -1,3 +1,21 @@
+From a0fca58 (branch healpix_pbeam):
+===================================
+
+(*) In simulator, add functionality to parallelize along frequency
+axis
+
+In interferometry.py,
+
+(*) Fix bug by changing use of self.channels to self.freq in member
+function append_settings() of class ROI_parameters.
+(*) Check for emptiness of attribute pinfo before writing it to
+FITS file in member function save() of class ROI_parameters.
+(*) Update docstring of member function concatenate() of class
+InterferometerArray
+(*) Add checking to see if delay transform quantities exist before
+concatenating them in concatenate() member function of class
+InterferometerArray
+
 From c5cb9fe (branch timing):
 ============================
 
