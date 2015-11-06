@@ -1,3 +1,5 @@
+# Takes YAML as input file for parsing parameters
+
 import yaml
 import argparse
 import numpy as NP 

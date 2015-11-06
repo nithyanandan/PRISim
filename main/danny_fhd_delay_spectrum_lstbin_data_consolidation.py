@@ -7,11 +7,31 @@ import progressbar as PGB
 import interferometry as RI
 import ipdb as PDB
 
-indir = '/data3/MWA/lstbin_RA0/'
-infile_suffix = '.fhd.p.npz'
-outdir = indir + 'NT/'
+rootdir = '/data3/t_nithyanandan/'
+# rootdir = '/data3/MWA/lstbin_RA0/NT/'
 
-infiles = glob.glob(indir+'*'+infile_suffix)
+project_MWA = False
+project_LSTbin = True
+project_HERA = False
+project_beams = False
+project_drift_scan = False
+project_global_EoR = False
+
+project_dir = ''
+if project_MWA: project_dir = 'project_MWA/'
+if project_LSTbin:
+    if rootdir == '/data3/t_nithyanandan/':
+        project_dir = 'project_LSTbin/'
+if project_HERA: project_dir = 'project_HERA/'
+if project_beams: project_dir = 'project_beams/'
+if project_drift_scan: project_dir = 'project_drift_scan/'
+if project_global_EoR: project_dir = 'project_global_EoR/'
+
+fhd_indir = '/data3/MWA/lstbin_RA0/'
+infile_suffix = '.fhd.p.npz'
+outdir = rootdir+project_dir
+
+infiles = glob.glob(fhd_indir+'*'+infile_suffix)
 infiles_obsid = [int(infile.split('/')[-1][0:10]) for infile in infiles]
 fhd_obsid = infiles_obsid
 
@@ -42,15 +62,20 @@ bpass_shape = 'bhw'
 n_channels = 384
 nchan = n_channels
 
-ant1 = []
-ant2 = []
-for bli in bl_id:
-    ants = bli.split('-')
-    ant1 += [ants[1]]
-    ant2 += [ants[0]]
+## If using old style hyphenated baseline labels
+# ant1 = []
+# ant2 = []
+# for bli in bl_id:
+#     ants = bli.split('-')
+#     ant1 += [ants[1]]
+#     ant2 += [ants[0]]
 
-ant1 = NP.asarray(ant1)
-ant2 = NP.asarray(ant2)
+# ant1 = NP.asarray(ant1)
+# ant2 = NP.asarray(ant2)
+
+# If using new numpy record arrays
+ant1 = bl_id['A1'] 
+ant2 = bl_id['A2']
 
 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' [', right='] '), PGB.Counter(), '/{0:0d} snapshots '.format(len(fhd_obsid)), PGB.ETA()], maxval=ant1.size).start()
 for j in range(len(fhd_obsid)):
@@ -73,7 +98,8 @@ for j in range(len(fhd_obsid)):
         for k in range(ant1.size):
             blind = NP.logical_and(fhd_ant1 == int(ant1[k]), fhd_ant2 == int(ant2[k]))
             if NP.sum(blind):
-                fhd_bl_id += [ant2[k]+'-'+ant1[k]]
+                # fhd_bl_id += [ant2[k]+'-'+ant1[k]] # if using old style hyphen separated baseline labels
+                fhd_bl_id += [(ant2[k],ant1[k])] # if using new numpy record arrays of tuples
                 if vis_lag_noisy is None:
                     vis_lag_noisy = fhd_data['P'][blind,:,p].reshape(1,nchan,1)
                     vis_lag_res = fhd_data['P_res'][blind,:,p].reshape(1,nchan,1)
@@ -88,7 +114,8 @@ for j in range(len(fhd_obsid)):
         else:
             fhd_vis_lag_noisy = NP.dstack((fhd_vis_lag_noisy, vis_lag_noisy))
             fhd_vis_lag_res = NP.dstack((fhd_vis_lag_res, vis_lag_res))
-    fhd_bl_id = NP.asarray(fhd_bl_id)
+    # fhd_bl_id = NP.asarray(fhd_bl_id) # if using old style hyphen separated baseline labels
+    fhd_bl_id = NP.asarray(fhd_bl_id, dtype=[('A2', '|S3'), ('A1', '|S3')])
 
     NP.savez_compressed(fhd_outfile, fhd_vis_lag_noisy=fhd_vis_lag_noisy, fhd_vis_lag_res=fhd_vis_lag_res, fhd_C=fhd_C, fhd_bl_id=fhd_bl_id, fhd_delays=fhd_delays, fhd_phased_bl=fhd_uvw, fhd_bl_length=fhd_bl_length, pol=NP.arange(2))
 

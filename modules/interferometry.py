@@ -17,6 +17,8 @@ import my_DSP_modules as DSP
 import catalog as SM
 import lookup_operations as LKP
 mwa_tools_found = True
+import psutil
+from distutils.version import LooseVersion
 try:
     from mwapy.pb import primary_beam as MWAPB
 except ImportError:
@@ -816,6 +818,11 @@ class ROI_parameters(object):
                               'max'   [scalar] positive value to clip the 
                                       modified and scaled values to. If not set, 
                                       there is no upper limit
+                'latitude'    [scalar] specifies latitude of the telescope site
+                              (in degrees). Default = None (advisable to specify
+                              a real value)
+                'longitude'   [scalar] specifies latitude of the telescope site
+                              (in degrees). Default = 0 (GMT)
                 'pol'         [string] specifies polarization when using
                               MWA_Tools for primary beam computation. Value of 
                               key 'id' in attribute dictionary telescope must be
@@ -941,6 +948,16 @@ class ROI_parameters(object):
                 if 'id' in hdulist[0].header:
                     self.telescope['id'] = hdulist[0].header['telescope']
 
+                if 'latitude' in hdulist[0].header:
+                    self.telescope['latitude'] = hdulist[0].header['latitude']
+                else:
+                    self.telescope['latitude'] = None
+
+                if 'longitude' in hdulist[0].header:
+                    self.telescope['longitude'] = hdulist[0].header['longitude']
+                else:
+                    self.telescope['longitude'] = 0.0
+                    
                 try:
                     self.telescope['shape'] = hdulist[0].header['element_shape']
                 except KeyError:
@@ -1048,9 +1065,8 @@ class ROI_parameters(object):
 
     #############################################################################
 
-    def append_settings(self, skymodel, freq, pinfo=None, latitude=None,
-                        lst=None, roi_info=None, telescope=None,
-                        freq_scale='GHz'):
+    def append_settings(self, skymodel, freq, pinfo=None, lst=None,
+                        roi_info=None, telescope=None, freq_scale='GHz'):
 
         """
         ------------------------------------------------------------------------
@@ -1067,9 +1083,6 @@ class ROI_parameters(object):
 
         freq     [numpy vector] Frequency channels (with units specified by the
                  attribute freq_scale)
-
-        latitude [Scalar] Latitude of the interferometer's location. Default
-                 is 34.0790 degrees North corresponding to that of the VLA.
 
         pinfo    [list of dictionaries] Each dictionary element in the list
                  corresponds to a specific snapshot. It contains information
@@ -1188,6 +1201,14 @@ class ROI_parameters(object):
                               'max'   [scalar] positive value to clip the 
                                       modified and scaled values to. If not set, 
                                       there is no upper limit
+                'latitude'    [scalar] specifies latitude of the telescope site
+                              (in degrees). Default = None, otherwise should 
+                              equal the value specified during initialization 
+                              of the instance
+                'longitude'   [scalar] specifies latitude of the telescope site
+                              (in degrees). Default = None, otherwise should 
+                              equal the value specified during initialization 
+                              of the instance
                 'pol'         [string] specifies polarization when using
                               MWA_Tools for primary beam computation. Value of 
                               key 'id' in attribute dictionary telescope must be
@@ -1256,15 +1277,16 @@ class ROI_parameters(object):
 
                 if not pbeam_input: # Will require sky positions in Alt-Az coordinates
                     if skymodel.coords == 'radec':
-                        if latitude is None:
-                            raise ValueError('Latitude of the observatory must be provided.')
+                        if self.telescope['latitude'] is None:
+                            raise ValueError('Latitude of the observatory must be provided.')                        
                         if lst is None:
                             raise ValueError('LST must be provided.')
-                        skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), latitude, units='degrees')
+                        skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')                        
                     elif skymodel.coords == 'hadec':
-                        if latitude is None:
+                        if self.telescope['latitude'] is None:
                             raise ValueError('Latitude of the observatory must be provided.')
-                        skypos_altaz = GEOM.hadec2altaz(skymodel.location, latitude, units='degrees')
+                        skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
+
                     elif skymodel.coords == 'dircos':
                         skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
                     elif skymodel.coords == 'altaz':
@@ -1291,27 +1313,28 @@ class ROI_parameters(object):
                 elif roi_info['center_coords'] == 'altaz':
                     self.info['center'] += [roi_info['center']]
                 elif roi_info['center_coords'] == 'hadec':
-                    self.info['center'] += [GEOM.hadec2altaz(roi_info['center'], self.latitude, units='degrees')]
+                    self.info['center'] += [GEOM.hadec2altaz(roi_info['center'], self.telescope['latitude'], units='degrees')]
                 elif roi_info['center_coords'] == 'radec':
                     if lst is None:
                         raise KeyError('LST not provided for coordinate conversion')
                     hadec = NP.asarray([lst-roi_info['center'][0,0], roi_info['center'][0,1]]).reshape(1,-1)
-                    self.info['center'] += [GEOM.hadec2altaz(hadec, self.latitude, units='degrees')]
+                    self.info['center'] += [GEOM.hadec2altaz(hadec, self.telescope['latitude'], units='degrees')]                    
                 elif roi_info['center_coords'] == 'dircos':
                     self.info['center'] += [GEOM.dircos2altaz(roi_info['center'], units='degrees')]
                 else:
                     raise ValueError('Invalid coordinate system specified for center')
 
             if skymodel.coords == 'radec':
-                if latitude is None:
+                if self.telescope['latitude'] is None:
                     raise ValueError('Latitude of the observatory must be provided.')
+
                 if lst is None:
                     raise ValueError('LST must be provided.')
-                skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), latitude, units='degrees')
+                skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')                
             elif skymodel.coords == 'hadec':
-                if latitude is None:
+                if self.telescope['latitude'] is None:
                     raise ValueError('Latitude of the observatory must be provided.')
-                skypos_altaz = GEOM.hadec2altaz(skymodel.location, latitude, units='degrees')
+                skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
             elif skymodel.coords == 'dircos':
                 skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
             elif skymodel.coords == 'altaz':
@@ -1338,15 +1361,15 @@ class ROI_parameters(object):
 
             if 'pointing_coords' in pinfo: # Convert pointing coordinate to Alt-Az
                 if (pinfo['pointing_coords'] != 'dircos') and (pinfo['pointing_coords'] != 'altaz'):
-                    if latitude is None:
+                    if self.telescope['latitude'] is None:
                         raise ValueError('Latitude of the observatory must be provided.')
                     if pinfo['pointing_coords'] == 'radec':
                         if lst is None:
                             raise ValueError('LST must be provided.')
                         self.pinfo[-1]['pointing_center'] = NP.asarray([lst-pinfo['pointing_center'][0,0], pinfo['pointing_center'][0,1]]).reshape(1,-1)
-                        self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(self.pinfo[-1]['pointing_center'], latitude, units='degrees')
+                        self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(self.pinfo[-1]['pointing_center'], self.telescope['latitude'], units='degrees')
                     elif pinfo[-1]['pointing_coords'] == 'hadec':
-                        self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(pinfo[-1]['pointing_center'], self.latitude, units='degrees')
+                        self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(pinfo[-1]['pointing_center'], self.telescope['latitude'], units='degrees')
                     else:
                         raise ValueError('pointing_coords in dictionary pinfo must be "dircos", "altaz", "hadec" or "radec".')
                     self.pinfo[-1]['pointing_coords'] = 'altaz'
@@ -1426,6 +1449,9 @@ class ROI_parameters(object):
         hdulist[0].header['element_shape'] = (self.telescope['shape'], 'Antenna element shape')
         hdulist[0].header['element_size'] = (self.telescope['size'], 'Antenna element size [m]')
         hdulist[0].header['element_ocoords'] = (self.telescope['ocoords'], 'Antenna element orientation coordinates')
+        if self.telescope['latitude'] is not None:
+            hdulist[0].header['latitude'] = (self.telescope['latitude'], 'Latitude (in degrees)')
+        hdulist[0].header['longitude'] = (self.telescope['longitude'], 'Longitude (in degrees)')
         if self.telescope['groundplane'] is not None:
             hdulist[0].header['ground_plane'] = (self.telescope['groundplane'], 'Antenna element height above ground plane [m]')
             if 'ground_modify' in self.telescope:
@@ -1753,9 +1779,9 @@ class InterferometerArray(object):
     """
 
     def __init__(self, labels, baselines, channels, telescope=None, eff_Q=0.89,
-                 latitude=34.0790, skycoords='radec', A_eff=NP.pi*(25.0/2)**2, 
-                 pointing_coords='hadec', baseline_coords='localenu',
-                 freq_scale=None, init_file=None):
+                 latitude=34.0790, longitude=0.0, skycoords='radec',
+                 A_eff=NP.pi*(25.0/2)**2, pointing_coords='hadec',
+                 baseline_coords='localenu', freq_scale=None, init_file=None):
         
         """
         ------------------------------------------------------------------------
@@ -1763,12 +1789,12 @@ class InterferometerArray(object):
         multi-element interferometer.
 
         Class attributes initialized are:
-        labels, baselines, channels, telescope, latitude, skycoords, eff_Q, A_eff,
-        pointing_coords, baseline_coords, baseline_lengths, channels, bp, bp_wts,
-        freq_resolution, lags, lst, obs_catalog_indices, pointing_center,
-        skyvis_freq, skyvis_lag, timestamp, t_acc, Tsys, vis_freq, vis_lag, 
-        t_obs, n_acc, vis_noise_freq, vis_noise_lag, vis_rms_freq,
-        geometric_delays, and projected_baselines.
+        labels, baselines, channels, telescope, latitude, longitude, skycoords, 
+        eff_Q, A_eff, pointing_coords, baseline_coords, baseline_lengths, 
+        channels, bp, bp_wts, freq_resolution, lags, lst, obs_catalog_indices, 
+        pointing_center, skyvis_freq, skyvis_lag, timestamp, t_acc, Tsys, 
+        vis_freq, vis_lag, t_obs, n_acc, vis_noise_freq, vis_noise_lag, 
+        vis_rms_freq, geometric_delays, and projected_baselines.
 
         Read docstring of class InterferometerArray for details on these
         attributes.
@@ -1806,6 +1832,12 @@ class InterferometerArray(object):
             except KeyError:
                 print '\tKeyword "latitude" not found in header. Assuming 34.0790 degrees for attribute latitude.'
                 self.latitude = 34.0790
+
+            try:
+                self.longitude = hdulist[0].header['longitude']
+            except KeyError:
+                print '\tKeyword "longitude" not found in header. Assuming 0.0 degrees for attribute longitude.'
+                self.longitude = 0.0
                 
             self.telescope = {}
             if 'telescope' in hdulist[0].header:
@@ -2039,6 +2071,7 @@ class InterferometerArray(object):
             self.telescope['groundplane'] = None
 
         self.latitude = latitude
+        self.longitude = longitude
         self.vis_freq = None
         self.skyvis_freq = None
         # self.pb = None
@@ -2437,7 +2470,8 @@ class InterferometerArray(object):
                 skyvis = NP.zeros((self.baselines.shape[0], self.channels.size), dtype=NP.complex_)
                 memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 8.0 * 2 # bytes, 8 bytes per float, factor 2 is because the phase involves complex values
 
-            memory_available = OS.popen("free -b").readlines()[2].split()[3]
+            #memory_available = OS.popen("free -b").readlines()[2].split()[3]
+            memory_available = psutil.phymem_usage().available
             if float(memory_available) > memory_required:
                 if memsave:
                     phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float32) *  (self.geometric_delays[-1][:,:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64)
@@ -2771,7 +2805,8 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def phase_centering(self, phase_center=None, phase_center_coords=None, verbose=True):
+    def phase_centering(self, phase_center=None, phase_center_coords=None,
+                        do_delay_transform=True, verbose=True):
 
         """
         -------------------------------------------------------------------------
@@ -2799,6 +2834,11 @@ class InterferometerArray(object):
                       [string scalar] Coordinate system of phase cneter. It can 
                       be 'altaz', 'radec', 'hadec' or 'dircos'. Default = None.
                       phase_center_coords must be provided.
+
+        do_delay_transform
+                      [boolean] If set to True (default), also recompute the
+                      delay transform after the visibilities are rotated to the
+                      new phase center
 
         verbose:      [boolean] If set to True (default), prints progress and
                       diagnostic messages.
@@ -2922,8 +2962,9 @@ class InterferometerArray(object):
         self.vis_freq = self.vis_freq * NP.exp(-1j * 2 * NP.pi * b_dot_l[:,NP.newaxis,:] * self.channels.reshape(1,-1,1) / FCNST.c)
         self.skyvis_freq = self.skyvis_freq * NP.exp(-1j * 2 * NP.pi * b_dot_l[:,NP.newaxis,:] * self.channels.reshape(1,-1,1) / FCNST.c)
         self.vis_noise_freq = self.vis_noise_freq * NP.exp(-1j * 2 * NP.pi * b_dot_l[:,NP.newaxis,:] * self.channels.reshape(1,-1,1) / FCNST.c)
-        self.delay_transform()
-        print 'Running delay_transform() with defaults inside phase_centering() after rotating visibility phases. Run delay_transform() again with appropriate inputs.'
+        if do_delay_transform:
+            self.delay_transform()
+            print 'Running delay_transform() with defaults inside phase_centering() after rotating visibility phases. Run delay_transform() again with appropriate inputs.'
 
     #############################################################################
 
@@ -3434,14 +3475,13 @@ class InterferometerArray(object):
         if verbose:
             print '\nSaving information about interferometer...'
 
-        use_ascii = False
-        if tabtype == 'TableHDU':
-            use_ascii = True
+
 
         hdulist = []
 
         hdulist += [fits.PrimaryHDU()]
         hdulist[0].header['latitude'] = (self.latitude, 'Latitude of interferometer')
+        hdulist[0].header['longitude'] = (self.longitude, 'Longitude of interferometer')        
         hdulist[0].header['baseline_coords'] = (self.baseline_coords, 'Baseline coordinate system')
         hdulist[0].header['freq_resolution'] = (self.freq_resolution, 'Frequency Resolution (Hz)')
         hdulist[0].header['pointing_coords'] = (self.pointing_coords, 'Pointing coordinate system')
@@ -3471,30 +3511,21 @@ class InterferometerArray(object):
             cols += [fits.Column(name='pointing_latitude', format='D', array=self.pointing_center[:,1])]
             cols += [fits.Column(name='phase_center_longitude', format='D', array=self.phase_center[:,0])]
             cols += [fits.Column(name='phase_center_latitude', format='D', array=self.phase_center[:,1])]
-
-        if astropy.__version__ == '0.4':
-            columns = fits.ColDefs(cols, tbtype=tabtype)
-        elif (astropy.__version__ == '0.4.2') or (astropy.__version__ == u'1.0'):
-            columns = fits.ColDefs(cols, ascii=use_ascii)
-
+        columns = newcolumns(cols,tabtype)
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'POINTING AND PHASE CENTER INFO')
         hdulist += [tbhdu]
         if verbose:
             print '\tCreated pointing and phase center information table.'
 
-        maxlen = max(len(label) for label in self.labels)
+        label_lengths = [len(label[0]) for label in self.labels]
+        maxlen = max(label_lengths)
         labels = NP.asarray(self.labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
         cols = []
         cols += [fits.Column(name='A1', format='{0:0d}A'.format(maxlen), array=labels['A1'])]
         cols += [fits.Column(name='A2', format='{0:0d}A'.format(maxlen), array=labels['A2'])]        
         # cols += [fits.Column(name='labels', format='5A', array=NP.asarray(self.labels))]
-
-        if astropy.__version__ == '0.4':
-            columns = fits.ColDefs(cols, tbtype=tabtype)
-        elif (astropy.__version__ == '0.4.2') or (astropy.__version__ == u'1.0'):
-            columns = fits.ColDefs(cols, ascii=use_ascii)
-
+        columns = newcolumns(cols,tabtype)
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'LABELS')
         hdulist += [tbhdu]
@@ -3522,12 +3553,8 @@ class InterferometerArray(object):
         cols += [fits.Column(name='frequency', format='D', array=self.channels)]
         if self.lags is not None:
             cols += [fits.Column(name='lag', format='D', array=self.lags)]
-
-        if astropy.__version__ == '0.4':
-            columns = fits.ColDefs(cols, tbtype=tabtype)
-        elif (astropy.__version__ == '0.4.2') or (astropy.__version__ == u'1.0'):
-            columns = fits.ColDefs(cols, ascii=use_ascii)
-
+        
+        columns = newcolumns(cols,tabtype)
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'SPECTRAL INFO')
         hdulist += [tbhdu]
@@ -3540,12 +3567,9 @@ class InterferometerArray(object):
                 print '\tCreated an extension for accumulation times.'
 
         cols = []
-        cols += [fits.Column(name='timestamps', format='12A', array=NP.asarray(self.timestamp))]
+        cols += [fits.Column(name='timestamps', format='16A', array=NP.asarray(self.timestamp))]
 
-        if astropy.__version__ == '0.4':
-            columns = fits.ColDefs(cols, tbtype=tabtype)
-        elif (astropy.__version__ == '0.4.2') or (astropy.__version__ == u'1.0'):
-            columns = fits.ColDefs(cols, ascii=use_ascii)
+        columns = newcolumns(cols,tabtype)
 
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'TIMESTAMPS')
@@ -3619,5 +3643,14 @@ class InterferometerArray(object):
 
         if verbose:
             print '\tInterferometer array information written successfully to FITS file on disk:\n\t\t{0}\n'.format(filename)
-
+        return True
+def newcolumns(cols,tabtype):
+    use_ascii = False
+    if tabtype == 'TableHDU':
+        use_ascii = True
+    if astropy.__version__ == '0.4':
+        columns = fits.ColDefs(cols, tbtype=tabtype)
+    elif LooseVersion(astropy.__version__)>=LooseVersion('0.4.2'):
+        columns = fits.ColDefs(cols, ascii=use_ascii)
+    return columns
 #################################################################################

@@ -8,8 +8,8 @@ directory:
 
 ########## Project information #########
 
-project  : project_HERA
-                                # Example values are project_MWA,
+project  : project_MWA
+                                # Accepted values are project_MWA,
                                 # project_global_EoR, project_HERA, 
                                 # project_drift_scan, project_beams,
                                 # project_LSTbin
@@ -26,18 +26,26 @@ telescope:
                                 # 'paper_dipole', 'mwa_tools'
                                 # This name sets the dish type
 
-    latitude        : -30.7224
+    latitude        : -26.701
                                 # Latitude in degrees
                                 # -26.701 for MWA,
                                 # -30.7224 for HERA, PAPER
                                 # 34.079 for VLA,
                                 # 19.0965 for GMRT
 
-    A_eff           : 154
+    longitude       : +116.670815
+                                # Longitude of observatory (in degrees)
+                                # Default (null) implies 0.0 degrees
+                                # corresponding to GMT.
+                                # -107.6184 for VLA, +116.670815 for MWA
+                                # +21.4278 for PAPER and HERA,
+                                # +74.0497 for GMRT
+
+    A_eff           : 16
                                 # Effective area of antenna element
                                 # in m^2
 
-    Tsys            : 300.0
+    Tsys            : 200.0
                                 # System temperature (in K)
 
     pfb_method      : null 
@@ -46,7 +54,7 @@ telescope:
                                 # values are 'theoretical' and
                                 # 'empirical'
 
-    pfb_file        : null
+    pfb_file        : '/data3/t_nithyanandan/project_MWA/foregrounds/PFB/Prabu/test_pfb_512x8.fits'
                                 # File containing PFB coefficients.
                                 # Applicable only is pfb_method is
                                 # set to non-null value
@@ -59,7 +67,7 @@ array   :                       # Parameters 'file' and 'layout'
     file            : null
                                 # File containing antenna locations
 
-    layout          : 'HERA-331' 
+    layout          : 'MWA-128T'
                                 # Accepted values are 'MWA-128T',
                                 # 'HERA-7', 'HERA-19', 'HERA-37',
                                 # 'HERA-61', 'HERA-91', 'HERA-127',
@@ -104,13 +112,13 @@ baseline :                      # Parameters specifying baseline
 # activated when telescope.id='custom's 
 antenna  :
 
-    shape           : dish      
+    shape           : 'dipole'      
                                 # Shape of antenna element
                                 # Accepted values are 'dish', 'dipole',
                                 # and 'delta' or null (defaults to
                                 # 'delta')
 
-    size            : 14.0      
+    size            : 0.74
                                 # Size of antenna element (in m)
                                 # diameter for dish, linear size for
                                 # dipole
@@ -126,15 +134,18 @@ antenna  :
                                 # [Alt, Az] in degrees (altaz) or
                                 # [l,m] (dircos)
                     
-    ocoords         : 'altaz'   # Coordinate system describing the
+    ocoords         : 'altaz'
+                                # Coordinate system describing the
                                 # orientation of antenna element.
                                 # Accepted values are 'altaz', 'dircos'
                     
-    phased_array    : false     # If true, the antenna is a phased
+    phased_array    : true
+                                # If true, the antenna is a phased
                                 # array of antenna elements.
                                 # Default = false
                     
-    ground_plane    : null      # Ground plane height (in m). Default
+    ground_plane    : null
+                                # Ground plane height (in m). Default
                                 # (null) means no ground plane
 
 ########## Phased array parameters #########
@@ -165,15 +176,18 @@ obsparm  :
     freq            : 150000000.0
                                 # Center frequency (in Hz)
 
-    freq_resolution : 320000.0
+    freq_resolution : 40000.0
                                 # Frequency resolution (in Hz)
 
-    nchan           : 128
+    nchan           : 24
                                 # Number of channels
+
+    obs_date        : '2013/08/23'
+                                # Observation start date yyyy/mm/dd
 
     obs_mode        : 'drift'  
                                 # Observing mode. Accepted values are
-                                # 'drift', 'track', 'dns' and 
+                                # 'drift', 'track', 'dns', 'lstbin', and 
                                 # 'custom' or null (default)
                                 # dns=drift n' shift  
                                 # requires pointing file (see below)
@@ -183,30 +197,83 @@ obsparm  :
                                 # Only two of t_obs, n_snaps, t_snap
                                 # must be set
 
-    n_snaps         : 80      
+    n_snaps         : 4     
                                 # Number of accumulations. Only two of
                                 # t_obs, n_snaps, and t_snap must be set
 
-    t_snap          : 1080.0
+    t_snap          : 2160.0
                                 # Accumulation time (in seconds) for
                                 # each snapshot. Only two of t_obs,
                                 # n_snaps, and t_snap must be set
 
+    timeformat      : 'JD'
+                                # Output format for timestamp. Can
+                                # be 'DT' (default) for DateTime format
+                                # yyyy-mm-dd hh:mm:ss.s or 'JD' for
+                                # julian date format
+                                
 ######### Pointing information #########
 
-pointing :                      # Parameters below are mutually
-                                # exclusive
+pointing :                      # If pointing file is specified to be
+                                # non-null, other parameters like
+                                # drift_init and track_init are ignored
 
     file            : null
                                 # File containing pointing information
                                 # Only one of 'file' or 'initial' must
                                 # be specified
+                                # for example,
+                                # '/data3/MWA/lstbin_RA0/EoR0_high_sem1_1_obsinfo.txt'
 
-    initial         : [0.0, 0.0, -30.7224]
-                                # initial LST (in hours), initial RA
-                                # (degrees) and initial decl. (degrees)
-                                # Only one of 'file' or 'initial' must
-                                # be specified
+    drift_init :
+                                # Applies in case of initializing pointing
+                                # information for drift scan mode
+
+        alt         : null
+                                # Altitude of telescope pointing (degrees)
+
+        az          : null
+                                # Azimuth of telescope pointing (degrees)
+
+        ha          : 0.0
+                                # Hour angle of telescope pointing
+                                # (degrees). Only one of the Alt-Az or
+                                # HA-Dec pairs must be specified and the
+                                # other pair must be set to null
+
+        dec         : -26.701
+                                # Declination of telescope pointing
+                                # (degrees). Only one of the Alt-Az or
+                                # HA-Dec pairs must be specified and the
+                                # other pair must be set to null
+
+        lst         : 23.0
+                                # LST at start of observation (hours).
+                                # The epoch is assumed to be the date of
+                                # observation
+
+    track_init :
+
+        ra          : 0.0
+                                # RA of sky position to track (degrees)
+
+        dec         : -26.701
+                                # Declination of sky position to track
+                                # (degrees)
+
+        ha          : -30.0
+                                # Hour angle (degrees) at start of
+                                # observation. 
+
+        epoch       : '2000'
+                                # Epoch in which the RA of the sky
+                                # position to track is specified
+
+    # initial         : [0.0, 0.0, -30.7224]
+    #                             # OBSOLETE! initial LST (in hours), initial RA
+    #                             # (degrees) and initial decl. (degrees)
+    #                             # Only one of 'file' or 'initial' must
+    #                             # be specified
 
 ######### Phase center information #########
 #NOT USED.  Phase center is always = pointing center.
@@ -232,7 +299,7 @@ snapshot :                      # Parameters below are mutually
 
     avg_drifts      : false
                                 # Consider durations equal to the
-                                # drfit duration before pointing
+                                # drift duration before pointing
                                 # changes
 
     beam_switch     : false
@@ -272,6 +339,10 @@ fgparm   :
                                 # (HI cube from external simulations), 
                                 # and'HI_fluctuations' (HI fluctuations
                                 # with the global mean signal removed)
+
+    epoch           : '2000'
+                                # Epoch of the coordinates of the
+                                # foreground model or EoR signal
 
     nside           : 128
                                 # Healpix nside parameter for foreground
@@ -342,8 +413,7 @@ catalog  :
 
 processing:
 
-
-    n_bl_chunks     : 1
+    n_bl_chunks     : 8
                                 # Upper limit on number of baseline
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
@@ -352,7 +422,7 @@ processing:
                                 # and is best left as null.
 
 
-    bl_chunk_size   : 640
+    bl_chunk_size   : 1016
                                 # Baseline chunk size. Will be used
                                 # in a single process during parallel
                                 # processing
@@ -373,19 +443,26 @@ processing:
                                 # Number of sky sectors
 
     bpass_shape     : 'bhw'
-                                # used in any delay transforms. not really
-                                #    important for simulation of visibilities
-                                # Bandpass shape. Accepted values are
+                                # Bandpass shape for tapering window
+                                # before delay transform. Accepted values are
                                 # 'rect' (rectangular), 'bnw'
                                 # (Blackman-Nuttall window), and 'bhw'
                                 # (Blackman-Harris window)
 
+    ant_bpass_file  : null
+                                # '/data3/t_nithyanandan/project_HERA/newGainfiltered.npz'
+                                # '/data3/t_nithyanandan/project_HERA/specGainfiltered.npz'
+                                # '/data3/t_nithyanandan/project_HERA/steepGainfiltered.npz'                                
+                                # Antenna bandpass file (.npz) which will be
+                                # stored in multiplication to that 
+                                # specified in bpass_shape
+                                
     f_pad           : 1.0
                                 # See bpass_shape...
                                 # frequency padding fraction for
                                 # delay transform
 
-    coarse_channel_width : 32
+    coarse_channel_width : 16
                                 # Coarse channel width in number of
                                 # fine channels. Used only if PFB (MWA-like passband)
                                 # settings are to be used. 
@@ -393,10 +470,7 @@ processing:
                                 # 16 for 80kHz
                                 # etc
 
-    bp_correct      : false
-                                # divide out by the applied bassband.
-                                #   cancels effect of any applied pb
-                                #   TODO, seperate out "True" from "Model" passband
+    bp_correct      : true
                                 # Correct bandpass shape if set to
                                 # true. Do not correct if set to
                                 # false 
@@ -465,7 +539,7 @@ flags    :
                                 # Flag edge channels in the band. Two
                                 # element list. First and second
                                 # elements are number of channels
-                                # leading and rtailing the coarse
+                                # leading and trailing the coarse
                                 # channel edges respectively
 
     flag_repeat_edge_channels: false
@@ -478,4 +552,3 @@ flags    :
 
 plots    : false
                                 # If true, create relevant plots
-

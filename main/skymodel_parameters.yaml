@@ -71,7 +71,7 @@ skyparm     :
                                 # values are 'equatorial' and
                                 # 'galactic'
 
-    out_nside       : 128
+    out_nside       : 1024
                                 # nside of healpix output map
 
     out_units       : 'K'
@@ -111,16 +111,18 @@ specparms   :
                                 # sky map is to be generated 
                       - 80.0
                       - 100.0
-#                      - 120.0
-#                      - 140.0
-#                      - 160.0
-#                      - 180.0
-#                      - 200.0
-#                      - 220.0
-#                      - 240.0
-#                      - 260.0
-#                      - 280.0
-#                      - 300.0
+                      - 120.0
+                      - 140.0
+                      - 160.0
+                      - 180.0
+                      - 200.0
+                      - 220.0
+                      - 240.0
+                      - 260.0
+                      - 280.0
+                      - 300.0
+                      - 400.0
+                      - 420.0
 
     freq_units      : 'MHz'
                                 # Units of frequency specified in

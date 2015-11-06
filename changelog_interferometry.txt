@@ -1,3 +1,71 @@
+From 5724828 (branch timing):
+============================
+
+In interferometry.py,
+
+(*) Add more precision to timestamps saved in member function
+save() of class InterferometerArray
+
+From 2e0aca5 (branch timing):
+============================
+
+In interferometry.py,
+
+(*) Fix bug in creating a record array of labels in member
+function save() of class InterferometerArray
+(*) Add input keyword do_delay_transform to member function
+phase_centering() of class InterferometerArray which will
+optionally recompute delay transform of the visibilities after they
+are rotated to the new phase center
+
+From 19bea28 (branch timing):
+============================
+
+In simparameters.yaml,
+
+(*) Make changes to initial conditions of drift and tracking
+pointing parameters
+
+In interferometer_array_data_simulation.yaml.mpi.py,
+
+(*) Import ephem module
+(*) Modify inputs to handle timing and timestamps tied to the
+longitude of the observatory
+(*) Needs more rigorous testing on accuracy of timing as well as
+making the change consistent throughout the simulation script.
+(*) Test to work for automated drift and track runs
+
+From 30bc19a of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Initialize longitude in __init__() member function of class
+ROI_parameters
+(*) Save longitude information in save() member function of
+class ROI_parameters
+(*) Initialize longitude in __init__() member function of class
+InterferometerArray
+(*) Save longitude information in save() member function of
+class InterferometerArray
+
+From 30b511a of Interferometry:
+==============================
+
+In interferometry.py,
+
+(*) Initialize latitude in __init__() member function of class
+ROI_parameters
+(*) Remove latitude keyword input to member function append_settings()
+of class ROI_parameters
+(*) Change all occurrences of latitude to key 'latitude' of dictionary
+attribute telescope of instance ROI_parameters
+(*) No default latitude for instances of class ROI_parameters while
+docstring indicated VLA latitude will be used as default. Change
+docstring accordingly
+(*) Save latitude information in save() member function of
+class ROI_parameters
+
 From c802b72 of Interferometry:
 ==============================
 
