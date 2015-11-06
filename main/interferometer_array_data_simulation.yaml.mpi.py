@@ -36,6 +36,11 @@ rank = comm.Get_rank()
 nproc = comm.Get_size()
 name = MPI.Get_processor_name()
 
+## global parameters
+
+sday = 0.99726958 # (in number of mean of solar days)
+sday_correction = 1 / sday
+
 ## Parse input arguments
 
 parser = argparse.ArgumentParser(description='Program to simulate interferometer array data')
@@ -423,23 +428,29 @@ if pointing_file is not None:
 
         if obs_mode != 'lstbin':
             lst_end = NP.asarray(lst_wrapped[pick_snapshots+1])
-            t_snap = (lst_end - lst_begin) / 15.0 * 3.6e3
+            # t_snap = (lst_end - lst_begin) / 15.0 * 3.6e3
+            t_snap = (lst_end - lst_begin) / 15.0 * 3.6e3 * sday
             lst = 0.5 * (lst_begin + lst_end)
             obs_mode = 'custom'
         else:
             t_snap = 112.0 + NP.zeros(n_snaps)   # in seconds (needs to be generalized)
-            lst = lst_wrapped[pick_snapshots] + 0.5 * t_snap/3.6e3 * 15.0
+            # lst = lst_wrapped[pick_snapshots] + 0.5 * t_snap/3.6e3 * 15.0
+            lst = lst_wrapped[pick_snapshots] + 0.5 * t_snap/3.6e3 * 15.0 / sday
+            
     if pick_snapshots is None:
         if obs_mode != 'lstbin':        
             if not beam_switch:
                 lst = 0.5*(lst_edges[1:]+lst_edges[:-1])
-                t_snap = (lst_edges[1:]-lst_edges[:-1]) / 15.0 * 3.6e3
+                # t_snap = (lst_edges[1:]-lst_edges[:-1]) / 15.0 * 3.6e3
+                t_snap = (lst_edges[1:]-lst_edges[:-1]) / 15.0 * 3.6e3 * sday
             else:
                 lst = 0.5*(lst_edges_left + lst_edges_right)
-                t_snap = (lst_edges_right - lst_edges_left) / 15.0 * 3.6e3
+                # t_snap = (lst_edges_right - lst_edges_left) / 15.0 * 3.6e3
+                t_snap = (lst_edges_right - lst_edges_left) / 15.0 * 3.6e3 * sday
         else:
             t_snap = 112.0 + NP.zeros(n_snaps)   # in seconds (needs to be generalized)
-            lst = lst_wrapped + 0.5 * t_snap/3.6e3 * 15.0
+            # lst = lst_wrapped + 0.5 * t_snap/3.6e3 * 15.0
+            lst = lst_wrapped + 0.5 * t_snap/3.6e3 * 15.0 / sday
 
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
     pointings_hadec = GEOM.altaz2hadec(pointings_altaz, latitude, units='degrees')
@@ -504,7 +515,8 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
 
     lstobj.compute(obsrvr)
     lst_init_fgcat_epoch = NP.degrees(lstobj.ra) / 15.0 # LST (hours) in epoch of foreground catalog
-    lst = (lst_init_fgcat_epoch + (t_snap/3.6e3) * NP.arange(n_snaps)) * 15.0 # in degrees at the epoch of the foreground catalog
+    # lst = (lst_init_fgcat_epoch + (t_snap/3.6e3) * NP.arange(n_snaps)) * 15.0 # in degrees at the epoch of the foreground catalog
+    lst = (lst_init_fgcat_epoch + (t_snap/3.6e3) * NP.arange(n_snaps)) * 15.0 / sday # in degrees at the epoch of the foreground catalog    
     t_snap = t_snap + NP.zeros(n_snaps)
     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
@@ -528,7 +540,8 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
         last_localtime = copy.deepcopy(localtime)
         obsrvr.date = last_localtime
         if timeformat == 'JD':
-            timestamps += ['{0:.9f}'.format(EP.julian_date(localtime))]
+            # timestamps += ['{0:.9f}'.format(EP.julian_date(localtime))]
+            timestamps += [EP.julian_date(localtime)]
         else:
             timestamps += ['{0}'.format(localtime.datetime())]
 
@@ -537,7 +550,8 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     if lst_wrapped.size > 1:
         lst_edges = NP.concatenate((lst_wrapped, [lst_wrapped[-1]+lst_wrapped[-1]-lst_wrapped[-2]]))
     else:
-        lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_snap/3.6e3*15))
+        # lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_snap/3.6e3*15))
+        lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_snap/3.6e3*15/sday))
 
     duration_str = '_{0:0d}x{1:.1f}s'.format(n_snaps, t_snap[0])
 

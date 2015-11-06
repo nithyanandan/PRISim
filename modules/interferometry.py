@@ -1,5 +1,5 @@
 from __future__ import division
-import os as OS
+# import os as OS
 import numpy as NP
 import numpy.linalg as LA
 import scipy.constants as FCNST
@@ -9,6 +9,8 @@ import datetime as DT
 import progressbar as PGB
 import astropy 
 from astropy.io import fits
+from distutils.version import LooseVersion
+import psutil 
 import geometry as GEOM
 import primary_beams as PB
 import baseline_delay_horizon as DLY
@@ -23,6 +25,47 @@ try:
     from mwapy.pb import primary_beam as MWAPB
 except ImportError:
     mwa_tools_found = False
+
+################################################################################
+
+def _astropy_columns(cols, tabtype='BinTableHDU'):
+    
+    """
+    ----------------------------------------------------------------------------
+    !!! FOR INTERNAL USE ONLY !!!
+    This internal routine checks for Astropy version and produces the FITS 
+    columns based on the version
+
+    Inputs:
+
+    cols    [list of Astropy FITS columns] These are a list of Astropy FITS 
+            columns
+
+    tabtype [string] specifies table type - 'BinTableHDU' (default) for binary
+            tables and 'TableHDU' for ASCII tables
+
+    Outputs:
+
+    columns [Astropy FITS column data] 
+    ----------------------------------------------------------------------------
+    """
+
+    try:
+        cols
+    except NameError:
+        raise NameError('Input cols not specified')
+
+    if tabtype not in ['BinTableHDU', 'TableHDU']:
+        raise ValueError('tabtype specified is invalid.')
+
+    use_ascii = False
+    if tabtype == 'TableHDU':
+        use_ascii = True
+    if astropy.__version__ == '0.4':
+        columns = fits.ColDefs(cols, tbtype=tabtype)
+    elif LooseVersion(astropy.__version__)>=LooseVersion('0.4.2'):
+        columns = fits.ColDefs(cols, ascii=use_ascii)
+    return columns    
 
 ################################################################################
 
@@ -3442,7 +3485,7 @@ class InterferometerArray(object):
     def save(self, outfile, tabtype='BinTableHDU', overwrite=False, verbose=True):
 
         """
-        ----------------------------------------------------------------------------
+        -------------------------------------------------------------------------
         Saves the interferometer array information to disk. 
 
         Inputs:
@@ -3462,7 +3505,7 @@ class InterferometerArray(object):
                      
         verbose      [boolean] If True (default), prints diagnostic and progress
                      messages. If False, suppress printing such messages.
-        ----------------------------------------------------------------------------
+        -------------------------------------------------------------------------
         """
 
         try:
@@ -3511,7 +3554,7 @@ class InterferometerArray(object):
             cols += [fits.Column(name='pointing_latitude', format='D', array=self.pointing_center[:,1])]
             cols += [fits.Column(name='phase_center_longitude', format='D', array=self.phase_center[:,0])]
             cols += [fits.Column(name='phase_center_latitude', format='D', array=self.phase_center[:,1])]
-        columns = newcolumns(cols,tabtype)
+        columns = _astropy_columns(cols, tabtype=tabtype)
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'POINTING AND PHASE CENTER INFO')
         hdulist += [tbhdu]
@@ -3525,7 +3568,9 @@ class InterferometerArray(object):
         cols += [fits.Column(name='A1', format='{0:0d}A'.format(maxlen), array=labels['A1'])]
         cols += [fits.Column(name='A2', format='{0:0d}A'.format(maxlen), array=labels['A2'])]        
         # cols += [fits.Column(name='labels', format='5A', array=NP.asarray(self.labels))]
-        columns = newcolumns(cols,tabtype)
+
+        columns = _astropy_columns(cols, tabtype=tabtype)
+
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'LABELS')
         hdulist += [tbhdu]
@@ -3553,8 +3598,9 @@ class InterferometerArray(object):
         cols += [fits.Column(name='frequency', format='D', array=self.channels)]
         if self.lags is not None:
             cols += [fits.Column(name='lag', format='D', array=self.lags)]
-        
-        columns = newcolumns(cols,tabtype)
+
+        columns = _astropy_columns(cols, tabtype=tabtype)
+
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'SPECTRAL INFO')
         hdulist += [tbhdu]
@@ -3567,9 +3613,14 @@ class InterferometerArray(object):
                 print '\tCreated an extension for accumulation times.'
 
         cols = []
-        cols += [fits.Column(name='timestamps', format='16A', array=NP.asarray(self.timestamp))]
+        if isinstance(self.timestamp[0], str):
+            cols += [fits.Column(name='timestamps', format='24A', array=NP.asarray(self.timestamp))]
+        elif isinstance(self.timestamp[0], float):
+            cols += [fits.Column(name='timestamps', format='D', array=NP.asarray(self.timestamp))]
+        else:
+            raise TypeError('Invalid data type for timestamps')
 
-        columns = newcolumns(cols,tabtype)
+        columns = _astropy_columns(cols, tabtype=tabtype)
 
         tbhdu = fits.new_table(columns)
         tbhdu.header.set('EXTNAME', 'TIMESTAMPS')
@@ -3654,3 +3705,5 @@ def newcolumns(cols,tabtype):
         columns = fits.ColDefs(cols, ascii=use_ascii)
     return columns
 #################################################################################
+
+    
