@@ -619,12 +619,14 @@ use_CSM = False
 use_SUMSS = False
 use_GLEAM = False
 use_USM = False
+use_MSS = False
+use_PS = False
 use_NVSS = False
 use_HI_monopole = False
 use_HI_cube = False
 use_HI_fluctuations = False
 
-if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'ps', 'usm', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations']:
+if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'point', 'ps', 'usm', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations']:
     raise ValueError('Invalid foreground model string specified.')
 
 if fg_str == 'asm':
@@ -637,7 +639,7 @@ elif fg_str == 'sumss':
     use_SUMSS = True
 elif fg_str == 'gleam':
     use_GLEAM = True
-elif fg_str == 'point':
+elif fg_str in ['point', 'PS']:
     use_PS = True
 elif fg_str == 'nvss':
     use_NVSS = True
@@ -1382,12 +1384,12 @@ elif use_PS:
     spec_parms['power-law-index'] = spindex
     # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
     spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
-    spec_parms['flux-scale'] = fluxes
+    spec_parms['flux-scale'] = fint
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
     spec_parms['freq-width'] = NP.zeros(ra_deg.size)
     flux_unit = 'Jy'
 
-    skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
 
 # elif use_PS:
 #     n_src = 1
@@ -1831,6 +1833,8 @@ if rank == 0:
 
         consolidated_outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_str2
         simvis.save(consolidated_outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
+    # PDB.set_trace()
+    skymod.save(consolidated_outfile+'.skymodel.txt', fileformat='ascii')
             
 print 'Process {0} has completed.'.format(rank)
 PDB.set_trace()
