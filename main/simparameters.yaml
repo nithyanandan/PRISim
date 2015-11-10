@@ -176,13 +176,13 @@ obsparm  :
     freq            : 150000000.0
                                 # Center frequency (in Hz)
 
-    freq_resolution : 200000.0
+    freq_resolution : 195312.5
                                 # Frequency resolution (in Hz)
 
     nchan           : 512
                                 # Number of channels
 
-    obs_date        : '2013/08/23'
+    obs_date        : '2015/11/23'
                                 # Observation start date yyyy/mm/dd
 
     obs_mode        : 'drift'  
@@ -197,11 +197,11 @@ obsparm  :
                                 # Only two of t_obs, n_snaps, t_snap
                                 # must be set
 
-    n_snaps         : 4     
+    n_snaps         : 1     
                                 # Number of accumulations. Only two of
                                 # t_obs, n_snaps, and t_snap must be set
 
-    t_snap          : 2160.0
+    t_snap          : 1080.0
                                 # Accumulation time (in seconds) for
                                 # each snapshot. Only two of t_obs,
                                 # n_snaps, and t_snap must be set
@@ -247,7 +247,7 @@ pointing :                      # If pointing file is specified to be
                                 # HA-Dec pairs must be specified and the
                                 # other pair must be set to null
 
-        lst         : 23.0
+        lst         : 0.0
                                 # LST at start of observation (hours).
                                 # The epoch is assumed to be the date of
                                 # observation
@@ -325,7 +325,7 @@ snapshot :                      # Parameters below are mutually
 
 fgparm   :
 
-    model           : 'csm'
+    model           : 'point'
                                 # Foreground model. Accepted values
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both
