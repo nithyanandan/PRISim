@@ -1,3 +1,8 @@
+From a0fca58 (branch vis-debug):
+===============================
+
+(*) Add MIT license in LICENSE.txt and add to git repo
+
 From c5cb9fe (branch timing):
 ============================
 
