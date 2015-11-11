@@ -1,3 +1,16 @@
+From 7f46bcc (branch vis-debug):
+===============================
+
+In interferometry.py,
+
+(*) Calculate visibility weights differently from source FWHM widths
+in observe() member function of class InterferometerArray
+
+In interferometer_array_data_simulation.yaml.mpi.py and
+simparameters.yaml,
+
+(*) Change variables n_snaps and t_snap respectively to n_acc and t_acc
+
 From a0fca58 (branch vis-debug):
 ===============================
 

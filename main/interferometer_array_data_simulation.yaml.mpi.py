@@ -84,8 +84,8 @@ maxbl = parms['baseline']['max']
 bldirection = parms['baseline']['direction']
 obs_date = parms['obsparm']['obs_date']
 obs_mode = parms['obsparm']['obs_mode']
-n_snaps = parms['obsparm']['n_snaps']
-t_snap = parms['obsparm']['t_snap']
+n_acc = parms['obsparm']['n_acc']
+t_acc = parms['obsparm']['t_acc']
 t_obs = parms['obsparm']['t_obs']
 freq = parms['obsparm']['freq']
 freq_resolution = parms['obsparm']['freq_resolution']
@@ -373,13 +373,13 @@ if pointing_file is not None:
         delay_settings = NP.asarray(delays_list)
         delay_settings *= 435e-12
         delays = NP.copy(delay_settings)
-    if n_snaps is None:
-        n_snaps = pointing_info_from_file.shape[0]
-    pointing_info_from_file = pointing_info_from_file[:min(n_snaps, pointing_info_from_file.shape[0]),:]
-    obs_id = obs_id[:min(n_snaps, pointing_info_from_file.shape[0])]
+    if n_acc is None:
+        n_acc = pointing_info_from_file.shape[0]
+    pointing_info_from_file = pointing_info_from_file[:min(n_acc, pointing_info_from_file.shape[0]),:]
+    obs_id = obs_id[:min(n_acc, pointing_info_from_file.shape[0])]
     if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
-        delays = delay_settings[:min(n_snaps, pointing_info_from_file.shape[0]),:]
-    n_snaps = min(n_snaps, pointing_info_from_file.shape[0])
+        delays = delay_settings[:min(n_acc, pointing_info_from_file.shape[0]),:]
+    n_acc = min(n_acc, pointing_info_from_file.shape[0])
     pointings_altaz = pointing_info_from_file[:,:2].reshape(-1,2)
     pointings_altaz_orig = pointing_info_from_file[:,:2].reshape(-1,2)
     lst = 15.0 * pointing_info_from_file[:,2]
@@ -395,7 +395,7 @@ if pointing_file is not None:
         shift_threshold = 1.0 # in degrees
         # lst_edges = NP.concatenate(([lst_edges[0]], lst_edges[angle_diff > shift_threshold], [lst_edges[-1]]))
         lst_wrapped = NP.concatenate(([lst_wrapped[0]], lst_wrapped[angle_diff > shift_threshold], [lst_wrapped[-1]]))
-        n_snaps = lst_wrapped.size - 1
+        n_acc = lst_wrapped.size - 1
         pointings_altaz = NP.vstack((pointings_altaz[0,:].reshape(-1,2), pointings_altaz[angle_diff>shift_threshold,:].reshape(-1,2)))
         obs_id = NP.concatenate(([obs_id[0]], obs_id[angle_diff>shift_threshold]))
         if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
@@ -407,7 +407,7 @@ if pointing_file is not None:
             lst_edges_left = lst_wrapped[:-1] + 0.0
             lst_edges_right = NP.concatenate(([lst_edges[1]], lst_edges[NP.asarray(NP.where(angle_diff > shift_threshold)).ravel()+1]))
     elif snapshots_range is not None:
-        snapshots_range[1] = snapshots_range[1] % n_snaps
+        snapshots_range[1] = snapshots_range[1] % n_acc
         if snapshots_range[0] > snapshots_range[1]:
             raise IndexError('min snaphost # must be <= max snapshot #')
         lst_wrapped = lst_wrapped[snapshots_range[0]:snapshots_range[1]+2]
@@ -416,10 +416,10 @@ if pointing_file is not None:
         obs_id = obs_id[snapshots_range[0]:snapshots_range[1]+1]
         if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
             delays = delay_settings[snapshots_range[0]:snapshots_range[1]+1,:]
-        n_snaps = snapshots_range[1]-snapshots_range[0]+1
+        n_acc = snapshots_range[1]-snapshots_range[0]+1
     elif pick_snapshots is not None:
         pick_snapshots = NP.asarray(pick_snapshots)
-        n_snaps = pick_snapshots.size
+        n_acc = pick_snapshots.size
         lst_begin = NP.asarray(lst_wrapped[pick_snapshots])
         pointings_altaz = pointings_altaz[pick_snapshots,:]
         obs_id = obs_id[pick_snapshots]
@@ -428,50 +428,50 @@ if pointing_file is not None:
 
         if obs_mode != 'lstbin':
             lst_end = NP.asarray(lst_wrapped[pick_snapshots+1])
-            # t_snap = (lst_end - lst_begin) / 15.0 * 3.6e3
-            t_snap = (lst_end - lst_begin) / 15.0 * 3.6e3 * sday
+            # t_acc = (lst_end - lst_begin) / 15.0 * 3.6e3
+            t_acc = (lst_end - lst_begin) / 15.0 * 3.6e3 * sday
             lst = 0.5 * (lst_begin + lst_end)
             obs_mode = 'custom'
         else:
-            t_snap = 112.0 + NP.zeros(n_snaps)   # in seconds (needs to be generalized)
-            # lst = lst_wrapped[pick_snapshots] + 0.5 * t_snap/3.6e3 * 15.0
-            lst = lst_wrapped[pick_snapshots] + 0.5 * t_snap/3.6e3 * 15.0 / sday
+            t_acc = 112.0 + NP.zeros(n_acc)   # in seconds (needs to be generalized)
+            # lst = lst_wrapped[pick_snapshots] + 0.5 * t_acc/3.6e3 * 15.0
+            lst = lst_wrapped[pick_snapshots] + 0.5 * t_acc/3.6e3 * 15.0 / sday
             
     if pick_snapshots is None:
         if obs_mode != 'lstbin':        
             if not beam_switch:
                 lst = 0.5*(lst_edges[1:]+lst_edges[:-1])
-                # t_snap = (lst_edges[1:]-lst_edges[:-1]) / 15.0 * 3.6e3
-                t_snap = (lst_edges[1:]-lst_edges[:-1]) / 15.0 * 3.6e3 * sday
+                # t_acc = (lst_edges[1:]-lst_edges[:-1]) / 15.0 * 3.6e3
+                t_acc = (lst_edges[1:]-lst_edges[:-1]) / 15.0 * 3.6e3 * sday
             else:
                 lst = 0.5*(lst_edges_left + lst_edges_right)
-                # t_snap = (lst_edges_right - lst_edges_left) / 15.0 * 3.6e3
-                t_snap = (lst_edges_right - lst_edges_left) / 15.0 * 3.6e3 * sday
+                # t_acc = (lst_edges_right - lst_edges_left) / 15.0 * 3.6e3
+                t_acc = (lst_edges_right - lst_edges_left) / 15.0 * 3.6e3 * sday
         else:
-            t_snap = 112.0 + NP.zeros(n_snaps)   # in seconds (needs to be generalized)
-            # lst = lst_wrapped + 0.5 * t_snap/3.6e3 * 15.0
-            lst = lst_wrapped + 0.5 * t_snap/3.6e3 * 15.0 / sday
+            t_acc = 112.0 + NP.zeros(n_acc)   # in seconds (needs to be generalized)
+            # lst = lst_wrapped + 0.5 * t_acc/3.6e3 * 15.0
+            lst = lst_wrapped + 0.5 * t_acc/3.6e3 * 15.0 / sday
 
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
     pointings_hadec = GEOM.altaz2hadec(pointings_altaz, latitude, units='degrees')
     pointings_radec = NP.hstack(((lst-pointings_hadec[:,0]).reshape(-1,1), pointings_hadec[:,1].reshape(-1,1)))
     pointings_radec[:,0] = pointings_radec[:,0] % 360.0
-    t_obs = NP.sum(t_snap)
+    t_obs = NP.sum(t_acc)
 # elif pointing_info is not None:
 elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     pointing_file = None
     timestamps = []
-    if t_snap is None:
-        raise NameError('t_snap must be provided for an automated observing run')
+    if t_acc is None:
+        raise NameError('t_acc must be provided for an automated observing run')
 
-    if (n_snaps is None) and (t_obs is None):
-        raise NameError('n_snaps or t_obs must be provided for an automated observing run')
-    elif (n_snaps is not None) and (t_obs is not None):
-        raise ValueError('Only one of n_snaps or t_obs must be provided for an automated observing run')
-    elif n_snaps is None:
-        n_snaps = int(t_obs/t_snap)
+    if (n_acc is None) and (t_obs is None):
+        raise NameError('n_acc or t_obs must be provided for an automated observing run')
+    elif (n_acc is not None) and (t_obs is not None):
+        raise ValueError('Only one of n_acc or t_obs must be provided for an automated observing run')
+    elif n_acc is None:
+        n_acc = int(t_obs/t_acc)
     else:
-        t_obs = n_snaps * t_snap
+        t_obs = n_acc * t_acc
 
     if obs_mode is None:
         obs_mode = 'track'
@@ -495,7 +495,7 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
         else:
             altaz_init = NP.asarray([alt, az])
             hadec_init = GEOM.altaz2hadec(altaz_init.reshape(1,-1), latitude, units='degrees')
-        pointings_hadec = NP.repeat(hadec_init.reshape(1,-1), n_snaps, axis=0)
+        pointings_hadec = NP.repeat(hadec_init.reshape(1,-1), n_acc, axis=0)
             
     if obs_mode == 'track':
         ra = pointing_track_init['ra']
@@ -504,7 +504,7 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
         epoch = pointing_track_init['epoch']
         lst_init = ra + ha
         lstobj._epoch = epoch
-        pointings_hadec = NP.hstack((ha + (t_snap/3.6e3)*15.0*NP.arange(n_snaps).reshape(-1,1), dec+NP.zeros(n_snaps).reshape(-1,1)))
+        pointings_hadec = NP.hstack((ha + (t_acc/3.6e3)*15.0*NP.arange(n_acc).reshape(-1,1), dec+NP.zeros(n_acc).reshape(-1,1)))
         
     lstobj._ra = NP.radians(lst_init)
 
@@ -515,9 +515,9 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
 
     lstobj.compute(obsrvr)
     lst_init_fgcat_epoch = NP.degrees(lstobj.ra) / 15.0 # LST (hours) in epoch of foreground catalog
-    # lst = (lst_init_fgcat_epoch + (t_snap/3.6e3) * NP.arange(n_snaps)) * 15.0 # in degrees at the epoch of the foreground catalog
-    lst = (lst_init_fgcat_epoch + (t_snap/3.6e3) * NP.arange(n_snaps)) * 15.0 / sday # in degrees at the epoch of the foreground catalog    
-    t_snap = t_snap + NP.zeros(n_snaps)
+    # lst = (lst_init_fgcat_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 # in degrees at the epoch of the foreground catalog
+    lst = (lst_init_fgcat_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 / sday # in degrees at the epoch of the foreground catalog    
+    t_acc = t_acc + NP.zeros(n_acc)
     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
     pointings_radec = NP.hstack(((lst-pointings_hadec[:,0]).reshape(-1,1), pointings_hadec[:,1].reshape(-1,1)))
@@ -526,7 +526,7 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     pntgobj._epoch = lstobj._epoch
     obsrvr.date = obs_date # Now compute transit times for date of observation
     last_localtime = -1.0
-    for j in xrange(n_snaps):
+    for j in xrange(n_acc):
         pntgobj._ra = NP.radians(lst[j])
         pntgobj.compute(obsrvr)
         localtime = obsrvr.next_transit(pntgobj)
@@ -550,37 +550,37 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     if lst_wrapped.size > 1:
         lst_edges = NP.concatenate((lst_wrapped, [lst_wrapped[-1]+lst_wrapped[-1]-lst_wrapped[-2]]))
     else:
-        # lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_snap/3.6e3*15))
-        lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_snap/3.6e3*15/sday))
+        # lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_acc/3.6e3*15))
+        lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_acc/3.6e3*15/sday))
 
-    duration_str = '_{0:0d}x{1:.1f}s'.format(n_snaps, t_snap[0])
+    duration_str = '_{0:0d}x{1:.1f}s'.format(n_acc, t_acc[0])
 
 # elif pointing_info is not None:
 #     pointing_info = NP.asarray(pointing_info)
 #     pointing_init = NP.asarray(pointing_info[1:])
 #     lst_init = pointing_info[0]
 #     pointing_file = None
-#     if t_snap is None:
-#         raise NameError('t_snap must be provided for an automated observing run')
+#     if t_acc is None:
+#         raise NameError('t_acc must be provided for an automated observing run')
 
-#     if (n_snaps is None) and (t_obs is None):
-#         raise NameError('n_snaps or t_obs must be provided for an automated observing run')
-#     elif (n_snaps is not None) and (t_obs is not None):
-#         raise ValueError('Only one of n_snaps or t_obs must be provided for an automated observing run')
-#     elif n_snaps is None:
-#         n_snaps = int(t_obs/t_snap)
+#     if (n_acc is None) and (t_obs is None):
+#         raise NameError('n_acc or t_obs must be provided for an automated observing run')
+#     elif (n_acc is not None) and (t_obs is not None):
+#         raise ValueError('Only one of n_acc or t_obs must be provided for an automated observing run')
+#     elif n_acc is None:
+#         n_acc = int(t_obs/t_acc)
 #     else:
-#         t_obs = n_snaps * t_snap
-#     t_snap = t_snap + NP.zeros(n_snaps)
-#     lst = (lst_init + (t_snap/3.6e3) * NP.arange(n_snaps)) * 15.0 # in degrees
+#         t_obs = n_acc * t_acc
+#     t_acc = t_acc + NP.zeros(n_acc)
+#     lst = (lst_init + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 # in degrees
 #     if obs_mode is None:
 #         obs_mode = 'track'
 
 #     if obs_mode == 'track':
-#         pointings_radec = NP.repeat(NP.asarray(pointing_init).reshape(-1,2), n_snaps, axis=0)
+#         pointings_radec = NP.repeat(NP.asarray(pointing_init).reshape(-1,2), n_acc, axis=0)
 #     else:
 #         ha_init = lst_init * 15.0 - pointing_init[0]
-#         pointings_radec = NP.hstack((NP.asarray(lst-ha_init).reshape(-1,1), pointing_init[1]+NP.zeros(n_snaps).reshape(-1,1)))
+#         pointings_radec = NP.hstack((NP.asarray(lst-ha_init).reshape(-1,1), pointing_init[1]+NP.zeros(n_acc).reshape(-1,1)))
 
 #     pointings_hadec = NP.hstack(((lst-pointings_radec[:,0]).reshape(-1,1), pointings_radec[:,1].reshape(-1,1)))
 #     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
@@ -596,9 +596,9 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
 #     if lst_wrapped.size > 1:
 #         lst_edges = NP.concatenate((lst_wrapped, [lst_wrapped[-1]+lst_wrapped[-1]-lst_wrapped[-2]]))
 #     else:
-#         lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_snap/3.6e3*15))
+#         lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_acc/3.6e3*15))
 
-#     duration_str = '_{0:0d}x{1:.1f}s'.format(n_snaps, t_snap[0])
+#     duration_str = '_{0:0d}x{1:.1f}s'.format(n_acc, t_acc[0])
 
 use_GSM = False
 use_DSM = False
@@ -1385,8 +1385,8 @@ if mpi_on_src: # MPI based on source multiplexing
 
         ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')    
 
-        progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
-        for j in range(n_snaps):
+        progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
+        for j in range(n_acc):
             src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
             roi_ind = NP.where(src_altaz_current[:,0] >= 0.0)[0]
             n_src_per_rank = NP.zeros(nproc, dtype=int) + roi_ind.size/nproc
@@ -1408,7 +1408,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ts = time.time()
             if j == 0:
                 ts0 = ts
-            ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_snap[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
+            ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
             te = time.time()
             # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
             progress.update(j+1)
@@ -1453,8 +1453,8 @@ else: # MPI based on baseline multiplexing
                 outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[count]],bl_length[min(baseline_bin_indices[count]+baseline_chunk_size-1,total_baselines-1)])+fg_str+'_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_str+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(count)
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')        
 
-                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_snaps).start()
-                for j in range(n_snaps):
+                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
+                for j in range(n_acc):
                     if obs_mode in ['custom', 'dns', 'lstbin']:
                         timestamp = obs_id[j]
                     else:
@@ -1473,7 +1473,7 @@ else: # MPI based on baseline multiplexing
                     ts = time.time()
                     if j == 0:
                         ts0 = ts
-                    ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_snap[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
+                    ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
                     te = time.time()
                     # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                     progress.update(j+1)
@@ -1509,8 +1509,8 @@ else: # MPI based on baseline multiplexing
 
             if rank == 0: # Compute ROI parameters for only one process and broadcast to all
                 roi = RI.ROI_parameters()
-                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots'.format(n_snaps), PGB.ETA()], maxval=n_snaps).start()
-                for j in range(n_snaps):
+                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots'.format(n_acc), PGB.ETA()], maxval=n_acc).start()
+                for j in range(n_acc):
                     src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
                     hemisphere_current = src_altaz_current[:,0] >= 0.0
                     # hemisphere_src_altaz_current = src_altaz_current[hemisphere_current,:]
@@ -1553,7 +1553,7 @@ else: # MPI based on baseline multiplexing
                 progress.finish()
                 roifile = rootdir+project_dir+'roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)
                 roi.save(roifile, tabtype='BinTableHDU', overwrite=True, verbose=True)
-                del roi   # to save memory if primary beam arrays or n_snaps are large
+                del roi   # to save memory if primary beam arrays or n_acc are large
             else:
                 roi = None
                 pbinfo = None
@@ -1566,7 +1566,7 @@ else: # MPI based on baseline multiplexing
             #     roi = RI.ROI_parameters(init_file=roifile+'.fits') # Other processes read in the RoI information
             if rank == 0:
                 if plots:
-                    for j in xrange(n_snaps):
+                    for j in xrange(n_acc):
                         src_ra = roi.skymodel.location[roi.info['ind'][j],0]
                         src_dec = roi.skymodel.location[roi.info['ind'][j],1]
                         src_ra[src_ra > 180.0] = src_ra[src_ra > 180.0] - 360.0
@@ -1602,8 +1602,8 @@ else: # MPI based on baseline multiplexing
                 outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')
                 
-                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_snaps), PGB.ETA()], maxval=n_snaps).start()
-                for j in range(n_snaps):
+                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
+                for j in range(n_acc):
                     roi_ind_snap = fits.getdata(roifile+'.fits', extname='IND_{0:0d}'.format(j))
                     roi_pbeam_snap = fits.getdata(roifile+'.fits', extname='PB_{0:0d}'.format(j))
                     if obs_mode in ['custom', 'dns', 'lstbin']:
@@ -1616,8 +1616,8 @@ else: # MPI based on baseline multiplexing
                     if j == 0:
                         ts0 = ts
                   
-                    # ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_snap[j], pb_info=pbinfo, brightness_units=flux_unit, roi_info={'ind': roi.info['ind'][j], 'pbeam': roi.info['pbeam'][j]}, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
-                    ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_snap[j], pb_info=pbinfo, brightness_units=flux_unit, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)                    
+                    # ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_info={'ind': roi.info['ind'][j], 'pbeam': roi.info['pbeam'][j]}, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)
+                    ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=True)                    
                     te = time.time()
                     # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                     progress.update(j+1)
