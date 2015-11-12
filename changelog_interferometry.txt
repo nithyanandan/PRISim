@@ -1,7 +1,66 @@
+From 4c7ba61 (master) + 755ef77 (healpix_pbeam):
+===============================================
+
+(*) Merge healpix_pbeam branch onto master
+
+From e13fa00 (branch vis-debug):
+===============================
+
+In interferometry.py,
+
+(*) Determine visibility weights per frequency channel instead of
+an average frequency in observe() member function of class
+InterferometerArray
+
+From 7f46bcc (branch vis-debug):
+===============================
+
+In interferometry.py,
+
+(*) Calculate visibility weights differently from source FWHM widths
+in observe() member function of class InterferometerArray
+
+In interferometer_array_data_simulation.yaml.mpi.py and
+simparameters.yaml,
+
+(*) Change variables n_snaps and t_snap respectively to n_acc and t_acc
+
 From a0fca58 (branch vis-debug):
 ===============================
 
 (*) Add MIT license in LICENSE.txt and add to git repo
+
+From 2669b7f (branch vis-debug2):
+================================
+
+In interferometry.py,
+
+(*) Determine visibility weights per frequency channel instead of
+an average frequency in observe() member function of class
+InterferometerArray
+
+From 2bd2b1a (branch healpix_pbeam):
+===================================
+
+(*) Intermediate commit before starting new branch
+
+From a0fca58 (branch healpix_pbeam):
+===================================
+
+(*) In simulator, add functionality to parallelize along frequency
+axis
+
+In interferometry.py,
+
+(*) Fix bug by changing use of self.channels to self.freq in member
+function append_settings() of class ROI_parameters.
+(*) Check for emptiness of attribute pinfo before writing it to
+FITS file in member function save() of class ROI_parameters.
+(*) Update docstring of member function concatenate() of class
+InterferometerArray
+(*) Add checking to see if delay transform quantities exist before
+concatenating them in concatenate() member function of class
+InterferometerArray
 
 From c5cb9fe (branch timing):
 ============================

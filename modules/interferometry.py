@@ -1308,7 +1308,7 @@ class ROI_parameters(object):
                 if 'pbeam' in roi_info:
                     if roi_info['pbeam'] is not None:
                         try:
-                            pb = roi_info['pbeam'].reshape(-1,len(self.channels))
+                            pb = roi_info['pbeam'].reshape(-1,self.freq.size)
                         except ValueError:
                             raise ValueError('Number of columns of primary beam in key "pbeam" of dictionary roi_info must be equal to number of frequency channels.')
 
@@ -1517,20 +1517,21 @@ class ROI_parameters(object):
         for i in range(len(self.info['ind'])):
             hdulist += [fits.ImageHDU(self.info['ind'][i], name='IND_{0:0d}'.format(i))]
             hdulist += [fits.ImageHDU(self.info['pbeam'][i], name='PB_{0:0d}'.format(i))]
-            if 'delays' in self.pinfo[i]:
-                hdulist += [fits.ImageHDU(self.pinfo[i]['delays'], name='DELAYS_{0:0d}'.format(i))]
-                if 'delayerr' in self.pinfo[i]:
-                    if self.pinfo[i]['delayerr'] is not None:
-                        hdulist[-1].header['delayerr'] = (self.pinfo[i]['delayerr'], 'Jitter in delays [s]')
+            if self.pinfo: # if self.pinfo is not empty
+                if 'delays' in self.pinfo[i]:
+                    hdulist += [fits.ImageHDU(self.pinfo[i]['delays'], name='DELAYS_{0:0d}'.format(i))]
+                    if 'delayerr' in self.pinfo[i]:
+                        if self.pinfo[i]['delayerr'] is not None:
+                            hdulist[-1].header['delayerr'] = (self.pinfo[i]['delayerr'], 'Jitter in delays [s]')
+                        else:
+                            hdulist[-1].header['delayerr'] = (0.0, 'Jitter in delays [s]')
+    
+                if 'pointing_center' in self.pinfo[i]:
+                    hdulist += [fits.ImageHDU(self.pinfo[i]['pointing_center'], name='POINTING_CENTER_{0:0d}'.format(i))]
+                    if 'pointing_coords' in self.pinfo[i]:
+                        hdulist[-1].header['pointing_coords'] = (self.pinfo[i]['pointing_coords'], 'Pointing coordinate system')
                     else:
-                        hdulist[-1].header['delayerr'] = (0.0, 'Jitter in delays [s]')
-
-            if 'pointing_center' in self.pinfo[i]:
-                hdulist += [fits.ImageHDU(self.pinfo[i]['pointing_center'], name='POINTING_CENTER_{0:0d}'.format(i))]
-                if 'pointing_coords' in self.pinfo[i]:
-                    hdulist[-1].header['pointing_coords'] = (self.pinfo[i]['pointing_coords'], 'Pointing coordinate system')
-                else:
-                    raise KeyError('Key "pointing_coords" not found in attribute pinfo.')
+                        raise KeyError('Key "pointing_coords" not found in attribute pinfo.')
                 
         if verbose:
             print '\t\tCreated HDU extensions for {0:0d} observations containing ROI indices and primary beams'.format(len(self.info['ind']))
@@ -2489,14 +2490,28 @@ class InterferometerArray(object):
                 eps = 1.0e-13
                 f0 = self.channels[self.channels.size/2]
                 wl0 = FCNST.c / f0
+                wl = FCNST.c / self.channels
                 skypos_dircos_roi = GEOM.altaz2dircos(skypos_altaz_roi, units='degrees')
-                projected_spatial_frequencies = NP.sqrt(self.baseline_lengths.reshape(1,-1)**2 - (FCNST.c * geometric_delays)**2) / wl0
+                # projected_spatial_frequencies = NP.sqrt(self.baseline_lengths.reshape(1,-1)**2 - (FCNST.c * geometric_delays)**2) / wl0
+                projected_spatial_frequencies = NP.sqrt(self.baseline_lengths.reshape(1,-1,1)**2 - (FCNST.c * geometric_delays[:,:,NP.newaxis])**2) / wl.reshape(1,1,-1)
+                
                 src_FWHM = NP.sqrt(skymodel_subset.src_shape[:,0] * skymodel_subset.src_shape[:,1])
-                src_FWHM_dircos = 2.0 * NP.sin(0.5*NP.radians(src_FWHM)).reshape(-1,1)
-                src_sigma_spatial_frequencies = 2.0 * NP.sqrt(2.0 * NP.log(2.0)) / (2 * NP.pi * src_FWHM_dircos)
-                extended_sources_flag = 1/NP.clip(projected_spatial_frequencies, 0.5, NP.amax(projected_spatial_frequencies)) < src_FWHM_dircos
+                src_FWHM_dircos = 2.0 * NP.sin(0.5*NP.radians(src_FWHM)).reshape(-1,1) # assuming the projected baseline is perpendicular to source direction
+                # src_sigma_spatial_frequencies = 2.0 * NP.sqrt(2.0 * NP.log(2.0)) / (2 * NP.pi * src_FWHM_dircos)  # estimate 1
+                src_sigma_spatial_frequencies = 1.0 / NP.sqrt(2.0*NP.log(2.0)) / src_FWHM_dircos  # estimate 2 created by constraint that at lambda/D_proj, visibility weights are half
+
+	        # # Tried deriving below an alternate expression but previous expression for src_FWHM_dircos seems better
+                # dtheta_radial = NP.radians(src_FWHM).reshape(-1,1)
+                # dtheta_circum = NP.radians(src_FWHM).reshape(-1,1)
+                # src_FWHM_dircos = NP.sqrt(skypos_dircos_roi[:,2].reshape(-1,1)**2 * dtheta_radial**2 + dtheta_circum**2) / NP.sqrt(2.0) # from 2D error propagation (another approximation to commented expression above for the same quantity). Add in quadrature and divide by sqrt(2) to get radius of error circle
+                # arbitrary_factor_for_src_width = NP.sqrt(2.0) # An arbitrary factor that can be adjusted based on what the longest baseline measures for a source of certain finite width
+                # src_sigma_spatial_frequencies = 2.0 * NP.sqrt(2.0 * NP.log(2.0)) / (2 * NP.pi * src_FWHM_dircos) * arbitrary_factor_for_src_width
+                
+                # extended_sources_flag = 1/NP.clip(projected_spatial_frequencies, 0.5, NP.amax(projected_spatial_frequencies)) < src_FWHM_dircos
+
                 vis_wts = NP.ones_like(projected_spatial_frequencies)
-                vis_wts = NP.exp(-0.5 * (projected_spatial_frequencies/src_sigma_spatial_frequencies)**2)
+                # vis_wts = NP.exp(-0.5 * (projected_spatial_frequencies/src_sigma_spatial_frequencies)**2)
+                vis_wts = NP.exp(-0.5 * (projected_spatial_frequencies/src_sigma_spatial_frequencies[:,:,NP.newaxis])**2)
             
             if memsave:
                 pbfluxes = pbfluxes.astype(NP.float32, copy=False)
@@ -2519,12 +2534,14 @@ class InterferometerArray(object):
                 if memsave:
                     phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float32) *  (self.geometric_delays[-1][:,:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64)
                     if vis_wts is not None:
-                        phase_matrix *= vis_wts[:,:,NP.newaxis]
+                        # phase_matrix *= vis_wts[:,:,NP.newaxis]
+                        phase_matrix *= vis_wts
                     skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * phase_matrix, axis=0) # Don't apply bandpass here
                 else:
                     phase_matrix = 2.0 * NP.pi * (self.geometric_delays[-1][:,:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.reshape(1,1,-1)
                     if vis_wts is not None:
-                        skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts[:,:,NP.newaxis], axis=0) # Don't apply bandpass here
+                        # skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts[:,:,NP.newaxis], axis=0) # Don't apply bandpass here
+                        skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts, axis=0) # Don't apply bandpass here                        
                     else:
                         skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix), axis=0) # Don't apply bandpass here    
             else:
@@ -2535,7 +2552,9 @@ class InterferometerArray(object):
                 for i in xrange(len(src_indices)):
                     phase_matrix = NP.exp(NP.asarray(-1j * 2.0 * NP.pi).astype(NP.complex64) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32) - pc_delay_offsets.astype(NP.float32).reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64, copy=False)
                     if vis_wts is not None:
-                        phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32)
+                        phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,:].astype(NP.float32)
+                        # phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32)
+                        
                     phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float32)
                     skyvis += NP.sum(phase_matrix, axis=0)
 
@@ -3410,7 +3429,7 @@ class InterferometerArray(object):
         axis         [scalar] Axis along which visibility data sets are to be
                      concatenated. Accepted values are 0 (concatenate along
                      baseline axis), 1 (concatenate frequency channels), or 2 
-                     (concatenate along time/snapshot axis). Default=None
+                     (concatenate along time/snapshot axis). No default
         -------------------------------------------------------------------------
         """
 
@@ -3449,9 +3468,12 @@ class InterferometerArray(object):
         self.bp_wts = NP.concatenate(tuple([elem.bp_wts for elem in loo]), axis=axis)
         self.Tsys = NP.concatenate(tuple([elem.Tsys for elem in loo]), axis=axis)
         if axis != 1:
-            self.skyvis_lag = NP.concatenate(tuple([elem.skyvis_lag for elem in loo]), axis=axis)
-            self.vis_lag = NP.concatenate(tuple([elem.vis_lag for elem in loo]), axis=axis)
-            self.vis_noise_lag = NP.concatenate(tuple([elem.vis_noise_lag for elem in loo]), axis=axis)
+            if self.skyvis_lag is not None:
+                self.skyvis_lag = NP.concatenate(tuple([elem.skyvis_lag for elem in loo]), axis=axis)
+            if self.vis_lag is not None:
+                self.vis_lag = NP.concatenate(tuple([elem.vis_lag for elem in loo]), axis=axis)
+            if self.vis_noise_lag is not None:
+                self.vis_noise_lag = NP.concatenate(tuple([elem.vis_noise_lag for elem in loo]), axis=axis)
 
         if axis == 0: # baseline axis
             for elem in loo:

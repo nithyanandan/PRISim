@@ -8,7 +8,7 @@ directory:
 
 ########## Project information #########
 
-project  : project_HERA
+project  : project_MWA
                                 # Accepted values are project_MWA,
                                 # project_global_EoR, project_HERA, 
                                 # project_drift_scan, project_beams,
@@ -26,14 +26,14 @@ telescope:
                                 # 'paper_dipole', 'mwa_tools'
                                 # This name sets the dish type
 
-    latitude        : -30.7224
+    latitude        : -26.701
                                 # Latitude in degrees
                                 # -26.701 for MWA,
                                 # -30.7224 for HERA, PAPER
                                 # 34.079 for VLA,
                                 # 19.0965 for GMRT
 
-    longitude       : +21.4278
+    longitude       : +116.670815
                                 # Longitude of observatory (in degrees)
                                 # Default (null) implies 0.0 degrees
                                 # corresponding to GMT.
@@ -41,11 +41,11 @@ telescope:
                                 # +21.4278 for PAPER and HERA,
                                 # +74.0497 for GMRT
 
-    A_eff           : 154
+    A_eff           : 16
                                 # Effective area of antenna element
                                 # in m^2
 
-    Tsys            : 200.0
+    Tsys            : 220.0
                                 # System temperature (in K)
 
     pfb_method      : null 
@@ -67,7 +67,7 @@ array   :                       # Parameters 'file' and 'layout'
     file            : null
                                 # File containing antenna locations
 
-    layout          : 'HERA-19'
+    layout          : 'MWA-128T'
                                 # Accepted values are 'MWA-128T',
                                 # 'HERA-7', 'HERA-19', 'HERA-37',
                                 # 'HERA-61', 'HERA-91', 'HERA-127',
@@ -112,13 +112,13 @@ baseline :                      # Parameters specifying baseline
 # activated when telescope.id='custom's 
 antenna  :
 
-    shape           : 'dish'      
+    shape           : 'delta'      
                                 # Shape of antenna element
                                 # Accepted values are 'dish', 'dipole',
                                 # and 'delta' or null (defaults to
                                 # 'delta')
 
-    size            : 14.0
+    size            : 0.74
                                 # Size of antenna element (in m)
                                 # diameter for dish, linear size for
                                 # dipole
@@ -139,12 +139,12 @@ antenna  :
                                 # orientation of antenna element.
                                 # Accepted values are 'altaz', 'dircos'
                     
-    phased_array    : false
+    phased_array    : true
                                 # If true, the antenna is a phased
                                 # array of antenna elements.
                                 # Default = false
                     
-    ground_plane    : null
+    ground_plane    : 0.3
                                 # Ground plane height (in m). Default
                                 # (null) means no ground plane
 
@@ -169,17 +169,37 @@ phasedarray:
                                 # average. null means gainerr and 
                                 # delayerr are not applicable
 
+########## External beam #########
+
+beam    :
+
+    use_external    : false
+                                # If true, use an externally specified
+                                # antenna beam. If false, determine
+                                # analytically from antenna aperture
+                                # specifications
+
+    file            : '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
+                                # Full pathname to the FITS file
+                                # containing the external antenna
+                                # beam. Used only if use_external is
+                                # set to true
+
+    pol             : 'X'
+                                # Beam polarization. Accepted values
+                                # are 'X' and 'Y'
+
 ########## Observation setup ##########
 
 obsparm  :
 
-    freq            : 150000000.0
+    freq            : 185000000.0
                                 # Center frequency (in Hz)
 
-    freq_resolution : 195312.5
+    freq_resolution : 40000.0
                                 # Frequency resolution (in Hz)
 
-    nchan           : 512
+    nchan           : 384
                                 # Number of channels
 
     obs_date        : '2015/11/23'
@@ -194,17 +214,17 @@ obsparm  :
 
     t_obs           : null      
                                 # Duration of observation (in seconds)
-                                # Only two of t_obs, n_snaps, t_snap
+                                # Only two of t_obs, n_acc, t_acc
                                 # must be set
 
-    n_snaps         : 1     
+    n_acc           : 2     
                                 # Number of accumulations. Only two of
-                                # t_obs, n_snaps, and t_snap must be set
+                                # t_obs, n_acc, and t_acc must be set
 
-    t_snap          : 1080.0
+    t_acc           : 2.0
                                 # Accumulation time (in seconds) for
                                 # each snapshot. Only two of t_obs,
-                                # n_snaps, and t_snap must be set
+                                # n_acc, and t_acc must be set
 
     timeformat      : 'JD'
                                 # Output format for timestamp. Can
@@ -241,7 +261,7 @@ pointing :                      # If pointing file is specified to be
                                 # HA-Dec pairs must be specified and the
                                 # other pair must be set to null
 
-        dec         : -30.7224
+        dec         : -26.701
                                 # Declination of telescope pointing
                                 # (degrees). Only one of the Alt-Az or
                                 # HA-Dec pairs must be specified and the
@@ -344,7 +364,7 @@ fgparm   :
                                 # Epoch of the coordinates of the
                                 # foreground model or EoR signal
 
-    nside           : 128
+    nside           : 256
                                 # Healpix nside parameter for foreground
                                 # model input map. Accepted values are
                                 # valid nside values
@@ -413,7 +433,7 @@ catalog  :
 
 processing:
 
-    n_bl_chunks     : 1
+    n_bl_chunks     : 8
                                 # Upper limit on number of baseline
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
@@ -422,7 +442,7 @@ processing:
                                 # and is best left as null.
 
 
-    bl_chunk_size   : 32
+    bl_chunk_size   : 1016
                                 # Baseline chunk size. Will be used
                                 # in a single process during parallel
                                 # processing
@@ -432,8 +452,23 @@ processing:
                                 # null means process all chunks.
                                 # Should be given as a list eg [1,3,4]
 
-    n_bins_blo      : null
-                                #  OBSOLETE, doesn't do anything
+    n_freq_chunks   : 4
+                                # Upper limit on number of frequency
+                                # chunks to be processed. Will be
+                                # used to split data for parallel
+                                # processing
+
+    freq_chunk_size : 96
+                                # Frequency chunk size. Will be used
+                                # in a single process during parallel
+                                # processing
+
+    freq_chunk      : null
+                                # Frequency chunk indices to process.
+                                # null means process all chunks.
+                                # Should be given as a list
+
+    n_bins_blo      : 4
                                 # Number of bins in baseline
                                 # orientation
 
@@ -495,6 +530,9 @@ processing:
                                 # above which will be considered
                                 # thermal noise window. Keep this
                                 # value below 0.5/freq_resolution
+
+    delay_transform : true
+                                # if true, compute delay transform
 
 ########## Parallel processing setup #########
 
