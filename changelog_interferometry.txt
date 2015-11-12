@@ -1,3 +1,12 @@
+From 2669b7f (branch vis-debug2):
+================================
+
+In interferometry.py,
+
+(*) Determine visibility weights per frequency channel instead of
+an average frequency in observe() member function of class
+InterferometerArray
+
 From 2bd2b1a (branch healpix_pbeam):
 ===================================
 
