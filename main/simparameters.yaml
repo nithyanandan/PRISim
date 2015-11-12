@@ -166,6 +166,26 @@ phasedarray:
                                 # average. null means gainerr and 
                                 # delayerr are not applicable
 
+########## External beam #########
+
+beam    :
+
+    use_external    : false
+                                # If true, use an externally specified
+                                # antenna beam. If false, determine
+                                # analytically from antenna aperture
+                                # specifications
+
+    file            : '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
+                                # Full pathname to the FITS file
+                                # containing the external antenna
+                                # beam. Used only if use_external is
+                                # set to true
+
+    pol             : 'X'
+                                # Beam polarization. Accepted values
+                                # are 'X' and 'Y'
+
 ########## Observation setup ##########
 
 obsparm  :
@@ -339,7 +359,7 @@ fgparm   :
                                 # Epoch of the coordinates of the
                                 # foreground model or EoR signal
 
-    nside           : 128
+    nside           : 256
                                 # Healpix nside parameter for foreground
                                 # model input map. Accepted values are
                                 # valid nside values
@@ -407,19 +427,35 @@ catalog  :
 
 processing:
 
-    n_bl_chunks     : 1
+    n_bl_chunks     : 8
                                 # Upper limit on number of baseline
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
                                 # processing
 
-    bl_chunk_size   : 8128
+    bl_chunk_size   : 1016
                                 # Baseline chunk size. Will be used
                                 # in a single process during parallel
                                 # processing
 
     bl_chunk        : null
                                 # Baseline chunk indices to process.
+                                # null means process all chunks.
+                                # Should be given as a list
+
+    n_freq_chunks   : 4
+                                # Upper limit on number of frequency
+                                # chunks to be processed. Will be
+                                # used to split data for parallel
+                                # processing
+
+    freq_chunk_size : 96
+                                # Frequency chunk size. Will be used
+                                # in a single process during parallel
+                                # processing
+
+    freq_chunk      : null
+                                # Frequency chunk indices to process.
                                 # null means process all chunks.
                                 # Should be given as a list
 
@@ -474,6 +510,9 @@ processing:
                                 # above which will be considered
                                 # thermal noise window. Keep this
                                 # value below 0.5/freq_resolution
+
+    delay_transform : true
+                                # if true, compute delay transform
 
 ########## Parallel processing setup #########
 
