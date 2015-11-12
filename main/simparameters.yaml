@@ -192,7 +192,7 @@ obsparm  :
                                 # Only two of t_obs, n_acc, t_acc
                                 # must be set
 
-    n_acc           : 56     
+    n_acc           : 2     
                                 # Number of accumulations. Only two of
                                 # t_obs, n_acc, and t_acc must be set
 

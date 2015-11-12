@@ -1,3 +1,12 @@
+From e13fa00 (branch vis-debug):
+===============================
+
+In interferometry.py,
+
+(*) Determine visibility weights per frequency channel instead of
+an average frequency in observe() member function of class
+InterferometerArray
+
 From 7f46bcc (branch vis-debug):
 ===============================
 

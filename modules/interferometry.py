@@ -2487,8 +2487,11 @@ class InterferometerArray(object):
                 eps = 1.0e-13
                 f0 = self.channels[self.channels.size/2]
                 wl0 = FCNST.c / f0
+                wl = FCNST.c / self.channels
                 skypos_dircos_roi = GEOM.altaz2dircos(skypos_altaz_roi, units='degrees')
-                projected_spatial_frequencies = NP.sqrt(self.baseline_lengths.reshape(1,-1)**2 - (FCNST.c * geometric_delays)**2) / wl0
+                # projected_spatial_frequencies = NP.sqrt(self.baseline_lengths.reshape(1,-1)**2 - (FCNST.c * geometric_delays)**2) / wl0
+                projected_spatial_frequencies = NP.sqrt(self.baseline_lengths.reshape(1,-1,1)**2 - (FCNST.c * geometric_delays[:,:,NP.newaxis])**2) / wl.reshape(1,1,-1)
+                
                 src_FWHM = NP.sqrt(skymodel_subset.src_shape[:,0] * skymodel_subset.src_shape[:,1])
                 src_FWHM_dircos = 2.0 * NP.sin(0.5*NP.radians(src_FWHM)).reshape(-1,1) # assuming the projected baseline is perpendicular to source direction
                 # src_sigma_spatial_frequencies = 2.0 * NP.sqrt(2.0 * NP.log(2.0)) / (2 * NP.pi * src_FWHM_dircos)  # estimate 1
@@ -2500,10 +2503,12 @@ class InterferometerArray(object):
                 # src_FWHM_dircos = NP.sqrt(skypos_dircos_roi[:,2].reshape(-1,1)**2 * dtheta_radial**2 + dtheta_circum**2) / NP.sqrt(2.0) # from 2D error propagation (another approximation to commented expression above for the same quantity). Add in quadrature and divide by sqrt(2) to get radius of error circle
                 # arbitrary_factor_for_src_width = NP.sqrt(2.0) # An arbitrary factor that can be adjusted based on what the longest baseline measures for a source of certain finite width
                 # src_sigma_spatial_frequencies = 2.0 * NP.sqrt(2.0 * NP.log(2.0)) / (2 * NP.pi * src_FWHM_dircos) * arbitrary_factor_for_src_width
+                
+                # extended_sources_flag = 1/NP.clip(projected_spatial_frequencies, 0.5, NP.amax(projected_spatial_frequencies)) < src_FWHM_dircos
 
-                extended_sources_flag = 1/NP.clip(projected_spatial_frequencies, 0.5, NP.amax(projected_spatial_frequencies)) < src_FWHM_dircos
                 vis_wts = NP.ones_like(projected_spatial_frequencies)
-                vis_wts = NP.exp(-0.5 * (projected_spatial_frequencies/src_sigma_spatial_frequencies)**2)
+                # vis_wts = NP.exp(-0.5 * (projected_spatial_frequencies/src_sigma_spatial_frequencies)**2)
+                vis_wts = NP.exp(-0.5 * (projected_spatial_frequencies/src_sigma_spatial_frequencies[:,:,NP.newaxis])**2)
             
             if memsave:
                 pbfluxes = pbfluxes.astype(NP.float32, copy=False)
@@ -2526,12 +2531,14 @@ class InterferometerArray(object):
                 if memsave:
                     phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float32) *  (self.geometric_delays[-1][:,:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64)
                     if vis_wts is not None:
-                        phase_matrix *= vis_wts[:,:,NP.newaxis]
+                        # phase_matrix *= vis_wts[:,:,NP.newaxis]
+                        phase_matrix *= vis_wts
                     skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * phase_matrix, axis=0) # Don't apply bandpass here
                 else:
                     phase_matrix = 2.0 * NP.pi * (self.geometric_delays[-1][:,:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.reshape(1,1,-1)
                     if vis_wts is not None:
-                        skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts[:,:,NP.newaxis], axis=0) # Don't apply bandpass here
+                        # skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts[:,:,NP.newaxis], axis=0) # Don't apply bandpass here
+                        skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts, axis=0) # Don't apply bandpass here                        
                     else:
                         skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix), axis=0) # Don't apply bandpass here    
             else:
@@ -2542,7 +2549,9 @@ class InterferometerArray(object):
                 for i in xrange(len(src_indices)):
                     phase_matrix = NP.exp(NP.asarray(-1j * 2.0 * NP.pi).astype(NP.complex64) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32) - pc_delay_offsets.astype(NP.float32).reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64, copy=False)
                     if vis_wts is not None:
-                        phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32)
+                        phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,:].astype(NP.float32)
+                        # phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32)
+                        
                     phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float32)
                     skyvis += NP.sum(phase_matrix, axis=0)
 
@@ -2557,6 +2566,82 @@ class InterferometerArray(object):
             self.skyvis_freq = NP.dstack((self.skyvis_freq, skyvis[:,:,NP.newaxis]))
 
         self.timestamp = self.timestamp + [timestamp]
+
+        #     vis_wts = None
+        #     if skymodel_subset.src_shape is not None:
+        #         eps = 1.0e-13
+        #         f0 = self.channels[self.channels.size/2]
+        #         wl0 = FCNST.c / f0
+        #         skypos_dircos_roi = GEOM.altaz2dircos(skypos_altaz_roi, units='degrees')
+        #         projected_spatial_frequencies = NP.sqrt(self.baseline_lengths.reshape(1,-1)**2 - (FCNST.c * geometric_delays)**2) / wl0
+        #         src_FWHM = NP.sqrt(skymodel_subset.src_shape[:,0] * skymodel_subset.src_shape[:,1])
+        #         src_FWHM_dircos = 2.0 * NP.sin(0.5*NP.radians(src_FWHM)).reshape(-1,1) # assuming the projected baseline is perpendicular to source direction
+        #         # src_sigma_spatial_frequencies = 2.0 * NP.sqrt(2.0 * NP.log(2.0)) / (2 * NP.pi * src_FWHM_dircos)  # estimate 1
+        #         src_sigma_spatial_frequencies = 1.0 / NP.sqrt(2.0*NP.log(2.0)) / src_FWHM_dircos  # estimate 2 created by constraint that at lambda/D_proj, visibility weights are half
+
+	#         # # Tried deriving below an alternate expression but previous expression for src_FWHM_dircos seems better
+        #         # dtheta_radial = NP.radians(src_FWHM).reshape(-1,1)
+        #         # dtheta_circum = NP.radians(src_FWHM).reshape(-1,1)
+        #         # src_FWHM_dircos = NP.sqrt(skypos_dircos_roi[:,2].reshape(-1,1)**2 * dtheta_radial**2 + dtheta_circum**2) / NP.sqrt(2.0) # from 2D error propagation (another approximation to commented expression above for the same quantity). Add in quadrature and divide by sqrt(2) to get radius of error circle
+        #         # arbitrary_factor_for_src_width = NP.sqrt(2.0) # An arbitrary factor that can be adjusted based on what the longest baseline measures for a source of certain finite width
+        #         # src_sigma_spatial_frequencies = 2.0 * NP.sqrt(2.0 * NP.log(2.0)) / (2 * NP.pi * src_FWHM_dircos) * arbitrary_factor_for_src_width
+
+        #         extended_sources_flag = 1/NP.clip(projected_spatial_frequencies, 0.5, NP.amax(projected_spatial_frequencies)) < src_FWHM_dircos
+        #         vis_wts = NP.ones_like(projected_spatial_frequencies)
+        #         vis_wts = NP.exp(-0.5 * (projected_spatial_frequencies/src_sigma_spatial_frequencies)**2)
+            
+        #     if memsave:
+        #         pbfluxes = pbfluxes.astype(NP.float32, copy=False)
+        #         self.geometric_delays = self.geometric_delays + [geometric_delays.astype(NP.float32)]
+        #         if vis_wts is not None:
+        #             vis_wts = vis_wts.astype(NP.float32, copy=False)
+        #     else:
+        #         self.geometric_delays = self.geometric_delays + [geometric_delays]
+
+        #     if memsave:
+        #         skyvis = NP.zeros((self.baselines.shape[0], self.channels.size), dtype=NP.complex64)
+        #         memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 4.0 * 2 # bytes, 4 bytes per float, factor 2 is because the phase involves complex values
+        #     else:
+        #         skyvis = NP.zeros((self.baselines.shape[0], self.channels.size), dtype=NP.complex_)
+        #         memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 8.0 * 2 # bytes, 8 bytes per float, factor 2 is because the phase involves complex values
+
+        #     # memory_available = OS.popen("free -b").readlines()[2].split()[3]
+        #     memory_available = psutil.phymem_usage().available
+        #     if float(memory_available) > memory_required:
+        #         if memsave:
+        #             phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float32) *  (self.geometric_delays[-1][:,:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64)
+        #             if vis_wts is not None:
+        #                 phase_matrix *= vis_wts[:,:,NP.newaxis]
+        #             skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * phase_matrix, axis=0) # Don't apply bandpass here
+        #         else:
+        #             phase_matrix = 2.0 * NP.pi * (self.geometric_delays[-1][:,:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.reshape(1,1,-1)
+        #             if vis_wts is not None:
+        #                 skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts[:,:,NP.newaxis], axis=0) # Don't apply bandpass here
+        #             else:
+        #                 skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix), axis=0) # Don't apply bandpass here    
+        #     else:
+        #         print '\t\tDetecting memory shortage. Enforcing single precision computations.'
+        #         downsize_factor = NP.ceil(memory_required/float(memory_available))
+        #         n_src_stepsize = int(len(m2)/downsize_factor)
+        #         src_indices = range(0,len(m2),n_src_stepsize)
+        #         for i in xrange(len(src_indices)):
+        #             phase_matrix = NP.exp(NP.asarray(-1j * 2.0 * NP.pi).astype(NP.complex64) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32) - pc_delay_offsets.astype(NP.float32).reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64, copy=False)
+        #             if vis_wts is not None:
+        #                 phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32)
+        #             phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float32)
+        #             skyvis += NP.sum(phase_matrix, axis=0)
+
+        #     self.obs_catalog_indices = self.obs_catalog_indices + [m2]
+        # else:
+        #     print 'No sources found in the catalog within matching radius. Simply populating the observed visibilities with noise.'
+        #     skyvis = NP.zeros( (self.baselines.shape[0], self.channels.size) )
+
+        # if self.timestamp == []:
+        #     self.skyvis_freq = skyvis[:,:,NP.newaxis]
+        # else:
+        #     self.skyvis_freq = NP.dstack((self.skyvis_freq, skyvis[:,:,NP.newaxis]))
+
+        # self.timestamp = self.timestamp + [timestamp]
 
     ############################################################################
 
