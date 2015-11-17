@@ -1,3 +1,17 @@
+From 5f025c8 (vis-debug):
+========================
+
+(*) Add YAML based visibility delay CLEAN script to git repo
+
+In interferometer_array_data_simulation.yaml.mpi.py,
+
+(*) Add ability to use chromatic or achromatic beams while using
+external beams
+
+In simparameters.yaml,
+
+(*) Add inputs for specifying usage of chromatic or achromatic beams
+
 From 4c7ba61 (master) + 755ef77 (healpix_pbeam):
 ===============================================
 

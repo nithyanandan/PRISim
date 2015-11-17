@@ -8,7 +8,7 @@ directory:
 
 ########## Project information #########
 
-project  : project_MWA
+project  : project_HERA
                                 # Accepted values are project_MWA,
                                 # project_global_EoR, project_HERA, 
                                 # project_drift_scan, project_beams,
@@ -25,14 +25,14 @@ telescope:
                                 # 'hera', 'mwa_dipole', 'custom',
                                 # 'paper_dipole', 'mwa_tools'
 
-    latitude        : -26.701
+    latitude        : -30.7224
                                 # Latitude in degrees
                                 # -26.701 for MWA,
                                 # -30.7224 for HERA, PAPER
                                 # 34.079 for VLA,
                                 # 19.0965 for GMRT
 
-    longitude       : +116.670815
+    longitude       : +21.4278
                                 # Longitude of observatory (in degrees)
                                 # Default (null) implies 0.0 degrees
                                 # corresponding to GMT.
@@ -40,7 +40,7 @@ telescope:
                                 # +21.4278 for PAPER and HERA,
                                 # +74.0497 for GMRT
 
-    A_eff           : 16
+    A_eff           : 154
                                 # Effective area of antenna element
                                 # in m^2
 
@@ -66,7 +66,7 @@ array   :                       # Parameters 'file' and 'layout'
     file            : null
                                 # File containing antenna locations
 
-    layout          : 'MWA-128T'
+    layout          : 'HERA-19'
                                 # Accepted values are 'MWA-128T',
                                 # 'HERA-7', 'HERA-19', 'HERA-37',
                                 # 'HERA-61', 'HERA-91', 'HERA-127',
@@ -109,13 +109,13 @@ baseline :                      # Parameters specifying baseline
 
 antenna  :
 
-    shape           : 'delta'      
+    shape           : 'dish'      
                                 # Shape of antenna element
                                 # Accepted values are 'dish', 'dipole',
                                 # and 'delta' or null (defaults to
                                 # 'delta')
 
-    size            : 0.74
+    size            : 14.0
                                 # Size of antenna element (in m)
                                 # diameter for dish, linear size for
                                 # dipole
@@ -136,12 +136,12 @@ antenna  :
                                 # orientation of antenna element.
                                 # Accepted values are 'altaz', 'dircos'
                     
-    phased_array    : true
+    phased_array    : false
                                 # If true, the antenna is a phased
                                 # array of antenna elements.
                                 # Default = false
                     
-    ground_plane    : 0.3
+    ground_plane    : null
                                 # Ground plane height (in m). Default
                                 # (null) means no ground plane
 
@@ -166,11 +166,11 @@ phasedarray:
                                 # average. null means gainerr and 
                                 # delayerr are not applicable
 
-########## External beam #########
+########## Beam specifications #########
 
 beam    :
 
-    use_external    : false
+    use_external    : true
                                 # If true, use an externally specified
                                 # antenna beam. If false, determine
                                 # analytically from antenna aperture
@@ -186,17 +186,24 @@ beam    :
                                 # Beam polarization. Accepted values
                                 # are 'X' and 'Y'
 
+    chromatic       : false
+                                # if false, the beam is the same at
+                                # all frequencies and the beam at
+                                # reference frequency will be used for
+                                # all frequencies. if true, beam
+                                # scales with frequency
+
 ########## Observation setup ##########
 
 obsparm  :
 
-    freq            : 185000000.0
+    freq            : 150000000.0
                                 # Center frequency (in Hz)
 
-    freq_resolution : 40000.0
+    freq_resolution : 781250.0
                                 # Frequency resolution (in Hz)
 
-    nchan           : 384
+    nchan           : 128
                                 # Number of channels
 
     obs_date        : '2015/11/23'
@@ -212,11 +219,11 @@ obsparm  :
                                 # Only two of t_obs, n_acc, t_acc
                                 # must be set
 
-    n_acc           : 2     
+    n_acc           : 4     
                                 # Number of accumulations. Only two of
                                 # t_obs, n_acc, and t_acc must be set
 
-    t_acc           : 2.0
+    t_acc           : 60.0
                                 # Accumulation time (in seconds) for
                                 # each snapshot. Only two of t_obs,
                                 # n_acc, and t_acc must be set
@@ -256,7 +263,7 @@ pointing :                      # If pointing file is specified to be
                                 # HA-Dec pairs must be specified and the
                                 # other pair must be set to null
 
-        dec         : -26.701
+        dec         : -30.7224
                                 # Declination of telescope pointing
                                 # (degrees). Only one of the Alt-Az or
                                 # HA-Dec pairs must be specified and the
@@ -340,7 +347,7 @@ snapshot :                      # Parameters below are mutually
 
 fgparm   :
 
-    model           : 'point'
+    model           : 'csm'
                                 # Foreground model. Accepted values
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both
@@ -427,13 +434,13 @@ catalog  :
 
 processing:
 
-    n_bl_chunks     : 8
+    n_bl_chunks     : 1
                                 # Upper limit on number of baseline
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
                                 # processing
 
-    bl_chunk_size   : 1016
+    bl_chunk_size   : 30
                                 # Baseline chunk size. Will be used
                                 # in a single process during parallel
                                 # processing
@@ -443,13 +450,13 @@ processing:
                                 # null means process all chunks.
                                 # Should be given as a list
 
-    n_freq_chunks   : 4
+    n_freq_chunks   : 1
                                 # Upper limit on number of frequency
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
                                 # processing
 
-    freq_chunk_size : 96
+    freq_chunk_size : 128
                                 # Frequency chunk size. Will be used
                                 # in a single process during parallel
                                 # processing
@@ -522,7 +529,7 @@ pp       :
                                 # Number of parallel processes.
                                 # 1 means serial processing.
 
-    key             : 'bl'
+    key             : 'freq'
                                 # Split the data by 'bl' (baselines),
                                 # 'src' (sources) or 'freq' (frequency),
                                 # for parallel processing

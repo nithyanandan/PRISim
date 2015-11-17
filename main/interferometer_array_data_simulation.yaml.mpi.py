@@ -87,6 +87,7 @@ use_external_beam = beam_info['use_external']
 if use_external_beam:
     external_beam_file = beam_info['file']
     beam_pol = beam_info['pol']
+beam_chromaticity = beam_info['chromatic']
 obs_date = parms['obsparm']['obs_date']
 obs_mode = parms['obsparm']['obs_mode']
 n_acc = parms['obsparm']['n_acc']
@@ -651,7 +652,6 @@ elif fg_str == 'HI_fluctuations':
     use_HI_fluctuations = True
 elif fg_str == 'HI_cube':
     use_HI_cube = True
-
 
 if global_HI_parms is not None:
     try:
@@ -1508,7 +1508,11 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 roiinfo['ind'] = NP.asarray(roi_subset)
                 if use_external_beam:
                     theta_phi = NP.hstack((NP.pi/2-NP.radians(src_altaz_current[roi_subset,0]).reshape(-1,1), NP.radians(src_altaz_current[roi_subset,1]).reshape(-1,1)))
-                    interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e3, axis=1, kind='cubic', assume_sorted=True)
+                    if beam_chromaticity:
+                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e3, axis=1, kind='cubic', assume_sorted=True)
+                    else:
+                        nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs*1e6 - freq))
+                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e3, outloc_axis=chans*1e3, axis=1, kind='cubic', assume_sorted=True)
                     roiinfo['pbeam'] = 10**interp_logbeam
                     # roiinfo['pbeam'] = NP.ones((roiinfo['ind'].size,chans.size), dtype=NP.float32)
                 else:
@@ -1685,7 +1689,12 @@ else: # MPI based on baseline multiplexing
                     roiinfo['ind'] = NP.asarray(roi_subset)
                     if use_external_beam:
                         theta_phi = NP.hstack((NP.pi/2-NP.radians(src_altaz_current[roi_subset,0]).reshape(-1,1), NP.radians(src_altaz_current[roi_subset,1]).reshape(-1,1)))
-                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e3, axis=1, kind='cubic', assume_sorted=True)
+                        if beam_chromaticity:
+                            interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e3, axis=1, kind='cubic', assume_sorted=True)
+                        else:
+                            nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs*1e6 - freq))
+                            interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e3, outloc_axis=chans*1e3, axis=1, kind='cubic', assume_sorted=True)
+                        
                         roiinfo['pbeam'] = 10**interp_logbeam
                         # roiinfo['pbeam'] = NP.ones((roiinfo['ind'].size,chans.size), dtype=NP.float32)
                     else:
