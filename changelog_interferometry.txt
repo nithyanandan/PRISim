@@ -1,3 +1,15 @@
+From 0a469aa (delay-transform):
+==============================
+
+(*) Add delay_spectrum.py module to git repo
+
+In delay_spectrum.py,
+
+(*) Add class DelaySpectrum (with attributes and member functions)
+along with docstring
+(*) Add member functions __init__() and delay_transform() along with
+docstrings under class DelaySpectrum
+
 From 5f025c8 (vis-debug):
 ========================
 
