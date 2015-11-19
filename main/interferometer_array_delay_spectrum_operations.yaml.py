@@ -350,8 +350,8 @@ for k in range(n_sky_sectors):
     
 fig = PLT.figure()
 ax = fig.add_subplot(111)
-noiseless_dspec = ax.pcolorfast(iadso.baseline_lengths, 1e9*iadso.lags, NP.abs(iadso.cc_skyvis_net_lag[:-1,:-1,0].T), norm=PLTC.LogNorm(vmin=NP.abs(iadso.cc_skyvis_net_lag).min(), vmax=NP.abs(iadso.cc_skyvis_net_lag).max()))
-horizonb = ax.plot(iadso.baseline_lengths, 1e9*iadso.horizon_delay_limits[0,:,0], color='black', ls=':', lw=1.5)
-horizonb = ax.plot(iadso.baseline_lengths, 1e9*iadso.horizon_delay_limits[0,:,1], color='black', ls=':', lw=1.5)
+noiseless_dspec = ax.pcolorfast(iadso.ia.baseline_lengths, 1e9*iadso.lags, NP.abs(iadso.cc_skyvis_net_lag[:-1,:-1,0].T), norm=PLTC.LogNorm(vmin=NP.abs(iadso.cc_skyvis_net_lag).min(), vmax=NP.abs(iadso.cc_skyvis_net_lag).max()))
+horizonb = ax.plot(iadso.ia.baseline_lengths, 1e9*iadso.horizon_delay_limits[0,:,0], color='black', ls=':', lw=1.5)
+horizonb = ax.plot(iadso.ia.baseline_lengths, 1e9*iadso.horizon_delay_limits[0,:,1], color='black', ls=':', lw=1.5)
 
 PDB.set_trace()

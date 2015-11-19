@@ -115,17 +115,6 @@ class DelaySpectrum(object):
                 InterferometerArray that contains the results of the simulated
                 interferometer visibilities
 
-    baselines:  [M x 3 Numpy array] The baseline vectors associated with the
-                M interferometers in SI units. The coordinate system of these
-                vectors is specified by another attribute baseline_coords. 
-
-    baseline_coords
-                [string] Coordinate system for the baseline vectors. Default is 
-                'localenu'. Other accepted values are 'equatorial' 
-
-    baseline_lengths
-                [M-element numpy array] Lengths of the baseline in SI units
-
     bp          [numpy array] Bandpass weights of size n_baselines x nchan x
                 n_acc, where n_acc is the number of accumulations in the
                 observation, nchan is the number of frequency channels, and
@@ -149,33 +138,7 @@ class DelaySpectrum(object):
                 bp and bp_wts. It is initialized in __init__() member function
                 but effectively computed in member function delay_transform()
 
-    lst         [list] List of LST (in degrees) for each timestamp
-
     n_acc       [scalar] Number of accumulations
-
-    pointing_center
-                [2-column numpy array] Pointing center (latitude and 
-                longitude) of the observation at a given timestamp. This is 
-                where the telescopes will be phased up to as reference. 
-                Coordinate system for the pointing_center is specified by another 
-                attribute pointing_coords.
-
-    phase_center
-                [2-column numpy array] Phase center (latitude and 
-                longitude) of the observation at a given timestamp. This is 
-                where the telescopes will be phased up to as reference. 
-                Coordinate system for the phase_center is specified by another 
-                attribute phase_center_coords.
-
-    pointing_coords
-                [string] Coordinate system for telescope pointing. Accepted 
-                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz' 
-                (Altitude-Azimuth). Default = 'hadec'.
-
-    phase_center_coords
-                [string] Coordinate system for array phase center. Accepted 
-                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz' 
-                (Altitude-Azimuth). Default = 'hadec'.
 
     horizon_delay_limits
                 [numpy array] NxMx2 numpy array denoting the neagtive and 
@@ -288,8 +251,6 @@ class DelaySpectrum(object):
                 1+pad. If a negative value is specified, delay transform 
                 will be performed with no padding
 
-    timestamp   [list] List of timestamps during the observation
-
     Member functions:
 
     __init__()  Initializes an instance of class DelaySpectrum
@@ -329,10 +290,8 @@ class DelaySpectrum(object):
         spectrum of a multi-element interferometer.
 
         Class attributes initialized are:
-        baselines, f, pointing_coords, baseline_coords, baseline_lengths, 
-        bp, bp_wts, df, lags, lst, pointing_center, skyvis_lag, timestamp, 
-        vis_lag, n_acc, vis_noise_lag, ia, pad, lag_kernel, 
-        horizon_delay_limits, cc_skyvis_lag, cc_skyvis_res_lag, 
+        f, bp, bp_wts, df, lags, skyvis_lag, vis_lag, n_acc, vis_noise_lag, ia, 
+        pad, lag_kernel, horizon_delay_limits, cc_skyvis_lag, cc_skyvis_res_lag, 
         cc_skyvis_net_lag, cc_vis_lag, cc_vis_res_lag, cc_vis_net_lag, 
         cc_skyvis_freq, cc_skyvis_res_freq, cc_sktvis_net_freq, cc_vis_freq,
         cc_vis_res_freq, cc_vis_net_freq, clean_window_buffer
@@ -363,15 +322,6 @@ class DelaySpectrum(object):
         self.ia = interferometer_array
         self.f = interferometer_array.channels
         self.df = interferometer_array.freq_resolution
-        self.baselines = interferometer_array.baselines
-        self.baseline_lengths = interferometer_array.baseline_lengths
-        self.baseline_coords = interferometer_array.baseline_coords
-        self.phase_center = interferometer_array.phase_center
-        self.phase_center_coords = interferometer_array.phase_center_coords
-        self.pointing_center = interferometer_array.pointing_center
-        self.pointing_coords = interferometer_array.pointing_coords
-        self.lst = interferometer_array.lst
-        self.timestamp = interferometer_array.timestamp
         self.n_acc = interferometer_array.n_acc
         self.horizon_delay_limits = self.get_horizon_delay_limits()
 
@@ -464,13 +414,13 @@ class DelaySpectrum(object):
 
         if freq_wts is not None:
             if freq_wts.size == self.f.size:
-                freq_wts = NP.repeat(NP.expand_dims(NP.repeat(freq_wts.reshape(1,-1), self.baselines.shape[0], axis=0), axis=2), self.n_acc, axis=2)
+                freq_wts = NP.repeat(NP.expand_dims(NP.repeat(freq_wts.reshape(1,-1), self.ia.baselines.shape[0], axis=0), axis=2), self.n_acc, axis=2)
             elif freq_wts.size == self.f.size * self.n_acc:
-                freq_wts = NP.repeat(NP.expand_dims(freq_wts.reshape(self.f.size, -1), axis=0), self.baselines.shape[0], axis=0)
-            elif freq_wts.size == self.f.size * self.baselines.shape[0]:
+                freq_wts = NP.repeat(NP.expand_dims(freq_wts.reshape(self.f.size, -1), axis=0), self.ia.baselines.shape[0], axis=0)
+            elif freq_wts.size == self.f.size * self.ia.baselines.shape[0]:
                 freq_wts = NP.repeat(NP.expand_dims(freq_wts.reshape(-1, self.f.size), axis=2), self.n_acc, axis=2)
-            elif freq_wts.size == self.f.size * self.baselines.shape[0] * self.n_acc:
-                freq_wts = freq_wts.reshape(self.baselines.shape[0], self.f.size, self.n_acc)
+            elif freq_wts.size == self.f.size * self.ia.baselines.shape[0] * self.n_acc:
+                freq_wts = freq_wts.reshape(self.ia.baselines.shape[0], self.f.size, self.n_acc)
             else:
                 raise ValueError('window shape dimensions incompatible with number of channels and/or number of tiemstamps.')
             self.bp_wts = freq_wts
@@ -581,9 +531,9 @@ class DelaySpectrum(object):
         ccres_noisy = NP.zeros_like(vis_lag)
         
         for snap_iter in xrange(self.n_acc):
-            progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Baselines '.format(self.baselines.shape[0]), PGB.ETA()], maxval=self.baselines.shape[0]).start()
-            # delay_matrix = DLY.delay_envelope(self.baselines, pc_dircos[snap_iter,:], units='mks')
-            for bl_iter in xrange(self.baselines.shape[0]):
+            progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Baselines '.format(self.ia.baselines.shape[0]), PGB.ETA()], maxval=self.ia.baselines.shape[0]).start()
+            # delay_matrix = DLY.delay_envelope(self.ia.baselines, pc_dircos[snap_iter,:], units='mks')
+            for bl_iter in xrange(self.ia.baselines.shape[0]):
                 clean_area[NP.logical_and(lags <= self.horizon_delay_limits[snap_iter,bl_iter,1]+clean_window_buffer/bw, lags >= self.horizon_delay_limits[snap_iter,bl_iter,0]-clean_window_buffer/bw)] = 1
                 # clean_area[NP.logical_and(lags <= delay_matrix[0,bl_iter,0]+delay_matrix[0,bl_iter,1]+clean_window_buffer/bw, lags >= -delay_matrix[0,bl_iter,0]+delay_matrix[0,bl_iter,1]-clean_window_buffer/bw)] = 1
     
@@ -682,7 +632,7 @@ class DelaySpectrum(object):
         elif phase_center_coords == 'dircos':
             pc_dircos = phase_center
 
-        horizon_envelope = DLY.horizon_delay_limits(self.baselines, pc_dircos, units='mks')
+        horizon_envelope = DLY.horizon_delay_limits(self.ia.baselines, pc_dircos, units='mks')
         return horizon_envelope
         
     #############################################################################
@@ -770,6 +720,10 @@ class DelaySpectrum(object):
         hdulist += [fits.ImageHDU(self.horizon_delay_limits, name='HORIZON LIMITS')]
         if verbose:
             print '\tCreated an extension for horizon delay limits of size {0[0]} x {0[1]} x {0[2]} as a function of snapshot instance, baseline, and (min,max) limits'.format(self.horizon_delay_limits.shape)
+
+        hdulist += [fits.ImageHDU(self.bp_wts, name='BANDPASS')]
+        if verbose:
+            print '\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape)
 
         hdulist += [fits.ImageHDU(self.bp_wts, name='BANDPASS WEIGHTS')]
         if verbose:

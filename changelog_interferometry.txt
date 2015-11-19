@@ -1,3 +1,18 @@
+From c2bc67a (delay-transform):
+==============================
+
+In delay_spectrum.py,
+
+(*) Remove attributes baselines, baseline_lengths, baseline_coords,
+phase_center, phase_center_coords, pointing_center, pointing_coords,
+lst, timestamp and their initialization from class DelaySpectrum
+and its __init__() member function. Update docstring accordingly.
+Update their occurrence throughout with corresponding attributes from
+the attribute ia that contains interferometer array simulated
+information
+(*) Save bandpass attribute bp to disk in member function save() of
+class DelaySpectrum
+
 From 5f81c08 (delay-transform):
 ==============================
 
