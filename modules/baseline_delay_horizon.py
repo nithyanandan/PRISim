@@ -8,16 +8,17 @@ def delay_envelope(bl, dircos, units='mks'):
 
     """
     ---------------------------------------------------------------------------
-    Estimates the delay envelope determined by the sky horizon for given 
-    baseline(s) for the phase centers specified by sky positions in direction
-    cosines.
+    Estimates the delay envelope determined by the sky horizon for the given 
+    baseline vectors and provides the shift in these envelopes for given 
+    phase centers specified in direction cosines.
 
     Inputs:
 
     bl:     E, N, and U components of baseline vectors in a Mx3 numpy 
             array in local ENU coordinates
 
-    dircos: Nx3 (direction cosines) numpy array of sky positions
+    dircos: Nx3 (direction cosines) numpy array of sky positions that will act
+            as phase centers
 
     units:  'mks' or 'cgs' units. Default='mks'
 
@@ -96,6 +97,39 @@ def delay_envelope(bl, dircos, units='mks'):
 
 #################################################################################
 
+def horizon_delay_limits(bl, dircos, units='mks'):
+
+    """
+    ---------------------------------------------------------------------------
+    Estimates the delay envelope determined by the sky horizon for given 
+    baseline(s) for the phase centers specified by sky positions in direction
+    cosines.
+
+    Inputs:
+
+    bl:     E, N, and U components of baseline vectors in a Mx3 numpy 
+            array in local ENU coordinates
+
+    dircos: Nx3 (direction cosines) numpy array of sky positions
+
+    units:  'mks' or 'cgs' units. Default='mks'
+
+    Outputs:
+    
+    horizon_envelope: 
+         NxMx2 matrix. horizon_envelope[:,:,0] contains the minimum delay 
+         after accounting for (any) non-zenith phase center.
+         horizon_envelope[:,:,1] contains the maximum delay after accounting 
+         for (any) non-zenith phase center.
+    ---------------------------------------------------------------------------
+    """
+
+    delay_matrix = delay_envelope(bl, dircos, units='mks')
+    horizon_envelope = NP.dstack((-delay_matrix[:,:,0]-delay_matrix[:,:,1], delay_matrix[:,:,0]-delay_matrix[:,:,1]))
+    return horizon_envelope
+        
+################################################################################
+        
 def geometric_delay(baselines, skypos, altaz=False, dircos=False, hadec=True,
                     units='mks', latitude=None):
 

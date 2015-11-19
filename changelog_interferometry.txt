@@ -1,3 +1,31 @@
+From 2b0c750 (delay-transform):
+==============================
+
+In delay_transform.py,
+
+(*) Add input keyword downsample to member function delay_transform()
+of class DelaySpectrum. Update docstring accordingly
+(*) Downsampling in member function delay_transform() of class
+DelaySpectrum is done depending on keyword input downsample
+(*) Add member function clean() to class DelaySpectrum. Update
+docstrings accordingly
+(*) Add a global function _gentle_clean() for delay deconvolution
+which automatically decides where the relative levels of inside and
+outside residuals are to decide the stopping criterion. Needs a
+docstring, currently has none
+(*) Add member functions get_horizon_delay_limits() and
+set_horizon_delay_limits() (with docstrings) to class DelaySpectrum.
+Update docstring of class DelaySpectrum accordingly
+(*) Add and initialize attribute horizon_delay_limits in __init__()
+member function of class DelaySpectrum. Update docstring of class
+DelaySpectrum accordingly
+
+In baseline_delay_horizon.py,
+
+(*) Add function horizon_delay_limits() (with docstring) to estimate
+the horizon delay limits for given baselines and given phase centers
+(*) Update docstring of delay_envelope()
+
 From 0a469aa (delay-transform):
 ==============================
 

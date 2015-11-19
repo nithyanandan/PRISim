@@ -6,6 +6,7 @@ from astropy.io import fits
 from astropy.io import ascii
 import progressbar as PGB
 import matplotlib.pyplot as PLT
+import matplotlib.colors as PLTC
 import aipy as AP
 import interferometry as RI
 import delay_spectrum as DS
@@ -344,5 +345,12 @@ for k in range(n_sky_sectors):
                        do_delay_transform=False)   
     iadso = DS.DelaySpectrum(ia)
     iadso.delay_transform(oversampling_factor-1.0, freq_wts=window)
+    iadso.clean(pad=1.0, freq_wts=window, clean_window_buffer=3.0, downsample=False)
     
+fig = PLT.figure()
+ax = fig.add_subplot(111)
+noiseless_dspec = ax.pcolorfast(iadso.baseline_lengths, 1e9*iadso.lags, NP.abs(iadso.cc_noiseless[:-1,:-1,0].T), norm=PLTC.LogNorm(vmin=NP.abs(iadso.cc_noiseless).min(), vmax=NP.abs(iadso.cc_noiseless).max()))
+horizonb = ax.plot(iadso.baseline_lengths, 1e9*iadso.horizon_delay_limits[0,:,0], color='black', ls=':', lw=1.5)
+horizonb = ax.plot(iadso.baseline_lengths, 1e9*iadso.horizon_delay_limits[0,:,1], color='black', ls=':', lw=1.5)
+
 PDB.set_trace()
