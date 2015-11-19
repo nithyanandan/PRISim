@@ -1,3 +1,18 @@
+From 5f81c08 (delay-transform):
+==============================
+
+In delay_spectrum.py,
+
+(*) Add and initialize attributes cc_skyvis_lag, cc_skyvis_res_lag, 
+cc_skyvis_net_lag, cc_vis_lag, cc_vis_res_lag, cc_vis_net_lag, 
+cc_skyvis_freq, cc_skyvis_res_freq, cc_sktvis_net_freq, cc_vis_freq,
+cc_vis_res_freq, cc_vis_net_freq, clean_window_buffer in __init__()
+member function of class DelaySpectrum
+(*) Add descriptions of newly added attributes in docstring of class
+DelaySpectrum
+(*) Add save() member function (with docstring) to class
+DelaySpectrum. Update docstring of class DelaySpectrum accordingly
+
 From 2b0c750 (delay-transform):
 ==============================
 

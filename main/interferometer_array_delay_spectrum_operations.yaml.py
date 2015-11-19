@@ -345,11 +345,12 @@ for k in range(n_sky_sectors):
                        do_delay_transform=False)   
     iadso = DS.DelaySpectrum(ia)
     iadso.delay_transform(oversampling_factor-1.0, freq_wts=window)
-    iadso.clean(pad=1.0, freq_wts=window, clean_window_buffer=3.0, downsample=False)
+    iadso.clean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
+    iadso.save(outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
     
 fig = PLT.figure()
 ax = fig.add_subplot(111)
-noiseless_dspec = ax.pcolorfast(iadso.baseline_lengths, 1e9*iadso.lags, NP.abs(iadso.cc_noiseless[:-1,:-1,0].T), norm=PLTC.LogNorm(vmin=NP.abs(iadso.cc_noiseless).min(), vmax=NP.abs(iadso.cc_noiseless).max()))
+noiseless_dspec = ax.pcolorfast(iadso.baseline_lengths, 1e9*iadso.lags, NP.abs(iadso.cc_skyvis_net_lag[:-1,:-1,0].T), norm=PLTC.LogNorm(vmin=NP.abs(iadso.cc_skyvis_net_lag).min(), vmax=NP.abs(iadso.cc_skyvis_net_lag).max()))
 horizonb = ax.plot(iadso.baseline_lengths, 1e9*iadso.horizon_delay_limits[0,:,0], color='black', ls=':', lw=1.5)
 horizonb = ax.plot(iadso.baseline_lengths, 1e9*iadso.horizon_delay_limits[0,:,1], color='black', ls=':', lw=1.5)
 

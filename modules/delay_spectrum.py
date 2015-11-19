@@ -2,12 +2,56 @@ from __future__ import division
 import numpy as NP
 import progressbar as PGB
 import aipy as AP
+import astropy 
+from astropy.io import fits
+from distutils.version import LooseVersion
 import my_DSP_modules as DSP 
 import baseline_delay_horizon as DLY
 import geometry as GEOM
 import interferometry as RI
 
 #################################################################################
+
+def _astropy_columns(cols, tabtype='BinTableHDU'):
+    
+    """
+    ----------------------------------------------------------------------------
+    !!! FOR INTERNAL USE ONLY !!!
+    This internal routine checks for Astropy version and produces the FITS 
+    columns based on the version
+
+    Inputs:
+
+    cols    [list of Astropy FITS columns] These are a list of Astropy FITS 
+            columns
+
+    tabtype [string] specifies table type - 'BinTableHDU' (default) for binary
+            tables and 'TableHDU' for ASCII tables
+
+    Outputs:
+
+    columns [Astropy FITS column data] 
+    ----------------------------------------------------------------------------
+    """
+
+    try:
+        cols
+    except NameError:
+        raise NameError('Input cols not specified')
+
+    if tabtype not in ['BinTableHDU', 'TableHDU']:
+        raise ValueError('tabtype specified is invalid.')
+
+    use_ascii = False
+    if tabtype == 'TableHDU':
+        use_ascii = True
+    if astropy.__version__ == '0.4':
+        columns = fits.ColDefs(cols, tbtype=tabtype)
+    elif LooseVersion(astropy.__version__)>=LooseVersion('0.4.2'):
+        columns = fits.ColDefs(cols, ascii=use_ascii)
+    return columns    
+
+################################################################################
 
 def _gentle_clean(dd, _w, tol=1e-1, area=None, stop_if_div=True, maxiter=100,
                   verbose=False, autoscale=True):
@@ -158,6 +202,84 @@ class DelaySpectrum(object):
                 Created in the member function delay_transform(). Read its
                 docstring for more details. 
 
+    cc_skyvis_lag
+                [numpy array] Complex cleaned visibility delay spectra (in 
+                Jy Hz or K Hz) of noiseless simulated sky visibilities for each 
+                baseline at each LST. Size is nbl x nlags x nlst
+
+    cc_skyvis_res_lag
+                [numpy array] Complex residuals from cleaned visibility delay 
+                spectra (in Jy Hz or K Hz) of noiseless simulated sky 
+                visibilities for each baseline at each LST. Size is 
+                nbl x nlags x nlst
+
+    cc_skyvis_net_lag
+                [numpy array] Sum of complex cleaned visibility delay spectra
+                and residuals (in Jy Hz or K Hz) of noiseless simulated sky 
+                visibilities for each baseline at each LST. Size is 
+                nbl x nlags x nlst. cc_skyvis_net_lag = cc_skyvis_lag + 
+                cc_skyvis_res_lag
+
+    cc_vis_lag
+                [numpy array] Complex cleaned visibility delay spectra (in 
+                Jy Hz or K Hz) of noisy simulated sky visibilities for each 
+                baseline at each LST. Size is nbl x nlags x nlst
+
+    cc_vis_res_lag
+                [numpy array] Complex residuals from cleaned visibility delay 
+                spectra (in Jy Hz or K Hz) of noisy simulated sky 
+                visibilities for each baseline at each LST. Size is 
+                nbl x nlags x nlst
+
+    cc_vis_net_lag
+                [numpy array] Sum of complex cleaned visibility delay spectra
+                and residuals (in Jy Hz or K Hz) of noisy simulated sky 
+                visibilities for each baseline at each LST. Size is 
+                nbl x nlags x nlst. cc_vis_net_lag = cc_vis_lag + 
+                cc_vis_res_lag
+
+    cc_skyvis_freq
+                [numpy array] Complex cleaned visibility delay spectra 
+                transformed to frequency domain (in Jy or K.Sr) obtained from 
+                noiseless simulated sky visibilities for each baseline at each 
+                LST. Size is nbl x nlags x nlst
+
+    cc_skyvis_res_freq
+                [numpy array] Complex residuals from cleaned visibility delay 
+                spectra transformed to frequency domain (in Jy or K.Sr) obtained 
+                from noiseless simulated sky visibilities for each baseline at 
+                each LST. Size is nbl x nlags x nlst
+
+    cc_skyvis_net_freq
+                [numpy array] Sum of complex cleaned visibility delay spectra
+                and residuals transformed to frequency domain (in Jy or K.Sr) 
+                obtained from noiseless simulated sky visibilities for each 
+                baseline at each LST. Size is nbl x nlags x nlst. 
+                cc_skyvis_net_freq = cc_skyvis_freq + cc_skyvis_res_freq
+
+    cc_vis_freq
+                [numpy array] Complex cleaned visibility delay spectra 
+                transformed to frequency domain (in Jy or K.Sr) obtained from 
+                noisy simulated sky visibilities for each baseline at each LST. 
+                Size is nbl x nlags x nlst
+
+    cc_vis_res_freq
+                [numpy array] Complex residuals from cleaned visibility delay 
+                spectra transformed to frequency domain (in Jy or K.Sr) of noisy 
+                simulated sky visibilities for each baseline at each LST. Size 
+                is nbl x nlags x nlst
+
+    cc_vis_net_freq
+                [numpy array] Sum of complex cleaned visibility delay spectra
+                and residuals transformed to frequency domain (in Jy or K.Sr) 
+                obtained from noisy simulated sky visibilities for each baseline 
+                at each LST. Size is nbl x nlags x nlst. 
+                cc_vis_net_freq = cc_vis_freq + cc_vis_res_freq
+
+    clean_window_buffer
+                [scalar] number of inverse bandwidths to extend beyond the 
+                horizon delay limit to include in the CLEAN deconvolution. 
+
     pad         [scalar] Non-negative scalar indicating padding fraction 
                 relative to the number of frequency channels. For e.g., a 
                 pad of 1.0 pads the frequency axis with zeros of the same 
@@ -194,6 +316,8 @@ class DelaySpectrum(object):
                 instance. No output is returned. Uses the member function 
                 get_horizon_delay_limits()
 
+    save()      Saves the interferometer array delay spectrum information to 
+                disk. 
     ----------------------------------------------------------------------------
     """
 
@@ -208,7 +332,10 @@ class DelaySpectrum(object):
         baselines, f, pointing_coords, baseline_coords, baseline_lengths, 
         bp, bp_wts, df, lags, lst, pointing_center, skyvis_lag, timestamp, 
         vis_lag, n_acc, vis_noise_lag, ia, pad, lag_kernel, 
-        horizon_delay_limits.
+        horizon_delay_limits, cc_skyvis_lag, cc_skyvis_res_lag, 
+        cc_skyvis_net_lag, cc_vis_lag, cc_vis_res_lag, cc_vis_net_lag, 
+        cc_skyvis_freq, cc_skyvis_res_freq, cc_sktvis_net_freq, cc_vis_freq,
+        cc_vis_res_freq, cc_vis_net_freq, clean_window_buffer
 
         Read docstring of class DelaySpectrum for details on these
         attributes.
@@ -262,6 +389,24 @@ class DelaySpectrum(object):
         self.vis_freq = None
         self.skyvis_freq = None
         self.vis_noise_freq = None
+
+        self.clean_window_buffer = 1.0
+
+        self.cc_skyvis_lag = None
+        self.cc_skyvis_res_lag = None
+        self.cc_vis_lag = None
+        self.cc_vis_res_lag = None
+
+        self.cc_skyvis_net_lag = None
+        self.cc_vis_net_lag = None
+
+        self.cc_skyvis_freq = None
+        self.cc_skyvis_res_freq = None
+        self.cc_vis_freq = None
+        self.cc_vis_res_freq = None
+
+        self.cc_skyvis_net_freq = None
+        self.cc_vis_net_freq = None
 
     #############################################################################
 
@@ -463,14 +608,24 @@ class DelaySpectrum(object):
         self.skyvis_lag = NP.fft.fftshift(skyvis_lag, axes=1)
         self.vis_lag = NP.fft.fftshift(vis_lag, axes=1)
         self.lag_kernel = NP.fft.fftshift(lag_kernel, axes=1)
-        self.ccomponents_noiseless = NP.fft.fftshift(ccomponents_noiseless, axes=1)
-        self.ccres_noiseless = NP.fft.fftshift(ccres_noiseless, axes=1)
-        self.ccomponents_noisy = NP.fft.fftshift(ccomponents_noisy, axes=1)
-        self.ccres_noisy = NP.fft.fftshift(ccres_noisy, axes=1)
+        self.cc_skyvis_lag = NP.fft.fftshift(ccomponents_noiseless, axes=1)
+        self.cc_skyvis_res_lag = NP.fft.fftshift(ccres_noiseless, axes=1)
+        self.cc_vis_lag = NP.fft.fftshift(ccomponents_noisy, axes=1)
+        self.cc_vis_res_lag = NP.fft.fftshift(ccres_noisy, axes=1)
 
-        self.cc_noiseless = self.ccomponents_noiseless + self.ccres_noiseless
-        self.cc_noisy = self.ccomponents_noisy + self.ccres_noisy
+        self.cc_skyvis_net_lag = self.cc_skyvis_lag + self.cc_skyvis_res_lag
+        self.cc_vis_net_lag = self.cc_vis_lag + self.cc_vis_res_lag
         self.lags = NP.fft.fftshift(lags)
+
+        self.cc_skyvis_freq = cc_skyvis
+        self.cc_skyvis_res_freq = cc_skyvis_res
+        self.cc_vis_freq = cc_vis
+        self.cc_vis_res_freq = cc_vis_res
+
+        self.cc_skyvis_net_freq = cc_skyvis + cc_skyvis_res
+        self.cc_vis_net_freq = cc_vis + cc_vis_res
+
+        self.clean_window_buffer = clean_window_buffer
         
     #############################################################################
         
@@ -544,5 +699,110 @@ class DelaySpectrum(object):
 
         self.horizon_delay_limits = self.get_horizon_delay_limits()
         
+    #############################################################################
+        
+    def save(self, outfile, tabtype='BinTabelHDU', overwrite=False,
+             verbose=True):
+
+        """
+        -------------------------------------------------------------------------
+        Saves the interferometer array delay spectrum information to disk. 
+
+        Inputs:
+
+        outfile      [string] Filename with full path to be saved to. Will be
+                     appended with '.fits' extension for the interferometer array
+                     data and '.cc.fits' for delay spectrum data
+
+        Keyword Input(s):
+
+        tabtype      [string] indicates table type for one of the extensions in 
+                     the FITS file. Allowed values are 'BinTableHDU' and 
+                     'TableHDU' for binary and ascii tables respectively. Default 
+                     is 'BinTableHDU'.
+                     
+        overwrite    [boolean] True indicates overwrite even if a file already 
+                     exists. Default = False (does not overwrite)
+                     
+        verbose      [boolean] If True (default), prints diagnostic and progress
+                     messages. If False, suppress printing such messages.
+        -------------------------------------------------------------------------
+        """
+
+        try:
+            outfile
+        except NameError:
+            raise NameError('No filename provided. Aborting DelaySpectrum.save()...')
+
+        if verbose:
+            print '\nSaving information about interferometer array...'
+
+        self.ia.save(outfile, tabtype=tabtype, overwrite=overwrite,
+                     verbose=verbose)
+
+        if verbose:
+            print '\nSaving information about delay spectra...'
+
+        hdulist = []
+        hdulist += [fits.PrimaryHDU()]
+        hdulist[0].header['EXTNAME'] = 'PRIMARY'
+        hdulist[0].header['NCHAN'] = (self.f.size, 'Number of frequency channels')
+        hdulist[0].header['NLAGS'] = (self.lags.size, 'Number of lags')
+        hdulist[0].header['freq_resolution'] = (self.df, 'Frequency resolution (Hz)')
+        hdulist[0].header['N_ACC'] = (self.n_acc, 'Number of accumulations')
+        hdulist[0].header['PAD'] = (self.pad, 'Padding factor')
+        hdulist[0].header['DBUFFER'] = (self.clean_window_buffer, 'CLEAN window buffer (1/bandwidth)')
+        hdulist[0].header['IARRAY'] = (outfile+'.fits', 'Location of InterferometerArray simulated visibilities')
+
+        if verbose:
+            print '\tCreated a primary HDU.'
+
+        cols = []
+        cols += [fits.Column(name='frequency', format='D', array=self.f)]
+        cols += [fits.Column(name='lag', format='D', array=self.lags)]
+        columns = _astropy_columns(cols, tabtype=tabtype)
+        tbhdu = fits.new_table(columns)
+        tbhdu.header.set('EXTNAME', 'SPECTRAL INFO')
+        hdulist += [tbhdu]
+        if verbose:
+            print '\tCreated an extension for spectral information.'
+
+        hdulist += [fits.ImageHDU(self.horizon_delay_limits, name='HORIZON LIMITS')]
+        if verbose:
+            print '\tCreated an extension for horizon delay limits of size {0[0]} x {0[1]} x {0[2]} as a function of snapshot instance, baseline, and (min,max) limits'.format(self.horizon_delay_limits.shape)
+
+        hdulist += [fits.ImageHDU(self.bp_wts, name='BANDPASS WEIGHTS')]
+        if verbose:
+            print '\tCreated an extension for bandpass weights of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp_wts.shape)
+
+        hdulist += [fits.ImageHDU(self.lag_kernel.real, name='LAG KERNEL REAL')]
+        hdulist += [fits.ImageHDU(self.lag_kernel.imag, name='LAG KERNEL IMAG')]
+        if verbose:
+            print '\tCreated an extension for convolving lag kernel of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.lag_kernel.shape)
+        
+        hdulist += [fits.ImageHDU(self.cc_skyvis_lag.real, name='CLEAN NOISELESS DELAY SPECTRA REAL')]
+        hdulist += [fits.ImageHDU(self.cc_skyvis_lag.imag, name='CLEAN NOISELESS DELAY SPECTRA IMAG')]
+        hdulist += [fits.ImageHDU(self.cc_skyvis_res_lag.real, name='CLEAN NOISELESS DELAY SPECTRA RESIDUALS REAL')]
+        hdulist += [fits.ImageHDU(self.cc_skyvis_res_lag.imag, name='CLEAN NOISELESS DELAY SPECTRA RESIDUALS IMAG')]
+        hdulist += [fits.ImageHDU(self.cc_skyvis_freq.real, name='CLEAN NOISELESS VISIBILITIES REAL')]
+        hdulist += [fits.ImageHDU(self.cc_skyvis_freq.imag, name='CLEAN NOISELESS VISIBILITIES IMAG')]
+        hdulist += [fits.ImageHDU(self.cc_skyvis_res_freq.real, name='CLEAN NOISELESS VISIBILITIES RESIDUALS REAL')]
+        hdulist += [fits.ImageHDU(self.cc_skyvis_res_freq.imag, name='CLEAN NOISELESS VISIBILITIES RESIDUALS IMAG')]
+
+        hdulist += [fits.ImageHDU(self.cc_vis_lag.real, name='CLEAN NOISY DELAY SPECTRA REAL')]
+        hdulist += [fits.ImageHDU(self.cc_vis_lag.imag, name='CLEAN NOISY DELAY SPECTRA IMAG')]
+        hdulist += [fits.ImageHDU(self.cc_vis_res_lag.real, name='CLEAN NOISY DELAY SPECTRA RESIDUALS REAL')]
+        hdulist += [fits.ImageHDU(self.cc_vis_res_lag.imag, name='CLEAN NOISY DELAY SPECTRA RESIDUALS IMAG')]
+        hdulist += [fits.ImageHDU(self.cc_vis_freq.real, name='CLEAN NOISY VISIBILITIES REAL')]
+        hdulist += [fits.ImageHDU(self.cc_vis_freq.imag, name='CLEAN NOISY VISIBILITIES IMAG')]
+        hdulist += [fits.ImageHDU(self.cc_vis_res_freq.real, name='CLEAN NOISY VISIBILITIES RESIDUALS REAL')]
+        hdulist += [fits.ImageHDU(self.cc_vis_res_freq.imag, name='CLEAN NOISY VISIBILITIES RESIDUALS IMAG')]
+        
+        if verbose:
+            print '\tCreated extensions for clean components of noiseless, noisy and residuals of visibilities in frequency and delay coordinates of size {0[0]} x {0[1]} x {0[2]} as a function of baselines, lags/frequency and snapshot instance'.format(self.lag_kernel.shape)
+
+        hdu = fits.HDUList(hdulist)
+        hdu.writeto(outfile+'.cc.fits', clobber=overwrite)
+
     #############################################################################
         
