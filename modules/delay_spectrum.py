@@ -282,7 +282,7 @@ class DelaySpectrum(object):
     ----------------------------------------------------------------------------
     """
 
-    def __init__(self, interferometer_array):
+    def __init__(self, interferometer_array=None, init_file=None):
 
         """
         ------------------------------------------------------------------------
@@ -311,10 +311,189 @@ class DelaySpectrum(object):
         ------------------------------------------------------------------------
         """
         
-        try:
-            interferometer_array
-        except NameError:
-            raise NameError('Inpute interfeomter_array is not specified')
+        argument_init = False
+        init_file_success = False
+        if init_file is not None:
+            try:
+                hdulist = fits.open(init_file)
+            except IOError:
+                argument_init = True
+                print '\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...'
+
+            extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,len(hdulist))]
+            try:
+                self.df = hdulist[0].header['freq_resolution']
+            except KeyError:
+                hdulist.close()
+                raise KeyError('Keyword "freq_resolution" nout found in header')
+
+            try:
+                self.n_acc = hdulist[0].header['N_ACC']
+            except KeyError:
+                hdulist.close()
+                raise KeyError('Keyword "N_ACC" nout found in header')
+            
+            try:
+                self.pad = hdulist[0].header['PAD']
+            except KeyError:
+                hdulist.close()
+                raise KeyError('Keyword "PAD" nout found in header')
+
+            try:
+                self.clean_window_buffer = hdulist[0].header['DBUFFER']
+            except KeyError:
+                hdulist.close()
+                raise KeyError('Keyword "DBUFFER" nout found in header')
+
+            try:
+                iarray_init_file = hdulist[0].header['IARRAY']
+            except KeyError:
+                hdulist.close()
+                raise KeyError('Keyword "IARRAY" nout found in header')
+            self.ia = RI.InterferometerArray(None, None, None, init_file=iarray_init_file)
+            
+            # if 'SPECTRAL INFO' not in extnames:
+            #     raise KeyError('No extension table found containing spectral information.')
+            # else:
+            #     self.f = hdulist['SPECTRAL INFO'].data['frequency']
+            #     try:
+            #         self.lags = hdulist['SPECTRAL INFO'].data['lag']
+            #     except KeyError:
+            #         self.lags = None
+
+            try:
+                self.f = hdulist['FREQUENCIES'].data
+            except KeyError:
+                hdulist.close()
+                raise KeyError('Extension "FREQUENCIES" nout found in header')
+
+            self.lags = None
+            if 'LAGS' in extnames:
+                self.lags = hdulist['LAGS'].data
+
+            if 'BANDPASS' in extnames:
+                self.bp = hdulist['BANDPASS'].data
+            else:
+                raise KeyError('Extension named "BANDPASS" not found in init_file.')
+
+            if 'BANDPASS WEIGHTS' in extnames:
+                self.bp_wts = hdulist['BANDPASS WEIGHTS'].data
+            else:
+                self.bp_wts = NP.ones_like(self.bp)
+
+            if 'HORIZON LIMITS' in extnames:
+                self.horizon_delay_limits = hdulist['HORIZON LIMITS'].data
+            else:
+                self.set_horizon_delay_limits()
+
+            self.lag_kernel = None
+            if 'LAG KERNEL REAL' in extnames:
+                self.lag_kernel = hdulist['LAG KERNEL REAL'].data
+            if 'LAG KERNEL IMAG' in extnames:
+                self.lag_kernel = self.lag_kernel.astype(NP.complex)
+                self.lag_kernel += 1j * hdulist['LAG KERNEL IMAG'].data
+
+            self.skyvis_lag = None
+            if 'NOISELESS DELAY SPECTRA REAL' in extnames:
+                self.skyvis_lag = hdulist['NOISELESS DELAY SPECTRA REAL'].data
+            if 'NOISELESS DELAY SPECTRA IMAG' in extnames:
+                self.skyvis_lag = self.skyvis_lag.astype(NP.complex)
+                self.skyvis_lag += 1j * hdulist['NOISELESS DELAY SPECTRA IMAG'].data
+
+            self.vis_lag = None
+            if 'NOISY DELAY SPECTRA REAL' in extnames:
+                self.vis_lag = hdulist['NOISY DELAY SPECTRA REAL'].data
+            if 'NOISY DELAY SPECTRA IMAG' in extnames:
+                self.vis_lag = self.vis_lag.astype(NP.complex)
+                self.vis_lag += 1j * hdulist['NOISY DELAY SPECTRA IMAG'].data
+
+            self.vis_noise_lag = None
+            if 'DELAY SPECTRA NOISE REAL' in extnames:
+                self.vis_noise_lag = hdulist['DELAY SPECTRA NOISE REAL'].data
+            if 'DELAY SPECTRA NOISE IMAG' in extnames:
+                self.vis_noise_lag = self.vis_noise_lag.astype(NP.complex)
+                self.vis_noise_lag += 1j * hdulist['DELAY SPECTRA NOISE IMAG'].data
+                
+            self.cc_skyvis_lag = None
+            if 'CLEAN NOISELESS DELAY SPECTRA REAL' in extnames:
+                self.cc_skyvis_lag = hdulist['CLEAN NOISELESS DELAY SPECTRA REAL'].data
+            if 'CLEAN NOISELESS DELAY SPECTRA IMAG' in extnames:
+                self.cc_skyvis_lag = self.cc_skyvis_lag.astype(NP.complex)
+                self.cc_skyvis_lag += 1j * hdulist['CLEAN NOISELESS DELAY SPECTRA IMAG'].data
+
+            self.cc_vis_lag = None
+            if 'CLEAN NOISY DELAY SPECTRA REAL' in extnames:
+                self.cc_vis_lag = hdulist['CLEAN NOISY DELAY SPECTRA REAL'].data
+            if 'CLEAN NOISY DELAY SPECTRA IMAG' in extnames:
+                self.cc_vis_lag = self.cc_vis_lag.astype(NP.complex)
+                self.cc_vis_lag += 1j * hdulist['CLEAN NOISY DELAY SPECTRA IMAG'].data
+
+            self.cc_skyvis_res_lag = None
+            if 'CLEAN NOISELESS DELAY SPECTRA RESIDUALS REAL' in extnames:
+                self.cc_skyvis_res_lag = hdulist['CLEAN NOISELESS DELAY SPECTRA RESIDUALS REAL'].data
+            if 'CLEAN NOISELESS DELAY SPECTRA RESIDUALS IMAG' in extnames:
+                self.cc_skyvis_res_lag = self.cc_skyvis_res_lag.astype(NP.complex)
+                self.cc_skyvis_res_lag += 1j * hdulist['CLEAN NOISELESS DELAY SPECTRA RESIDUALS IMAG'].data
+
+            self.cc_vis_res_lag = None
+            if 'CLEAN NOISY DELAY SPECTRA RESIDUALS REAL' in extnames:
+                self.cc_vis_res_lag = hdulist['CLEAN NOISY DELAY SPECTRA RESIDUALS REAL'].data
+            if 'CLEAN NOISY DELAY SPECTRA RESIDUALS IMAG' in extnames:
+                self.cc_vis_res_lag = self.cc_vis_res_lag.astype(NP.complex)
+                self.cc_vis_res_lag += 1j * hdulist['CLEAN NOISY DELAY SPECTRA RESIDUALS IMAG'].data
+                
+            self.cc_skyvis_freq = None
+            if 'CLEAN NOISELESS VISIBILITIES REAL' in extnames:
+                self.cc_skyvis_freq = hdulist['CLEAN NOISELESS VISIBILITIES REAL'].data
+            if 'CLEAN NOISELESS VISIBILITIES IMAG' in extnames:
+                self.cc_skyvis_freq = self.cc_skyvis_freq.astype(NP.complex)
+                self.cc_skyvis_freq += 1j * hdulist['CLEAN NOISELESS VISIBILITIES IMAG'].data
+
+            self.cc_vis_freq = None
+            if 'CLEAN NOISY VISIBILITIES REAL' in extnames:
+                self.cc_vis_freq = hdulist['CLEAN NOISY VISIBILITIES REAL'].data
+            if 'CLEAN NOISY VISIBILITIES IMAG' in extnames:
+                self.cc_vis_freq = self.cc_vis_freq.astype(NP.complex)
+                self.cc_vis_freq += 1j * hdulist['CLEAN NOISY VISIBILITIES IMAG'].data
+
+            self.cc_skyvis_res_freq = None
+            if 'CLEAN NOISELESS VISIBILITIES RESIDUALS REAL' in extnames:
+                self.cc_skyvis_res_freq = hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS REAL'].data
+            if 'CLEAN NOISELESS VISIBILITIES RESIDUALS IMAG' in extnames:
+                self.cc_skyvis_res_freq = self.cc_skyvis_res_freq.astype(NP.complex)
+                self.cc_skyvis_res_freq += 1j * hdulist['CLEAN NOISELESS VISIBILITIES RESIDUALS IMAG'].data
+
+            self.cc_vis_res_freq = None
+            if 'CLEAN NOISY VISIBILITIES RESIDUALS REAL' in extnames:
+                self.cc_vis_res_freq = hdulist['CLEAN NOISY VISIBILITIES RESIDUALS REAL'].data
+            if 'CLEAN NOISY VISIBILITIES RESIDUALS IMAG' in extnames:
+                self.cc_vis_res_freq = self.cc_vis_res_freq.astype(NP.complex)
+                self.cc_vis_res_freq += 1j * hdulist['CLEAN NOISY VISIBILITIES RESIDUALS IMAG'].data
+                
+            self.cc_skyvis_net_lag = None
+            if (self.cc_skyvis_lag is not None) and (self.cc_skyvis_res_lag is not None):
+                self.cc_skyvis_net_lag = self.cc_skyvis_lag + self.cc_skyvis_res_lag
+
+            self.cc_vis_net_lag = None
+            if (self.cc_vis_lag is not None) and (self.cc_vis_res_lag is not None):
+                self.cc_vis_net_lag = self.cc_vis_lag + self.cc_vis_res_lag
+
+            self.cc_skyvis_net_freq = None
+            if (self.cc_skyvis_freq is not None) and (self.cc_skyvis_res_freq is not None):
+                self.cc_skyvis_net_freq = self.cc_skyvis_freq + self.cc_skyvis_res_freq
+
+            self.cc_vis_net_freq = None
+            if (self.cc_vis_freq is not None) and (self.cc_vis_res_freq is not None):
+                self.cc_vis_net_freq = self.cc_vis_freq + self.cc_vis_res_freq
+                
+            hdulist.close()
+            init_file_success = True
+            return
+        else:
+            argument_init = True
+
+        if (not argument_init) and (not init_file_success):
+            raise ValueError('Initialization failed with the use of init_file.')
 
         if not isinstance(interferometer_array, RI.InterferometerArray):
             raise TypeError('Input interferometer_array must be an instance of class InterferometerArray')
@@ -335,10 +514,6 @@ class DelaySpectrum(object):
         self.skyvis_lag = None
         self.vis_lag = None
         self.vis_noise_lag = None
-
-        self.vis_freq = None
-        self.skyvis_freq = None
-        self.vis_noise_freq = None
 
         self.clean_window_buffer = 1.0
 
@@ -707,13 +882,18 @@ class DelaySpectrum(object):
         if verbose:
             print '\tCreated a primary HDU.'
 
-        cols = []
-        cols += [fits.Column(name='frequency', format='D', array=self.f)]
-        cols += [fits.Column(name='lag', format='D', array=self.lags)]
-        columns = _astropy_columns(cols, tabtype=tabtype)
-        tbhdu = fits.new_table(columns)
-        tbhdu.header.set('EXTNAME', 'SPECTRAL INFO')
-        hdulist += [tbhdu]
+        # cols = []
+        # cols += [fits.Column(name='frequency', format='D', array=self.f)]
+        # cols += [fits.Column(name='lag', format='D', array=self.lags)]
+        # columns = _astropy_columns(cols, tabtype=tabtype)
+        # tbhdu = fits.new_table(columns)
+        # tbhdu.header.set('EXTNAME', 'SPECTRAL INFO')
+        # hdulist += [tbhdu]
+        # if verbose:
+        #     print '\tCreated an extension for spectral information.'
+
+        hdulist += [fits.ImageHDU(self.f, name='FREQUENCIES')]
+        hdulist += [fits.ImageHDU(self.lags, name='LAGS')]
         if verbose:
             print '\tCreated an extension for spectral information.'
 
@@ -734,23 +914,47 @@ class DelaySpectrum(object):
         if verbose:
             print '\tCreated an extension for convolving lag kernel of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.lag_kernel.shape)
         
-        hdulist += [fits.ImageHDU(self.cc_skyvis_lag.real, name='CLEAN NOISELESS DELAY SPECTRA REAL')]
-        hdulist += [fits.ImageHDU(self.cc_skyvis_lag.imag, name='CLEAN NOISELESS DELAY SPECTRA IMAG')]
-        hdulist += [fits.ImageHDU(self.cc_skyvis_res_lag.real, name='CLEAN NOISELESS DELAY SPECTRA RESIDUALS REAL')]
-        hdulist += [fits.ImageHDU(self.cc_skyvis_res_lag.imag, name='CLEAN NOISELESS DELAY SPECTRA RESIDUALS IMAG')]
-        hdulist += [fits.ImageHDU(self.cc_skyvis_freq.real, name='CLEAN NOISELESS VISIBILITIES REAL')]
-        hdulist += [fits.ImageHDU(self.cc_skyvis_freq.imag, name='CLEAN NOISELESS VISIBILITIES IMAG')]
-        hdulist += [fits.ImageHDU(self.cc_skyvis_res_freq.real, name='CLEAN NOISELESS VISIBILITIES RESIDUALS REAL')]
-        hdulist += [fits.ImageHDU(self.cc_skyvis_res_freq.imag, name='CLEAN NOISELESS VISIBILITIES RESIDUALS IMAG')]
+        if self.skyvis_lag is not None:
+            hdulist += [fits.ImageHDU(self.skyvis_lag.real, name='NOISELESS DELAY SPECTRA REAL')]
+            hdulist += [fits.ImageHDU(self.skyvis_lag.imag, name='NOISELESS DELAY SPECTRA IMAG')]
+        if self.vis_lag is not None:
+            hdulist += [fits.ImageHDU(self.vis_lag.real, name='NOISY DELAY SPECTRA REAL')]
+            hdulist += [fits.ImageHDU(self.vis_lag.imag, name='NOISY DELAY SPECTRA IMAG')]
+        if self.vis_noise_lag is not None:
+            hdulist += [fits.ImageHDU(self.vis_noise_lag.real, name='DELAY SPECTRA NOISE REAL')]
+            hdulist += [fits.ImageHDU(self.vis_noise_lag.imag, name='DELAY SPECTRA NOISE IMAG')]
+            
+        if self.cc_skyvis_lag is not None:
+            hdulist += [fits.ImageHDU(self.cc_skyvis_lag.real, name='CLEAN NOISELESS DELAY SPECTRA REAL')]
+            hdulist += [fits.ImageHDU(self.cc_skyvis_lag.imag, name='CLEAN NOISELESS DELAY SPECTRA IMAG')]
 
-        hdulist += [fits.ImageHDU(self.cc_vis_lag.real, name='CLEAN NOISY DELAY SPECTRA REAL')]
-        hdulist += [fits.ImageHDU(self.cc_vis_lag.imag, name='CLEAN NOISY DELAY SPECTRA IMAG')]
-        hdulist += [fits.ImageHDU(self.cc_vis_res_lag.real, name='CLEAN NOISY DELAY SPECTRA RESIDUALS REAL')]
-        hdulist += [fits.ImageHDU(self.cc_vis_res_lag.imag, name='CLEAN NOISY DELAY SPECTRA RESIDUALS IMAG')]
-        hdulist += [fits.ImageHDU(self.cc_vis_freq.real, name='CLEAN NOISY VISIBILITIES REAL')]
-        hdulist += [fits.ImageHDU(self.cc_vis_freq.imag, name='CLEAN NOISY VISIBILITIES IMAG')]
-        hdulist += [fits.ImageHDU(self.cc_vis_res_freq.real, name='CLEAN NOISY VISIBILITIES RESIDUALS REAL')]
-        hdulist += [fits.ImageHDU(self.cc_vis_res_freq.imag, name='CLEAN NOISY VISIBILITIES RESIDUALS IMAG')]
+        if self.cc_skyvis_res_lag is not None:
+            hdulist += [fits.ImageHDU(self.cc_skyvis_res_lag.real, name='CLEAN NOISELESS DELAY SPECTRA RESIDUALS REAL')]
+            hdulist += [fits.ImageHDU(self.cc_skyvis_res_lag.imag, name='CLEAN NOISELESS DELAY SPECTRA RESIDUALS IMAG')]
+
+        if self.cc_skyvis_freq is not None:
+            hdulist += [fits.ImageHDU(self.cc_skyvis_freq.real, name='CLEAN NOISELESS VISIBILITIES REAL')]
+            hdulist += [fits.ImageHDU(self.cc_skyvis_freq.imag, name='CLEAN NOISELESS VISIBILITIES IMAG')]
+
+        if self.cc_skyvis_res_freq is not None:
+            hdulist += [fits.ImageHDU(self.cc_skyvis_res_freq.real, name='CLEAN NOISELESS VISIBILITIES RESIDUALS REAL')]
+            hdulist += [fits.ImageHDU(self.cc_skyvis_res_freq.imag, name='CLEAN NOISELESS VISIBILITIES RESIDUALS IMAG')]
+
+        if self.cc_vis_lag is not None:
+            hdulist += [fits.ImageHDU(self.cc_vis_lag.real, name='CLEAN NOISY DELAY SPECTRA REAL')]
+            hdulist += [fits.ImageHDU(self.cc_vis_lag.imag, name='CLEAN NOISY DELAY SPECTRA IMAG')]
+
+        if self.cc_vis_res_lag is not None:
+            hdulist += [fits.ImageHDU(self.cc_vis_res_lag.real, name='CLEAN NOISY DELAY SPECTRA RESIDUALS REAL')]
+            hdulist += [fits.ImageHDU(self.cc_vis_res_lag.imag, name='CLEAN NOISY DELAY SPECTRA RESIDUALS IMAG')]
+
+        if self.cc_vis_freq is not None:
+            hdulist += [fits.ImageHDU(self.cc_vis_freq.real, name='CLEAN NOISY VISIBILITIES REAL')]
+            hdulist += [fits.ImageHDU(self.cc_vis_freq.imag, name='CLEAN NOISY VISIBILITIES IMAG')]
+
+        if self.cc_vis_res_freq is not None:
+            hdulist += [fits.ImageHDU(self.cc_vis_res_freq.real, name='CLEAN NOISY VISIBILITIES RESIDUALS REAL')]
+            hdulist += [fits.ImageHDU(self.cc_vis_res_freq.imag, name='CLEAN NOISY VISIBILITIES RESIDUALS IMAG')]
         
         if verbose:
             print '\tCreated extensions for clean components of noiseless, noisy and residuals of visibilities in frequency and delay coordinates of size {0[0]} x {0[1]} x {0[2]} as a function of baselines, lags/frequency and snapshot instance'.format(self.lag_kernel.shape)

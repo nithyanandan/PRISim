@@ -343,15 +343,16 @@ for k in range(n_sky_sectors):
     ia = RI.InterferometerArray(None, None, None, init_file=infile+'.fits') 
     ia.phase_centering(phase_center=pc, phase_center_coords=pc_coords,
                        do_delay_transform=False)   
-    iadso = DS.DelaySpectrum(ia)
-    iadso.delay_transform(oversampling_factor-1.0, freq_wts=window)
-    iadso.clean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
-    iadso.save(outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
+    dso = DS.DelaySpectrum(interferometer_array=ia)
+    dso.delay_transform(oversampling_factor-1.0, freq_wts=window)
+    dso.clean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
+    dso.save(outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
+    newdso = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
     
 fig = PLT.figure()
 ax = fig.add_subplot(111)
-noiseless_dspec = ax.pcolorfast(iadso.ia.baseline_lengths, 1e9*iadso.lags, NP.abs(iadso.cc_skyvis_net_lag[:-1,:-1,0].T), norm=PLTC.LogNorm(vmin=NP.abs(iadso.cc_skyvis_net_lag).min(), vmax=NP.abs(iadso.cc_skyvis_net_lag).max()))
-horizonb = ax.plot(iadso.ia.baseline_lengths, 1e9*iadso.horizon_delay_limits[0,:,0], color='black', ls=':', lw=1.5)
-horizonb = ax.plot(iadso.ia.baseline_lengths, 1e9*iadso.horizon_delay_limits[0,:,1], color='black', ls=':', lw=1.5)
+noiseless_dspec = ax.pcolorfast(dso.ia.baseline_lengths, 1e9*dso.lags, NP.abs(dso.cc_skyvis_net_lag[:-1,:-1,0].T), norm=PLTC.LogNorm(vmin=NP.abs(dso.cc_skyvis_net_lag).min(), vmax=NP.abs(dso.cc_skyvis_net_lag).max()))
+horizonb = ax.plot(dso.ia.baseline_lengths, 1e9*dso.horizon_delay_limits[0,:,0], color='black', ls=':', lw=1.5)
+horizonb = ax.plot(dso.ia.baseline_lengths, 1e9*dso.horizon_delay_limits[0,:,1], color='black', ls=':', lw=1.5)
 
 PDB.set_trace()

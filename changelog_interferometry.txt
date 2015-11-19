@@ -1,3 +1,17 @@
+From f5fff3d (delay-transform):
+==============================
+
+In delay_spectrum.py,
+
+(*) Remove unused attribtues skyvis_freq, vis_freq, vis_noise_freq
+and their initialization from __init__() member function of class
+DelaySpectrum
+(*) Add value checking before saving attributes to disk in member
+function save() of class DelaySpectrum
+(*) Add ability to initialize an instance of class DelaySpectrum
+using an init_file by adding a keyword input init_file in __init__()
+member function of class DelaySpectrum
+
 From c2bc67a (delay-transform):
 ==============================
 
