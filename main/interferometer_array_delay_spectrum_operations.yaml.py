@@ -45,6 +45,12 @@ minR = parms['array']['minR']
 maxR = parms['array']['maxR']
 minbl = parms['baseline']['min']
 maxbl = parms['baseline']['max']
+beam_info = parms['beam']
+use_external_beam = beam_info['use_external']
+if use_external_beam:
+    external_beam_file = beam_info['file']
+    beam_pol = beam_info['pol']
+beam_chromaticity = beam_info['chromatic']
 baseline_chunk_size = parms['processing']['bl_chunk_size']
 n_bl_chunks = parms['processing']['n_bl_chunks']
 frequency_chunk_size = parms['processing']['freq_chunk_size']
@@ -208,6 +214,20 @@ else:
     else:
         raise ValueError('Height of antenna element above ground plane must be positive.')
 
+if use_external_beam:
+    external_beam = fits.getdata(external_beam_file, extname='BEAM_{0}'.format(beam_pol))
+    external_beam_freqs = fits.getdata(external_beam_file, extname='FREQS_{0}'.format(beam_pol))
+    beam_type = 'extpb'
+    # if beam_chromaticity:
+    #     beam_type = beam_type + '_chromatic'
+    # else:
+    #     beam_type = beam_type + '_achromatic'
+else:
+    beam_type = 'funcpb'
+    # beam_type = beam_type + '_chromatic'
+
+beam_types = [beam_type + '_' + chromaticity_str for chromaticity_str in ['achromatic','chromatic']]
+
 if (antenna_file is None) and (array_layout is None):
     raise ValueError('One of antenna array file or layout must be specified')
 if (antenna_file is not None) and (array_layout is not None):
@@ -337,22 +357,85 @@ for k in range(n_sky_sectors):
     else:
         sky_sector_str = '_sky_sector_{0:0d}_'.format(k)
     
-    infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_instr
-    outfile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_outstr+bpass_shape
+    for beam_iter, beam_usage_str in enumerate(beam_types):
 
-    ia = RI.InterferometerArray(None, None, None, init_file=infile+'.fits') 
-    ia.phase_centering(phase_center=pc, phase_center_coords=pc_coords,
-                       do_delay_transform=False)   
-    dso = DS.DelaySpectrum(interferometer_array=ia)
-    dso.delay_transform(oversampling_factor-1.0, freq_wts=window)
-    dso.clean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
-    dso.save(outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
-    newdso = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
+        infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+pfb_instr
+        outfile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+'_'+pfb_outstr+bpass_shape
+    
+        if beam_iter == 0:
+
+            achrmia = RI.InterferometerArray(None, None, None, init_file=infile+'.fits')
+            achrmia.phase_centering(phase_center=pc, phase_center_coords=pc_coords,
+                                   do_delay_transform=False)   
+            achrmdso = DS.DelaySpectrum(interferometer_array=achrmia)
+            # achrmdso.delay_transform(oversampling_factor-1.0, freq_wts=window)
+            # achrmdso.clean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
+            achrmdso.delayClean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
+            achrmdso.save(outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
+            # achrmdso = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
+        elif beam_iter == 1:
+            chrmia = RI.InterferometerArray(None, None, None, init_file=infile+'.fits')
+            chrmia.phase_centering(phase_center=pc, phase_center_coords=pc_coords,
+                                   do_delay_transform=False)   
+            chrmdso = DS.DelaySpectrum(interferometer_array=chrmia)
+            # chrmdso.delay_transform(oversampling_factor-1.0, freq_wts=window)
+            # chrmdso.clean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
+            chrmdso.delayClean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
+            chrmdso.save(outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
+            # chrmdso = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
     
 fig = PLT.figure()
 ax = fig.add_subplot(111)
-noiseless_dspec = ax.pcolorfast(dso.ia.baseline_lengths, 1e9*dso.lags, NP.abs(dso.cc_skyvis_net_lag[:-1,:-1,0].T), norm=PLTC.LogNorm(vmin=NP.abs(dso.cc_skyvis_net_lag).min(), vmax=NP.abs(dso.cc_skyvis_net_lag).max()))
-horizonb = ax.plot(dso.ia.baseline_lengths, 1e9*dso.horizon_delay_limits[0,:,0], color='black', ls=':', lw=1.5)
-horizonb = ax.plot(dso.ia.baseline_lengths, 1e9*dso.horizon_delay_limits[0,:,1], color='black', ls=':', lw=1.5)
+noiseless_dspec = ax.pcolorfast(achrmdso.ia.baseline_lengths, 1e9*achrmdso.lags, NP.abs(achrmdso.cc_skyvis_net_lag[:-1,:-1,0].T), norm=PLTC.LogNorm(vmin=NP.abs(achrmdso.cc_skyvis_net_lag).min(), vmax=NP.abs(achrmdso.cc_skyvis_net_lag).max()))
+horizonb = ax.plot(achrmdso.ia.baseline_lengths, 1e9*achrmdso.horizon_delay_limits[0,:,0], color='black', ls='--', lw=2.5)
+horizonb = ax.plot(achrmdso.ia.baseline_lengths, 1e9*achrmdso.horizon_delay_limits[0,:,1], color='black', ls='--', lw=2.5)
+ax.set_xlabel(r'$|b|$ [m]', fontsize=16, weight='medium')
+ax.set_ylabel(r'$\tau$ [ns]', fontsize=16, weight='medium')
+
+cbax = fig.add_axes([0.91, 0.125, 0.02, 0.74])
+cbar = fig.colorbar(noiseless_dspec, cax=cbax, orientation='vertical')
+cbax.set_xlabel('Jy Hz', labelpad=10, fontsize=12)
+cbax.xaxis.set_label_position('top')
+fig.subplots_adjust(right=0.88)
+PLT.savefig(rootdir+project_dir+'figures/achromatic_wedge.png', bbox_inches=0)
+
+fig = PLT.figure()
+ax = fig.add_subplot(111)
+noiseless_dspec = ax.pcolorfast(chrmdso.ia.baseline_lengths, 1e9*chrmdso.lags, NP.abs(chrmdso.cc_skyvis_net_lag[:-1,:-1,0].T), norm=PLTC.LogNorm(vmin=NP.abs(chrmdso.cc_skyvis_net_lag).min(), vmax=NP.abs(chrmdso.cc_skyvis_net_lag).max()))
+horizonb = ax.plot(chrmdso.ia.baseline_lengths, 1e9*chrmdso.horizon_delay_limits[0,:,0], color='black', ls='--', lw=2.5)
+horizonb = ax.plot(chrmdso.ia.baseline_lengths, 1e9*chrmdso.horizon_delay_limits[0,:,1], color='black', ls='--', lw=2.5)
+ax.set_xlabel(r'$|b|$ [m]', fontsize=16, weight='medium')
+ax.set_ylabel(r'$\tau$ [ns]', fontsize=16, weight='medium')
+
+cbax = fig.add_axes([0.91, 0.125, 0.02, 0.74])
+cbar = fig.colorbar(noiseless_dspec, cax=cbax, orientation='vertical')
+cbax.set_xlabel('Jy Hz', labelpad=10, fontsize=12)
+cbax.xaxis.set_label_position('top')
+fig.subplots_adjust(right=0.88)
+PLT.savefig(rootdir+project_dir+'figures/chromatic_wedge.png', bbox_inches=0)
+
+colrs = ['blue', 'green', 'red']
+fig,axs = PLT.subplots(ncols=3, sharex=True, sharey=True)
+for bli in range(0,3):
+    axs[bli].plot(1e9*achrmdso.lags, NP.abs(achrmdso.cc_skyvis_net_lag[bli,:,0]), marker='.', color='green')
+    axs[bli].plot(1e9*chrmdso.lags, NP.abs(chrmdso.cc_skyvis_net_lag[bli,:,0]), marker='+', color='blue')
+    axs[bli].set_xlim(-250,250)
+    axs[bli].set_ylim(1e5,1e10)
+    axs[bli].set_yscale('log')
+fig.subplots_adjust(wspace=0, hspace=0)
+big_ax = fig.add_subplot(111)
+big_ax.set_axis_bgcolor('none')
+big_ax.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+big_ax.set_xticks([])
+big_ax.set_yticks([])
+big_ax.set_xlabel(r'$\tau$ [$\mu$s]', fontsize=16, weight='medium', labelpad=30)
+big_ax.set_ylabel(r'$V(\tau)$ [Jy Hz]', fontsize=16, weight='medium', labelpad=20)
+
+# ax.set_xlabel(r'$\tau$ [ns]', fontsize=16, weight='medium')
+# ax.set_ylabel(r'$V(\tau)$ [Jy Hz]', fontsize=16, weight='medium')
+PLT.savefig(rootdir+project_dir+'figures/14.6m_delay_spectra.png', bbox_inches=0)
+
+NP.savez_compressed(rootdir+project_dir+'HERA-19_FG_delay_spectra.npz', baselines=achrmdso.ia.baselines, lst=achrmdso.ia.lst, freqs=achrmdso.f, lags=achrmdso.lags, achromatic_skyvis_freq=achrmdso.ia.skyvis_freq, achromatic_cc_skyvis_lag=achrmdso.cc_skyvis_net_lag, chromatic_skyvis_freq=chrmdso.ia.skyvis_freq, chromatic_cc_skyvis_lag=chrmdso.cc_skyvis_net_lag)
 
 PDB.set_trace()
+

@@ -186,7 +186,7 @@ beam    :
                                 # Beam polarization. Accepted values
                                 # are 'X' and 'Y'
 
-    chromatic       : false
+    chromatic       : true
                                 # if false, the beam is the same at
                                 # all frequencies and the beam at
                                 # reference frequency will be used for
@@ -199,12 +199,15 @@ obsparm  :
 
     freq            : 150000000.0
                                 # Center frequency (in Hz)
+                                # 167.05 MHz for Adam Lidz's cube
 
     freq_resolution : 781250.0
                                 # Frequency resolution (in Hz)
+                                # 80 kHz for Adam Lidz's cube
 
     nchan           : 128
                                 # Number of channels
+                                # 704 for Adam Lidz's cube
 
     obs_date        : '2015/11/23'
                                 # Observation start date yyyy/mm/dd
@@ -347,7 +350,7 @@ snapshot :                      # Parameters below are mutually
 
 fgparm   :
 
-    model           : 'csm'
+    model           : 'asm'
                                 # Foreground model. Accepted values
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both
@@ -371,7 +374,7 @@ fgparm   :
                                 # model input map. Accepted values are
                                 # valid nside values
 
-    flux_unit       : 'Jy'
+    flux_unit       : 'K'
                                 # Units of flux or flux density.
                                 # Accepted values are 'K' for
                                 # temperature in K or 'Jy' for flux
@@ -450,13 +453,13 @@ processing:
                                 # null means process all chunks.
                                 # Should be given as a list
 
-    n_freq_chunks   : 1
+    n_freq_chunks   : 16
                                 # Upper limit on number of frequency
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
                                 # processing
 
-    freq_chunk_size : 128
+    freq_chunk_size : 8
                                 # Frequency chunk size. Will be used
                                 # in a single process during parallel
                                 # processing

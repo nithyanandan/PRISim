@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as NP
+import statsmodels.robust.scale as stats
 import progressbar as PGB
 import aipy as AP
 import astropy 
@@ -100,6 +101,203 @@ def _gentle_clean(dd, _w, tol=1e-1, area=None, stop_if_div=True, maxiter=100,
     info['final_residual'] = inside_res * scale_factor
     
     return cc, info
+
+#################################################################################
+
+def complex1dClean(inp, kernel, cbox=None, gain=0.1, maxiter=10000,
+                   threshold=5e-3, threshold_type='relative', verbose=False):
+
+    """
+    ----------------------------------------------------------------------------
+    Hogbom CLEAN algorithm applicable to 1D complex array
+
+    Inputs:
+
+    inp      [numpy vector] input 1D array to be cleaned. Can be complex.
+
+    kernel   [numpy vector] 1D array that acts as the deconvolving kernel. Can 
+             be complex. Must be of same size as inp
+
+    cbox     [boolean array] 1D boolean array that acts as a mask for pixels 
+             which should be cleaned. Same size as inp. Only pixels with values 
+             True are to be searched for maxima in residuals for cleaning and 
+             the rest are not searched for. Default=None (means all pixels are 
+             to be searched for maxima while cleaning)
+
+    gain     [scalar] gain factor to be applied while subtracting clean 
+             component from residuals. This is the fraction of the maximum in 
+             the residuals that will be subtracted. Must lie between 0 and 1.
+             A lower value will have a smoother convergence but take a longer 
+             time to converge. Default=0.1
+
+    maxiter  [scalar] maximum number of iterations for cleaning process. Will 
+             terminate if the number of iterations exceed maxiter. Default=10000
+
+    threshold 
+             [scalar] represents the cleaning depth either as a fraction of the
+             maximum in the input (when thershold_type is set to 'relative') or
+             the absolute value (when threshold_type is set to 'absolute') in 
+             same units of input down to which inp should be cleaned. Value must 
+             always be positive. When threshold_type is set to 'relative', 
+             threshold mu st lie between 0 and 1. Default=5e-3 (found to work 
+             well and converge fast) assuming threshold_type is set to 'relative'
+
+    threshold_type
+             [string] represents the type of threshold specified by value in 
+             input threshold. Accepted values are 'relative' and 'absolute'. If
+             set to 'relative' the threshold value is the fraction (between 0
+             and 1) of maximum in input down to which it should be cleaned. If 
+             set to 'asbolute' it is the actual value down to which inp should 
+             be cleaned. Default='relative'
+
+    verbose  [boolean] If set to True (default), print diagnostic and progress 
+             messages. If set to False, no such messages are printed.
+
+    Output:
+
+    outdict  [dictionary] It consists of the following keys and values at
+             termination:
+             'termination' [dictionary] consists of information on the 
+                           conditions for termination with the following keys 
+                           and values:
+                           'threshold' [boolean] If True, the cleaning process
+                                       terminated because the threshold was 
+                                       reached
+                           'maxiter'   [boolean] If True, the cleaning process
+                                       terminated because the number of 
+                                       iterations reached maxiter
+                           'inrms<outrms'
+                                       [boolean] If True, the cleaning process
+                                       terminated because the rms inside the 
+                                       clean box is below the rms outside of it
+             'iter'        [scalar] number of iterations performed before 
+                           termination
+             'rms'         [numpy vector] rms of the residuals as a function of
+                           iteration
+             'inrms'       [numpy vector] rms of the residuals inside the clean 
+                           box as a function of iteration
+             'outrms'      [numpy vector] rms of the residuals outside the clean 
+                           box as a function of iteration
+             'res'         [numpy array] uncleaned residuals at the end of the
+                           cleaning process. Complex valued and same size as 
+                           inp
+             'cc'          [numpy array] clean components at the end of the
+                           cleaning process. Complex valued and same size as 
+                           inp
+    ----------------------------------------------------------------------------
+    """
+
+    try:
+        inp, kernel
+    except NameError:
+        raise NameError('Inputs inp and kernel not specified')
+
+    if not isinstance(inp, NP.ndarray):
+        raise TypeError('inp must be a numpy array')
+    if not isinstance(kernel, NP.ndarray):
+        raise TypeError('kernel must be a numpy array')
+
+    if threshold_type not in ['relative', 'absolute']:
+        raise ValueError('invalid specification for threshold_type')
+
+    if not isinstance(threshold, (int,float)):
+        raise TypeError('input threshold must be a scalar')
+    else:
+        threshold = float(threshold)
+        if threshold <= 0.0:
+            raise ValueError('input threshold must be positive')
+
+    inp = inp.flatten()
+    kernel = kernel.flatten()
+    kernel /= NP.abs(kernel).max()
+    kmaxind = NP.argmax(NP.abs(kernel))
+
+    if inp.size != kernel.size:
+        raise ValueError('inp and kernel must have same size')
+
+    if cbox is None:
+        cbox = NP.ones(inp.size, dtype=NP.bool)
+    elif isinstance(cbox, NP.ndarray):
+        cbox = cbox.flatten()
+        if cbox.size != inp.size:
+            raise ValueError('Clean box must be of same size as input')
+        cbox = NP.where(cbox > 0.0, True, False)
+        # cbox = cbox.astype(NP.int)
+    else:
+        raise TypeError('cbox must be a numpy array')
+    cbox = cbox.astype(NP.bool)
+
+    if threshold_type == 'relative':
+        lolim = threshold
+    else:
+        lolim = threshold / NP.abs(inp).max()
+
+    if lolim >= 1.0:
+        raise ValueError('incompatible value specified for threshold')
+
+    inrms = [NP.std(inp[cbox])]
+    # inrms = [NP.median(NP.abs(inp[cbox] - NP.median(inp[cbox])))]
+    if inp.size - NP.sum(cbox) <= 2:
+        outrms = None
+    else:
+        outrms = [NP.std(inp[NP.invert(cbox)])]
+        # outrms = [NP.median(NP.abs(inp[NP.invert(cbox)] - NP.median(inp[NP.invert(cbox)])))]
+
+    if not isinstance(gain, float):
+        raise TypeError('gain must be a floating point number')
+    else:
+        if (gain <= 0.0) or (gain >= 1.0):
+            raise TypeError('gain must lie between 0 and 1')
+
+    if not isinstance(maxiter, int):
+        raise TypeError('maxiter must be an integer')
+    else:
+        if maxiter <= 0:
+            raise ValueError('maxiter must be positive')
+
+    cc = NP.zeros_like(inp)
+    res = NP.copy(inp)
+    cond4 = False
+    prevrms = NP.std(res)
+    currentrms = [NP.std(res)]
+    # prevrms = NP.median(NP.abs(res - NP.median(res)))
+    # currentrms = [NP.median(NP.abs(res - NP.median(res)))]
+    itr = 0
+    terminate = False
+    while not terminate:
+        itr += 1
+        indmaxres = NP.argmax(NP.abs(res*cbox))
+        maxres = res[indmaxres]
+        
+        ccval = gain * maxres
+        cc[indmaxres] += ccval
+        res = res - ccval * NP.roll(kernel, indmaxres-kmaxind)
+        
+        prevrms = NP.copy(currentrms[-1])
+        currentrms += [NP.std(res)]
+        # currentrms += [NP.median(NP.abs(res - NP.median(res)))]
+
+        inrms += [NP.std(res[cbox])]
+        # inrms += [NP.median(NP.abs(res[cbox] - NP.median(res[cbox])))]
+            
+        # cond1 = NP.abs(maxres) <= inrms[-1]
+        cond1 = NP.abs(maxres) <= lolim * NP.abs(inp).max()
+        cond2 = itr >= maxiter
+        terminate = cond1 or cond2
+        if outrms is not None:
+            outrms += [NP.std(res[NP.invert(cbox)])]
+            # outrms += [NP.median(NP.abs(res[NP.invert(cbox)] - NP.median(res[NP.invert(cbox)])))]
+            cond3 = inrms[-1] <= outrms[-1]
+            terminate = terminate or cond3
+
+    inrms = NP.asarray(inrms)
+    currentrms = NP.asarray(currentrms)
+    if outrms is not None:
+        outrms = NP.asarray(outrms)
+        
+    outdict = {'termination':{'threshold': cond1, 'maxiter': cond2, 'inrms<outrms': cond3}, 'iter': itr, 'rms': currentrms, 'inrms': inrms, 'outrms': outrms, 'cc': cc, 'res': res}
+
+    return outdict
 
 #################################################################################
 
@@ -266,6 +464,14 @@ class DelaySpectrum(object):
                 quantities along the delay axis. This is performed for noiseless 
                 sky visibilities, thermal noise in visibilities, and observed 
                 visibilities. 
+
+    delayClean()
+                Transforms the visibilities from frequency axis onto delay 
+                (time) axis using an IFFT and deconvolves the delay transform 
+                quantities along the delay axis. This is performed for noiseless 
+                sky visibilities, thermal noise in visibilities, and observed 
+                visibilities. This calls an in-house module complex1dClean 
+                instead of the clean routine in AIPY module
 
     get_horizon_delay_limits()
                 Estimates the delay envelope determined by the sky horizon 
@@ -707,10 +913,8 @@ class DelaySpectrum(object):
         
         for snap_iter in xrange(self.n_acc):
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Baselines '.format(self.ia.baselines.shape[0]), PGB.ETA()], maxval=self.ia.baselines.shape[0]).start()
-            # delay_matrix = DLY.delay_envelope(self.ia.baselines, pc_dircos[snap_iter,:], units='mks')
             for bl_iter in xrange(self.ia.baselines.shape[0]):
                 clean_area[NP.logical_and(lags <= self.horizon_delay_limits[snap_iter,bl_iter,1]+clean_window_buffer/bw, lags >= self.horizon_delay_limits[snap_iter,bl_iter,0]-clean_window_buffer/bw)] = 1
-                # clean_area[NP.logical_and(lags <= delay_matrix[0,bl_iter,0]+delay_matrix[0,bl_iter,1]+clean_window_buffer/bw, lags >= -delay_matrix[0,bl_iter,0]+delay_matrix[0,bl_iter,1]-clean_window_buffer/bw)] = 1
     
                 cc_noiseless, info_noiseless = _gentle_clean(skyvis_lag[bl_iter,:,snap_iter], lag_kernel[bl_iter,:,snap_iter], area=clean_area, stop_if_div=False, verbose=False, autoscale=True)
                 ccomponents_noiseless[bl_iter,:,snap_iter] = cc_noiseless
@@ -720,6 +924,149 @@ class DelaySpectrum(object):
                 ccomponents_noisy[bl_iter,:,snap_iter] = cc_noisy
                 ccres_noisy[bl_iter,:,snap_iter] = info_noisy['res']
     
+                progress.update(bl_iter+1)
+            progress.finish()
+    
+        deta = lags[1] - lags[0]
+        cc_skyvis = NP.fft.fft(ccomponents_noiseless, axis=1) * deta
+        cc_skyvis_res = NP.fft.fft(ccres_noiseless, axis=1) * deta
+    
+        cc_vis = NP.fft.fft(ccomponents_noisy, axis=1) * deta
+        cc_vis_res = NP.fft.fft(ccres_noisy, axis=1) * deta
+    
+        self.skyvis_lag = NP.fft.fftshift(skyvis_lag, axes=1)
+        self.vis_lag = NP.fft.fftshift(vis_lag, axes=1)
+        self.lag_kernel = NP.fft.fftshift(lag_kernel, axes=1)
+        self.cc_skyvis_lag = NP.fft.fftshift(ccomponents_noiseless, axes=1)
+        self.cc_skyvis_res_lag = NP.fft.fftshift(ccres_noiseless, axes=1)
+        self.cc_vis_lag = NP.fft.fftshift(ccomponents_noisy, axes=1)
+        self.cc_vis_res_lag = NP.fft.fftshift(ccres_noisy, axes=1)
+
+        self.cc_skyvis_net_lag = self.cc_skyvis_lag + self.cc_skyvis_res_lag
+        self.cc_vis_net_lag = self.cc_vis_lag + self.cc_vis_res_lag
+        self.lags = NP.fft.fftshift(lags)
+
+        self.cc_skyvis_freq = cc_skyvis
+        self.cc_skyvis_res_freq = cc_skyvis_res
+        self.cc_vis_freq = cc_vis
+        self.cc_vis_res_freq = cc_vis_res
+
+        self.cc_skyvis_net_freq = cc_skyvis + cc_skyvis_res
+        self.cc_vis_net_freq = cc_vis + cc_vis_res
+
+        self.clean_window_buffer = clean_window_buffer
+        
+    #############################################################################
+        
+    def delayClean(self, pad=1.0, freq_wts=None, clean_window_buffer=1.0,
+                   gain=0.1, maxiter=10000, threshold=5e-3,
+                   threshold_type='relative', verbose=True):
+
+        """
+        ------------------------------------------------------------------------
+        Transforms the visibilities from frequency axis onto delay (time) axis
+        using an IFFT and deconvolves the delay transform quantities along the 
+        delay axis. This is performed for noiseless sky visibilities, thermal
+        noise in visibilities, and observed visibilities. This calls an in-house
+        module complex1dClean instead of the clean routine in AIPY module
+
+        Inputs:
+
+        pad      [scalar] Non-negative scalar indicating padding fraction 
+                 relative to the number of frequency channels. For e.g., a 
+                 pad of 1.0 pads the frequency axis with zeros of the same 
+                 width as the number of channels. If a negative value is 
+                 specified, delay transform will be performed with no padding
+
+        freq_wts [numpy vector or array] window shaping to be applied before
+                 computing delay transform. It can either be a vector or size
+                 equal to the number of channels (which will be applied to all
+                 time instances for all baselines), or a nchan x n_snapshots 
+                 numpy array which will be applied to all baselines, or a 
+                 n_baselines x nchan numpy array which will be applied to all 
+                 timestamps, or a n_baselines x nchan x n_snapshots numpy 
+                 array. Default (None) will not apply windowing and only the
+                 inherent bandpass will be used.
+
+        gain     [scalar] gain factor to be applied while subtracting clean 
+                 component from residuals. This is the fraction of the maximum in 
+                 the residuals that will be subtracted. Must lie between 0 and 1.
+                 A lower value will have a smoother convergence but take a longer 
+                 time to converge. Default=0.1
+
+        maxiter  [scalar] maximum number of iterations for cleaning process. Will 
+                 terminate if the number of iterations exceed maxiter. 
+                 Default=10000
+
+        threshold 
+                 [scalar] represents the cleaning depth either as a fraction of 
+                 the maximum in the input (when thershold_type is set to 
+                 'relative') or the absolute value (when threshold_type is set 
+                 to 'absolute') in same units of input down to which inp should 
+                 be cleaned. Value must always be positive. When threshold_type 
+                 is set to 'relative', threshold mu st lie between 0 and 1. 
+                 Default=5e-3 (found to work well and converge fast) assuming 
+                 threshold_type is set to 'relative'
+
+        threshold_type
+                 [string] represents the type of threshold specified by value in 
+                 input threshold. Accepted values are 'relative' and 'absolute'. 
+                 If set to 'relative' the threshold value is the fraction 
+                 (between 0 and 1) of maximum in input down to which it should 
+                 be cleaned. If set to 'asbolute' it is the actual value down to 
+                 which inp should be cleaned. Default='relative'
+
+        verbose  [boolean] If set to True (default), print diagnostic and 
+                 progress messages. If set to False, no such messages are
+                 printed.
+        ------------------------------------------------------------------------
+        """
+
+        if not isinstance(pad, (int, float)):
+            raise TypeError('pad fraction must be a scalar value.')
+        if pad < 0.0:
+            pad = 0.0
+            if verbose:
+                print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+    
+        bw = self.df * self.f.size
+        pc = self.ia.phase_center
+        pc_coords = self.ia.phase_center_coords
+        if pc_coords == 'hadec':
+            pc_altaz = GEOM.hadec2altaz(pc, self.ia.latitude, units='degrees')
+            pc_dircos = GEOM.altaz2dircos(pc_altaz, units='degrees')
+        elif pc_coords == 'altaz':
+            pc_dircos = GEOM.altaz2dircos(pc, units='degrees')
+        
+        npad = int(self.f.size * pad)
+        lags = DSP.spectral_axis(self.f.size + npad, delx=self.df, use_real=False, shift=False)
+        dlag = lags[1] - lags[0]
+    
+        clean_area = NP.zeros(self.f.size + npad, dtype=int)
+        skyvis_lag = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.ia.skyvis_freq*self.bp*self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
+        vis_lag = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.ia.vis_freq*self.bp*self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
+        lag_kernel = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.bp, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
+        # lag_kernel = lag_kernel * NP.exp(-1j * 2 * NP.pi * self.f[0] * lags).reshape(1,-1,1)
+
+        ccomponents_noiseless = NP.zeros_like(skyvis_lag)
+        ccres_noiseless = NP.zeros_like(skyvis_lag)
+    
+        ccomponents_noisy = NP.zeros_like(vis_lag)
+        ccres_noisy = NP.zeros_like(vis_lag)
+        
+        for snap_iter in xrange(self.n_acc):
+            progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Baselines '.format(self.ia.baselines.shape[0]), PGB.ETA()], maxval=self.ia.baselines.shape[0]).start()
+            for bl_iter in xrange(self.ia.baselines.shape[0]):
+                clean_area[NP.logical_and(lags <= self.horizon_delay_limits[snap_iter,bl_iter,1]+clean_window_buffer/bw, lags >= self.horizon_delay_limits[snap_iter,bl_iter,0]-clean_window_buffer/bw)] = 1
+    
+                cleanstate = complex1dClean(skyvis_lag[bl_iter,:,snap_iter], lag_kernel[bl_iter,:,snap_iter], cbox=clean_area, gain=gain, maxiter=maxiter, threshold=threshold, threshold_type=threshold_type, verbose=verbose)
+                ccomponents_noiseless[bl_iter,:,snap_iter] = cleanstate['cc']
+                ccres_noiseless[bl_iter,:,snap_iter] = cleanstate['res']
+
+                cleanstate = complex1dClean(skyvis_lag[bl_iter,:,snap_iter], lag_kernel[bl_iter,:,snap_iter], cbox=clean_area, gain=gain, maxiter=maxiter, threshold=threshold, threshold_type=threshold_type, verbose=verbose)
+                ccomponents_noiseless[bl_iter,:,snap_iter] = cleanstate['cc']
+                ccres_noiseless[bl_iter,:,snap_iter] = cleanstate['res']
+                
                 progress.update(bl_iter+1)
             progress.finish()
     

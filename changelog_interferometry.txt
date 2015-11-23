@@ -1,3 +1,13 @@
+From 40531dc (delay-transform):
+==============================
+
+In delay-spectrum.py,
+
+(*) Add global function complex1dClean() (with docstring) to perform
+1D complex-valued clean.
+(*) Add member function delayClean() (with docstring) to class
+DelaySpectrum. Update its docstring accordingly
+
 From f5fff3d (delay-transform):
 ==============================
 
