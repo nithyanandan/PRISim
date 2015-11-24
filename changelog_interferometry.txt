@@ -1,7 +1,26 @@
+From 64bf959 (delay-transform):
+==============================
+
+In delay_spectrum.py,
+
+(*) Add and initialize attributes cc_lags, cc_freq, cc_lag_kernel
+in __init__() member function of class DelaySpectrum. Update
+docstring accordingly
+(*) Modify initialization of attribute lags from None to actual
+values in __init__() member function of class DelaySpectrum
+(*) Estimate attributes cc_lags, cc_freq and cc_lag_kernel in
+delayClean() member function of class DelaySpectrum
+(*) Save attributes cc_lags, cc_freq, and cc_lag_kernel in save()
+member function of class DelaySpectrum
+
+In changelog_interferometry.txt,
+
+(*) Fix a minor typo in the changelog of previous commit
+
 From 40531dc (delay-transform):
 ==============================
 
-In delay-spectrum.py,
+In delay_spectrum.py,
 
 (*) Add global function complex1dClean() (with docstring) to perform
 1D complex-valued clean.

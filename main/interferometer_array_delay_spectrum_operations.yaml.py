@@ -372,7 +372,7 @@ for k in range(n_sky_sectors):
             # achrmdso.clean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
             achrmdso.delayClean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
             achrmdso.save(outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
-            # achrmdso = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
+            # achrmdso2 = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
         elif beam_iter == 1:
             chrmia = RI.InterferometerArray(None, None, None, init_file=infile+'.fits')
             chrmia.phase_centering(phase_center=pc, phase_center_coords=pc_coords,

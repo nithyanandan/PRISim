@@ -324,17 +324,33 @@ class DelaySpectrum(object):
 
     f           [list or numpy vector] frequency channels in Hz
 
+    cc_freq     [list or numpy vector] frequency channels in Hz associated with 
+                clean components of delay spectrum. Same size as cc_lags. This 
+                computed inside member function delayClean()
+
     df          [scalar] Frequency resolution (in Hz)
 
     lags        [numpy vector] Time axis obtained when the frequency axis is
                 inverted using a FFT. Same size as channels. This is 
                 computed in member function delay_transform().
 
+    cc_lags     [numpy vector] Time axis obtained when the frequency axis is
+                inverted using a FFT. Same size as cc_freq. This is computed in 
+                member function delayClean().
+
     lag_kernel  [numpy array] Inverse Fourier Transform of the frequency 
                 bandpass shape. In other words, it is the impulse response 
                 corresponding to frequency bandpass. Same size as attributes
                 bp and bp_wts. It is initialized in __init__() member function
-                but effectively computed in member function delay_transform()
+                but effectively computed in member functions delay_transform()
+                and delayClean()
+
+    cc_lag_kernel  
+                [numpy array] Inverse Fourier Transform of the frequency 
+                bandpass shape. In other words, it is the impulse response 
+                corresponding to frequency bandpass shape used in complex delay 
+                clean routine. It is initialized in __init__() member function
+                but effectively computed in member function delayClean()
 
     n_acc       [scalar] Number of accumulations
 
@@ -500,7 +516,8 @@ class DelaySpectrum(object):
         pad, lag_kernel, horizon_delay_limits, cc_skyvis_lag, cc_skyvis_res_lag, 
         cc_skyvis_net_lag, cc_vis_lag, cc_vis_res_lag, cc_vis_net_lag, 
         cc_skyvis_freq, cc_skyvis_res_freq, cc_sktvis_net_freq, cc_vis_freq,
-        cc_vis_res_freq, cc_vis_net_freq, clean_window_buffer
+        cc_vis_res_freq, cc_vis_net_freq, clean_window_buffer, cc_freq, cc_lags,
+        cc_lag_kernel
 
         Read docstring of class DelaySpectrum for details on these
         attributes.
@@ -511,6 +528,9 @@ class DelaySpectrum(object):
                      [instance of class InterferometerArray] An instance of 
                      class InterferometerArray from which certain attributes 
                      will be obtained and used
+
+        init_file    [string] full path to filename in FITS format containing 
+                     delay spectrum information of interferometer array
 
         Other input parameters have their usual meanings. Read the docstring of
         class DelaySpectrum for details on these inputs.
@@ -577,6 +597,14 @@ class DelaySpectrum(object):
             if 'LAGS' in extnames:
                 self.lags = hdulist['LAGS'].data
 
+            self.cc_lags = None
+            if 'CC_LAGS' in extnames:
+                self.cc_lags = hdulist['CC_LAGS'].data
+
+            self.cc_freq = None
+            if 'CC_FREQ' in extnames:
+                self.cc_freq = hdulist['CC_FREQ'].data
+                
             if 'BANDPASS' in extnames:
                 self.bp = hdulist['BANDPASS'].data
             else:
@@ -599,6 +627,13 @@ class DelaySpectrum(object):
                 self.lag_kernel = self.lag_kernel.astype(NP.complex)
                 self.lag_kernel += 1j * hdulist['LAG KERNEL IMAG'].data
 
+            self.cc_lag_kernel = None
+            if 'CLEAN LAG KERNEL REAL' in extnames:
+                self.cc_lag_kernel = hdulist['CLEAN LAG KERNEL REAL'].data
+            if 'CLEAN LAG KERNEL IMAG' in extnames:
+                self.cc_lag_kernel = self.cc_lag_kernel.astype(NP.complex)
+                self.cc_lag_kernel += 1j * hdulist['CLEAN LAG KERNEL IMAG'].data
+                
             self.skyvis_lag = None
             if 'NOISELESS DELAY SPECTRA REAL' in extnames:
                 self.skyvis_lag = hdulist['NOISELESS DELAY SPECTRA REAL'].data
@@ -714,7 +749,7 @@ class DelaySpectrum(object):
         self.bp_wts = interferometer_array.bp_wts # Additional bandpass weights
 
         self.pad = 0.0
-        self.lags = None
+        self.lags = DSP.spectral_axis(self.f.size, delx=self.df, use_real=False, shift=True)
         self.lag_kernel = None
 
         self.skyvis_lag = None
@@ -723,6 +758,9 @@ class DelaySpectrum(object):
 
         self.clean_window_buffer = 1.0
 
+        self.cc_lags = None
+        self.cc_freq = None
+        self.cc_lag_kernel = None
         self.cc_skyvis_lag = None
         self.cc_skyvis_res_lag = None
         self.cc_vis_lag = None
@@ -851,6 +889,8 @@ class DelaySpectrum(object):
 
         """
         ------------------------------------------------------------------------
+        TO BE DEPRECATED!!! USE MEMBER FUNCTION delayClean()
+
         Transforms the visibilities from frequency axis onto delay (time) axis
         using an IFFT and deconvolves the delay transform quantities along the 
         delay axis. This is performed for noiseless sky visibilities, thermal
@@ -1080,6 +1120,7 @@ class DelaySpectrum(object):
         self.skyvis_lag = NP.fft.fftshift(skyvis_lag, axes=1)
         self.vis_lag = NP.fft.fftshift(vis_lag, axes=1)
         self.lag_kernel = NP.fft.fftshift(lag_kernel, axes=1)
+        self.cc_lag_kernel = NP.fft.fftshift(lag_kernel, axes=1)        
         self.cc_skyvis_lag = NP.fft.fftshift(ccomponents_noiseless, axes=1)
         self.cc_skyvis_res_lag = NP.fft.fftshift(ccres_noiseless, axes=1)
         self.cc_vis_lag = NP.fft.fftshift(ccomponents_noisy, axes=1)
@@ -1087,7 +1128,7 @@ class DelaySpectrum(object):
 
         self.cc_skyvis_net_lag = self.cc_skyvis_lag + self.cc_skyvis_res_lag
         self.cc_vis_net_lag = self.cc_vis_lag + self.cc_vis_res_lag
-        self.lags = NP.fft.fftshift(lags)
+        self.cc_lags = NP.fft.fftshift(lags)
 
         self.cc_skyvis_freq = cc_skyvis
         self.cc_skyvis_res_freq = cc_skyvis_res
@@ -1256,10 +1297,11 @@ class DelaySpectrum(object):
         if verbose:
             print '\tCreated an extension for bandpass weights of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp_wts.shape)
 
-        hdulist += [fits.ImageHDU(self.lag_kernel.real, name='LAG KERNEL REAL')]
-        hdulist += [fits.ImageHDU(self.lag_kernel.imag, name='LAG KERNEL IMAG')]
-        if verbose:
-            print '\tCreated an extension for convolving lag kernel of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.lag_kernel.shape)
+        if self.lag_kernel is not None:
+            hdulist += [fits.ImageHDU(self.lag_kernel.real, name='LAG KERNEL REAL')]
+            hdulist += [fits.ImageHDU(self.lag_kernel.imag, name='LAG KERNEL IMAG')]
+            if verbose:
+                print '\tCreated an extension for convolving lag kernel of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.lag_kernel.shape)
         
         if self.skyvis_lag is not None:
             hdulist += [fits.ImageHDU(self.skyvis_lag.real, name='NOISELESS DELAY SPECTRA REAL')]
@@ -1271,6 +1313,19 @@ class DelaySpectrum(object):
             hdulist += [fits.ImageHDU(self.vis_noise_lag.real, name='DELAY SPECTRA NOISE REAL')]
             hdulist += [fits.ImageHDU(self.vis_noise_lag.imag, name='DELAY SPECTRA NOISE IMAG')]
             
+        if self.cc_freq is not None:
+            hdulist += [fits.ImageHDU(self.cc_freq, name='CLEAN FREQUENCIES')]
+        if self.cc_lags is not None:
+            hdulist += [fits.ImageHDU(self.cc_lags, name='CLEAN LAGS')]
+        if verbose:
+            print '\tCreated an extension for spectral axes of clean components'
+
+        if self.cc_lag_kernel is not None:
+            hdulist += [fits.ImageHDU(self.cc_lag_kernel.real, name='CLEAN LAG KERNEL REAL')]
+            hdulist += [fits.ImageHDU(self.cc_lag_kernel.imag, name='CLEAN LAG KERNEL IMAG')]
+            if verbose:
+                print '\tCreated an extension for deconvolving lag kernel of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.cc_lag_kernel.shape)
+
         if self.cc_skyvis_lag is not None:
             hdulist += [fits.ImageHDU(self.cc_skyvis_lag.real, name='CLEAN NOISELESS DELAY SPECTRA REAL')]
             hdulist += [fits.ImageHDU(self.cc_skyvis_lag.imag, name='CLEAN NOISELESS DELAY SPECTRA IMAG')]
