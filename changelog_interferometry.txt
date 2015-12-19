@@ -1,3 +1,18 @@
+From 3ad024e (delay-transform):
+==============================
+
+In delay_spectrum.py,
+
+(*) Use input freq_wts in member functions delayClean() and clean()
+of member function DelaySpectrum
+(*) Minor change in definition of rms in function complex1dClean()
+(*) Add member function multi_window_delay_transform() with docstring
+to class DelaySpectrum. Modify class docstring accordingly
+
+In interferometer_array_data_simulation.yaml.mpi.py, add capability
+to perform simulations with achromatic beams from a variety of
+different input beam formats
+
 From 64bf959 (delay-transform):
 ==============================
 

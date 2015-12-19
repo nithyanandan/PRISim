@@ -3408,7 +3408,7 @@ class InterferometerArray(object):
                 
         return {'skyvis_lag': skyvis_lag, 'vis_noise_lag': vis_noise_lag, 'lag_kernel': lag_kernel, 'lag_corr_length': self.channels.size / NP.sum(freq_wts, axis=1)}
 
-    #############################################################################    
+    #############################################################################
 
     def concatenate(self, others, axis):
 

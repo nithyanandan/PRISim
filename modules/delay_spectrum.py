@@ -10,6 +10,7 @@ import my_DSP_modules as DSP
 import baseline_delay_horizon as DLY
 import geometry as GEOM
 import interferometry as RI
+import lookup_operations as LKP
 
 #################################################################################
 
@@ -235,13 +236,13 @@ def complex1dClean(inp, kernel, cbox=None, gain=0.1, maxiter=10000,
     if lolim >= 1.0:
         raise ValueError('incompatible value specified for threshold')
 
-    inrms = [NP.std(inp[cbox])]
-    # inrms = [NP.median(NP.abs(inp[cbox] - NP.median(inp[cbox])))]
+    # inrms = [NP.std(inp[cbox])]
+    inrms = [NP.median(NP.abs(inp[cbox] - NP.median(inp[cbox])))]
     if inp.size - NP.sum(cbox) <= 2:
         outrms = None
     else:
-        outrms = [NP.std(inp[NP.invert(cbox)])]
-        # outrms = [NP.median(NP.abs(inp[NP.invert(cbox)] - NP.median(inp[NP.invert(cbox)])))]
+        # outrms = [NP.std(inp[NP.invert(cbox)])]
+        outrms = [NP.median(NP.abs(inp[NP.invert(cbox)] - NP.median(inp[NP.invert(cbox)])))]
 
     if not isinstance(gain, float):
         raise TypeError('gain must be a floating point number')
@@ -258,10 +259,10 @@ def complex1dClean(inp, kernel, cbox=None, gain=0.1, maxiter=10000,
     cc = NP.zeros_like(inp)
     res = NP.copy(inp)
     cond4 = False
-    prevrms = NP.std(res)
-    currentrms = [NP.std(res)]
-    # prevrms = NP.median(NP.abs(res - NP.median(res)))
-    # currentrms = [NP.median(NP.abs(res - NP.median(res)))]
+    # prevrms = NP.std(res)
+    # currentrms = [NP.std(res)]
+    prevrms = NP.median(NP.abs(res - NP.median(res)))
+    currentrms = [NP.median(NP.abs(res - NP.median(res)))]
     itr = 0
     terminate = False
     while not terminate:
@@ -274,19 +275,19 @@ def complex1dClean(inp, kernel, cbox=None, gain=0.1, maxiter=10000,
         res = res - ccval * NP.roll(kernel, indmaxres-kmaxind)
         
         prevrms = NP.copy(currentrms[-1])
-        currentrms += [NP.std(res)]
-        # currentrms += [NP.median(NP.abs(res - NP.median(res)))]
+        # currentrms += [NP.std(res)]
+        currentrms += [NP.median(NP.abs(res - NP.median(res)))]
 
-        inrms += [NP.std(res[cbox])]
-        # inrms += [NP.median(NP.abs(res[cbox] - NP.median(res[cbox])))]
+        # inrms += [NP.std(res[cbox])]
+        inrms += [NP.median(NP.abs(res[cbox] - NP.median(res[cbox])))]
             
         # cond1 = NP.abs(maxres) <= inrms[-1]
         cond1 = NP.abs(maxres) <= lolim * NP.abs(inp).max()
         cond2 = itr >= maxiter
         terminate = cond1 or cond2
         if outrms is not None:
-            outrms += [NP.std(res[NP.invert(cbox)])]
-            # outrms += [NP.median(NP.abs(res[NP.invert(cbox)] - NP.median(res[NP.invert(cbox)])))]
+            # outrms += [NP.std(res[NP.invert(cbox)])]
+            outrms += [NP.median(NP.abs(res[NP.invert(cbox)] - NP.median(res[NP.invert(cbox)])))]
             cond3 = inrms[-1] <= outrms[-1]
             terminate = terminate or cond3
 
@@ -488,6 +489,10 @@ class DelaySpectrum(object):
                 sky visibilities, thermal noise in visibilities, and observed 
                 visibilities. This calls an in-house module complex1dClean 
                 instead of the clean routine in AIPY module
+
+    multi_window_delay_transform()
+                Computes delay transform on multiple frequency windows with 
+                specified weights
 
     get_horizon_delay_limits()
                 Estimates the delay envelope determined by the sky horizon 
@@ -927,6 +932,21 @@ class DelaySpectrum(object):
             if verbose:
                 print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
     
+        if freq_wts is not None:
+            if freq_wts.size == self.f.size:
+                freq_wts = NP.repeat(NP.expand_dims(NP.repeat(freq_wts.reshape(1,-1), self.ia.baselines.shape[0], axis=0), axis=2), self.n_acc, axis=2)
+            elif freq_wts.size == self.f.size * self.n_acc:
+                freq_wts = NP.repeat(NP.expand_dims(freq_wts.reshape(self.f.size, -1), axis=0), self.ia.baselines.shape[0], axis=0)
+            elif freq_wts.size == self.f.size * self.ia.baselines.shape[0]:
+                freq_wts = NP.repeat(NP.expand_dims(freq_wts.reshape(-1, self.f.size), axis=2), self.n_acc, axis=2)
+            elif freq_wts.size == self.f.size * self.ia.baselines.shape[0] * self.n_acc:
+                freq_wts = freq_wts.reshape(self.ia.baselines.shape[0], self.f.size, self.n_acc)
+            else:
+                raise ValueError('window shape dimensions incompatible with number of channels and/or number of tiemstamps.')
+            self.bp_wts = freq_wts
+            if verbose:
+                print '\tFrequency window weights assigned.'
+
         bw = self.df * self.f.size
         pc = self.ia.phase_center
         pc_coords = self.ia.phase_center_coords
@@ -1069,6 +1089,21 @@ class DelaySpectrum(object):
             if verbose:
                 print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
     
+        if freq_wts is not None:
+            if freq_wts.size == self.f.size:
+                freq_wts = NP.repeat(NP.expand_dims(NP.repeat(freq_wts.reshape(1,-1), self.ia.baselines.shape[0], axis=0), axis=2), self.n_acc, axis=2)
+            elif freq_wts.size == self.f.size * self.n_acc:
+                freq_wts = NP.repeat(NP.expand_dims(freq_wts.reshape(self.f.size, -1), axis=0), self.ia.baselines.shape[0], axis=0)
+            elif freq_wts.size == self.f.size * self.ia.baselines.shape[0]:
+                freq_wts = NP.repeat(NP.expand_dims(freq_wts.reshape(-1, self.f.size), axis=2), self.n_acc, axis=2)
+            elif freq_wts.size == self.f.size * self.ia.baselines.shape[0] * self.n_acc:
+                freq_wts = freq_wts.reshape(self.ia.baselines.shape[0], self.f.size, self.n_acc)
+            else:
+                raise ValueError('window shape dimensions incompatible with number of channels and/or number of tiemstamps.')
+            self.bp_wts = freq_wts
+            if verbose:
+                print '\tFrequency window weights assigned.'
+
         bw = self.df * self.f.size
         pc = self.ia.phase_center
         pc_coords = self.ia.phase_center_coords
@@ -1083,9 +1118,15 @@ class DelaySpectrum(object):
         dlag = lags[1] - lags[0]
     
         clean_area = NP.zeros(self.f.size + npad, dtype=int)
+
         skyvis_lag = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.ia.skyvis_freq*self.bp*self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
         vis_lag = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.ia.vis_freq*self.bp*self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
-        lag_kernel = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.bp, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
+        lag_kernel = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.bp*self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
+
+        # skyvis_lag = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.ia.skyvis_freq, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
+        # vis_lag = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.ia.vis_freq, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
+        # lag_kernel = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.bp, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
+        
         # lag_kernel = lag_kernel * NP.exp(-1j * 2 * NP.pi * self.f[0] * lags).reshape(1,-1,1)
 
         ccomponents_noiseless = NP.zeros_like(skyvis_lag)
@@ -1142,6 +1183,185 @@ class DelaySpectrum(object):
         
     #############################################################################
         
+    def multi_window_delay_transform(self, bw_eff, freq_center=None, shape=None,
+                                     pad=1.0, datapool='simvis', bpcorrect=True,
+                                     action=None, verbose=True):
+
+        """
+        ------------------------------------------------------------------------
+        Computes delay transform on multiple frequency windows with specified
+        weights
+
+        Inputs:
+
+        bw_eff       [scalar, list, numpy array] Effective bandwidths (in Hz) 
+                     of the selected frequency windows. If a scalar is provided, 
+                     the same will be applied to all frequency windows.
+
+        freq_center  [scalar, list, numpy array] Frequency centers of the
+                     selected frequency windows. If a scalar is provided, the
+                     same will be applied to all frequency windows. Default=None
+                     uses the center frequency from the class attribute named 
+                     channels
+
+        shape        [string] specifies frequency window shape. Accepted values
+                     are 'rect' or 'RECT' (for rectangular), 'bnw' and 'BNW' 
+                     (for Blackman-Nuttall), and 'bhw' or 'BHW' (for Blackman-
+                     Harris). Default=None sets it to 'rect' (rectangular 
+                     window)
+
+        pad          [scalar] Non-negative scalar indicating padding fraction 
+                     relative to the number of frequency channels. For e.g., a 
+                     pad of 1.0 pads the frequency axis with zeros of the same 
+                     width as the number of channels. After the delay transform,
+                     the transformed visibilities are downsampled by a factor of
+                     1+pad. If a negative value is specified, delay transform 
+                     will be performed with no padding
+
+        datapool     [string]
+
+        action       [string] If set to 'return' it returns the output 
+                     dictionary and updates its attribute 
+                     multiwin_delay_transform else just updates the attribute.
+                     Default=None (just updates the attribute)
+
+        verbose      [boolean] If set to True (default), print diagnostic and 
+                     progress messages. If set to False, no such messages are
+                     printed.
+
+        Output:
+
+        A dictionary containing information under the following keys:
+        skyvis_lag        Numpy array of pure sky visibilities delay spectra of
+                          size n_bl x n_windows x nchan x n_snaps
+
+        vis_noise_lag     Numpy array of noise delay spectra of size
+                          size n_bl x n_windows x nchan x n_snaps
+
+        lag_kernel        Numpy array of delay kernel of size
+                          size n_bl x n_windows x nchan x n_snaps
+
+        lag_corr_length   Numpy array of correlation length (in units of number
+                          of delay samples) due to convolving kernel in delay
+                          space. This is the number by which the delay spectra
+                          obtained have to be downsampled by to get independent
+                          samples of delay spectra
+        ------------------------------------------------------------------------
+        """
+
+        try:
+            bw_eff
+        except NameError:
+            raise NameError('Effective bandwidth must be specified')
+        else:
+            if not isinstance(bw_eff, (int, float, list, NP.ndarray)):
+                raise TypeError('Effective bandwidth must be a scalar, list or numpy array')
+            bw_eff = NP.asarray(bw_eff).reshape(-1)
+            if NP.any(bw_eff <= 0.0):
+                raise ValueError('All values in effective bandwidth must be strictly positive')
+
+        if freq_center is None:
+            freq_center = NP.asarray(self.f[self.f.size/2]).reshape(-1)
+        elif isinstance(freq_center, (int, float, list, NP.ndarray)):
+            freq_center = NP.asarray(freq_center).reshape(-1)
+            if NP.any((freq_center <= self.f.min()) | (freq_center >= self.f.max())):
+                raise ValueError('Frequency centers must lie strictly inside the observing band')
+        else:
+            raise TypeError('Frequency center(s) must be scalar, list or numpy array')
+
+        if (bw_eff.size == 1) and (freq_center.size > 1):
+            bw_eff = NP.repeat(bw_eff, freq_center.size)
+        elif (bw_eff.size > 1) and (freq_center.size == 1):
+            freq_center = NP.repeat(freq_center, bw_eff.size)
+        elif bw_eff.size != freq_center.size:
+            raise ValueError('Effective bandwidth(s) and frequency center(s) must have same number of elements')
+
+        if shape is not None:
+            if not isinstance(shape, str):
+                raise TypeError('Window shape must be a string')
+            if shape not in ['rect', 'bhw', 'bnw', 'RECT', 'BHW', 'BNW']:
+                raise ValueError('Invalid value for window shape specified.')
+        else:
+            shape = 'rect'
+
+        if not isinstance(pad, (int, float)):
+            raise TypeError('pad fraction must be a scalar value.')
+        if pad < 0.0:
+            pad = 0.0
+            if verbose:
+                print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+
+        freq_wts = NP.empty((bw_eff.size, self.f.size))
+        frac_width = DSP.window_N2width(n_window=None, shape=shape)
+        window_loss_factor = 1 / frac_width
+        n_window = NP.round(window_loss_factor * bw_eff / self.df).astype(NP.int)
+
+        ind_freq_center, ind_channels, dfrequency = LKP.find_1NN(self.f.reshape(-1,1), freq_center.reshape(-1,1), distance_ULIM=0.5*self.df, remove_oob=True)
+        sortind = NP.argsort(ind_channels)
+        ind_freq_center = ind_freq_center[sortind]
+        ind_channels = ind_channels[sortind]
+        dfrequency = dfrequency[sortind]
+        n_window = n_window[sortind]
+
+        for i,ind_chan in enumerate(ind_channels):
+            window = DSP.windowing(n_window[i], shape=shape, centering=True)
+            window_chans = self.f[ind_chan] + self.df * (NP.arange(n_window[i]) - int(n_window[i]/2))
+            ind_window_chans, ind_chans, dfreq = LKP.find_1NN(self.f.reshape(-1,1), window_chans.reshape(-1,1), distance_ULIM=0.5*self.df, remove_oob=True)
+            sind = NP.argsort(ind_window_chans)
+            ind_window_chans = ind_window_chans[sind]
+            ind_chans = ind_chans[sind]
+            dfreq = dfreq[sind]
+            window = window[ind_window_chans]
+            window = NP.pad(window, ((ind_chans.min(), self.f.size-1-ind_chans.max())), mode='constant', constant_values=((0.0,0.0)))
+            freq_wts[i,:] = window
+
+        bpcorrection_factor = 1.0
+        npad = int(self.f.size * pad)
+        lags = DSP.spectral_axis(self.f.size + npad, delx=self.df, use_real=False, shift=True)
+        vis_noise_freq = NP.copy(self.ia.vis_noise_freq)
+        if datapool =='simvis':
+            skyvis_freq = NP.copy(self.ia.skyvis_freq)
+            vis_freq = NP.copy(self.ia.vis_freq)
+        elif datapool == 'ccvis':
+            skyvis_freq = self.cc_skyvis_freq[:,:self.f.size,:]
+            vis_freq = self.cc_vis_freq[:,:self.f.size,:]
+            skyvis_res_freq = self.cc_skyvis_res_freq[:,:self.f.size,:]
+            vis_res_freq = self.cc_vis_res_freq[:,:self.f.size,:]
+            if bpcorrect:
+                bpcorrection_factor = NP.where(NP.abs(self.bp_wts)>0.0, 1/self.bp_wts, 0.0)
+                bpcorrection_factor = bpcorrection_factor[:,NP.newaxis,:,:]
+        else:
+            raise ValueError('Value specified for keyword input datapool invalid')
+
+        # skyvis_lag = DSP.FT1D(NP.pad(skyvis_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * bpcorrection_factor * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        # vis_lag = DSP.FT1D(NP.pad(vis_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * bpcorrection_factor * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df        
+        # vis_noise_lag = DSP.FT1D(NP.pad(vis_noise_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * bpcorrection_factor * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        # lag_kernel = DSP.FT1D(NP.pad(self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        # if datapool == 'ccvis':
+        #     skyvis_res_lag = DSP.FT1D(NP.pad(skyvis_res_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * bpcorrection_factor * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        #     vis_res_lag = DSP.FT1D(NP.pad(vis_res_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * bpcorrection_factor * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+
+        skyvis_lag = DSP.FT1D(NP.pad(skyvis_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        vis_lag = DSP.FT1D(NP.pad(vis_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df        
+        vis_noise_lag = DSP.FT1D(NP.pad(vis_noise_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        lag_kernel = DSP.FT1D(NP.pad(self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        result = {'freq_wts': freq_wts, 'lags': lags, 'skyvis_lag': skyvis_lag, 'vis_lag': vis_lag, 'vis_noise_lag': vis_noise_lag, 'lag_kernel': lag_kernel, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=1)}
+        if datapool == 'ccvis':
+            skyvis_res_lag = DSP.FT1D(NP.pad(skyvis_res_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+            vis_res_lag = DSP.FT1D(NP.pad(vis_res_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+            result['vis_res_lag'] = vis_res_lag
+            result['skyvis_res_lag'] = skyvis_res_lag
+            
+        if verbose:
+            print '\tMulti-window delay transform computed with padding fraction {0:.1f}'.format(pad)
+
+        if action is None:
+            self.multiwin_delay_transform = result
+        elif action == 'return':
+            return result
+
+    #############################################################################
+
     def get_horizon_delay_limits(self, phase_center=None,
                                  phase_center_coords=None):
 

@@ -176,22 +176,36 @@ beam    :
                                 # analytically from antenna aperture
                                 # specifications
 
-    file            : '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
+    file            :           '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_healpix.fits'
+                                # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
+                                # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
                                 # Full pathname to the FITS file
                                 # containing the external antenna
                                 # beam. Used only if use_external is
                                 # set to true
 
+    identifier      : 'RBAN'
+                                # string to identify source of beam
+                                # Any string. e.g. RB=Rich Bradley,
+                                # AN=Abraham Neben
+                                # DD=Dave DeBoer, or 'HERA-CST'
+
     pol             : 'X'
                                 # Beam polarization. Accepted values
                                 # are 'X' and 'Y'
 
-    chromatic       : true
+    chromatic       : false
                                 # if false, the beam is the same at
                                 # all frequencies and the beam at
                                 # reference frequency will be used for
                                 # all frequencies. if true, beam
                                 # scales with frequency
+
+    select_freq     : 137500000.0
+                                # Frequency (Hz) to use for beam in 
+                                # case of achromatic usage of the beam
+                                # If set to null (default), it defaults
+                                # to using value defined in freq
 
 ########## Observation setup ##########
 
