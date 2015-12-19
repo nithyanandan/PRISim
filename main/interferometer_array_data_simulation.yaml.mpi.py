@@ -151,6 +151,8 @@ pc = parms['phasing']['center']
 pc_coords = parms['phasing']['coords']
 mpi_key = parms['pp']['key']
 mpi_eqvol = parms['pp']['eqvol']
+save_formats = parms['save_formats']
+save_to_npz = save_formats['npz']
 plots = parms['plots']
 
 if project not in ['project_MWA', 'project_global_EoR', 'project_HERA', 'project_drift_scan', 'project_beams', 'project_LSTbin']:
@@ -1595,7 +1597,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             ia.add_noise()
             # ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
             ia.project_baselines()
-            ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
+            ia.save(outfile, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
 
 else: # MPI based on baseline multiplexing
 
@@ -1649,7 +1651,7 @@ else: # MPI based on baseline multiplexing
                 ia.generate_noise()
                 ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
-                ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
+                ia.save(outfile, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
         counter.free()
         pte = time.time()
         pte_str = str(DT.datetime.now())
@@ -1805,7 +1807,7 @@ else: # MPI based on baseline multiplexing
                 ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
                 ia.project_baselines()
-                ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
+                ia.save(outfile, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
         pte_str = str(DT.datetime.now())                
  
 if rank == 0:
@@ -1858,7 +1860,7 @@ if rank == 0:
             simvis.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
 
         consolidated_outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+pfb_str2
-        simvis.save(consolidated_outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
+        simvis.save(consolidated_outfile, verbose=True, tabtype='BinTableHDU', npz=save_to_npz, overwrite=True)
     if fg_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:
         skymod.save(consolidated_outfile+'.skymodel.txt', fileformat='ascii')
             

@@ -176,15 +176,15 @@ beam    :
                                 # analytically from antenna aperture
                                 # specifications
 
-    file            :           '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_healpix.fits'
-                                # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
+    file            :           '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
+                                # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_healpix.fits'                                
                                 # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
                                 # Full pathname to the FITS file
                                 # containing the external antenna
                                 # beam. Used only if use_external is
                                 # set to true
 
-    identifier      : 'RBAN'
+    identifier      : 'DDAN'
                                 # string to identify source of beam
                                 # Any string. e.g. RB=Rich Bradley,
                                 # AN=Abraham Neben
@@ -588,6 +588,13 @@ flags    :
                                 # edge channels periodically for every
                                 # coarse channels. Do not repeat if
                                 # set to false
+
+########## Save format ##########
+
+save_formats :
+
+    npz             : true
+                                # If true, save to numpy NPZ format
 
 ########## Create plots ##########
 

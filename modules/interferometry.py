@@ -3502,7 +3502,8 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def save(self, outfile, tabtype='BinTableHDU', overwrite=False, verbose=True):
+    def save(self, outfile, tabtype='BinTableHDU', npz=True, overwrite=False,
+             verbose=True):
 
         """
         -------------------------------------------------------------------------
@@ -3519,6 +3520,11 @@ class InterferometerArray(object):
                      the FITS file. Allowed values are 'BinTableHDU' and 
                      'TableHDU' for binary and ascii tables respectively. Default 
                      is 'BinTableHDU'.
+
+        npz          [boolean] True (default) indicates a numpy NPZ format file
+                     is created in addition to the FITS file to store essential
+                     attributes of the class InterferometerArray for easy 
+                     handing over of python files
                      
         overwrite    [boolean] True indicates overwrite even if a file already 
                      exists. Default = False (does not overwrite)
@@ -3718,6 +3724,11 @@ class InterferometerArray(object):
 
         if verbose:
             print '\tInterferometer array information written successfully to FITS file on disk:\n\t\t{0}\n'.format(filename)
+
+        if npz:
+            NP.savez_compressed(outfile+'.npz', skyvis_freq=self.skyvis_freq, vis_freq=self.vis_freq, vis_noise_freq=self.vis_noise_freq, lst=self.lst, freq=self.channels, timestamp=self.timestamp, bl=self.baselines, bl_length=self.baseline_lengths)
+            if verbose:
+                print '\tInterferometer array information written successfully to NPZ file on disk:\n\t\t{0}\n'.format(outfile+'.npz')
 
 #################################################################################
 

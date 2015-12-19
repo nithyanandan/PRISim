@@ -1,3 +1,13 @@
+From dfeabae (master):
+=====================
+
+In interferometry.py,
+
+(*) Add functionality in member function save() of class
+InterferometerArray to save essential attributes of the class to
+numpy compatible NPZ format. Modify docstring of save() member
+function accordingly
+
 From 3ad024e (delay-transform):
 ==============================
 
