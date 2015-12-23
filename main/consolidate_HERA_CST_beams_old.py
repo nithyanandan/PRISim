@@ -5,10 +5,8 @@ import glob
 import ipdb as PDB
 
 rootdir = '/data3/t_nithyanandan/project_HERA/'
-beams_dir = 'power_patterns/CST/mdl03/'
-prefix = 'X4Y2H_490_'
-suffix = '.hmap'
-pols = ['X']
+beams_dir = 'power_patterns/CST/'
+pols = ['X', 'Y']
 
 colnum = 0
 outdata = []
@@ -17,11 +15,11 @@ nsides = []
 npixs = []
 frequencies = []
 for pol in pols:
-    fullfnames = glob.glob(rootdir + beams_dir + prefix + '*' + suffix)
+    fullfnames = glob.glob(rootdir + beams_dir + '*_{0}_healpix.fits'.format(pol))
     fullfnames = NP.asarray(fullfnames)
     fnames = [fname.split('/')[-1] for fname in fullfnames]
     fnames = NP.asarray(fnames)
-    freqs_str = [fname.split('_')[2].split('.')[0] for fname in fnames]
+    freqs_str = [fname.split('_')[5][:-3] for fname in fnames]
     freqs = NP.asarray(map(float, freqs_str))
     sortind = NP.argsort(freqs)
     fullfnames = fullfnames[sortind]
@@ -52,7 +50,7 @@ for pol in pols:
     npixs += [beam[:,0].size]
     nsides += [HP.npix2nside(beam[:,0].size)]
 
-outfile = rootdir + beams_dir + '{0[0]}_{0[1]}'.format(fnames[0].split('_')[:2])+suffix
+outfile = rootdir + beams_dir + '{0[0]}_{0[1]}_{0[2]}_{0[3]}_{0[4]}_healpix.fits'.format(fnames[0].split('_'))
 hdulist = []
 hdulist += [fits.PrimaryHDU()]
 hdulist[0].header['EXTNAME'] = 'PRIMARY'
@@ -72,3 +70,9 @@ for pi,pol in enumerate(pols):
 
 outhdu = fits.HDUList(hdulist)
 outhdu.writeto(outfile, clobber=True)
+    
+    
+
+        
+        
+

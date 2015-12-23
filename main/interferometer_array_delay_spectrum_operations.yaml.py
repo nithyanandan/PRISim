@@ -45,12 +45,6 @@ minR = parms['array']['minR']
 maxR = parms['array']['maxR']
 minbl = parms['baseline']['min']
 maxbl = parms['baseline']['max']
-beam_info = parms['beam']
-use_external_beam = beam_info['use_external']
-if use_external_beam:
-    external_beam_file = beam_info['file']
-    beam_pol = beam_info['pol']
-beam_chromaticity = beam_info['chromatic']
 baseline_chunk_size = parms['processing']['bl_chunk_size']
 n_bl_chunks = parms['processing']['n_bl_chunks']
 frequency_chunk_size = parms['processing']['freq_chunk_size']
@@ -65,6 +59,17 @@ nchan = parms['obsparm']['nchan']
 n_acc = parms['obsparm']['n_acc']
 t_acc = parms['obsparm']['t_acc']
 t_obs = parms['obsparm']['t_obs']
+beam_info = parms['beam']
+use_external_beam = beam_info['use_external']
+if use_external_beam:
+    external_beam_file = beam_info['file']
+    beam_pol = beam_info['pol']
+    beam_id = beam_info['identifier']
+    select_beam_freq = beam_info['select_freq']
+    if select_beam_freq is None:
+        select_beam_freq = freq
+    pbeam_spec_interp_method = beam_info['spec_interp']
+beam_chromaticity = beam_info['chromatic']
 n_sky_sectors = parms['processing']['n_sky_sectors']
 bpass_shape = parms['processing']['bpass_shape']
 max_abs_delay = parms['processing']['max_abs_delay']
@@ -77,6 +82,7 @@ pc = parms['phasing']['center']
 pc_coords = parms['phasing']['coords']
 spindex_rms = parms['fgparm']['spindex_rms']
 spindex_seed = parms['fgparm']['spindex_seed']
+nproc = parms['pp']['nproc']
 
 freq_window_centers = [150e6, 160e6, 170e6]
 freq_window_bw = [10e6, 10e6, 10e6]
@@ -223,18 +229,14 @@ else:
         raise ValueError('Height of antenna element above ground plane must be positive.')
 
 if use_external_beam:
-    external_beam = fits.getdata(external_beam_file, extname='BEAM_{0}'.format(beam_pol))
-    external_beam_freqs = fits.getdata(external_beam_file, extname='FREQS_{0}'.format(beam_pol))
-    beam_type = 'extpb'
-    # if beam_chromaticity:
-    #     beam_type = beam_type + '_chromatic'
-    # else:
-    #     beam_type = beam_type + '_achromatic'
+    # external_beam = fits.getdata(external_beam_file, extname='BEAM_{0}'.format(beam_pol))
+    # external_beam_freqs = fits.getdata(external_beam_file, extname='FREQS_{0}'.format(beam_pol))
+    beam_usage_str = 'extpb_'+beam_id
+    beam_type = 'extpb_'+beam_id
 else:
     beam_type = 'funcpb'
-    # beam_type = beam_type + '_chromatic'
 
-beam_types = [beam_type + '_' + chromaticity_str for chromaticity_str in ['achromatic','chromatic']]
+beam_types = [beam_type + '_' + chromaticity_str for chromaticity_str in ['{0:.1f}_MHz_achromatic'.format(select_beam_freq/1e6),'chromatic']]
 
 if (antenna_file is None) and (array_layout is None):
     raise ValueError('One of antenna array file or layout must be specified')
@@ -388,7 +390,7 @@ for k in range(n_sky_sectors):
             # achrmdsofg.delay_transform(oversampling_factor-1.0, freq_wts=window)
             # achrmdsofg.clean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
             # achrmdsofg = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
-            achrmdsofg.delayClean(pad=1.0, freq_wts=window, clean_window_buffer=3.0, gain=0.1, maxiter=40000, threshold=1e-5)
+            achrmdsofg.delayClean(pad=1.0, freq_wts=window, clean_window_buffer=3.0, gain=0.1, maxiter=80000, threshold=1e-6, parallel=True, nproc=nproc)
             achrm_mwdt_FGR = achrmdsofg.multi_window_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='ccvis', bpcorrect=False, action='return')
             achrm_mwdt_FGA = achrmdsofg.multi_window_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='simvis', bpcorrect=False, action='return')
             achrm_mwdt_EoR = achrmdsoeor.multi_window_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='simvis', bpcorrect=False, action='return')            
@@ -408,7 +410,7 @@ for k in range(n_sky_sectors):
             # chrmdsofg.delay_transform(oversampling_factor-1.0, freq_wts=window)
             # chrmdsofg.clean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
             # chrmdsofg = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
-            chrmdsofg.delayClean(pad=1.0, freq_wts=window, clean_window_buffer=3.0, gain=0.1, maxiter=40000, threshold=1e-5)
+            chrmdsofg.delayClean(pad=1.0, freq_wts=window, clean_window_buffer=3.0, gain=0.1, maxiter=80000, threshold=1e-6, parallel=True, nproc=nproc)
             chrm_mwdt_FGR = chrmdsofg.multi_window_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='ccvis', bpcorrect=False, action='return')
             chrm_mwdt_FGA = chrmdsofg.multi_window_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='simvis', bpcorrect=False, action='return')
             chrm_mwdt_EoR = chrmdsoeor.multi_window_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='simvis', bpcorrect=False, action='return')            

@@ -1,3 +1,20 @@
+From e262697 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Add parallelization functionality in member function delayClean()
+of class delaySpectrum using keyword inputs parallel and nproc.
+Update docstring of member function and class accordingly.
+(*) Import newly written module writer_module to handle printing of
+progress bar on terminal
+(*) Add input keywords progressbar, pid and progressbar_yloc to
+function complex1dClean() to display progress bars in case of
+parallel processing. Update docstring accordingly
+(*) CLEAN noise-added delay spectrum instead of doing it twice on
+noiseless delay spectrum in member function delayClean() of class
+delaySpectrum
+
 From dfeabae (master):
 =====================
 

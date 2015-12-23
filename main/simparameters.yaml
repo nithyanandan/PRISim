@@ -176,15 +176,16 @@ beam    :
                                 # analytically from antenna aperture
                                 # specifications
 
-    file            :           '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
-                                # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_healpix.fits'                                
+    file            :           # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_healpix.fits'
+                                # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
                                 # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
+                                '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl03/X4Y2H_490.hmap'
                                 # Full pathname to the FITS file
                                 # containing the external antenna
                                 # beam. Used only if use_external is
                                 # set to true
 
-    identifier      : 'DDAN'
+    identifier      : 'HERA-CST'
                                 # string to identify source of beam
                                 # Any string. e.g. RB=Rich Bradley,
                                 # AN=Abraham Neben
@@ -194,18 +195,24 @@ beam    :
                                 # Beam polarization. Accepted values
                                 # are 'X' and 'Y'
 
-    chromatic       : false
+    chromatic       : true
                                 # if false, the beam is the same at
                                 # all frequencies and the beam at
                                 # reference frequency will be used for
                                 # all frequencies. if true, beam
                                 # scales with frequency
 
-    select_freq     : 137500000.0
+    select_freq     : 150000000.0
                                 # Frequency (Hz) to use for beam in 
                                 # case of achromatic usage of the beam
                                 # If set to null (default), it defaults
                                 # to using value defined in freq
+
+    spec_interp     : 'fft'
+                                # method to interpolate external beam
+                                # along spectral (frequency) direction.
+                                # allowed values are 'fft' (default),
+                                # 'linear', 'bilinear' or 'cubic'
 
 ########## Observation setup ##########
 
@@ -236,7 +243,7 @@ obsparm  :
                                 # Only two of t_obs, n_acc, t_acc
                                 # must be set
 
-    n_acc           : 4     
+    n_acc           : 2     
                                 # Number of accumulations. Only two of
                                 # t_obs, n_acc, and t_acc must be set
 
@@ -535,14 +542,14 @@ processing:
                                 # thermal noise window. Keep this
                                 # value below 0.5/freq_resolution
 
-    delay_transform : true
+    delay_transform : false
                                 # if true, compute delay transform
 
 ########## Parallel processing setup #########
 
 pp       :
 
-    nproc           : 1
+    nproc           : 16
                                 # Number of parallel processes.
                                 # 1 means serial processing.
 

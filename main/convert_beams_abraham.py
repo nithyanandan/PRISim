@@ -30,6 +30,8 @@ for pi,pol in enumerate(pols):
     hdu.header['ORDERING'] = (scheme, 'Pixel ordering scheme, either RING or NESTED')
     hdu.header['NSIDE'] = (nside_in, 'NSIDE parameter of HEALPIX')
     hdu.header['NPIX'] = (npix_in, 'Number of HEALPIX pixels')
+    hdu.header['FIRSTPIX'] = (0, 'First pixel # (0 based)')
+    hdu.header['LASTPIX'] = (npix_in-1, 'Last pixel # (0 based)')    
     hdulist += [hdu]
     hdulist += [fits.ImageHDU(NP.asarray(freq).reshape(-1), name='FREQS_{0}'.format(pol))]
 outhdu = fits.HDUList(hdulist)

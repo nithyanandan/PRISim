@@ -1,7 +1,10 @@
 from __future__ import division
 import numpy as NP
+import multiprocessing as MP
+import itertools as IT
 import statsmodels.robust.scale as stats
 import progressbar as PGB
+import writer_module as WM
 import aipy as AP
 import astropy 
 from astropy.io import fits
@@ -105,8 +108,12 @@ def _gentle_clean(dd, _w, tol=1e-1, area=None, stop_if_div=True, maxiter=100,
 
 #################################################################################
 
+def complex1dClean_arg_splitter(args, **kwargs):
+    return complex1dClean(*args, **kwargs)
+
 def complex1dClean(inp, kernel, cbox=None, gain=0.1, maxiter=10000,
-                   threshold=5e-3, threshold_type='relative', verbose=False):
+                   threshold=5e-3, threshold_type='relative', verbose=False,
+                   progressbar=False, pid=None, progressbar_yloc=0):
 
     """
     ----------------------------------------------------------------------------
@@ -153,6 +160,17 @@ def complex1dClean(inp, kernel, cbox=None, gain=0.1, maxiter=10000,
 
     verbose  [boolean] If set to True (default), print diagnostic and progress 
              messages. If set to False, no such messages are printed.
+
+    progressbar 
+             [boolean] If set to False (default), no progress bar is displayed
+
+    pid      [string or integer] process identifier (optional) relevant only in
+             case of parallel processing and if progressbar is set to True. If
+             pid is not specified, it defaults to the Pool process id
+
+    progressbar_yloc
+             [integer] row number where the progressbar is displayed on the
+             terminal
 
     Output:
 
@@ -265,6 +283,15 @@ def complex1dClean(inp, kernel, cbox=None, gain=0.1, maxiter=10000,
     currentrms = [NP.median(NP.abs(res - NP.median(res)))]
     itr = 0
     terminate = False
+
+    if progressbar:
+        if pid is None:
+            pid = MP.current_process().name
+        else:
+            pid = '{0:0d}'.format(pid)
+        progressbar_loc = (0, progressbar_yloc)
+        writer=WM.Writer(progressbar_loc)
+        progress = PGB.ProgressBar(widgets=[pid+' ', PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Iterations '.format(maxiter), PGB.ETA()], maxval=maxiter, fd=writer).start()
     while not terminate:
         itr += 1
         indmaxres = NP.argmax(NP.abs(res*cbox))
@@ -290,6 +317,11 @@ def complex1dClean(inp, kernel, cbox=None, gain=0.1, maxiter=10000,
             outrms += [NP.median(NP.abs(res[NP.invert(cbox)] - NP.median(res[NP.invert(cbox)])))]
             cond3 = inrms[-1] <= outrms[-1]
             terminate = terminate or cond3
+
+        if progressbar:
+            progress.update(itr)
+    if progressbar:
+        progress.finish()
 
     inrms = NP.asarray(inrms)
     currentrms = NP.asarray(currentrms)
@@ -488,7 +520,8 @@ class DelaySpectrum(object):
                 quantities along the delay axis. This is performed for noiseless 
                 sky visibilities, thermal noise in visibilities, and observed 
                 visibilities. This calls an in-house module complex1dClean 
-                instead of the clean routine in AIPY module
+                instead of the clean routine in AIPY module. It can utilize 
+                parallelization
 
     multi_window_delay_transform()
                 Computes delay transform on multiple frequency windows with 
@@ -1020,7 +1053,8 @@ class DelaySpectrum(object):
         
     def delayClean(self, pad=1.0, freq_wts=None, clean_window_buffer=1.0,
                    gain=0.1, maxiter=10000, threshold=5e-3,
-                   threshold_type='relative', verbose=True):
+                   threshold_type='relative', parallel=False, nproc=None,
+                   verbose=True):
 
         """
         ------------------------------------------------------------------------
@@ -1028,7 +1062,8 @@ class DelaySpectrum(object):
         using an IFFT and deconvolves the delay transform quantities along the 
         delay axis. This is performed for noiseless sky visibilities, thermal
         noise in visibilities, and observed visibilities. This calls an in-house
-        module complex1dClean instead of the clean routine in AIPY module
+        module complex1dClean instead of the clean routine in AIPY module. It
+        can utilize parallelization
 
         Inputs:
 
@@ -1075,6 +1110,19 @@ class DelaySpectrum(object):
                  (between 0 and 1) of maximum in input down to which it should 
                  be cleaned. If set to 'asbolute' it is the actual value down to 
                  which inp should be cleaned. Default='relative'
+
+        parallel [boolean] specifies if parallelization is to be invoked. 
+                 False (default) means only serial processing
+
+        nproc    [integer] specifies number of independent processes to spawn.
+                 Default = None, means automatically determines the number of 
+                 process cores in the system and use one less than that to 
+                 avoid locking the system for other processes. Applies only 
+                 if input parameter 'parallel' (see above) is set to True. 
+                 If nproc is set to a value more than the number of process
+                 cores in the system, it will be reset to number of process 
+                 cores in the system minus one to avoid locking the system out 
+                 for other processes
 
         verbose  [boolean] If set to True (default), print diagnostic and 
                  progress messages. If set to False, no such messages are
@@ -1135,21 +1183,65 @@ class DelaySpectrum(object):
         ccomponents_noisy = NP.zeros_like(vis_lag)
         ccres_noisy = NP.zeros_like(vis_lag)
         
-        for snap_iter in xrange(self.n_acc):
-            progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Baselines '.format(self.ia.baselines.shape[0]), PGB.ETA()], maxval=self.ia.baselines.shape[0]).start()
-            for bl_iter in xrange(self.ia.baselines.shape[0]):
-                clean_area[NP.logical_and(lags <= self.horizon_delay_limits[snap_iter,bl_iter,1]+clean_window_buffer/bw, lags >= self.horizon_delay_limits[snap_iter,bl_iter,0]-clean_window_buffer/bw)] = 1
-    
-                cleanstate = complex1dClean(skyvis_lag[bl_iter,:,snap_iter], lag_kernel[bl_iter,:,snap_iter], cbox=clean_area, gain=gain, maxiter=maxiter, threshold=threshold, threshold_type=threshold_type, verbose=verbose)
-                ccomponents_noiseless[bl_iter,:,snap_iter] = cleanstate['cc']
-                ccres_noiseless[bl_iter,:,snap_iter] = cleanstate['res']
+        if parallel:
+            if nproc is None:
+                nproc = min(max(MP.cpu_count()-1, 1), self.ia.baselines.shape[0]*self.n_acc)
+            else:
+                nproc = min(max(MP.cpu_count()-1, 1), self.ia.baselines.shape[0]*self.n_acc, nproc)
 
-                cleanstate = complex1dClean(skyvis_lag[bl_iter,:,snap_iter], lag_kernel[bl_iter,:,snap_iter], cbox=clean_area, gain=gain, maxiter=maxiter, threshold=threshold, threshold_type=threshold_type, verbose=verbose)
-                ccomponents_noiseless[bl_iter,:,snap_iter] = cleanstate['cc']
-                ccres_noiseless[bl_iter,:,snap_iter] = cleanstate['res']
+            list_of_skyvis_lag = []
+            list_of_vis_lag = []
+            list_of_dkern = []
+            list_of_cboxes = []
+            for bli in xrange(self.ia.baselines.shape[0]):
+                for ti in xrange(self.n_acc):
+                    list_of_skyvis_lag += [skyvis_lag[bli,:,ti]]
+                    list_of_vis_lag += [vis_lag[bli,:,ti]]
+                    list_of_dkern += [lag_kernel[bli,:,ti]]
+                    clean_area = NP.zeros(self.f.size + npad, dtype=int)
+                    clean_area[NP.logical_and(lags <= self.horizon_delay_limits[ti,bli,1]+clean_window_buffer/bw, lags >= self.horizon_delay_limits[ti,bli,0]-clean_window_buffer/bw)] = 1
+                    list_of_cboxes += [clean_area]
+            list_of_gains = [gain] * self.ia.baselines.shape[0]*self.n_acc
+            list_of_maxiter = [maxiter] * self.ia.baselines.shape[0]*self.n_acc
+            list_of_thresholds = [threshold] * self.ia.baselines.shape[0]*self.n_acc
+            list_of_threshold_types = [threshold_type] * self.ia.baselines.shape[0]*self.n_acc
+            list_of_verbosity = [verbose] * self.ia.baselines.shape[0]*self.n_acc
+            list_of_pid = range(self.ia.baselines.shape[0]*self.n_acc)
+            # list_of_pid = [None] * self.ia.baselines.shape[0]*self.n_acc
+            list_of_progressbars = [True] * self.ia.baselines.shape[0]*self.n_acc
+            list_of_progressbar_ylocs = NP.arange(self.ia.baselines.shape[0]*self.n_acc) % min(nproc, WM.term.height)
+            list_of_progressbar_ylocs = list_of_progressbar_ylocs.tolist()
+
+            pool = MP.Pool(processes=nproc)
+            list_of_noiseless_cleanstates = pool.map(complex1dClean_arg_splitter, IT.izip(list_of_skyvis_lag, list_of_dkern, list_of_cboxes, list_of_gains, list_of_maxiter, list_of_thresholds, list_of_threshold_types, list_of_verbosity, list_of_progressbars, list_of_pid, list_of_progressbar_ylocs))
+            list_of_noisy_cleanstates = pool.map(complex1dClean_arg_splitter, IT.izip(list_of_vis_lag, list_of_dkern, list_of_cboxes, list_of_gains, list_of_maxiter, list_of_thresholds, list_of_threshold_types, list_of_verbosity, list_of_progressbars, list_of_pid, list_of_progressbar_ylocs))
                 
-                progress.update(bl_iter+1)
-            progress.finish()
+            for bli in xrange(self.ia.baselines.shape[0]):
+                for ti in xrange(self.n_acc):
+                    ind = bli * self.n_acc + ti
+                    noiseless_cleanstate = list_of_noiseless_cleanstates[ind]
+                    ccomponents_noiseless[bli,:,ti] = noiseless_cleanstate['cc']
+                    ccres_noiseless[bli,:,ti] = noiseless_cleanstate['res']
+
+                    noisy_cleanstate = list_of_noisy_cleanstates[ind]
+                    ccomponents_noisy[bli,:,ti] = noisy_cleanstate['cc']
+                    ccres_noisy[bli,:,ti] = noisy_cleanstate['res']
+        else:
+            for snap_iter in xrange(self.n_acc):
+                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Baselines '.format(self.ia.baselines.shape[0]), PGB.ETA()], maxval=self.ia.baselines.shape[0]).start()
+                for bl_iter in xrange(self.ia.baselines.shape[0]):
+                    clean_area[NP.logical_and(lags <= self.horizon_delay_limits[snap_iter,bl_iter,1]+clean_window_buffer/bw, lags >= self.horizon_delay_limits[snap_iter,bl_iter,0]-clean_window_buffer/bw)] = 1
+        
+                    cleanstate = complex1dClean(skyvis_lag[bl_iter,:,snap_iter], lag_kernel[bl_iter,:,snap_iter], cbox=clean_area, gain=gain, maxiter=maxiter, threshold=threshold, threshold_type=threshold_type, verbose=verbose)
+                    ccomponents_noiseless[bl_iter,:,snap_iter] = cleanstate['cc']
+                    ccres_noiseless[bl_iter,:,snap_iter] = cleanstate['res']
+    
+                    cleanstate = complex1dClean(vis_lag[bl_iter,:,snap_iter], lag_kernel[bl_iter,:,snap_iter], cbox=clean_area, gain=gain, maxiter=maxiter, threshold=threshold, threshold_type=threshold_type, verbose=verbose)
+                    ccomponents_noisy[bl_iter,:,snap_iter] = cleanstate['cc']
+                    ccres_noisy[bl_iter,:,snap_iter] = cleanstate['res']
+                    
+                    progress.update(bl_iter+1)
+                progress.finish()
     
         deta = lags[1] - lags[0]
         cc_skyvis = NP.fft.fft(ccomponents_noiseless, axis=1) * deta
