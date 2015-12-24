@@ -170,7 +170,7 @@ def complex1dClean(inp, kernel, cbox=None, gain=0.1, maxiter=10000,
 
     progressbar_yloc
              [integer] row number where the progressbar is displayed on the
-             terminal
+             terminal. Default=0
 
     Output:
 

@@ -1,3 +1,10 @@
+From 1816869 (parallel):
+=======================
+
+In delay_spectrum.py,
+
+(*) Minor change to docstring of function complex1dClean()
+
 From e262697 (master):
 =====================
 

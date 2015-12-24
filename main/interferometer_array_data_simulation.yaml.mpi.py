@@ -291,8 +291,9 @@ if use_external_beam:
     external_beam = external_beam.reshape(-1,external_beam_freqs.size)
     beam_usage_str = 'extpb_'+beam_id
     if beam_chromaticity:
-        external_beam = external_beam[:,:-1]
-        external_beam_freqs = external_beam_freqs[:-1]
+        if pbeam_spec_interp_method == 'fft':
+            external_beam = external_beam[:,:-1]
+            external_beam_freqs = external_beam_freqs[:-1]
         beam_usage_str = beam_usage_str + '_chromatic'
     else:
         beam_usage_str = beam_usage_str + '_{0:.1f}_MHz'.format(select_beam_freq/1e6)+'_achromatic'

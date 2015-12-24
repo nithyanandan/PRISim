@@ -195,7 +195,7 @@ beam    :
                                 # Beam polarization. Accepted values
                                 # are 'X' and 'Y'
 
-    chromatic       : true
+    chromatic       : false
                                 # if false, the beam is the same at
                                 # all frequencies and the beam at
                                 # reference frequency will be used for
@@ -208,7 +208,7 @@ beam    :
                                 # If set to null (default), it defaults
                                 # to using value defined in freq
 
-    spec_interp     : 'fft'
+    spec_interp     : 'cubic'
                                 # method to interpolate external beam
                                 # along spectral (frequency) direction.
                                 # allowed values are 'fft' (default),
@@ -218,15 +218,15 @@ beam    :
 
 obsparm  :
 
-    freq            : 150000000.0
+    freq            : 167050000.0
                                 # Center frequency (in Hz)
                                 # 167.05 MHz for Adam Lidz's cube
 
-    freq_resolution : 781250.0
+    freq_resolution : 80000.0
                                 # Frequency resolution (in Hz)
                                 # 80 kHz for Adam Lidz's cube
 
-    nchan           : 128
+    nchan           : 704
                                 # Number of channels
                                 # 704 for Adam Lidz's cube
 
@@ -243,11 +243,11 @@ obsparm  :
                                 # Only two of t_obs, n_acc, t_acc
                                 # must be set
 
-    n_acc           : 2     
+    n_acc           : 80     
                                 # Number of accumulations. Only two of
                                 # t_obs, n_acc, and t_acc must be set
 
-    t_acc           : 60.0
+    t_acc           : 1080.0
                                 # Accumulation time (in seconds) for
                                 # each snapshot. Only two of t_obs,
                                 # n_acc, and t_acc must be set
@@ -371,7 +371,7 @@ snapshot :                      # Parameters below are mutually
 
 fgparm   :
 
-    model           : 'asm'
+    model           : 'HI_cube'
                                 # Foreground model. Accepted values
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both
@@ -474,13 +474,13 @@ processing:
                                 # null means process all chunks.
                                 # Should be given as a list
 
-    n_freq_chunks   : 16
+    n_freq_chunks   : 64
                                 # Upper limit on number of frequency
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
                                 # processing
 
-    freq_chunk_size : 8
+    freq_chunk_size : 11
                                 # Frequency chunk size. Will be used
                                 # in a single process during parallel
                                 # processing
