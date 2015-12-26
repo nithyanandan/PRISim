@@ -8,12 +8,17 @@ import writer_module as WM
 import aipy as AP
 import astropy 
 from astropy.io import fits
+import astropy.cosmology as CP
+import scipy.constants as FCNST
 from distutils.version import LooseVersion
+import constants as CNST
 import my_DSP_modules as DSP 
 import baseline_delay_horizon as DLY
 import geometry as GEOM
 import interferometry as RI
 import lookup_operations as LKP
+
+cosmo100 = CP.FlatLambdaCDM(H0=100.0, Om0=0.27)  # Using H0 = 100 km/s/Mpc
 
 #################################################################################
 
@@ -338,7 +343,8 @@ class DelaySpectrum(object):
 
     """
     ----------------------------------------------------------------------------
-    Class to manage information on a multi-element interferometer array. 
+    Class to manage delay spectrum information on a multi-element interferometer 
+    array. 
 
     Attributes:
 
@@ -589,31 +595,31 @@ class DelaySpectrum(object):
                 self.df = hdulist[0].header['freq_resolution']
             except KeyError:
                 hdulist.close()
-                raise KeyError('Keyword "freq_resolution" nout found in header')
+                raise KeyError('Keyword "freq_resolution" not found in header')
 
             try:
                 self.n_acc = hdulist[0].header['N_ACC']
             except KeyError:
                 hdulist.close()
-                raise KeyError('Keyword "N_ACC" nout found in header')
+                raise KeyError('Keyword "N_ACC" not found in header')
             
             try:
                 self.pad = hdulist[0].header['PAD']
             except KeyError:
                 hdulist.close()
-                raise KeyError('Keyword "PAD" nout found in header')
+                raise KeyError('Keyword "PAD" not found in header')
 
             try:
                 self.clean_window_buffer = hdulist[0].header['DBUFFER']
             except KeyError:
                 hdulist.close()
-                raise KeyError('Keyword "DBUFFER" nout found in header')
+                raise KeyError('Keyword "DBUFFER" not found in header')
 
             try:
                 iarray_init_file = hdulist[0].header['IARRAY']
             except KeyError:
                 hdulist.close()
-                raise KeyError('Keyword "IARRAY" nout found in header')
+                raise KeyError('Keyword "IARRAY" not found in header')
             self.ia = RI.InterferometerArray(None, None, None, init_file=iarray_init_file)
             
             # if 'SPECTRAL INFO' not in extnames:
@@ -1676,5 +1682,331 @@ class DelaySpectrum(object):
         hdu = fits.HDUList(hdulist)
         hdu.writeto(outfile+'.cc.fits', clobber=overwrite)
 
-    #############################################################################
+################################################################################
+
+class DelayPowerSpectrum(object):
+
+    """
+    ----------------------------------------------------------------------------
+    Class to manage delay power spectrum from visibility measurements of a 
+    multi-element interferometer array. 
+
+    Attributes:
+
+    cosmo       [instance of cosmology class from astropy] An instance of class
+                FLRW or default_cosmology of astropy cosmology module. 
+
+    ds          [instance of class DelaySpectrum] An instance of class 
+                DelaySpectrum that contains the information on delay spectra of
+                simulated visibilities
+
+    f           [list or numpy vector] frequency channels in Hz
+
+    lags        [numpy vector] Time axis obtained when the frequency axis is
+                inverted using a FFT. Same size as channels. This is 
+                computed in member function delay_transform().
+
+    cc_lags     [numpy vector] Time axis obtained when the frequency axis is
+                inverted using a FFT. Same size as cc_freq. This is computed in 
+                member function delayClean().
+
+    df          [scalar] Frequency resolution (in Hz)
+
+    bl          [M x 3 Numpy array] The baseline vectors associated with the
+                M interferometers in SI units 
+
+    bl_length   [M-element numpy array] Lengths of the baseline in SI units
+    
+    f0          [scalar] Central frequency (in Hz)
+
+    wl0         [scalar] Central wavelength (in m)
+
+    z           [scalar] redshift
+
+    bw          [scalar] (effective) bandwidth (in Hz)
+
+    kprll       [numpy array] line-of-sight wavenumbers (in h/Mpc) corresponding
+                to delays in the delay spectrum
+
+    kperp       [numpy array] transverse wavenumbers (in h/Mpc) corresponding
+                to baseline lengths
+
+    drz_los     [scalar] comoving line-of-sight depth (Mpc/h) corresponding to 
+                specified redshift and bandwidth for redshifted 21 cm line
+
+    rz_transverse
+                [scalar] comoving transverse distance (Mpc/h) corresponding to 
+                specified redshift for redshifted 21 cm line
+
+    rz_los      [scalar] comoving line-of-sight distance (Mpc/h) corresponding 
+                to specified redshift for redshifted 21 cm line
+
+    jacobian1   [scalar] first jacobian in conversion of delay spectrum to 
+                power spectrum. It is equal to A_eff / wl**2 / bw
+
+    jacobian2   [scalar] second jacobian in conversion of delay spectrum to 
+                power spectrum. It is equal to rz_transverse**2 * drz_los / bw
+
+    Member functions:
+
+    __init__()  Initialize an instance of class DelayPowerSpectrum
+
+    comoving_los_depth() 
+                Compute comoving line-of-sight depth (Mpc/h) corresponding to 
+                specified redshift and bandwidth for redshifted 21 cm line
+
+    comoving_transverse_distance() 
+                Compute comoving transverse distance (Mpc/h) corresponding to 
+                specified redshift for redshifted 21 cm line
+
+    comoving_los_distance()
+                Compute comoving line-of-sight distance (Mpc/h) corresponding 
+                to specified redshift for redshifted 21 cm line
+
+    k_parallel()
+                Compute line-of-sight wavenumbers (h/Mpc) corresponding to 
+                specified delays and redshift for redshifted 21 cm line
+
+    k_perp()    Compute transverse wavenumbers (h/Mpc) corresponding to 
+                specified baseline lengths and redshift for redshifted 21 cm 
+                line assuming a mean wavelength (in m) for the relationship 
+                between baseline lengths and spatial frequencies (u and v)
+    ----------------------------------------------------------------------------
+    """
+
+    def __init__(self, dspec, cosmo=cosmo100):
+
+        """
+        ------------------------------------------------------------------------
+        Initialize an instance of class DelayPowerSpectrum. Attributes 
+        initialized are: ds, cosmo, f, df, f0, z, bw, drz_los, rz_transverse,
+        rz_los, kprll, kperp, jacobian1, jacobian2
+
+        Inputs:
+
+        dspec    [instance of class DelaySpectrum] An instance of class 
+                 DelaySpectrum that contains the information on delay spectra of
+                 simulated visibilities
+
+        cosmo    [instance of a cosmology class in Astropy] An instance of class
+                 FLRW or default_cosmology of astropy cosmology module. Default
+                 value is set using concurrent cosmology but keep 
+                 H0=100 km/s/Mpc
+        ------------------------------------------------------------------------
+        """
         
+        try:
+            dspec
+        except NameError:
+            raise NameError('No delay spectrum instance supplied for initialization')
+
+        if not isinstance(dspec, DelaySpectrum):
+            raise TypeError('Input dspec must be an instance of class DelaySpectrum')
+
+        if not isinstance(cosmo, (CP.FLRW, CP.default_cosmology)):
+            raise TypeError('Input cosmology must be a cosmology class defined in Astropy')
+
+        self.cosmo = cosmo
+        self.ds = dspec
+        self.f = self.ds.f
+        self.lags = self.ds.lags
+        self.cc_lags = self.ds.cc_lags
+        self.bl = self.ds.ia.baselines
+        self.bl_length = self.ds.ia.baseline_lengths
+        self.df = self.ds.df
+        self.f0 = self.f[self.f.size/2]
+        self.wl0 = FCNST.c / self.f0
+        self.z = CNST.rest_freq_HI / self.f0 - 1
+        self.bw = self.df * self.f.size
+        self.kprll = self.k_parallel(self.lags, redshift=self.z, action='return')   # in h/Mpc
+        self.kperp = self.k_perp(self.bl_length, redshift=self.z, action='return')   # in h/Mpc        
+
+        self.drz_los = self.comoving_los_depth(self.bw, self.z, action='return')   # in Mpc/h
+        self.rz_transverse = self.comoving_transverse_distance(self.z, action='return')   # in Mpc/h
+        self.rz_los = self.comoving_los_distance(self.z, action='return')   # in Mpc/h
+
+        self.jacobian1 = NP.mean(self.ds.ia.A_eff) / self.wl0**2 / self.bw
+        self.jacobian2 = self.rz_transverse**2 * self.drz_los / self.bw 
+
+    ############################################################################
+
+    def comoving_los_depth(self, bw, redshift, action='internal'):
+
+        """
+        ------------------------------------------------------------------------
+        Compute comoving line-of-sight depth (Mpc/h) corresponding to specified 
+        redshift and bandwidth for redshifted 21 cm line
+
+        Inputs:
+
+        bw        [scalar] bandwidth in Hz
+
+        redshift  [scalar] redshift
+
+        action    [string] If set to 'internal' (default), the comoving depth 
+                  along the line of sight (Mpc/h) and specified reshift are 
+                  stored internally as attributes of the instance of class
+                  DelayPowerSpectrum. If set to 'return', the comoving depth
+                  along line of sight (Mpc/h) computed is returned
+
+        Outputs:
+
+        If keyword input action is set to 'return', the comoving depth along 
+        line of sight (Mpc/h) computed is returned
+        ------------------------------------------------------------------------
+        """
+
+        drz_los = (FCNST.c/1e3) * bw * (1+redshift)**2 / CNST.rest_freq_HI / self.cosmo.H0.value / self.cosmo.efunc(redshift)   # in Mpc/h
+        if action == 'internal':
+            self.z = redshift
+            self.drz_los = drz_los
+            return
+        else:
+            return drz_los
+
+    ############################################################################
+
+    def comoving_transverse_distance(self, redshift, action='internal'):
+
+        """
+        ------------------------------------------------------------------------
+        Compute comoving transverse distance (Mpc/h) corresponding to specified 
+        redshift for redshifted 21 cm line
+
+        Inputs:
+
+        redshift  [scalar] redshift
+
+        action    [string] If set to 'internal' (default), the comoving 
+                  transverse distance (Mpc/h) and specified reshift are stored 
+                  internally as attributes of the instance of class
+                  DelayPowerSpectrum. If set to 'return', the comoving 
+                  transverse distance (Mpc/h) computed is returned
+
+        Outputs:
+
+        If keyword input action is set to 'return', the comoving transverse 
+        distance (Mpc/h) computed is returned
+        ------------------------------------------------------------------------
+        """
+
+        rz_transverse = self.cosmo.comoving_transverse_distance(redshift).value   # in Mpc/h
+        if action == 'internal':
+            self.z = redshift
+            self.rz_transverse = rz_transverse
+            return
+        else:
+            return rz_transverse
+
+    ############################################################################
+
+    def comoving_los_distance(self, redshift, action='internal'):
+
+        """
+        ------------------------------------------------------------------------
+        Compute comoving line-of-sight distance (Mpc/h) corresponding to 
+        specified redshift for redshifted 21 cm line
+
+        Inputs:
+
+        redshift  [scalar] redshift
+
+        action    [string] If set to 'internal' (default), the comoving 
+                  line-of-sight distance (Mpc/h) and specified reshift are 
+                  stored internally as attributes of the instance of class
+                  DelayPowerSpectrum. If set to 'return', the comoving 
+                  line-of-sight distance (Mpc/h) computed is returned
+
+        Outputs:
+
+        If keyword input action is set to 'return', the comoving line-of-sight 
+        distance (Mpc/h) computed is returned
+        ------------------------------------------------------------------------
+        """
+
+        rz_los = self.cosmo.comoving_distance(redshift).value   # in Mpc/h
+        if action == 'internal':
+            self.z = redshift
+            self.rz_los = rz_los
+            return
+        else:
+            return rz_los
+        
+    ############################################################################
+
+    def k_parallel(self, lags, redshift, action='internal'):
+
+        """
+        ------------------------------------------------------------------------
+        Compute line-of-sight wavenumbers (h/Mpc) corresponding to specified 
+        delays and redshift for redshifted 21 cm line
+
+        Inputs:
+
+        lags      [numpy array] geometric delays (in seconds) obtained as 
+                  Fourier conjugate variable of frequencies in the bandpass
+
+        redshift  [scalar] redshift
+
+        action    [string] If set to 'internal' (default), the line-of-sight 
+                  wavenumbers (h/Mpc) and specified reshift are 
+                  stored internally as attributes of the instance of class
+                  DelayPowerSpectrum. If set to 'return', the line-of-sight 
+                  wavenumbers (h/Mpc) computed is returned
+
+        Outputs:
+
+        If keyword input action is set to 'return', the line-of-sight 
+        wavenumbers (h/Mpc) computed is returned
+        ------------------------------------------------------------------------
+        """
+
+        kprll = 2 * NP.pi * lags * self.cosmo.H0.value * CNST.rest_freq_HI * self.cosmo.efunc(redshift) / FCNST.c / (1+redshift)**2 * 1e3
+        if action == 'internal':
+            self.z = redshift
+            self.kprll = kprll
+            return
+        else:
+            return kprll
+
+    ############################################################################
+
+    def k_perp(self, baseline_length, redshift, action='internal'):
+
+        """
+        ------------------------------------------------------------------------
+        Compute transverse wavenumbers (h/Mpc) corresponding to specified 
+        baseline lengths and redshift for redshifted 21 cm line assuming a
+        mean wavelength (in m) for the relationship between baseline lengths and
+        spatial frequencies (u and v)
+
+        Inputs:
+
+        baseline_length      
+                  [numpy array] baseline lengths (in m) 
+
+        redshift  [scalar] redshift
+
+        action    [string] If set to 'internal' (default), the transverse 
+                  wavenumbers (h/Mpc) and specified reshift are stored 
+                  internally as attributes of the instance of class
+                  DelayPowerSpectrum. If set to 'return', the transverse 
+                  wavenumbers (h/Mpc) computed is returned
+
+        Outputs:
+
+        If keyword input action is set to 'return', the transverse 
+        wavenumbers (h/Mpc) computed is returned
+        ------------------------------------------------------------------------
+        """
+
+        kperp = 2 * NP.pi * (baseline_length/self.wl0) / self.comoving_transverse_distance(redshift, action='return')
+        if action == 'internal':
+            self.z = redshift
+            self.kperp = kperp
+            return
+        else:
+            return kerp
+        
+    ############################################################################
+

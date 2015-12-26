@@ -1,3 +1,20 @@
+From 77bf541 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Import cosmology module from astropy
+(*) Import fundamental constants from scipy
+(*) Add class DelayPowerSpectrum to hold cosmological delay power
+spectrum information for delay spectrum object
+(*) Add member functions __init__(), comoving_los_depth(), k_perp(),
+k_parallel(), comoving_transverse_distance(), comoving_los_distance()
+with docstrings. Add their description in docstring of class
+DelayPowerSpectrum
+(*) Update docstring of class DelaySpectrum
+(*) Make minor changes in save() member function of class
+DelaySpectrum
+
 From 1816869 (parallel):
 =======================
 
