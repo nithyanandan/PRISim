@@ -1870,7 +1870,7 @@ class DelayPowerSpectrum(object):
 
     ############################################################################
 
-    def comoving_los_depth(self, bw, redshift, action='internal'):
+    def comoving_los_depth(self, bw, redshift, action=None):
 
         """
         ------------------------------------------------------------------------
@@ -1883,7 +1883,7 @@ class DelayPowerSpectrum(object):
 
         redshift  [scalar] redshift
 
-        action    [string] If set to 'internal' (default), the comoving depth 
+        action    [string] If set to None (default), the comoving depth 
                   along the line of sight (Mpc/h) and specified reshift are 
                   stored internally as attributes of the instance of class
                   DelayPowerSpectrum. If set to 'return', the comoving depth
@@ -1897,7 +1897,7 @@ class DelayPowerSpectrum(object):
         """
 
         drz_los = (FCNST.c/1e3) * bw * (1+redshift)**2 / CNST.rest_freq_HI / self.cosmo.H0.value / self.cosmo.efunc(redshift)   # in Mpc/h
-        if action == 'internal':
+        if action is None:
             self.z = redshift
             self.drz_los = drz_los
             return
@@ -1906,7 +1906,7 @@ class DelayPowerSpectrum(object):
 
     ############################################################################
 
-    def comoving_transverse_distance(self, redshift, action='internal'):
+    def comoving_transverse_distance(self, redshift, action=None):
 
         """
         ------------------------------------------------------------------------
@@ -1917,7 +1917,7 @@ class DelayPowerSpectrum(object):
 
         redshift  [scalar] redshift
 
-        action    [string] If set to 'internal' (default), the comoving 
+        action    [string] If set to None (default), the comoving 
                   transverse distance (Mpc/h) and specified reshift are stored 
                   internally as attributes of the instance of class
                   DelayPowerSpectrum. If set to 'return', the comoving 
@@ -1931,7 +1931,7 @@ class DelayPowerSpectrum(object):
         """
 
         rz_transverse = self.cosmo.comoving_transverse_distance(redshift).value   # in Mpc/h
-        if action == 'internal':
+        if action is None:
             self.z = redshift
             self.rz_transverse = rz_transverse
             return
@@ -1940,7 +1940,7 @@ class DelayPowerSpectrum(object):
 
     ############################################################################
 
-    def comoving_los_distance(self, redshift, action='internal'):
+    def comoving_los_distance(self, redshift, action=None):
 
         """
         ------------------------------------------------------------------------
@@ -1951,7 +1951,7 @@ class DelayPowerSpectrum(object):
 
         redshift  [scalar] redshift
 
-        action    [string] If set to 'internal' (default), the comoving 
+        action    [string] If set to None (default), the comoving 
                   line-of-sight distance (Mpc/h) and specified reshift are 
                   stored internally as attributes of the instance of class
                   DelayPowerSpectrum. If set to 'return', the comoving 
@@ -1965,7 +1965,7 @@ class DelayPowerSpectrum(object):
         """
 
         rz_los = self.cosmo.comoving_distance(redshift).value   # in Mpc/h
-        if action == 'internal':
+        if action is None:
             self.z = redshift
             self.rz_los = rz_los
             return
@@ -1974,7 +1974,7 @@ class DelayPowerSpectrum(object):
         
     ############################################################################
 
-    def k_parallel(self, lags, redshift, action='internal'):
+    def k_parallel(self, lags, redshift, action=None):
 
         """
         ------------------------------------------------------------------------
@@ -1988,7 +1988,7 @@ class DelayPowerSpectrum(object):
 
         redshift  [scalar] redshift
 
-        action    [string] If set to 'internal' (default), the line-of-sight 
+        action    [string] If set to None (default), the line-of-sight 
                   wavenumbers (h/Mpc) and specified reshift are 
                   stored internally as attributes of the instance of class
                   DelayPowerSpectrum. If set to 'return', the line-of-sight 
@@ -2002,7 +2002,7 @@ class DelayPowerSpectrum(object):
         """
 
         kprll = 2 * NP.pi * lags * self.cosmo.H0.value * CNST.rest_freq_HI * self.cosmo.efunc(redshift) / FCNST.c / (1+redshift)**2 * 1e3
-        if action == 'internal':
+        if action is None:
             self.z = redshift
             self.kprll = kprll
             return
@@ -2011,7 +2011,7 @@ class DelayPowerSpectrum(object):
 
     ############################################################################
 
-    def k_perp(self, baseline_length, redshift, action='internal'):
+    def k_perp(self, baseline_length, redshift, action=None):
 
         """
         ------------------------------------------------------------------------
@@ -2027,7 +2027,7 @@ class DelayPowerSpectrum(object):
 
         redshift  [scalar] redshift
 
-        action    [string] If set to 'internal' (default), the transverse 
+        action    [string] If set to None (default), the transverse 
                   wavenumbers (h/Mpc) and specified reshift are stored 
                   internally as attributes of the instance of class
                   DelayPowerSpectrum. If set to 'return', the transverse 
@@ -2041,7 +2041,7 @@ class DelayPowerSpectrum(object):
         """
 
         kperp = 2 * NP.pi * (baseline_length/self.wl0) / self.comoving_transverse_distance(redshift, action='return')
-        if action == 'internal':
+        if action is None:
             self.z = redshift
             self.kperp = kperp
             return

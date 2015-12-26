@@ -1,3 +1,11 @@
+From dc23985 (cosmo):
+====================
+
+In delay_spectrum.py,
+
+(*) Change usage of keyword input action in member functions of class
+DelayPowerSpectrum. Update docstrings accordingly
+
 From 54f7a5a (cosmo):
 ====================
 
