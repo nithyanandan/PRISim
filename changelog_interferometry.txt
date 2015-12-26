@@ -1,3 +1,14 @@
+From 54f7a5a (cosmo):
+====================
+
+In delay_spectrum.py,
+
+(*) Add attributes dps, Jy2K and K2Jy and their docstrings to class
+DelayPowerSpectrum
+(*) Add member function compute_power_spectrum() with docstring to
+class DelayPowerSpectrum. Update docstring of class DelayPowerSpectrum
+accordingly
+
 From 77bf541 (master):
 =====================
 

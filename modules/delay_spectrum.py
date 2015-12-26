@@ -1747,6 +1747,31 @@ class DelayPowerSpectrum(object):
     jacobian2   [scalar] second jacobian in conversion of delay spectrum to 
                 power spectrum. It is equal to rz_transverse**2 * drz_los / bw
 
+    Jy2K        [scalar] factor to convert Jy/Sr to K. It is equal to 
+                wl**2 * Jy / (2k)
+
+    K2Jy        [scalar] factor to convert K to Jy/Sr. It is equal to 1/Jy2K
+
+    dps         [dictionary of numpy arrays] contains numpy arrays containing
+                delay power spectrum in units of K^2 (Mpc/h)^3 under the 
+                following keys:
+                'skyvis'    [numpy array] delay power spectrum of noiseless 
+                            delay spectra
+                'vis'       [numpy array] delay power spectrum of noisy delay
+                            spectra
+                'noise'     [numpy array] delay power spectrum of thermal noise
+                            delay spectra
+                'cc_skyvis' [numpy array] delay power spectrum of clean 
+                            components of noiseless delay spectra
+                'cc_vis'    [numpy array] delay power spectrum of clean 
+                            components of noisy delay spectra
+                'cc_skyvis_res' 
+                            [numpy array] delay power spectrum of residuals 
+                            after delay cleaning of noiseless delay spectra
+                'cc_vis_res'
+                            [numpy array] delay power spectrum of residuals  
+                            after delay cleaning of noisy delay spectra
+
     Member functions:
 
     __init__()  Initialize an instance of class DelayPowerSpectrum
@@ -1771,6 +1796,10 @@ class DelayPowerSpectrum(object):
                 specified baseline lengths and redshift for redshifted 21 cm 
                 line assuming a mean wavelength (in m) for the relationship 
                 between baseline lengths and spatial frequencies (u and v)
+
+    compute_power_spectrum()
+                Compute delay power spectrum in units of K^2 (Mpc/h)^3 from the 
+                delay spectrum in units of Jy Hz
     ----------------------------------------------------------------------------
     """
 
@@ -1826,7 +1855,18 @@ class DelayPowerSpectrum(object):
         self.rz_los = self.comoving_los_distance(self.z, action='return')   # in Mpc/h
 
         self.jacobian1 = NP.mean(self.ds.ia.A_eff) / self.wl0**2 / self.bw
-        self.jacobian2 = self.rz_transverse**2 * self.drz_los / self.bw 
+        self.jacobian2 = self.rz_transverse**2 * self.drz_los / self.bw
+        self.Jy2K = self.wl0**2 * CNST.Jy / (2*FCNST.k)
+        self.K2Jy = 1 / self.Jy2K
+
+        self.dps = {}
+        self.dps['skyvis'] = None
+        self.dps['vis'] = None
+        self.dps['noise'] = None
+        self.dps['cc_skyvis'] = None
+        self.dps['cc_vis'] = None
+        self.dps['cc_skyvis_res'] = None
+        self.dps['cc_vis_res'] = None        
 
     ############################################################################
 
@@ -2006,7 +2046,28 @@ class DelayPowerSpectrum(object):
             self.kperp = kperp
             return
         else:
-            return kerp
+            return kperp
         
+    ############################################################################
+
+    def compute_power_spectrum(self):
+
+        """
+        ------------------------------------------------------------------------
+        Compute delay power spectrum in units of K^2 (Mpc/h)^3 from the delay
+        spectrum in units of Jy Hz. 
+        ------------------------------------------------------------------------
+        """
+
+        self.dps = {}
+        factor = self.jacobian1 * self.jacobian2 * self.Jy2K**2
+        if self.ds.skyvis_lag is not None: self.dps['skyvis'] = self.ds.skyvis_lag**2 * factor
+        if self.ds.vis_lag is not None: self.dps['vis'] = self.ds.vis_lag**2 * factor
+        if self.ds.vis_noise_lag is not None: self.dps['noise'] = self.ds.vis_noise_lag**2 * factor
+        if self.ds.cc_skyvis_lag is not None: self.dps['cc_skyvis'] = self.ds.cc_skyvis_lag**2 * factor
+        if self.ds.cc_vis_lag is not None: self.dps['cc_vis'] = self.ds.cc_vis_lag**2 * factor
+        if self.ds.cc_skyvis_res_lag is not None: self.dps['cc_skyvis_res'] = self.ds.cc_skyvis_res_lag**2 * factor
+        if self.ds.cc_vis_res_lag is not None: self.dps['cc_vis_res'] = self.ds.cc_vis_res_lag**2 * factor
+
     ############################################################################
 

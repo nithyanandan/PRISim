@@ -395,7 +395,8 @@ for k in range(n_sky_sectors):
             achrm_mwdt_FGA = achrmdsofg.multi_window_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='simvis', bpcorrect=False, action='return')
             achrm_mwdt_EoR = achrmdsoeor.multi_window_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='simvis', bpcorrect=False, action='return')            
             achrmdsofg.save(outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
-            achrmdpsofg = DS.DelayPowerSpectrum(achrmdsofg)
+            # achrmdpsofg = DS.DelayPowerSpectrum(achrmdsofg)
+            # achrmdpsofg.compute_power_spectrum()
             # achrmdso2 = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
         elif beam_iter == 1:
             chrmiafg = RI.InterferometerArray(None, None, None, init_file=infile+'.fits')
