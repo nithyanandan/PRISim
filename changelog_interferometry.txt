@@ -1,3 +1,19 @@
+From 3441ef1 (cosmo):
+====================
+
+In delay_spectrum.py,
+
+(*) Rename member function multi_window_delay_transform() of class
+DelaySpectrum to subband_delay_transform(). Modify class docstring
+accordingly
+(*) Rename attribute multiwin_delay_transform of class DelaySpectrum
+to subband_delay_spectra. Update docstring accordingly
+(*) Add few more keys and values to the output of member function
+subband_delay_transform() of class DelaySpectrum. Update docstring
+of member function accordingly
+(*) Add description of attribute subband_delay_spectra in docstring
+of class DelaySpectra
+
 From dc23985 (cosmo):
 ====================
 

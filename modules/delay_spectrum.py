@@ -504,6 +504,87 @@ class DelaySpectrum(object):
                 1+pad. If a negative value is specified, delay transform 
                 will be performed with no padding
 
+    subband_delay_spectra
+                [dictionary] contains information about delay spectra of 
+                different frequency sub-bands (n_win in number) under the 
+                following keys:
+                'freq_center' 
+                            [numpy array] contains the center frequencies 
+                            (in Hz) of the frequency subbands of the subband
+                            delay spectra. It is of size n_win. It is roughly 
+                            equivalent to redshift(s)
+                'freq_wts'  [numpy array] Contains frequency weights applied 
+                            on each frequency sub-band during the subband delay 
+                            transform. It is of size n_win x nchan. 
+                'bw_eff'    [numpy array] contains the effective bandwidths 
+                            (in Hz) of the subbands being delay transformed. It
+                            is of size n_win. It is roughly equivalent to width 
+                            in redshift or along line-of-sight
+                'shape'     [string] shape of the window function applied. 
+                            Accepted values are 'rect' (rectangular), 'bhw'
+                            (Blackman-Harris), 'bnw' (Blackman-Nuttall). 
+                'bpcorrect' [boolean] If True (default), correct for frequency
+                            weights that were applied during the original 
+                            delay transform using which the delay CLEAN was 
+                            done. This would flatten the bandpass after delay
+                            CLEAN. If False, do not apply the correction, 
+                            namely, inverse of bandpass weights
+                'npad'      [scalar] Numbber of zero-padded channels before
+                            performing the subband delay transform. 
+                'lags'      [numpy array] lags of the subband delay spectra 
+                            after padding in frequency during the transform. It
+                            is of size nchan+npad where npad is the number of 
+                            frequency channels padded and is specified under key
+                            'npad'
+                'lag_kernel'
+                            [numpy array] delay transform of the frequency 
+                            weights under the key 'freq_wts'. It is of size
+                            n_bl x n_win x (nchan+npad) x n_t.
+                'lag_corr_length' 
+                            [numpy array] It is the correlation timescale (in 
+                            pixels) of the subband delay spectra. It is 
+                            proportional to inverse of effective bandwidth. It
+                            is of size n_win. The unit size of a pixel is 
+                            determined by the difference between adjacent pixels 
+                            in lags under key 'lags' which in turn is 
+                            effectively inverse of the total bandwidth 
+                            (nchan x df) simulated.
+                'datapool'  [string] specifies if the subband delay transform 
+                            was applied on the simulated visibilities or the 
+                            delay CLEANed visibilities. Accepted values are 
+                            'simvis' (default) for simulated visibilities and
+                            'ccvis' for CLEANed visibilities.
+                'skyvis_lag'
+                            [numpy array] subband delay spectra of simulated 
+                            (if datapool is set to 'simvis') or CLEANed (if 
+                            datapool is set to 'ccvis') noiseless visibilities 
+                            after applying the frequency weights under the key 
+                            'freq_wts'. It is of size 
+                            n_bl x n_win x (nchan+npad) x n_t. 
+                'vis_lag'   [numpy array] subband delay spectra of simulated 
+                            (if datapool is set to 'simvis') or CLEANed (if 
+                            datapool is set to 'ccvis') noisy visibilities after 
+                            applying the frequency weights under the key 
+                            'freq_wts'. It is of size 
+                            n_bl x n_win x (nchan+npad) x n_t. 
+                'vis_noise_lag'   
+                            [numpy array] subband delay spectra of simulated 
+                            noise after applying the frequency weights under 
+                            the key 'freq_wts'. It is of size 
+                            n_bl x n_win x (nchan+npad) x n_t. 
+                'skyvis_res_lag'
+                            [numpy array] subband delay spectra of residuals
+                            after delay CLEAN of simualted noiseless 
+                            visibilities obtained after applying frequency 
+                            weights specified under key 'freq_wts'. It is of
+                            size n_bl x n_win x (nchan+npad) x n_t
+                'vis_res_lag'
+                            [numpy array] subband delay spectra of residuals
+                            after delay CLEAN of simualted noisy 
+                            visibilities obtained after applying frequency 
+                            weights specified under key 'freq_wts'. It is of
+                            size n_bl x n_win x (nchan+npad) x n_t
+
     Member functions:
 
     __init__()  Initializes an instance of class DelaySpectrum
@@ -529,8 +610,8 @@ class DelaySpectrum(object):
                 instead of the clean routine in AIPY module. It can utilize 
                 parallelization
 
-    multi_window_delay_transform()
-                Computes delay transform on multiple frequency windows with 
+    subband_delay_transform()
+                Computes delay transform on multiple frequency sub-bands with 
                 specified weights
 
     get_horizon_delay_limits()
@@ -561,7 +642,7 @@ class DelaySpectrum(object):
         cc_skyvis_net_lag, cc_vis_lag, cc_vis_res_lag, cc_vis_net_lag, 
         cc_skyvis_freq, cc_skyvis_res_freq, cc_sktvis_net_freq, cc_vis_freq,
         cc_vis_res_freq, cc_vis_net_freq, clean_window_buffer, cc_freq, cc_lags,
-        cc_lag_kernel
+        cc_lag_kernel, multiwin_delay_transform
 
         Read docstring of class DelaySpectrum for details on these
         attributes.
@@ -820,6 +901,8 @@ class DelaySpectrum(object):
 
         self.cc_skyvis_net_freq = None
         self.cc_vis_net_freq = None
+
+        self.subband_delay_spectra = {}
 
     #############################################################################
 
@@ -1281,13 +1364,13 @@ class DelaySpectrum(object):
         
     #############################################################################
         
-    def multi_window_delay_transform(self, bw_eff, freq_center=None, shape=None,
-                                     pad=1.0, datapool='simvis', bpcorrect=True,
-                                     action=None, verbose=True):
+    def subband_delay_transform(self, bw_eff, freq_center=None, shape=None,
+                                pad=1.0, datapool='simvis', bpcorrect=True,
+                                action=None, verbose=True):
 
         """
         ------------------------------------------------------------------------
-        Computes delay transform on multiple frequency windows with specified
+        Computes delay transform on multiple frequency sub-bands with specified
         weights
 
         Inputs:
@@ -1296,7 +1379,7 @@ class DelaySpectrum(object):
                      of the selected frequency windows. If a scalar is provided, 
                      the same will be applied to all frequency windows.
 
-        freq_center  [scalar, list, numpy array] Frequency centers of the
+        freq_center  [scalar, list, numpy array] Frequency centers (in Hz) of the
                      selected frequency windows. If a scalar is provided, the
                      same will be applied to all frequency windows. Default=None
                      uses the center frequency from the class attribute named 
@@ -1316,34 +1399,112 @@ class DelaySpectrum(object):
                      1+pad. If a negative value is specified, delay transform 
                      will be performed with no padding
 
-        datapool     [string]
+        datapool     [string] specifies if the subband delay transform 
+                     is to be applied on the simulated visibilities or the 
+                     delay CLEANed visibilities. Accepted values are 
+                     'simvis' (default) for simulated visibilities and
+                     'ccvis' for CLEANed visibilities.
+
+        bpcorrect    [boolean] If True (default), correct for frequency
+                     weights that were applied during the original 
+                     delay transform using which the delay CLEAN was 
+                     done. This would flatten the bandpass after delay
+                     CLEAN. If False, do not apply the correction, 
+                     namely, inverse of bandpass weights
 
         action       [string] If set to 'return' it returns the output 
                      dictionary and updates its attribute 
-                     multiwin_delay_transform else just updates the attribute.
+                     subband_delay_spectra else just updates the attribute.
                      Default=None (just updates the attribute)
 
         verbose      [boolean] If set to True (default), print diagnostic and 
                      progress messages. If set to False, no such messages are
                      printed.
 
-        Output:
+        Output: 
 
-        A dictionary containing information under the following keys:
-        skyvis_lag        Numpy array of pure sky visibilities delay spectra of
-                          size n_bl x n_windows x nchan x n_snaps
-
-        vis_noise_lag     Numpy array of noise delay spectra of size
-                          size n_bl x n_windows x nchan x n_snaps
-
-        lag_kernel        Numpy array of delay kernel of size
-                          size n_bl x n_windows x nchan x n_snaps
-
-        lag_corr_length   Numpy array of correlation length (in units of number
-                          of delay samples) due to convolving kernel in delay
-                          space. This is the number by which the delay spectra
-                          obtained have to be downsampled by to get independent
-                          samples of delay spectra
+        If keyword input action is set to None (default), the output
+        is internally stored in the class attribute 
+        subband_delay_spectra. If action is set to 'return', this 
+        output is returned. The output is a dictionary that contains 
+        information about delay spectra of different frequency 
+        sub-bands (n_win in number) under the following keys:
+        'freq_center' 
+                    [numpy array] contains the center frequencies 
+                    (in Hz) of the frequency subbands of the subband
+                    delay spectra. It is of size n_win. It is roughly 
+                    equivalent to redshift(s)
+        'freq_wts'  [numpy array] Contains frequency weights applied 
+                    on each frequency sub-band during the subband delay 
+                    transform. It is of size n_win x nchan. 
+        'bw_eff'    [numpy array] contains the effective bandwidths 
+                    (in Hz) of the subbands being delay transformed. It
+                    is of size n_win. It is roughly equivalent to width 
+                    in redshift or along line-of-sight
+        'shape'     [string] shape of the window function applied. 
+                    Accepted values are 'rect' (rectangular), 'bhw'
+                    (Blackman-Harris), 'bnw' (Blackman-Nuttall). 
+        'bpcorrect' [boolean] If True (default), correct for frequency
+                    weights that were applied during the original 
+                    delay transform using which the delay CLEAN was 
+                    done. This would flatten the bandpass after delay
+                    CLEAN. If False, do not apply the correction, 
+                    namely, inverse of bandpass weights
+        'npad'      [scalar] Numbber of zero-padded channels before
+                    performing the subband delay transform. 
+        'lags'      [numpy array] lags of the subband delay spectra 
+                    after padding in frequency during the transform. It
+                    is of size nchan+npad where npad is the number of 
+                    frequency channels padded specified under the key 
+                    'npad'
+        'lag_kernel'
+                    [numpy array] delay transform of the frequency 
+                    weights under the key 'freq_wts'. It is of size
+                    n_bl x n_win x (nchan+npad) x n_t.
+        'lag_corr_length' 
+                    [numpy array] It is the correlation timescale (in 
+                    pixels) of the subband delay spectra. It is 
+                    proportional to inverse of effective bandwidth. It
+                    is of size n_win. The unit size of a pixel is 
+                    determined by the difference between adjacent pixels 
+                    in lags under key 'lags' which in turn is 
+                    effectively inverse of the total bandwidth 
+                    (nchan x df) simulated.
+        'datapool'  [string] specifies if the subband delay transform 
+                    was applied on the simulated visibilities or the 
+                    delay CLEANed visibilities. Accepted values are 
+                    'simvis' (default) for simulated visibilities and
+                    'ccvis' for CLEANed visibilities.
+        'skyvis_lag'
+                    [numpy array] subband delay spectra of simulated 
+                    (if datapool is set to 'simvis') or CLEANed (if 
+                    datapool is set to 'ccvis') noiseless visibilities 
+                    after applying the frequency weights under the key 
+                    'freq_wts'. It is of size 
+                    n_bl x n_win x (nchan+npad) x n_t. 
+        'vis_lag'   [numpy array] subband delay spectra of simulated 
+                    (if datapool is set to 'simvis') or CLEANed (if 
+                    datapool is set to 'ccvis') noisy visibilities after 
+                    applying the frequency weights under the key 
+                    'freq_wts'. It is of size 
+                    n_bl x n_win x (nchan+npad) x n_t. 
+        'vis_noise_lag'   
+                    [numpy array] subband delay spectra of simulated 
+                    noise after applying the frequency weights under 
+                    the key 'freq_wts'. It is of size 
+                    n_bl x n_win x (nchan+npad) x n_t. 
+        'skyvis_res_lag'
+                    [numpy array] subband delay spectra of residuals
+                    after delay CLEAN of simualted noiseless 
+                    visibilities obtained after applying frequency 
+                    weights specified under key 'freq_wts'. It is of
+                    size n_bl x n_win x (nchan+npad) x n_t
+        'vis_res_lag'
+                    [numpy array] subband delay spectra of residuals
+                    after delay CLEAN of simualted noisy 
+                    visibilities obtained after applying frequency 
+                    weights specified under key 'freq_wts'. It is of
+                    size n_bl x n_win x (nchan+npad) x n_t
         ------------------------------------------------------------------------
         """
 
@@ -1443,7 +1604,7 @@ class DelaySpectrum(object):
         vis_lag = DSP.FT1D(NP.pad(vis_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df        
         vis_noise_lag = DSP.FT1D(NP.pad(vis_noise_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
         lag_kernel = DSP.FT1D(NP.pad(self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-        result = {'freq_wts': freq_wts, 'lags': lags, 'skyvis_lag': skyvis_lag, 'vis_lag': vis_lag, 'vis_noise_lag': vis_noise_lag, 'lag_kernel': lag_kernel, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=1)}
+        result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'bpcorrect': bpcorrect, 'npad': npad, 'lags': lags, 'skyvis_lag': skyvis_lag, 'vis_lag': vis_lag, 'vis_noise_lag': vis_noise_lag, 'lag_kernel': lag_kernel, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=1)}
         if datapool == 'ccvis':
             skyvis_res_lag = DSP.FT1D(NP.pad(skyvis_res_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
             vis_res_lag = DSP.FT1D(NP.pad(vis_res_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
@@ -1451,10 +1612,10 @@ class DelaySpectrum(object):
             result['skyvis_res_lag'] = skyvis_res_lag
             
         if verbose:
-            print '\tMulti-window delay transform computed with padding fraction {0:.1f}'.format(pad)
+            print '\tSub-band(s) delay transform computed with padding fraction {0:.1f}'.format(pad)
 
         if action is None:
-            self.multiwin_delay_transform = result
+            self.subband_delay_spectra = result
         elif action == 'return':
             return result
 
