@@ -1,3 +1,15 @@
+From 7df4252 (cosmo):
+====================
+
+In delay_spectrum.py,
+
+(*) Modify saving and initialization of attribute
+subband_delay_spectra of class DelaySpectrum in member functions
+save() and __init__() member functions respectively in accordnace with
+changes in previous commit
+(*) Change default file extension to save delay spectrum information
+to .ds from .cc in save() member function of class DelaySpectrum
+
 From 7962b2c (cosmo):
 ====================
 

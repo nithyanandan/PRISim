@@ -857,25 +857,27 @@ class DelaySpectrum(object):
                 self.cc_vis_net_freq = self.cc_vis_freq + self.cc_vis_res_freq
                 
             self.subband_delay_spectra = {}
-            self.subband_delay_spectra['cc'] = {}
-            self.subband_delay_spectra['sim'] = {}
             if 'SBDS' in hdulist[0].header:
-                self.subband_delay_spectra['shape'] = hdulist[0].header['SBDS-WSHAPE']
-                self.subband_delay_spectra['bpcorrect'] = bool(hdulist[0].header['SBDS-BPCORR'])
-                self.subband_delay_spectra['npad'] = hdulist[0].header['SBDS-NPAD']
-                self.subband_delay_spectra['datapool'] = hdulist[0].header['SBDS-DPOOL']
-                self.subband_delay_spectra['freq_center'] = hdulist['SBDS-F0'].data
-                self.subband_delay_spectra['freq_wts'] = hdulist['SBDS-FWTS'].data
-                self.subband_delay_spectra['bw_eff'] = hdulist['SBDS-BWEFF'].data
-                self.subband_delay_spectra['lags'] = hdulist['SBDS-LAGS'].data
-                self.subband_delay_spectra['lag_kernel'] = hdulist['SBDS-LAGKERN-REAL'].data + 1j * hdulist['SBDS-LAGKERN-IMAG'].data
-                self.subband_delay_spectra['lag_corr_length'] = hdulist['SBDS-LAGCORR'].data
-                self.subband_delay_spectra['skyvis_lag'] = hdulist['SBDS-SKYVISLAG-REAL'].data + 1j * hdulist['SBDS-SKYVISLAG-IMAG'].data
-                self.subband_delay_spectra['vis_lag'] = hdulist['SBDS-VISLAG-REAL'].data + 1j * hdulist['SBDS-VISLAG-IMAG'].data
-                self.subband_delay_spectra['vis_noise_lag'] = hdulist['SBDS-NOISELAG-REAL'].data + 1j * hdulist['SBDS-NOISELAG-IMAG'].data
-                if self.subband_delay_spectra['datapool'] == 'ccvis':
-                    self.subband_delay_spectra['skyvis_res_lag'] = hdulist['SBDS-CCSKYVISRESLAG-REAL'].data + 1j * hdulist['SBDS-CCSKYVISRESLAG-IMAG'].data
-                    self.subband_delay_spectra['vis_res_lag'] = hdulist['SBDS-CCVISRESLAG-REAL'].data + 1j * hdulist['SBDS-CCVISRESLAG-IMAG'].data
+                for key in ['cc', 'sim']:
+                    if '{0}-SBDS'.format(key) in hdulist[0].header:
+                        self.subband_delay_spectra[key] = {}
+                        self.subband_delay_spectra[key]['shape'] = hdulist[0].header['{0}-SBDS-WSHAPE'.format(key)]
+                        if key == 'cc':
+                            self.subband_delay_spectra[key]['bpcorrect'] = bool(hdulist[0].header['{0}-SBDS-BPCORR'.format(key)])
+                        self.subband_delay_spectra[key]['npad'] = hdulist[0].header['{0}-SBDS-NPAD'.format(key)]
+                        self.subband_delay_spectra[key]['freq_center'] = hdulist['{0}-SBDS-F0'.format(key)].data
+                        self.subband_delay_spectra[key]['freq_wts'] = hdulist['{0}-SBDS-FWTS'.format(key)].data
+                        self.subband_delay_spectra[key]['bw_eff'] = hdulist['{0}-SBDS-BWEFF'.format(key)].data
+                        self.subband_delay_spectra[key]['lags'] = hdulist['{0}-SBDS-LAGS'.format(key)].data
+                        self.subband_delay_spectra[key]['lag_kernel'] = hdulist['{0}-SBDS-LAGKERN-REAL'.format(key)].data + 1j * hdulist['{0}-SBDS-LAGKERN-IMAG'.format(key)].data
+                        self.subband_delay_spectra[key]['lag_corr_length'] = hdulist['{0}-SBDS-LAGCORR'.format(key)].data
+                        self.subband_delay_spectra[key]['skyvis_lag'] = hdulist['{0}-SBDS-SKYVISLAG-REAL'.format(key)].data + 1j * hdulist['{0}-SBDS-SKYVISLAG-IMAG'.format(key)].data
+                        self.subband_delay_spectra[key]['vis_lag'] = hdulist['{0}-SBDS-VISLAG-REAL'.format(key)].data + 1j * hdulist['{0}-SBDS-VISLAG-IMAG'.format(key)].data
+                        if key == 'sim':
+                            self.subband_delay_spectra[key]['vis_noise_lag'] = hdulist['{0}-SBDS-NOISELAG-REAL'.format(key)].data + 1j * hdulist['{0}-SBDS-NOISELAG-IMAG'.format(key)].data
+                        if key == 'cc':
+                            self.subband_delay_spectra[key]['skyvis_res_lag'] = hdulist['{0}-SBDS-SKYVISRESLAG-REAL'.format(key)].data + 1j * hdulist['{0}-SBDS-SKYVISRESLAG-IMAG'.format(key)].data
+                            self.subband_delay_spectra[key]['vis_res_lag'] = hdulist['{0}-SBDS-VISRESLAG-REAL'.format(key)].data + 1j * hdulist['{0}-SBDS-VISRESLAG-IMAG'.format(key)].data
 
             hdulist.close()
             init_file_success = True
@@ -928,8 +930,6 @@ class DelaySpectrum(object):
         self.cc_vis_net_freq = None
 
         self.subband_delay_spectra = {}
-        self.subband_delay_spectra['cc'] = {}
-        self.subband_delay_spectra['sim'] = {}
 
     #############################################################################
 
@@ -1761,7 +1761,7 @@ class DelaySpectrum(object):
 
         outfile      [string] Filename with full path to be saved to. Will be
                      appended with '.fits' extension for the interferometer array
-                     data and '.cc.fits' for delay spectrum data
+                     data and '.ds.fits' for delay spectrum data
 
         Keyword Input(s):
 
@@ -1899,34 +1899,37 @@ class DelaySpectrum(object):
 
         if self.subband_delay_spectra:
             hdulist[0].header['SBDS'] = (1, 'Presence of Subband Delay Spectra')
-            hdulist[0].header['SBDS-WSHAPE'] = (self.subband_delay_spectra['shape'], 'Shape of subband frequency weights')
-            hdulist[0].header['SBDS-BPCORR'] = (int(self.subband_delay_spectra['bpcorrect']), 'Truth value for clean component subband delay spectrum bandpass windows weights correction')
-            hdulist[0].header['SBDS-NPAD'] = (self.subband_delay_spectra['npad'], 'Number of zero-padded channels for subband delay spectra')
-            hdulist[0].header['SBDS-DPOOL'] = (self.subband_delay_spectra['datapool'], 'Data pool for subband delay spectra')
-            hdulist += [fits.ImageHDU(self.subband_delay_spectra['freq_center'], name='SBDS-F0')]
-            hdulist += [fits.ImageHDU(self.subband_delay_spectra['freq_wts'], name='SBDS-FWTS')]
-            hdulist += [fits.ImageHDU(self.subband_delay_spectra['bw_eff'], name='SBDS-BWEFF')]
-            hdulist += [fits.ImageHDU(self.subband_delay_spectra['lags'], name='SBDS-LAGS')]
-            hdulist += [fits.ImageHDU(self.subband_delay_spectra['lag_kernel'].real, name='SBDS-LAGKERN-REAL')]
-            hdulist += [fits.ImageHDU(self.subband_delay_spectra['lag_kernel'].imag, name='SBDS-LAGKERN-IMAG')]
-            hdulist += [fits.ImageHDU(self.subband_delay_spectra['lag_corr_length'], name='SBDS-LAGCORR')]
-            hdulist += [fits.ImageHDU(self.subband_delay_spectra['skyvis_lag'].real, name='SBDS-SKYVISLAG-REAL')]
-            hdulist += [fits.ImageHDU(self.subband_delay_spectra['skyvis_lag'].imag, name='SBDS-SKYVISLAG-IMAG')]
-            hdulist += [fits.ImageHDU(self.subband_delay_spectra['vis_lag'].real, name='SBDS-VISLAG-REAL')]
-            hdulist += [fits.ImageHDU(self.subband_delay_spectra['vis_lag'].imag, name='SBDS-VISLAG-IMAG')]
-            hdulist += [fits.ImageHDU(self.subband_delay_spectra['vis_noise_lag'].real, name='SBDS-NOISELAG-REAL')]
-            hdulist += [fits.ImageHDU(self.subband_delay_spectra['vis_noise_lag'].imag, name='SBDS-NOISELAG-IMAG')]
-            if self.subband_delay_spectra['datapool'] == 'ccvis':
-                hdulist += [fits.ImageHDU(self.subband_delay_spectra['skyvis_res_lag'].real, name='SBDS-CCSKYVISRESLAG-REAL')]
-                hdulist += [fits.ImageHDU(self.subband_delay_spectra['skyvis_res_lag'].imag, name='SBDS-CCSKYVISRESLAG-IMAG')]
-                hdulist += [fits.ImageHDU(self.subband_delay_spectra['vis_res_lag'].real, name='SBDS-CCVISRESLAG-REAL')]
-                hdulist += [fits.ImageHDU(self.subband_delay_spectra['vis_res_lag'].imag, name='SBDS-CCVISRESLAG-IMAG')]
+            for key in self.subband_delay_spectra:
+                hdulist[0].header['{0}-SBDS'.format(key)] = (1, 'Presence of {0} Subband Delay Spectra'.format(key))
+                hdulist[0].header['{0}-SBDS-WSHAPE'.format(key)] = (self.subband_delay_spectra[key]['shape'], 'Shape of {0} subband frequency weights'.format(key))
+                if key == 'cc':
+                    hdulist[0].header['{0}-SBDS-BPCORR'.format(key)] = (int(self.subband_delay_spectra[key]['bpcorrect']), 'Truth value for {0} subband delay spectrum bandpass windows weights correction'.format(key))
+                hdulist[0].header['{0}-SBDS-NPAD'.format(key)] = (self.subband_delay_spectra[key]['npad'], 'Number of zero-padded channels for subband delay spectra'.format(key))
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['freq_center'], name='{0}-SBDS-F0'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['freq_wts'], name='{0}-SBDS-FWTS'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['bw_eff'], name='{0}-SBDS-BWEFF'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['lags'], name='{0}-SBDS-LAGS'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['lag_kernel'].real, name='{0}-SBDS-LAGKERN-REAL'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['lag_kernel'].imag, name='{0}-SBDS-LAGKERN-IMAG'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['lag_corr_length'], name='{0}-SBDS-LAGCORR'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['skyvis_lag'].real, name='{0}-SBDS-SKYVISLAG-REAL'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['skyvis_lag'].imag, name='{0}-SBDS-SKYVISLAG-IMAG'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['vis_lag'].real, name='{0}-SBDS-VISLAG-REAL'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['vis_lag'].imag, name='{0}-SBDS-VISLAG-IMAG'.format(key))]
+                if key == 'sim':
+                    hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['vis_noise_lag'].real, name='{0}-SBDS-NOISELAG-REAL'.format(key))]
+                    hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['vis_noise_lag'].imag, name='{0}-SBDS-NOISELAG-IMAG'.format(key))]
+                if key == 'cc':
+                    hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['skyvis_res_lag'].real, name='{0}-SBDS-SKYVISRESLAG-REAL'.format(key))]
+                    hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['skyvis_res_lag'].imag, name='{0}-SBDS-SKYVISRESLAG-IMAG'.format(key))]
+                    hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['vis_res_lag'].real, name='{0}-SBDS-VISRESLAG-REAL'.format(key))]
+                    hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['vis_res_lag'].imag, name='{0}-SBDS-VISRESLAG-IMAG'.format(key))]
 
             if verbose:
                 print '\tCreated extensions for information on subband delay spectra for simulated and clean components of visibilities as a function of baselines, lags/frequency and snapshot instance'
 
         hdu = fits.HDUList(hdulist)
-        hdu.writeto(outfile+'.cc.fits', clobber=overwrite)
+        hdu.writeto(outfile+'.ds.fits', clobber=overwrite)
 
 ################################################################################
 

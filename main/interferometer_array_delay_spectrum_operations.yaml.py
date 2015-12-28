@@ -392,15 +392,14 @@ for k in range(n_sky_sectors):
             # achrmdsofg = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
             achrmdsofg.delayClean(pad=1.0, freq_wts=window, clean_window_buffer=3.0, gain=0.1, maxiter=80000, threshold=1e-6, parallel=True, nproc=nproc)
             achrmdsofg_sbds = achrmdsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return')
-            # achrm_sbds_FGA = achrmdsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='simvis', bpcorrect=False, action='return')
-            # achrm_sbds_FGR = achrmdsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='ccvis', bpcorrect=False, action='return')
+            achrm_sbds_FGA = achrmdsofg_sbds['sim']
+            achrm_sbds_FGR = achrmdsofg_sbds['cc']
             achrmdsoeor_sbds = achrmdsoeor.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return')
-            PDB.set_trace()
-            # achrm_sbds_EoR = achrmdsoeor.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='simvis', bpcorrect=False, action='return')            
+            achrm_sbds_EoR = achrmdsoeor_sbds['sim']
             achrmdsofg.save(outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
             # achrmdpsofg = DS.DelayPowerSpectrum(achrmdsofg)
             # achrmdpsofg.compute_power_spectrum()
-            # achrmdso2 = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
+            # achrmdso2 = DS.DelaySpectrum(init_file=outfile+'.ds.fits')
         elif beam_iter == 1:
             chrmiafg = RI.InterferometerArray(None, None, None, init_file=infile+'.fits')
             chrmiafg.phase_centering(phase_center=pc, phase_center_coords=pc_coords,
@@ -416,9 +415,12 @@ for k in range(n_sky_sectors):
             # chrmdsofg.clean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
             # chrmdsofg = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
             chrmdsofg.delayClean(pad=1.0, freq_wts=window, clean_window_buffer=3.0, gain=0.1, maxiter=80000, threshold=1e-6, parallel=True, nproc=nproc)
-            chrm_sbds_FGR = chrmdsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='ccvis', bpcorrect=False, action='return')
-            chrm_sbds_FGA = chrmdsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='simvis', bpcorrect=False, action='return')
-            chrm_sbds_EoR = chrmdsoeor.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='simvis', bpcorrect=False, action='return')            
+            chrmdsofg_sbds = chrmdsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return')
+            chrm_sbds_FGA = chrmdsofg_sbds['sim']
+            chrm_sbds_FGR = chrmdsofg_sbds['cc']
+            chrmdsoeor_sbds = chrmdsoeor.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return')
+            chrm_sbds_EoR = chrmdsoeor_sbds['sim']
+
             chrmdsofg.save(outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
             # chrmdso2 = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
 
@@ -469,7 +471,7 @@ for k in range(n_sky_sectors):
     ax.plot(achrmiafg.channels/1e6, achrmiafg.bp_wts[0,:,0], ls='-', lw=2, color='orange', label='BHW {0:.1f} MHz'.format(freq/1e6))
     ax.plot(achrmdsofg.f/1e6, NP.abs(achrmdsofg.cc_skyvis_res_freq[0,:achrmdsofg.f.size,0]), ls='-.', lw=2, color='black', label='FG res. (achr.)')
     ax.plot(chrmdsofg.f/1e6, NP.abs(chrmdsofg.cc_skyvis_res_freq[0,:chrmdsofg.f.size,0]), ls='-.', lw=2, color='gray', label='FG res. (chr.)')    
-    for subbandi, subband in enumerate(freq_window_centers):
+    for subbandi, subband in enumerate(freq_window_centers['sim']):
         ax.plot(achrmiafg.channels/1e6, achrm_sbds_FGA['freq_wts'][subbandi,:], ls='-', lw=2, color=subband_colors[subbandi], label='BHW {0:.0f} MHz'.format(subband/1e6))
     legend = ax.legend(loc='lower left', fontsize=8, frameon=True)
     ax.set_xlim(achrmiafg.channels.min()/1e6, achrmiafg.channels.max()/1e6)
@@ -480,8 +482,8 @@ for k in range(n_sky_sectors):
     fig.savefig(rootdir+project_dir+'figures/simulated_FG_EoR_visibilities.png', bbox_inches=0)
     fig.savefig(rootdir+project_dir+'figures/simulated_FG_EoR_visibilities.eps', bbox_inches=0)
     
-    fig, axs = PLT.subplots(nrows=len(freq_window_centers), figsize=(4,8))
-    for subbandi, subband in enumerate(freq_window_centers):
+    fig, axs = PLT.subplots(nrows=len(freq_window_centers['sim']), figsize=(4,8))
+    for subbandi, subband in enumerate(freq_window_centers['sim']):
         axs[subbandi].plot(1e9*achrm_sbds_FGA['lags'], NP.abs(achrm_sbds_FGA['skyvis_lag'][0,subbandi,:,0]), ls=':', lw=2, color='black', label='FGA Achr.')
         axs[subbandi].plot(1e9*achrm_sbds_FGR['lags'], NP.abs(achrm_sbds_FGR['skyvis_res_lag'][0,subbandi,:,0]), ls='--', lw=2, color='black', label='FGR Achr.')
         axs[subbandi].plot(1e9*achrm_sbds_EoR['lags'], NP.abs(achrm_sbds_EoR['skyvis_lag'][0,subbandi,:,0]), ls='-', lw=2, color='black', label='EoR Achr.')
