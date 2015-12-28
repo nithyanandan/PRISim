@@ -1,3 +1,16 @@
+From 81f0345 (cosmo):
+====================
+
+In delay_spectrum.py,
+
+(*) Save attribute subband_delay_spectra in member function save() of
+class DelaySpectrum
+(*) Load attribute subband_delay_spectra from saved file in member
+function __init__() member function of class DelaySpectrum
+(*) Enforce correct usage of keyword input action in member function
+subband_delay_transform() of class DelaySpectrum as described in its
+docstring
+
 From 3441ef1 (cosmo):
 ====================
 
