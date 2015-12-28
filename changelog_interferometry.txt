@@ -1,3 +1,13 @@
+From 7962b2c (cosmo):
+====================
+
+In delay_spectrum.py,
+
+(*) Restructure member function subband_delay_transform() of class
+DelaySpectrum to compute subband delay spectra for both CLEANed and
+simulated visibilities in a single call. Modify docstring of member
+function and class DelaySPectrum accordingly
+
 From 81f0345 (cosmo):
 ====================
 

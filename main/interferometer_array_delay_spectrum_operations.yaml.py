@@ -84,8 +84,8 @@ spindex_rms = parms['fgparm']['spindex_rms']
 spindex_seed = parms['fgparm']['spindex_seed']
 nproc = parms['pp']['nproc']
 
-freq_window_centers = [150e6, 160e6, 170e6]
-freq_window_bw = [10e6, 10e6, 10e6]
+freq_window_centers = {key: [150e6, 160e6, 170e6] for key in ['cc', 'sim']}
+freq_window_bw = {key: [10e6, 10e6, 10e6] for key in ['cc', 'sim']}
 eor_freq = 167.075e6 # in Hz
 eor_nchan = 704
 eor_freq_resolution = 80e3 # in Hz
@@ -391,9 +391,12 @@ for k in range(n_sky_sectors):
             # achrmdsofg.clean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
             # achrmdsofg = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
             achrmdsofg.delayClean(pad=1.0, freq_wts=window, clean_window_buffer=3.0, gain=0.1, maxiter=80000, threshold=1e-6, parallel=True, nproc=nproc)
-            achrm_sbds_FGA = achrmdsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='simvis', bpcorrect=False, action='return')
-            achrm_sbds_FGR = achrmdsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='ccvis', bpcorrect=False, action='return')
-            achrm_sbds_EoR = achrmdsoeor.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='simvis', bpcorrect=False, action='return')            
+            achrmdsofg_sbds = achrmdsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return')
+            # achrm_sbds_FGA = achrmdsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='simvis', bpcorrect=False, action='return')
+            # achrm_sbds_FGR = achrmdsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='ccvis', bpcorrect=False, action='return')
+            achrmdsoeor_sbds = achrmdsoeor.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return')
+            PDB.set_trace()
+            # achrm_sbds_EoR = achrmdsoeor.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape='bhw', pad=1.0, datapool='simvis', bpcorrect=False, action='return')            
             achrmdsofg.save(outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
             # achrmdpsofg = DS.DelayPowerSpectrum(achrmdsofg)
             # achrmdpsofg.compute_power_spectrum()
