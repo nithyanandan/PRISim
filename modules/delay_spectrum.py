@@ -541,7 +541,7 @@ class DelaySpectrum(object):
                             after padding in frequency during the transform. It
                             is of size nchan+npad where npad is the number of 
                             frequency channels padded specified under the key 
-                            'npad'
+                            'npad'. It roughly corresponds to k_parallel.
                 'lag_kernel'
                             [numpy array] delay transform of the frequency 
                             weights under the key 'freq_wts'. It is of size
@@ -2021,6 +2021,86 @@ class DelayPowerSpectrum(object):
                             [numpy array] delay power spectrum of residuals  
                             after delay cleaning of noisy delay spectra
 
+    subband_delay_power_spectra
+                [dictionary] contains two top level keys, namely, 'cc' and 'sim' 
+                denoting information about CLEAN and simulated visibilities 
+                respectively. Essentially this is the power spectrum equivalent 
+                of the attribute suuband_delay_spectra under class DelaySpectrum. 
+                Under each of these keys is information about delay power spectra 
+                of different frequency sub-bands (n_win in number) in the form of 
+                a dictionary under the following keys: 
+                'z'         [numpy array] contains the redshifts corresponding to
+                            center frequencies (in Hz) of the frequency subbands 
+                            of the subband delay spectra. It is of size n_win. 
+                'dz'        [numpy array] contains the width in redshifts 
+                            corresponding to the effective bandwidths (in Hz) of 
+                            the subbands being delay transformed. It is of size 
+                            n_win. 
+                'kprll'     [numpy array] line-of-sight k-modes (in h/Mpc) 
+                            corresponding to lags of the subband delay spectra. 
+                            It is of size n_win x (nchan+npad)
+                'kperp'     [numpy array] transverse k-modes (in h/Mpc) 
+                            corresponding to the baseline lengths and the 
+                            center frequencies. It is of size 
+                            n_win x (nchan+npad)
+                'rz_transverse'
+                            [numpy array] transverse comoving distance 
+                            (in Mpc/h) corresponding to the different redshifts
+                            under key 'z'. It is of size n_win
+                'drz_los'   [numpy array] line-of-sight comoving depth (in 
+                            Mpc/h) corresponding to the redshift widths under 
+                            key 'dz' and redshifts under key 'z'. It is of size
+                            n_win
+                'jacobian1' [numpy array] first jacobian in conversion of delay 
+                            spectrum to power spectrum. It is equal to 
+                            A_eff / wl**2 / bw. It is of size n_win
+                'jacobian2' [numpy array] second jacobian in conversion of delay 
+                            spectrum to power spectrum. It is equal to 
+                            rz_transverse**2 * drz_los / bw. It is of size n_win
+                'Jy2K'      [numpy array] factor to convert Jy/Sr to K. It is 
+                            equal to wl**2 * Jy / (2k). It is of size n_win
+                'factor'    [numpy array] conversion factor to convert delay
+                            spectrum (in Jy Hz) to delay power spectrum (in 
+                            K^2 (Mpc/h)^3). It is equal to 
+                            jacobian1 * jacobian2 * Jy2K**2. It is of size n_win
+                'skyvis_lag'
+                            [numpy array] delay power spectrum (in K^2 (Mpc/h)^3) 
+                            corresponding to noiseless simulated (under top level 
+                            key 'sim') or CLEANed (under top level key 'cc') 
+                            delay spectrum under key 'skyvis_lag' in attribute 
+                            subband_delay_spectra under instance of class 
+                            DelaySpectrum. It is of size 
+                            n_bl x n_win x (nchan+npad) x n_t
+                'vis_lag'   [numpy array] delay power spectrum (in K^2 (Mpc/h)^3) 
+                            corresponding to noisy simulated (under top level 
+                            key 'sim') or CLEANed (under top level key 'cc') 
+                            delay spectrum under key 'vis_lag' in attribute 
+                            subband_delay_spectra under instance of class 
+                            DelaySpectrum. It is of size 
+                            n_bl x n_win x (nchan+npad) x n_t
+                'vis_noise_lag'
+                            [numpy array] delay power spectrum (in K^2 (Mpc/h)^3) 
+                            corresponding to thermal noise simulated (under top 
+                            level key 'sim') delay spectrum under key 
+                            'vis_noise_lag' in attribute subband_delay_spectra 
+                            under instance of class DelaySpectrum. It is of size 
+                            n_bl x n_win x (nchan+npad) x n_t
+                'skyvis_res_lag'
+                            [numpy array] delay power spectrum (in K^2 (Mpc/h)^3) 
+                            corresponding to CLEAN residuals (under top level key 
+                            'cc') from noiseless simulated delay spectrum under 
+                            key 'skyvis_res_lag' in attribute 
+                            subband_delay_spectra under instance of class 
+                            DelaySpectrum. It is of size 
+                            n_bl x n_win x (nchan+npad) x n_t
+                'vis_res_lag'
+                            [numpy array] delay power spectrum (in K^2 (Mpc/h)^3) 
+                            corresponding to CLEAN residuals (under top level key 
+                            'cc') from noisy delay spectrum under key 
+                            'vis_res_lag' in attribute subband_delay_spectra 
+                            under instance of class DelaySpectrum. It is of size 
+                            n_bl x n_win x (nchan+npad) x n_t
+
     Member functions:
 
     __init__()  Initialize an instance of class DelayPowerSpectrum
@@ -2115,7 +2195,9 @@ class DelayPowerSpectrum(object):
         self.dps['cc_skyvis'] = None
         self.dps['cc_vis'] = None
         self.dps['cc_skyvis_res'] = None
-        self.dps['cc_vis_res'] = None        
+        self.dps['cc_vis_res'] = None
+
+        self.subband_delay_power_spectra = {}
 
     ############################################################################
 
@@ -2313,10 +2395,39 @@ class DelayPowerSpectrum(object):
         if self.ds.skyvis_lag is not None: self.dps['skyvis'] = self.ds.skyvis_lag**2 * factor
         if self.ds.vis_lag is not None: self.dps['vis'] = self.ds.vis_lag**2 * factor
         if self.ds.vis_noise_lag is not None: self.dps['noise'] = self.ds.vis_noise_lag**2 * factor
-        if self.ds.cc_skyvis_lag is not None: self.dps['cc_skyvis'] = self.ds.cc_skyvis_lag**2 * factor
-        if self.ds.cc_vis_lag is not None: self.dps['cc_vis'] = self.ds.cc_vis_lag**2 * factor
-        if self.ds.cc_skyvis_res_lag is not None: self.dps['cc_skyvis_res'] = self.ds.cc_skyvis_res_lag**2 * factor
-        if self.ds.cc_vis_res_lag is not None: self.dps['cc_vis_res'] = self.ds.cc_vis_res_lag**2 * factor
+        if self.ds.cc_lags is not None:
+            if self.ds.cc_skyvis_lag is not None: self.dps['cc_skyvis'] = self.ds.cc_skyvis_lag**2 * factor
+            if self.ds.cc_vis_lag is not None: self.dps['cc_vis'] = self.ds.cc_vis_lag**2 * factor
+            if self.ds.cc_skyvis_res_lag is not None: self.dps['cc_skyvis_res'] = self.ds.cc_skyvis_res_lag**2 * factor
+            if self.ds.cc_vis_res_lag is not None: self.dps['cc_vis_res'] = self.ds.cc_vis_res_lag**2 * factor
+
+        if self.ds.subband_delay_spectra:
+            for key in self.ds.subband_delay_spectra:
+                self.subband_delay_power_spectra[key] = {}
+                wl = FCNST.c / self.ds.subband_delay_spectra[key]['freq_center']
+                self.subband_delay_power_spectra[key]['z'] = CNST.rest_freq_HI / self.ds.subband_delay_spectra[key]['freq_center'] - 1
+                self.subband_delay_power_spectra[key]['dz'] = CNST.rest_freq_HI / self.ds.subband_delay_spectra[key]['freq_center']**2 * self.ds.subband_delay_spectra[key]['bw_eff']
+                kprll = NP.empty((self.ds.subband_delay_spectra[key]['freq_center'].size, self.ds.subband_delay_spectra[key]['lags'].size))
+                kperp = NP.empty((self.ds.subband_delay_spectra[key]['freq_center'].size, self.bl_length.size))
+                for zind,z in enumerate(self.subband_delay_power_spectra[key]['z']):
+                    kprll[zind,:] = self.k_parallel(self.ds.subband_delay_spectra[key]['lags'], z, action='return')
+                    kperp[zind,:] = self.k_perp(self.bl_length, z, action='return')
+                self.subband_delay_power_spectra[key]['kprll'] = kprll
+                self.subband_delay_power_spectra[key]['kperp'] = kperp
+                self.subband_delay_power_spectra[key]['rz_transverse'] = self.comoving_transverse_distance(self.subband_delay_power_spectra[key]['z'], action='return')
+                self.subband_delay_power_spectra[key]['drz_los'] = self.comoving_los_depth(self.ds.subband_delay_spectra[key]['bw_eff'], self.subband_delay_power_spectra[key]['z'], action='return')
+                self.subband_delay_power_spectra[key]['jacobian1'] = NP.mean(self.ds.ia.A_eff) / wl**2 / self.ds.subband_delay_spectra[key]['bw_eff']
+                self.subband_delay_power_spectra[key]['jacobian2'] = self.subband_delay_power_spectra[key]['rz_transverse']**2 * self.subband_delay_power_spectra[key]['drz_los'] / self.ds.subband_delay_spectra[key]['bw_eff']
+                self.subband_delay_power_spectra[key]['Jy2K'] = wl**2 * CNST.Jy / (2*FCNST.k)
+                self.subband_delay_power_spectra[key]['factor'] = self.subband_delay_power_spectra[key]['jacobian1'] * self.subband_delay_power_spectra[key]['jacobian2'] * self.subband_delay_power_spectra[key]['Jy2K']**2
+                conversion_factor = self.subband_delay_power_spectra[key]['factor'].reshape(1,-1,1,1)
+                self.subband_delay_power_spectra[key]['skyvis_lag'] = self.ds.subband_delay_spectra[key]['skyvis_lag']**2 * conversion_factor
+                self.subband_delay_power_spectra[key]['vis_lag'] = self.ds.subband_delay_spectra[key]['vis_lag']**2 * conversion_factor
+                if key == 'cc':
+                    self.subband_delay_power_spectra[key]['skyvis_res_lag'] = self.ds.subband_delay_spectra[key]['skyvis_res_lag']**2 * conversion_factor
+                    self.subband_delay_power_spectra[key]['vis_res_lag'] = self.ds.subband_delay_spectra[key]['vis_res_lag']**2 * conversion_factor
+                else:
+                    self.subband_delay_power_spectra[key]['vis_noise_lag'] = self.ds.subband_delay_spectra[key]['vis_noise_lag']**2 * conversion_factor
 
     ############################################################################
 

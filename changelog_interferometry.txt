@@ -1,3 +1,21 @@
+From 36d9b97 (cosmo):
+====================
+
+(*) Add config file ccparameters.yaml for setting delay CLEAN parameters
+to git repo
+
+In delay_spectrum.py,
+
+(*) Add and initialize attribute subband_delay_power_spectrum in
+class DelayPowerSpectrum. Update docstring of class DelayPowerSpectrum
+accordingly
+(*) Add member function compute_power_spectrum() under class
+DelayPowerSpectrum to compute delay power spectrum (in power spectrum)
+units from its delay spectrum. Add description of this member function
+to docstring of class DelayPowerSpectrum
+(*) Assign values to attribute subband_delay_power_spectra inside
+member function compute_power_spectrum of class DelayPowerSpectrum
+
 From 7df4252 (cosmo):
 ====================
 

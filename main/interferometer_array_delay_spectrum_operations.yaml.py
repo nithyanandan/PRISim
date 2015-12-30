@@ -47,8 +47,6 @@ minbl = parms['baseline']['min']
 maxbl = parms['baseline']['max']
 baseline_chunk_size = parms['processing']['bl_chunk_size']
 n_bl_chunks = parms['processing']['n_bl_chunks']
-frequency_chunk_size = parms['processing']['freq_chunk_size']
-n_freq_chunks = parms['processing']['n_freq_chunks']
 fg_str = parms['fgparm']['model']
 nside = parms['fgparm']['nside']
 Tsys = parms['telescope']['Tsys']
@@ -58,12 +56,9 @@ obs_mode = parms['obsparm']['obs_mode']
 nchan = parms['obsparm']['nchan']
 n_acc = parms['obsparm']['n_acc']
 t_acc = parms['obsparm']['t_acc']
-t_obs = parms['obsparm']['t_obs']
 beam_info = parms['beam']
 use_external_beam = beam_info['use_external']
 if use_external_beam:
-    external_beam_file = beam_info['file']
-    beam_pol = beam_info['pol']
     beam_id = beam_info['identifier']
     select_beam_freq = beam_info['select_freq']
     if select_beam_freq is None:
@@ -72,8 +67,6 @@ if use_external_beam:
 beam_chromaticity = beam_info['chromatic']
 n_sky_sectors = parms['processing']['n_sky_sectors']
 bpass_shape = parms['processing']['bpass_shape']
-max_abs_delay = parms['processing']['max_abs_delay']
-f_pad = parms['processing']['f_pad']
 avg_drifts = parms['snapshot']['avg_drifts']
 beam_switch = parms['snapshot']['beam_switch']
 all_snapshots = parms['snapshot']['all']
@@ -83,6 +76,8 @@ pc_coords = parms['phasing']['coords']
 spindex_rms = parms['fgparm']['spindex_rms']
 spindex_seed = parms['fgparm']['spindex_seed']
 nproc = parms['pp']['nproc']
+parallel = parms['pp']['parallel']
+pp_method = parms['pp']['method']
 
 freq_window_centers = {key: [150e6, 160e6, 170e6] for key in ['cc', 'sim']}
 freq_window_bw = {key: [10e6, 10e6, 10e6] for key in ['cc', 'sim']}
@@ -229,8 +224,6 @@ else:
         raise ValueError('Height of antenna element above ground plane must be positive.')
 
 if use_external_beam:
-    # external_beam = fits.getdata(external_beam_file, extname='BEAM_{0}'.format(beam_pol))
-    # external_beam_freqs = fits.getdata(external_beam_file, extname='FREQS_{0}'.format(beam_pol))
     beam_usage_str = 'extpb_'+beam_id
     beam_type = 'extpb_'+beam_id
 else:
@@ -320,7 +313,6 @@ bl = bl[:min(baseline_bin_indices[n_bl_chunks], total_baselines),:]
 bl_length = bl_length[:min(baseline_bin_indices[n_bl_chunks], total_baselines)]
 bl_id = bl_id[:min(baseline_bin_indices[n_bl_chunks], total_baselines)]
     
-oversampling_factor = 1.0 + f_pad
 n_channels = nchan
 
 window = n_channels * DSP.windowing(n_channels, shape=bpass_shape, pad_width=0, centering=True, area_normalize=True) 
@@ -387,18 +379,15 @@ for k in range(n_sky_sectors):
                                       do_delay_transform=False)   
             achrmdsoeor = DS.DelaySpectrum(interferometer_array=achrmiaeor)
 
-            # achrmdsofg.delay_transform(oversampling_factor-1.0, freq_wts=window)
-            # achrmdsofg.clean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
-            # achrmdsofg = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
             achrmdsofg.delayClean(pad=1.0, freq_wts=window, clean_window_buffer=3.0, gain=0.1, maxiter=80000, threshold=1e-6, parallel=True, nproc=nproc)
             achrmdsofg_sbds = achrmdsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return')
             achrm_sbds_FGA = achrmdsofg_sbds['sim']
             achrm_sbds_FGR = achrmdsofg_sbds['cc']
             achrmdsoeor_sbds = achrmdsoeor.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return')
             achrm_sbds_EoR = achrmdsoeor_sbds['sim']
+            achrmdpsofg = DS.DelayPowerSpectrum(achrmdsofg)
+            achrmdpsofg.compute_power_spectrum()
             achrmdsofg.save(outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
-            # achrmdpsofg = DS.DelayPowerSpectrum(achrmdsofg)
-            # achrmdpsofg.compute_power_spectrum()
             # achrmdso2 = DS.DelaySpectrum(init_file=outfile+'.ds.fits')
         elif beam_iter == 1:
             chrmiafg = RI.InterferometerArray(None, None, None, init_file=infile+'.fits')
@@ -411,16 +400,14 @@ for k in range(n_sky_sectors):
                                       do_delay_transform=False)   
             chrmdsoeor = DS.DelaySpectrum(interferometer_array=chrmiaeor)
 
-            # chrmdsofg.delay_transform(oversampling_factor-1.0, freq_wts=window)
-            # chrmdsofg.clean(pad=1.0, freq_wts=window, clean_window_buffer=3.0)
-            # chrmdsofg = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
             chrmdsofg.delayClean(pad=1.0, freq_wts=window, clean_window_buffer=3.0, gain=0.1, maxiter=80000, threshold=1e-6, parallel=True, nproc=nproc)
             chrmdsofg_sbds = chrmdsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return')
             chrm_sbds_FGA = chrmdsofg_sbds['sim']
             chrm_sbds_FGR = chrmdsofg_sbds['cc']
             chrmdsoeor_sbds = chrmdsoeor.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return')
             chrm_sbds_EoR = chrmdsoeor_sbds['sim']
-
+            chrmdpsofg = DS.DelayPowerSpectrum(chrmdsofg)
+            chrmdpsofg.compute_power_spectrum()
             chrmdsofg.save(outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
             # chrmdso2 = DS.DelaySpectrum(init_file=outfile+'.cc.fits')
 
