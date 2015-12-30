@@ -1,3 +1,12 @@
+From 66873dc (cosmo):
+====================
+
+In delay_spectrum.py,
+
+(*) Add required input ia_outfile for saving interferometer array
+visibilities information inside save() member function of class
+DelaySpectrum. Update docstring of member function accordingly
+
 From 36d9b97 (cosmo):
 ====================
 

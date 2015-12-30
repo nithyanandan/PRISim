@@ -1750,7 +1750,7 @@ class DelaySpectrum(object):
         
     #############################################################################
         
-    def save(self, outfile, tabtype='BinTabelHDU', overwrite=False,
+    def save(self, ds_outfile, ia_outfile, tabtype='BinTabelHDU', overwrite=False,
              verbose=True):
 
         """
@@ -1759,9 +1759,12 @@ class DelaySpectrum(object):
 
         Inputs:
 
-        outfile      [string] Filename with full path to be saved to. Will be
-                     appended with '.fits' extension for the interferometer array
-                     data and '.ds.fits' for delay spectrum data
+        outfile      [string] Filename with full path for  for delay spectrum 
+                     data to be saved to. Will be appended with '.ds.fits'
+
+        ia_outfile   [string] Filename with full path for interferometer array
+                     data to be saved to. Will be appended with '.fits' 
+                     extension 
 
         Keyword Input(s):
 
@@ -1779,14 +1782,14 @@ class DelaySpectrum(object):
         """
 
         try:
-            outfile
+            ds_outfile, ia_outfile
         except NameError:
-            raise NameError('No filename provided. Aborting DelaySpectrum.save()...')
+            raise NameError('Both delay spectrum and interferometer array output filenames must be specified. Aborting DelaySpectrum.save()...')
 
         if verbose:
             print '\nSaving information about interferometer array...'
 
-        self.ia.save(outfile, tabtype=tabtype, overwrite=overwrite,
+        self.ia.save(ia_outfile, tabtype=tabtype, overwrite=overwrite,
                      verbose=verbose)
 
         if verbose:
@@ -1801,7 +1804,7 @@ class DelaySpectrum(object):
         hdulist[0].header['N_ACC'] = (self.n_acc, 'Number of accumulations')
         hdulist[0].header['PAD'] = (self.pad, 'Padding factor')
         hdulist[0].header['DBUFFER'] = (self.clean_window_buffer, 'CLEAN window buffer (1/bandwidth)')
-        hdulist[0].header['IARRAY'] = (outfile+'.fits', 'Location of InterferometerArray simulated visibilities')
+        hdulist[0].header['IARRAY'] = (ia_outfile+'.fits', 'Location of InterferometerArray simulated visibilities')
 
         if verbose:
             print '\tCreated a primary HDU.'
@@ -1929,7 +1932,7 @@ class DelaySpectrum(object):
                 print '\tCreated extensions for information on subband delay spectra for simulated and clean components of visibilities as a function of baselines, lags/frequency and snapshot instance'
 
         hdu = fits.HDUList(hdulist)
-        hdu.writeto(outfile+'.ds.fits', clobber=overwrite)
+        hdu.writeto(ds_outfile+'.ds.fits', clobber=overwrite)
 
 ################################################################################
 

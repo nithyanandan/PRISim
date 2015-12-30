@@ -358,6 +358,7 @@ for k in range(n_sky_sectors):
     infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+pfb_instr
     outfile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+'_'+pfb_outstr+bpass_shape
 
+    ia_outfile = infile
     iafg = RI.InterferometerArray(None, None, None, init_file=infile+'.fits')
     iafg.phase_centering(phase_center=pc, phase_center_coords=pc_coords,
                               do_delay_transform=False)   
@@ -366,8 +367,8 @@ for k in range(n_sky_sectors):
     dsofg_sbds = dsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return')
     dpsofg = DS.DelayPowerSpectrum(dsofg)
     dpsofg.compute_power_spectrum()
-    
-    # dsofg.save(outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
+    dsofg.save(outfile, ia_outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
+    # dsoia = DS.DelaySpectrum(init_file=outfile+'.ds.fits')
 
 PDB.set_trace()
 
