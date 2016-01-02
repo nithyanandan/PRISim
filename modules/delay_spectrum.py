@@ -1384,6 +1384,7 @@ class DelaySpectrum(object):
         cc_vis = NP.fft.fft(ccomponents_noisy, axis=1) * deta
         cc_vis_res = NP.fft.fft(ccres_noisy, axis=1) * deta
     
+        self.lags = lags
         self.skyvis_lag = NP.fft.fftshift(skyvis_lag, axes=1)
         self.vis_lag = NP.fft.fftshift(vis_lag, axes=1)
         self.lag_kernel = NP.fft.fftshift(lag_kernel, axes=1)
@@ -2047,6 +2048,14 @@ class DelayPowerSpectrum(object):
                 'cc_vis_res'
                             [numpy array] delay power spectrum of residuals  
                             after delay cleaning of noisy delay spectra
+                'cc_skyvis_net' 
+                            [numpy array] delay power spectrum of sum of 
+                            residuals and clean components
+                            after delay cleaning of noiseless delay spectra
+                'cc_vis_net'
+                            [numpy array] delay power spectrum of sum of 
+                            residuals and clean components  
+                            after delay cleaning of noisy delay spectra
 
     subband_delay_power_spectra
                 [dictionary] contains two top level keys, namely, 'cc' and 'sim' 
@@ -2125,6 +2134,23 @@ class DelayPowerSpectrum(object):
                             corresponding to CLEAN residuals (under top level key 
                             'cc') from noisy delay spectrum under key 
                             'vis_res_lag' in attribute subband_delay_spectra 
+                            under instance of class DelaySpectrum. It is of size 
+                            n_bl x n_win x (nchan+npad) x n_t
+                'skyvis_net_lag'
+                            [numpy array] delay power spectrum (in K^2 (Mpc/h)^3) 
+                            corresponding to sum of CLEAN components and 
+                            residuals (under top level key 
+                            'cc') from noiseless simulated delay spectrum under 
+                            key 'skyvis_net_lag' in attribute 
+                            subband_delay_spectra under instance of class 
+                            DelaySpectrum. It is of size 
+                            n_bl x n_win x (nchan+npad) x n_t
+                'vis_net_lag'
+                            [numpy array] delay power spectrum (in K^2 (Mpc/h)^3) 
+                            corresponding to sum of CLEAN components and 
+                            residuals (under top level key 
+                            'cc') from noisy delay spectrum under key 
+                            'vis_net_lag' in attribute subband_delay_spectra 
                             under instance of class DelaySpectrum. It is of size 
                             n_bl x n_win x (nchan+npad) x n_t
 
@@ -2223,6 +2249,8 @@ class DelayPowerSpectrum(object):
         self.dps['cc_vis'] = None
         self.dps['cc_skyvis_res'] = None
         self.dps['cc_vis_res'] = None
+        self.dps['cc_skyvis_net'] = None
+        self.dps['cc_vis_net'] = None
 
         self.subband_delay_power_spectra = {}
 
@@ -2419,14 +2447,16 @@ class DelayPowerSpectrum(object):
 
         self.dps = {}
         factor = self.jacobian1 * self.jacobian2 * self.Jy2K**2
-        if self.ds.skyvis_lag is not None: self.dps['skyvis'] = self.ds.skyvis_lag**2 * factor
-        if self.ds.vis_lag is not None: self.dps['vis'] = self.ds.vis_lag**2 * factor
-        if self.ds.vis_noise_lag is not None: self.dps['noise'] = self.ds.vis_noise_lag**2 * factor
+        if self.ds.skyvis_lag is not None: self.dps['skyvis'] = NP.abs(self.ds.skyvis_lag)**2 * factor
+        if self.ds.vis_lag is not None: self.dps['vis'] = NP.abs(self.ds.vis_lag)**2 * factor
+        if self.ds.vis_noise_lag is not None: self.dps['noise'] = NP.abs(self.ds.vis_noise_lag)**2 * factor
         if self.ds.cc_lags is not None:
-            if self.ds.cc_skyvis_lag is not None: self.dps['cc_skyvis'] = self.ds.cc_skyvis_lag**2 * factor
-            if self.ds.cc_vis_lag is not None: self.dps['cc_vis'] = self.ds.cc_vis_lag**2 * factor
-            if self.ds.cc_skyvis_res_lag is not None: self.dps['cc_skyvis_res'] = self.ds.cc_skyvis_res_lag**2 * factor
-            if self.ds.cc_vis_res_lag is not None: self.dps['cc_vis_res'] = self.ds.cc_vis_res_lag**2 * factor
+            if self.ds.cc_skyvis_lag is not None: self.dps['cc_skyvis'] = NP.abs(self.ds.cc_skyvis_lag)**2 * factor
+            if self.ds.cc_vis_lag is not None: self.dps['cc_vis'] = NP.abs(self.ds.cc_vis_lag)**2 * factor
+            if self.ds.cc_skyvis_res_lag is not None: self.dps['cc_skyvis_res'] = NP.abs(self.ds.cc_skyvis_res_lag)**2 * factor
+            if self.ds.cc_vis_res_lag is not None: self.dps['cc_vis_res'] = NP.abs(self.ds.cc_vis_res_lag)**2 * factor
+            if self.ds.cc_skyvis_net_lag is not None: self.dps['cc_skyvis_net'] = NP.abs(self.ds.cc_skyvis_net_lag)**2 * factor
+            if self.ds.cc_vis_net_lag is not None: self.dps['cc_vis_net'] = NP.abs(self.ds.cc_vis_net_lag)**2 * factor
 
         if self.ds.subband_delay_spectra:
             for key in self.ds.subband_delay_spectra:
@@ -2448,13 +2478,15 @@ class DelayPowerSpectrum(object):
                 self.subband_delay_power_spectra[key]['Jy2K'] = wl**2 * CNST.Jy / (2*FCNST.k)
                 self.subband_delay_power_spectra[key]['factor'] = self.subband_delay_power_spectra[key]['jacobian1'] * self.subband_delay_power_spectra[key]['jacobian2'] * self.subband_delay_power_spectra[key]['Jy2K']**2
                 conversion_factor = self.subband_delay_power_spectra[key]['factor'].reshape(1,-1,1,1)
-                self.subband_delay_power_spectra[key]['skyvis_lag'] = self.ds.subband_delay_spectra[key]['skyvis_lag']**2 * conversion_factor
-                self.subband_delay_power_spectra[key]['vis_lag'] = self.ds.subband_delay_spectra[key]['vis_lag']**2 * conversion_factor
+                self.subband_delay_power_spectra[key]['skyvis_lag'] = NP.abs(self.ds.subband_delay_spectra[key]['skyvis_lag'])**2 * conversion_factor
+                self.subband_delay_power_spectra[key]['vis_lag'] = NP.abs(self.ds.subband_delay_spectra[key]['vis_lag'])**2 * conversion_factor
                 if key == 'cc':
-                    self.subband_delay_power_spectra[key]['skyvis_res_lag'] = self.ds.subband_delay_spectra[key]['skyvis_res_lag']**2 * conversion_factor
-                    self.subband_delay_power_spectra[key]['vis_res_lag'] = self.ds.subband_delay_spectra[key]['vis_res_lag']**2 * conversion_factor
+                    self.subband_delay_power_spectra[key]['skyvis_res_lag'] = NP.abs(self.ds.subband_delay_spectra[key]['skyvis_res_lag'])**2 * conversion_factor
+                    self.subband_delay_power_spectra[key]['vis_res_lag'] = NP.abs(self.ds.subband_delay_spectra[key]['vis_res_lag'])**2 * conversion_factor
+                    self.subband_delay_power_spectra[key]['skyvis_net_lag'] = NP.abs(self.ds.subband_delay_spectra[key]['skyvis_net_lag'])**2 * conversion_factor
+                    self.subband_delay_power_spectra[key]['vis_net_lag'] = NP.abs(self.ds.subband_delay_spectra[key]['vis_net_lag'])**2 * conversion_factor
                 else:
-                    self.subband_delay_power_spectra[key]['vis_noise_lag'] = self.ds.subband_delay_spectra[key]['vis_noise_lag']**2 * conversion_factor
+                    self.subband_delay_power_spectra[key]['vis_noise_lag'] = NP.abs(self.ds.subband_delay_spectra[key]['vis_noise_lag'])**2 * conversion_factor
 
     ############################################################################
 

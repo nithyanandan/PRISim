@@ -1,3 +1,26 @@
+From d30bb7a (master):
+=====================
+
+(*) Add figparameters_HERA.yaml to git repo
+
+In delay_spectrum.py,
+
+(*) Add and initialize keys 'cc_skyvis_net' and 'cc_vis_net' under
+attribute dps in member function __init__() of class
+DelayPowerSpectrum. Update docstring acccordingly
+(*) Compute values under keys 'cc_skyvis_net' and 'cc_vis_net' under
+attribute dps in member function compute_power_spectrum() of class
+DelayPowerSpectrum. 
+(*) Compute values under keys 'cc_skyvis_net' and 'cc_vis_net' under
+attribute subband_delay_power_spectra in member function
+compute_power_spectrum() of class DelayPowerSpectrum. Update docstring
+of class DelayPowerSpectrum accordingly
+(*) Fix all delay power spectrum calculations to perform square of the
+absolute value instead of simply squaring in member function
+compute_power_spectrum() of class DelayPowerSpectrum
+(*) Assign attribute lags in member function delayClean() of class
+DelaySpectrum to match the size of attribute skyvis_lag
+
 From 0d5734f (master):
 =====================
 
