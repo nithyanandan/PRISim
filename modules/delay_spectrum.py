@@ -576,14 +576,30 @@ class DelaySpectrum(object):
                             n_bl x n_win x (nchan+npad) x n_t. 
                 'skyvis_res_lag'
                             [numpy array] subband delay spectra of residuals
-                            after delay CLEAN of simualted noiseless 
+                            after delay CLEAN of simulated noiseless 
                             visibilities obtained after applying frequency 
                             weights specified under key 'freq_wts'. Only present 
                             for top level key 'cc' and absent for 'sim'. It is of
                             size n_bl x n_win x (nchan+npad) x n_t
                 'vis_res_lag'
                             [numpy array] subband delay spectra of residuals
-                            after delay CLEAN of simualted noisy 
+                            after delay CLEAN of simulated noisy 
+                            visibilities obtained after applying frequency 
+                            weights specified under key 'freq_wts'. Only present 
+                            for top level key 'cc' and absent for 'sim'. It is of
+                            size n_bl x n_win x (nchan+npad) x n_t
+                'skyvis_net_lag'
+                            [numpy array] subband delay spectra of sum of 
+                            residuals and clean components
+                            after delay CLEAN of simulated noiseless 
+                            visibilities obtained after applying frequency 
+                            weights specified under key 'freq_wts'. Only present 
+                            for top level key 'cc' and absent for 'sim'. It is of
+                            size n_bl x n_win x (nchan+npad) x n_t
+                'vis_res_lag'
+                            [numpy array] subband delay spectra of sum of 
+                            residuals and clean components
+                            after delay CLEAN of simulated noisy 
                             visibilities obtained after applying frequency 
                             weights specified under key 'freq_wts'. Only present 
                             for top level key 'cc' and absent for 'sim'. It is of
@@ -720,19 +736,19 @@ class DelaySpectrum(object):
                 self.f = hdulist['FREQUENCIES'].data
             except KeyError:
                 hdulist.close()
-                raise KeyError('Extension "FREQUENCIES" nout found in header')
+                raise KeyError('Extension "FREQUENCIES" not found in header')
 
             self.lags = None
             if 'LAGS' in extnames:
                 self.lags = hdulist['LAGS'].data
 
             self.cc_lags = None
-            if 'CC_LAGS' in extnames:
-                self.cc_lags = hdulist['CC_LAGS'].data
+            if 'CLEAN LAGS' in extnames:
+                self.cc_lags = hdulist['CLEAN LAGS'].data
 
             self.cc_freq = None
-            if 'CC_FREQ' in extnames:
-                self.cc_freq = hdulist['CC_FREQ'].data
+            if 'CLEAN FREQUENCIES' in extnames:
+                self.cc_freq = hdulist['CLEAN FREQUENCIES'].data
                 
             if 'BANDPASS' in extnames:
                 self.bp = hdulist['BANDPASS'].data
@@ -878,6 +894,8 @@ class DelaySpectrum(object):
                         if key == 'cc':
                             self.subband_delay_spectra[key]['skyvis_res_lag'] = hdulist['{0}-SBDS-SKYVISRESLAG-REAL'.format(key)].data + 1j * hdulist['{0}-SBDS-SKYVISRESLAG-IMAG'.format(key)].data
                             self.subband_delay_spectra[key]['vis_res_lag'] = hdulist['{0}-SBDS-VISRESLAG-REAL'.format(key)].data + 1j * hdulist['{0}-SBDS-VISRESLAG-IMAG'.format(key)].data
+                            self.subband_delay_spectra[key]['skyvis_net_lag'] = self.subband_delay_spectra[key]['skyvis_lag'] + self.subband_delay_spectra[key]['skyvis_res_lag']
+                            self.subband_delay_spectra[key]['vis_net_lag'] = self.subband_delay_spectra[key]['vis_lag'] + self.subband_delay_spectra[key]['vis_res_lag']
 
             hdulist.close()
             init_file_success = True
@@ -1649,6 +1667,8 @@ class DelaySpectrum(object):
                     vis_freq = self.cc_vis_freq[:,:self.f.size,:]
                     skyvis_res_freq = self.cc_skyvis_res_freq[:,:self.f.size,:]
                     vis_res_freq = self.cc_vis_res_freq[:,:self.f.size,:]
+                    skyvis_net_freq = self.cc_skyvis_net_freq[:,:self.f.size,:]
+                    vis_net_freq = self.cc_vis_net_freq[:,:self.f.size,:]
                     if bpcorrect:
                         bpcorrection_factor = NP.where(NP.abs(self.bp_wts)>0.0, 1/self.bp_wts, 0.0)
                         bpcorrection_factor = bpcorrection_factor[:,NP.newaxis,:,:]
@@ -1664,8 +1684,12 @@ class DelaySpectrum(object):
                 if key == 'cc':
                     skyvis_res_lag = DSP.FT1D(NP.pad(skyvis_res_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                     vis_res_lag = DSP.FT1D(NP.pad(vis_res_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                    skyvis_net_lag = DSP.FT1D(NP.pad(skyvis_net_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                    vis_net_lag = DSP.FT1D(NP.pad(vis_net_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                     result[key]['vis_res_lag'] = vis_res_lag
                     result[key]['skyvis_res_lag'] = skyvis_res_lag
+                    result[key]['vis_net_lag'] = vis_net_lag
+                    result[key]['skyvis_net_lag'] = skyvis_net_lag
                     result[key]['bpcorrect'] = bpcorrect
                 else:
                     result[key]['vis_noise_lag'] = vis_noise_lag

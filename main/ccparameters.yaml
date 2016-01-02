@@ -138,7 +138,7 @@ beam    :
                                 # AN=Abraham Neben
                                 # DD=Dave DeBoer, or 'HERA-CST'
 
-    chromatic       : true
+    chromatic       : false
                                 # if false, the beam is the same at
                                 # all frequencies and the beam at
                                 # reference frequency will be used for

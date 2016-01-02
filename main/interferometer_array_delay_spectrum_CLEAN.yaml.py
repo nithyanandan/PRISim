@@ -15,7 +15,7 @@ import ipdb as PDB
 parser = argparse.ArgumentParser(description='Program to simulate interferometer array data')
 
 input_group = parser.add_argument_group('Input parameters', 'Input specifications')
-input_group.add_argument('-i', '--infile', dest='infile', default='/home/t_nithyanandan/codes/mine/python/interferometry/main/simparameters.yaml', type=file, required=False, help='File specifying input parameters')
+input_group.add_argument('-i', '--infile', dest='infile', default='/home/t_nithyanandan/codes/mine/python/interferometry/main/ccparameters.yaml', type=file, required=False, help='File specifying input parameters')
 
 args = vars(parser.parse_args())
 
@@ -223,7 +223,7 @@ if use_external_beam:
     if beam_chromaticity:
         beam_usage_str = beam_usage_str + '_chromatic'
     else:
-        beam_usage_str = beam_usage_str + '{0:.1f}_MHz_achromatic'.format(select_beam_freq/1e6)
+        beam_usage_str = beam_usage_str + '_{0:.1f}_MHz_achromatic'.format(select_beam_freq/1e6)
 else:
     beam_usage_str = 'funcpb_chromatic'
 
@@ -368,7 +368,7 @@ for k in range(n_sky_sectors):
     dpsofg = DS.DelayPowerSpectrum(dsofg)
     dpsofg.compute_power_spectrum()
     dsofg.save(outfile, ia_outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
-    # dsoia = DS.DelaySpectrum(init_file=outfile+'.ds.fits')
+    dsoia = DS.DelaySpectrum(init_file=outfile+'.ds.fits')
 
 PDB.set_trace()
 

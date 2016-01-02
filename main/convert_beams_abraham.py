@@ -8,9 +8,14 @@ beams_dir = 'power_patterns/Abraham/'
 # simsource = 'ABRAHAM-DAVE'
 # infile = 'Abraham_DeBoer_beam_A_17_197_137o5_healpix.txt'
 # outfile = 'Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
-simsource = 'ABRAHAM-RICH'
-infile = 'Abraham_Rich_beam_1375_18H_P1_healpix.txt'
-outfile = 'Abraham_Rich_beam_1375_18H_P1_healpix.fits'
+
+# simsource = 'ABRAHAM-RICH'
+# infile = 'Abraham_Rich_beam_1375_18H_P1_healpix.txt'
+# outfile = 'Abraham_Rich_beam_1375_18H_P1_healpix.fits'
+
+simsource = 'ABRAHAM-RICH-128'
+infile = 'Abraham_Rich_beam_1375_18L_P1_hp_nside128.txt'
+outfile = 'Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
 
 beam = NP.loadtxt(rootdir+beams_dir+infile)
 nside_in = HP.get_nside(beam)
