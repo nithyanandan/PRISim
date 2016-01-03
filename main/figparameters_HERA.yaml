@@ -310,4 +310,8 @@ plot    :
                                 # spectra with different beam
                                 # chromaticities
 
-    2a      : false
+    2a      : true
+                                # Plot ratio of signal to foreground
+                                # ratio as a function of staggered
+                                # delays to set a spec on
+                                # reflectometry

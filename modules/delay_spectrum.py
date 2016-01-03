@@ -2008,6 +2008,14 @@ class DelayPowerSpectrum(object):
     kperp       [numpy array] transverse wavenumbers (in h/Mpc) corresponding
                 to baseline lengths
 
+    horizon_kprll_limits
+                [numpy array] limits on k_parallel corresponding to limits on
+                horizon delays. It is of size NxMx2 denoting the neagtive and 
+                positive horizon delay limits where N is the number of 
+                timestamps, M is the number of baselines. The 0 index in the 
+                third dimenstion denotes the negative horizon limit while 
+                the 1 index denotes the positive horizon limit
+
     drz_los     [scalar] comoving line-of-sight depth (Mpc/h) corresponding to 
                 specified redshift and bandwidth for redshifted 21 cm line
 
@@ -2079,6 +2087,15 @@ class DelayPowerSpectrum(object):
                             corresponding to the baseline lengths and the 
                             center frequencies. It is of size 
                             n_win x (nchan+npad)
+                horizon_kprll_limits
+                            [numpy array] limits on k_parallel corresponding to 
+                            limits on horizon delays for each subband. It is of 
+                            size N x n_win x M x 2 denoting the neagtive and 
+                            positive horizon delay limits where N is the number 
+                            of timestamps, n_win is the number of subbands, M is 
+                            the number of baselines. The 0 index in the fourth 
+                            dimenstion denotes the negative horizon limit while 
+                            the 1 index denotes the positive horizon limit
                 'rz_transverse'
                             [numpy array] transverse comoving distance 
                             (in Mpc/h) corresponding to the different redshifts
@@ -2231,6 +2248,7 @@ class DelayPowerSpectrum(object):
         self.bw = self.df * self.f.size
         self.kprll = self.k_parallel(self.lags, redshift=self.z, action='return')   # in h/Mpc
         self.kperp = self.k_perp(self.bl_length, redshift=self.z, action='return')   # in h/Mpc        
+        self.horizon_kprll_limits = self.k_parallel(self.ds.horizon_delay_limits, redshift=self.z, action='return')    # in h/Mpc
 
         self.drz_los = self.comoving_los_depth(self.bw, self.z, action='return')   # in Mpc/h
         self.rz_transverse = self.comoving_transverse_distance(self.z, action='return')   # in Mpc/h
@@ -2466,11 +2484,14 @@ class DelayPowerSpectrum(object):
                 self.subband_delay_power_spectra[key]['dz'] = CNST.rest_freq_HI / self.ds.subband_delay_spectra[key]['freq_center']**2 * self.ds.subband_delay_spectra[key]['bw_eff']
                 kprll = NP.empty((self.ds.subband_delay_spectra[key]['freq_center'].size, self.ds.subband_delay_spectra[key]['lags'].size))
                 kperp = NP.empty((self.ds.subband_delay_spectra[key]['freq_center'].size, self.bl_length.size))
+                horizon_kprll_limits = NP.empty((self.ds.n_acc, self.ds.subband_delay_spectra[key]['freq_center'].size, self.bl_length.size, 2))
                 for zind,z in enumerate(self.subband_delay_power_spectra[key]['z']):
                     kprll[zind,:] = self.k_parallel(self.ds.subband_delay_spectra[key]['lags'], z, action='return')
                     kperp[zind,:] = self.k_perp(self.bl_length, z, action='return')
+                    horizon_kprll_limits[:,zind,:,:] = self.k_parallel(self.ds.horizon_delay_limits, z, action='return')
                 self.subband_delay_power_spectra[key]['kprll'] = kprll
                 self.subband_delay_power_spectra[key]['kperp'] = kperp
+                self.subband_delay_power_spectra[key]['horizon_kprll_limits'] = horizon_kprll_limits
                 self.subband_delay_power_spectra[key]['rz_transverse'] = self.comoving_transverse_distance(self.subband_delay_power_spectra[key]['z'], action='return')
                 self.subband_delay_power_spectra[key]['drz_los'] = self.comoving_los_depth(self.ds.subband_delay_spectra[key]['bw_eff'], self.subband_delay_power_spectra[key]['z'], action='return')
                 self.subband_delay_power_spectra[key]['jacobian1'] = NP.mean(self.ds.ia.A_eff) / wl**2 / self.ds.subband_delay_spectra[key]['bw_eff']

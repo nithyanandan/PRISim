@@ -1,3 +1,16 @@
+From f79570e (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Add and initialize attribute horizon_kprll_limits for class
+DelayPowerSpectrum in member function __init__(). Update docstring
+accordingly
+(*) Add and assign values to key 'horizon_kprll_limits' under
+attribute subband_delay_power_spectra in member function
+compute_power_spectrum() of class DelayPowerSpectrum. Update
+docstring accordingly.
+
 From d30bb7a (master):
 =====================
 

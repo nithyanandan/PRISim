@@ -4,6 +4,7 @@ import numpy as NP
 import scipy.constants as FCNST
 import matplotlib.pyplot as PLT
 import matplotlib.colors as PLTC
+import matplotlib.gridspec as GS
 from astropy.io import fits
 import interferometry as RI
 import delay_spectrum as DS
@@ -440,41 +441,112 @@ if '1b' in plots:
     
     kprll = fgdps_achrmbeam.k_parallel(fgds_achrmbeam.cc_lags, fgdps_achrmbeam.z, action='return')
     for fwi, fw in enumerate(freq_window_centers['cc']):
-        fig, axs = PLT.subplots(ncols=2, sharex=True, sharey=True, figsize=(4,3))
-        axs[0].plot(kprll, fgdps_achrmbeam.dps['skyvis'][0,:,0], color='blue', lw=2, ls='-')
-        axs[0].plot(kprll, fgdps_chrmbeam.dps['skyvis'][0,:,0], color='blue', lw=2, ls=':')
-        axs[0].plot(kprll, fgdps_funcbeam.dps['skyvis'][0,:,0], color='blue', lw=2, ls='--')
-        axs[0].plot(fgdps_achrmbeam.subband_delay_power_spectra['sim']['kprll'][fwi,:], fgdps_achrmbeam.subband_delay_power_spectra['sim']['skyvis_lag'][0,fwi,:,0], color='black', lw=2, ls='-')
-        axs[0].plot(fgdps_chrmbeam.subband_delay_power_spectra['sim']['kprll'][fwi,:], fgdps_chrmbeam.subband_delay_power_spectra['sim']['skyvis_lag'][0,fwi,:,0], color='black', lw=2, ls=':')
-        axs[0].plot(fgdps_funcbeam.subband_delay_power_spectra['sim']['kprll'][fwi,:], fgdps_funcbeam.subband_delay_power_spectra['sim']['skyvis_lag'][0,fwi,:,0], color='black', lw=2, ls='--')
-        axs[1].plot(fgdps_achrmbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_achrmbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][0,fwi,:,0], color='black', lw=2, ls='-')
-        axs[1].plot(fgdps_chrmbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_chrmbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][0,fwi,:,0], color='black', lw=2, ls=':')
-        axs[1].plot(fgdps_funcbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_funcbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][0,fwi,:,0], color='black', lw=2, ls='--')    
-        axs[1].plot(kprll, fgdps_achrmbeam.dps['skyvis'][0,:,0], color='blue', lw=2, ls='-')
-        axs[1].plot(kprll, fgdps_achrmbeam.dps['cc_skyvis'][0,:,0], color='green', lw=2, ls='-')
-        axs[1].plot(kprll, fgdps_achrmbeam.dps['cc_skyvis_res'][0,:,0], color='red', lw=2, ls='-')
-        axs[1].plot(kprll, fgdps_chrmbeam.dps['skyvis'][0,:,0], color='blue', lw=2, ls=':')
-        axs[1].plot(kprll, fgdps_chrmbeam.dps['cc_skyvis'][0,:,0], color='green', lw=2, ls=':')
-        axs[1].plot(kprll, fgdps_chrmbeam.dps['cc_skyvis_res'][0,:,0], color='red', lw=2, ls=':')
-        axs[1].plot(kprll, fgdps_funcbeam.dps['skyvis'][0,:,0], color='blue', lw=2, ls='--')
-        axs[1].plot(kprll, fgdps_funcbeam.dps['cc_skyvis'][0,:,0], color='green', lw=2, ls='--')
-        axs[1].plot(kprll, fgdps_funcbeam.dps['cc_skyvis_res'][0,:,0], color='red', lw=2, ls='--')
-        axs[0].set_yscale('log')
-        axs[1].set_yscale('log')
-        axs[0].set_aspect('auto')
-        axs[1].set_aspect('auto')        
-        fig.subplots_adjust(hspace=0, wspace=0)
-        big_ax = fig.add_subplot(111)
-        big_ax.set_axis_bgcolor('none')
-        big_ax.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
-        big_ax.set_xticks([])
-        big_ax.set_yticks([])
-        big_ax.set_ylabel(r'$P(k_\parallel)$'+ r'[K$^2$ (Mpc/h)$^3$]', fontsize=16, weight='medium', labelpad=30)
-        big_ax.set_xlabel(r'$k_\parallel$ [h/Mpc]', fontsize=16, weight='medium', labelpad=20)
-        fig.subplots_adjust(top=0.95)
-        fig.subplots_adjust(bottom=0.17)
-        fig.subplots_adjust(left=0.12)
-        fig.subplots_adjust(right=0.98)    
+
+        fig = PLT.figure(figsize=(8,6))
+        gs1 = GS.GridSpec(1,3)
+        gs2 = GS.GridSpec(1,2)
+        gs1.update(left=0.13, right=0.98, top=0.98, bottom=0.6, hspace=0, wspace=0)
+        gs2.update(left=0.13, right=0.98, top=0.5, bottom=0.1, hspace=0, wspace=0)
+        ax10 = PLT.subplot(gs1[0,0])
+        ax11 = PLT.subplot(gs1[0,1], sharex=ax10)
+        ax12 = PLT.subplot(gs1[0,2], sharex=ax10)
+        ax20 = PLT.subplot(gs2[0,0])
+        ax21 = PLT.subplot(gs2[0,1], sharex=ax20)
+
+        ax10.plot(kprll, fgdps_achrmbeam.dps['skyvis'][0,:,0], color='black', lw=2, ls='-')
+        ax10.plot(kprll, fgdps_chrmbeam.dps['skyvis'][0,:,0], color='blue', lw=2, ls='-')
+        ax10.plot(kprll, fgdps_funcbeam.dps['skyvis'][0,:,0], color='red', lw=2, ls='-')
+        ax10.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[0,0,0], ymax=0.9, ls='-', lw=2, color='gray')
+        ax10.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[0,0,1], ymax=0.9, ls='-', lw=2, color='gray')        
+        ax10.set_yscale('log')
+        ax10.set_xlim(-0.25, 0.25)
+        ax10.set_ylim(5e-3, 5e12)
+       
+        ax11.plot(kprll, fgdps_achrmbeam.dps['cc_skyvis'][0,:,0], color='black', lw=2, ls='-')
+        ax11.plot(kprll, fgdps_chrmbeam.dps['cc_skyvis'][0,:,0], color='blue', lw=2, ls='-')
+        ax11.plot(kprll, fgdps_funcbeam.dps['cc_skyvis'][0,:,0], color='red', lw=2, ls='-')
+        ax11.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[0,0,0], ymax=0.9, ls='-', lw=2, color='gray')
+        ax11.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[0,0,1], ymax=0.9, ls='-', lw=2, color='gray')        
+        ax11.set_yscale('log')
+        ax11.set_xlim(-0.25, 0.25)
+        ax11.set_ylim(5e-3, 5e12)
+        PLT.setp(ax11.get_yticklabels(), visible=False)
+
+        ax12.plot(kprll, fgdps_achrmbeam.dps['cc_skyvis_res'][0,:,0], color='black', lw=2, ls='-')
+        ax12.plot(kprll, fgdps_chrmbeam.dps['cc_skyvis_res'][0,:,0], color='blue', lw=2, ls='-')
+        ax12.plot(kprll, fgdps_funcbeam.dps['cc_skyvis_res'][0,:,0], color='red', lw=2, ls='-')
+        ax12.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[0,0,0], ymax=0.9, ls='-', lw=2, color='gray')
+        ax12.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[0,0,1], ymax=0.9, ls='-', lw=2, color='gray')        
+        ax12.set_yscale('log')
+        ax12.set_xlim(-0.25, 0.25)
+        ax12.set_ylim(5e-3, 5e12)
+        PLT.setp(ax12.get_yticklabels(), visible=False)
+
+        ax20.plot(fgdps_achrmbeam.subband_delay_power_spectra['sim']['kprll'][fwi,:], fgdps_achrmbeam.subband_delay_power_spectra['sim']['skyvis_lag'][0,fwi,:,0], color='black', lw=2, ls='-')
+        ax20.plot(fgdps_chrmbeam.subband_delay_power_spectra['sim']['kprll'][fwi,:], fgdps_chrmbeam.subband_delay_power_spectra['sim']['skyvis_lag'][0,fwi,:,0], color='blue', lw=2, ls='-')
+        ax20.plot(fgdps_funcbeam.subband_delay_power_spectra['sim']['kprll'][fwi,:], fgdps_funcbeam.subband_delay_power_spectra['sim']['skyvis_lag'][0,fwi,:,0], color='red', lw=2, ls='-')
+        ax20.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['sim']['horizon_kprll_limits'][0,fwi,0,0], ymax=0.9, ls='-', lw=2, color='gray')
+        ax20.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['sim']['horizon_kprll_limits'][0,fwi,0,1], ymax=0.9, ls='-', lw=2, color='gray')        
+        ax20.set_yscale('log')
+        ax20.set_xlim(-0.25, 0.25)
+        ax20.set_ylim(5e-3, 5e12)
+
+        ax21.plot(fgdps_achrmbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_achrmbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][0,fwi,:,0], color='black', lw=2, ls='-')
+        ax21.plot(fgdps_chrmbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_chrmbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][0,fwi,:,0], color='blue', lw=2, ls='-')
+        ax21.plot(fgdps_funcbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_funcbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][0,fwi,:,0], color='red', lw=2, ls='-')
+        ax21.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['cc']['horizon_kprll_limits'][0,fwi,0,0], ymax=0.9, ls='-', lw=2, color='gray')
+        ax21.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['cc']['horizon_kprll_limits'][0,fwi,0,1], ymax=0.9, ls='-', lw=2, color='gray')        
+        ax21.set_yscale('log')
+        ax21.set_xlim(-0.25, 0.25)
+        ax21.set_ylim(5e-3, 5e12)
+        PLT.setp(ax21.get_yticklabels(), visible=False)
+
+        pos10 = ax10.get_position()
+        pos12 = ax12.get_position()
+        x0 = pos10.x0
+        x1 = pos12.x1
+        y0 = pos10.y0
+        y1 = pos10.y1
+        big_ax1 = fig.add_axes([x0, y0, x1-x0, y1-y0])
+        big_ax1.set_axis_bgcolor('none')
+        big_ax1.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+        big_ax1.set_xticks([])
+        big_ax1.set_yticks([])
+        big_ax1.set_xlabel(r'$k_\parallel$ [$h$ Mpc$^{-1}$]', fontsize=16, weight='medium', labelpad=20)
+
+        pos20 = ax20.get_position()
+        pos21 = ax21.get_position()
+        x0 = pos20.x0
+        x1 = pos21.x1
+        y0 = pos20.y0
+        y1 = pos20.y1
+        big_ax2 = fig.add_axes([x0, y0, x1-x0, y1-y0])
+        big_ax2.set_axis_bgcolor('none')
+        big_ax2.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+        big_ax2.set_xticks([])
+        big_ax2.set_yticks([])
+        big_ax2.set_xlabel(r'$k_\parallel$ [$h$ Mpc$^{-1}$]', fontsize=16, weight='medium', labelpad=20)
+
+        x0 = pos20.x0
+        x1 = pos21.x1
+        y0 = pos20.y0
+        y1 = pos10.y1
+        big_ax3 = fig.add_axes([x0, y0, x1-x0, y1-y0])
+        big_ax3.set_axis_bgcolor('none')
+        big_ax3.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+        big_ax3.set_xticks([])
+        big_ax3.set_yticks([])
+        big_ax3.spines['right'].set_visible(False)
+        big_ax3.spines['top'].set_visible(False)
+        big_ax3.spines['left'].set_visible(False)
+        big_ax3.spines['bottom'].set_visible(False)
+        big_ax3.set_ylabel(r'$P(k_\parallel)$ [K$^2$(h$^{-1}$ Mpc)$^3$]', fontsize=16, weight='medium', labelpad=30)
+        
+        PLT.savefig(figuresdir+'asm_beam_chromaticity.png', bbox_inches=0)
+        PLT.savefig(figuresdir+'asm_beam_chromaticity.eps', bbox_inches=0)    
+
+    print '\n\tPlotted and saved off-axis point source beam chromaticity'
+
         
     
 
