@@ -1,3 +1,11 @@
+From c4f56de (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Modify member function k_parallel() of class DelayPowerSpectrum to
+use jacobian from dkprll_deta()
+
 From 30c95c0 (master):
 =====================
 

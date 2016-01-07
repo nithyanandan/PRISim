@@ -2444,7 +2444,8 @@ class DelayPowerSpectrum(object):
         ------------------------------------------------------------------------
         """
 
-        kprll = 2 * NP.pi * lags * self.cosmo.H0.value * CNST.rest_freq_HI * self.cosmo.efunc(redshift) / FCNST.c / (1+redshift)**2 * 1e3
+        eta2kprll = dkprll_deta(redshift, cosmo=self.cosmo)
+        kprll = eta2kprll * lags
         if action is None:
             self.z = redshift
             self.kprll = kprll
