@@ -17,6 +17,10 @@ simsource = 'ABRAHAM-RICH-128'
 infile = 'Abraham_Rich_beam_1375_18L_P1_hp_nside128.txt'
 outfile = 'Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
 
+simsource = 'ABRAHAM-RICH-128'
+infile = 'Abraham_Rich_beam_1375_18H_P1_hp_nside128full.txt'
+outfile = 'Abraham_Rich_beam_1375_18H_P1_hp_nside128full.fits'
+
 beam = NP.loadtxt(rootdir+beams_dir+infile)
 nside_in = HP.get_nside(beam)
 npix_in = beam.shape[0]

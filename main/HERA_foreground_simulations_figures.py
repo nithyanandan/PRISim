@@ -2,6 +2,7 @@ import yaml
 import argparse
 import numpy as NP
 import scipy.constants as FCNST
+from scipy import interpolate
 import matplotlib.pyplot as PLT
 import matplotlib.colors as PLTC
 import matplotlib.gridspec as GS
@@ -49,6 +50,18 @@ baseline_chunk_size = parms['processing']['bl_chunk_size']
 n_bl_chunks = parms['processing']['n_bl_chunks']
 fg_str = parms['fgparm']['model']
 nside = parms['fgparm']['nside']
+eor_str = parms['eorparm']['model']
+eor_nside = parms['eorparm']['nside']
+eor_nchan = parms['eorparm']['nchan']
+eor_freq_resolution = parms['eorparm']['freq_resolution']
+eor_cube_freq = parms['eorparm']['cube_freq']
+eor_model_freq = parms['eorparm']['model_freq']
+lidz_model = parms['eorparm']['lidz_model']
+model_21cmfast = parms['eorparm']['21cmfast_model']
+if lidz_model:
+    lidz_modelfile = parms['eorparm']['lidz_modelfile']
+if model_21cmfast:
+    modelfile_21cmfast = parms['eorparm']['21cmfast_modelfile']
 Tsys = parms['telescope']['Tsys']
 latitude = parms['telescope']['latitude']
 longitude = parms['telescope']['longitude']
@@ -67,6 +80,9 @@ select_beam_freq = beam_info['select_freq']
 if select_beam_freq is None:
     select_beam_freq = freq
 pbeam_spec_interp_method = beam_info['spec_interp']
+freq_window_centers = {key: parms['subband']['freq_center'] for key in ['cc', 'sim']}
+freq_window_bw = {key: parms['subband']['bw_eff'] for key in ['cc', 'sim']}
+freq_window_shape={key: parms['subband']['shape'] for key in ['cc', 'sim']}
 n_sky_sectors = parms['processing']['n_sky_sectors']
 bpass_shape = parms['clean']['bpass_shape']
 spindex_rms = parms['fgparm']['spindex_rms']
@@ -226,6 +242,7 @@ freq = NP.float(freq)
 freq_resolution = NP.float(freq_resolution)
 chans = (freq + (NP.arange(nchan) - 0.5 * nchan) * freq_resolution)/ 1e9 # in GHz
 bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(nchan, freq_resolution/1e3)
+eor_bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(eor_nchan, eor_freq_resolution/1e3)
 
 if (antenna_file is None) and (array_layout is None):
     raise ValueError('One of antenna array file or layout must be specified')
@@ -358,6 +375,91 @@ fgds_achrmbeam = DS.DelaySpectrum(init_file=fgdsfile_achrmbeam+'.ds.fits')
 fgds_chrmbeam = DS.DelaySpectrum(init_file=fgdsfile_chrmbeam+'.ds.fits')
 fgds_funcbeam = DS.DelaySpectrum(init_file=fgdsfile_funcbeam+'.ds.fits')
 
+fgds_achrmbeam_sbds = fgds_achrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return')
+fgds_chrmbeam_sbds = fgds_chrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return')
+fgds_funcbeam_sbds = fgds_funcbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return')
+fgdps_achrmbeam = DS.DelayPowerSpectrum(fgds_achrmbeam)
+fgdps_achrmbeam.compute_power_spectrum()
+fgdps_chrmbeam = DS.DelayPowerSpectrum(fgds_chrmbeam)
+fgdps_chrmbeam.compute_power_spectrum()
+fgdps_funcbeam = DS.DelayPowerSpectrum(fgds_funcbeam)
+fgdps_funcbeam.compute_power_spectrum()
+
+eorvisfile_achrmbeam = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+eor_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(eor_nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, eor_bandpass_str, eor_cube_freq/1e6)+achromatic_extbeam_str+pfb_instr
+eorvisfile_chrmbeam = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+eor_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(eor_nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, eor_bandpass_str, eor_cube_freq/1e6)+chromatic_extbeam_str+pfb_instr
+eorvisfile_funcbeam = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+eor_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(eor_nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, eor_bandpass_str, eor_cube_freq/1e6)+funcbeam_str+pfb_instr
+
+eorvis_achrmbeam = RI.InterferometerArray(None, None, None, init_file=eorvisfile_achrmbeam+'.fits')
+eorvis_chrmbeam = RI.InterferometerArray(None, None, None, init_file=eorvisfile_chrmbeam+'.fits')
+eorvis_funcbeam = RI.InterferometerArray(None, None, None, init_file=eorvisfile_funcbeam+'.fits')
+eords_achrmbeam = DS.DelaySpectrum(interferometer_array=eorvis_achrmbeam)
+eords_chrmbeam = DS.DelaySpectrum(interferometer_array=eorvis_chrmbeam)
+eords_funcbeam = DS.DelaySpectrum(interferometer_array=eorvis_funcbeam)
+
+eords_achrmbeam_sbds = eords_achrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return')
+eords_chrmbeam_sbds = eords_chrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return')
+eords_funcbeam_sbds = eords_funcbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return')
+eordps_achrmbeam = DS.DelayPowerSpectrum(eords_achrmbeam)
+eordps_achrmbeam.compute_power_spectrum()
+eordps_chrmbeam = DS.DelayPowerSpectrum(eords_chrmbeam)
+eordps_chrmbeam.compute_power_spectrum()
+eordps_funcbeam = DS.DelayPowerSpectrum(eords_funcbeam)
+eordps_funcbeam.compute_power_spectrum()
+
+if lidz_model:
+    hdulist = fits.open(lidz_modelfile)
+    eor_freqinds = [NP.argmin(NP.abs(hdulist['FREQUENCY'].data - subband_freq)) for subband_freq in freq_window_centers['sim']]
+    lidz_eor_model_redshifts = [hdulist['REDSHIFT'].data[eor_freqind] for eor_freqind in eor_freqinds]
+    eor_model_freqs = [hdulist['FREQUENCY'].data[eor_freqind] for eor_freqind in eor_freqinds]
+    eor_modelinfo = [hdulist['{0}'.format(eor_freqind)].data for eor_freqind in eor_freqinds]
+    lidz_eor_model_k = eor_modelinfo[0][:,0]
+    lidz_eor_model_Pk = [modelinfo[:,1] for modelinfo in eor_modelinfo]
+    lidz_eor_model_Pk = NP.asarray(lidz_eor_model_Pk)
+    lidz_Pk_interp_func = interpolate.interp1d(NP.log10(lidz_eor_model_k), NP.log10(lidz_eor_model_Pk), axis=1, kind='cubic', bounds_error=False)
+
+if model_21cmfast:
+    hdulist = fits.open(modelfile_21cmfast)
+    eor_freqinds = [NP.argmin(NP.abs(hdulist['FREQUENCY'].data - subband_freq)) for subband_freq in freq_window_centers['sim']]
+    eor_21cmfast_model_redshifts = [hdulist['REDSHIFT'].data[eor_freqind] for eor_freqind in eor_freqinds]
+    eor_model_freqs = [hdulist['FREQUENCY'].data[eor_freqind] for eor_freqind in eor_freqinds]
+    eor_modelinfo = [hdulist['{0}'.format(eor_freqind)].data for eor_freqind in eor_freqinds]
+    eor_21cmfast_model_k = eor_modelinfo[0][:,0]
+    eor_21cmfast_model_Pk = [modelinfo[:,1] for modelinfo in eor_modelinfo]
+    eor_21cmfast_model_Pk = NP.asarray(eor_21cmfast_model_Pk)
+    Pk_21cmfast_interp_func = interpolate.interp1d(NP.log10(eor_21cmfast_model_k), NP.log10(eor_21cmfast_model_Pk), axis=1, kind='cubic', bounds_error=False)
+
+# if lidz_model:
+#     hdulist = fits.open(lidz_modelfile)
+#     eor_freqind = NP.argmin(NP.abs(hdulist['FREQUENCY'].data - eor_model_freq))
+#     lidz_eor_model_z = hdulist['REDSHIFT'].data[eor_freqind]
+#     eor_model_freq = hdulist['FREQUENCY'].data[eor_freqind]
+#     eor_modelinfo = hdulist['{0}'.format(eor_freqind)].data
+#     lidz_eor_model_k = eor_modelinfo[:,0]
+#     lidz_eor_model_Pk = eor_modelinfo[:,1]    
+#     lidz_Pk_interp_func = interpolate.interp1d(NP.log10(lidz_eor_model_k), NP.log10(lidz_eor_model_Pk), kind='cubic', bounds_error=False)
+
+# if model_21cmfast:
+#     hdulist = fits.open(modelfile_21cmfast)
+#     eor_freqind = NP.argmin(NP.abs(hdulist['FREQUENCY'].data - eor_model_freq))
+#     eor_21cmfast_model_z = hdulist['REDSHIFT'].data[eor_freqind]
+#     eor_model_freq = hdulist['FREQUENCY'].data[eor_freqind]
+#     eor_modelinfo = hdulist['{0}'.format(eor_freqind)].data
+#     eor_21cmfast_model_k = eor_modelinfo[:,0]
+#     eor_21cmfast_model_Pk = eor_modelinfo[:,1]    
+#     Pk_21cmfast_interp_func = interpolate.interp1d(NP.log10(eor_21cmfast_model_k), NP.log10(eor_21cmfast_model_Pk), kind='cubic', bounds_error=False)
+    
+kprll = fgdps_achrmbeam.k_parallel(fgds_achrmbeam.cc_lags, fgdps_achrmbeam.z, action='return')
+kperp = fgdps_achrmbeam.k_perp(fgdps_achrmbeam.bl_length, fgdps_achrmbeam.z, action='return')
+k = NP.sqrt(kprll.reshape(-1,1)**2 + kperp.reshape(1,-1)**2)
+
+if lidz_model:
+    lidz_eor_Pk_interp = lidz_Pk_interp_func(NP.log10(k.flatten()))
+    lidz_eor_Pk_interp = 10**lidz_eor_Pk_interp.reshape(lidz_eor_model_Pk.shape[0], -1,kperp.size)
+
+if model_21cmfast:
+    eor_21cmfast_Pk_interp = Pk_21cmfast_interp_func(NP.log10(k.flatten()))
+    eor_21cmfast_Pk_interp = 10**eor_21cmfast_Pk_interp.reshape(eor_21cmfast_model_Pk.shape[0], -1,kperp.size)
+
 ##########################################
 
 if '1a' in plots:
@@ -425,20 +527,7 @@ if '1b' in plots:
         
     # 01-b) Plot all-sky foreground delay power spectra with different beam chromaticities
 
-    freq_window_centers = {key: [150e6, 170e6] for key in ['cc', 'sim']}
-    freq_window_bw = {key: [10e6, 10e6] for key in ['cc', 'sim']}
-    freq_window_shape={key: 'bhw' for key in ['cc', 'sim']}
-
-    fgds_achrmbeam_sbds = fgds_achrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return')
-    fgds_chrmbeam_sbds = fgds_chrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return')
-    fgds_funcbeam_sbds = fgds_funcbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return')
-    fgdps_achrmbeam = DS.DelayPowerSpectrum(fgds_achrmbeam)
-    fgdps_achrmbeam.compute_power_spectrum()
-    fgdps_chrmbeam = DS.DelayPowerSpectrum(fgds_chrmbeam)
-    fgdps_chrmbeam.compute_power_spectrum()
-    fgdps_funcbeam = DS.DelayPowerSpectrum(fgds_funcbeam)
-    fgdps_funcbeam.compute_power_spectrum()
-    
+   
     kprll = fgdps_achrmbeam.k_parallel(fgds_achrmbeam.cc_lags, fgdps_achrmbeam.z, action='return')
     for fwi, fw in enumerate(freq_window_centers['cc']):
 
@@ -460,7 +549,7 @@ if '1b' in plots:
         ax10.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[0,0,1], ymax=0.9, ls='-', lw=2, color='gray')        
         ax10.set_yscale('log')
         ax10.set_xlim(-0.25, 0.25)
-        ax10.set_ylim(5e-3, 5e12)
+        ax10.set_ylim(5e-5, 5e12)
        
         ax11.plot(kprll, fgdps_achrmbeam.dps['cc_skyvis'][0,:,0], color='black', lw=2, ls='-')
         ax11.plot(kprll, fgdps_chrmbeam.dps['cc_skyvis'][0,:,0], color='blue', lw=2, ls='-')
@@ -469,7 +558,7 @@ if '1b' in plots:
         ax11.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[0,0,1], ymax=0.9, ls='-', lw=2, color='gray')        
         ax11.set_yscale('log')
         ax11.set_xlim(-0.25, 0.25)
-        ax11.set_ylim(5e-3, 5e12)
+        ax11.set_ylim(5e-5, 5e12)
         PLT.setp(ax11.get_yticklabels(), visible=False)
 
         ax12.plot(kprll, fgdps_achrmbeam.dps['cc_skyvis_res'][0,:,0], color='black', lw=2, ls='-')
@@ -479,26 +568,31 @@ if '1b' in plots:
         ax12.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[0,0,1], ymax=0.9, ls='-', lw=2, color='gray')        
         ax12.set_yscale('log')
         ax12.set_xlim(-0.25, 0.25)
-        ax12.set_ylim(5e-3, 5e12)
+        ax12.set_ylim(5e-5, 5e12)
         PLT.setp(ax12.get_yticklabels(), visible=False)
 
         ax20.plot(fgdps_achrmbeam.subband_delay_power_spectra['sim']['kprll'][fwi,:], fgdps_achrmbeam.subband_delay_power_spectra['sim']['skyvis_lag'][0,fwi,:,0], color='black', lw=2, ls='-')
         ax20.plot(fgdps_chrmbeam.subband_delay_power_spectra['sim']['kprll'][fwi,:], fgdps_chrmbeam.subband_delay_power_spectra['sim']['skyvis_lag'][0,fwi,:,0], color='blue', lw=2, ls='-')
         ax20.plot(fgdps_funcbeam.subband_delay_power_spectra['sim']['kprll'][fwi,:], fgdps_funcbeam.subband_delay_power_spectra['sim']['skyvis_lag'][0,fwi,:,0], color='red', lw=2, ls='-')
+        if model_21cmfast:
+            ax20.plot(kprll, eor_21cmfast_Pk_interp[fwi,:,0], 'k--', lw=2)
+        
         ax20.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['sim']['horizon_kprll_limits'][0,fwi,0,0], ymax=0.9, ls='-', lw=2, color='gray')
         ax20.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['sim']['horizon_kprll_limits'][0,fwi,0,1], ymax=0.9, ls='-', lw=2, color='gray')        
         ax20.set_yscale('log')
         ax20.set_xlim(-0.25, 0.25)
-        ax20.set_ylim(5e-3, 5e12)
+        ax20.set_ylim(5e-5, 5e12)
 
         ax21.plot(fgdps_achrmbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_achrmbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][0,fwi,:,0], color='black', lw=2, ls='-')
         ax21.plot(fgdps_chrmbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_chrmbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][0,fwi,:,0], color='blue', lw=2, ls='-')
         ax21.plot(fgdps_funcbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_funcbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][0,fwi,:,0], color='red', lw=2, ls='-')
+        if model_21cmfast:
+            ax21.plot(kprll, eor_21cmfast_Pk_interp[fwi,:,0], 'k--', lw=2)
         ax21.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['cc']['horizon_kprll_limits'][0,fwi,0,0], ymax=0.9, ls='-', lw=2, color='gray')
         ax21.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['cc']['horizon_kprll_limits'][0,fwi,0,1], ymax=0.9, ls='-', lw=2, color='gray')        
         ax21.set_yscale('log')
         ax21.set_xlim(-0.25, 0.25)
-        ax21.set_ylim(5e-3, 5e12)
+        ax21.set_ylim(5e-5, 5e12)
         PLT.setp(ax21.get_yticklabels(), visible=False)
 
         pos10 = ax10.get_position()
@@ -545,9 +639,13 @@ if '1b' in plots:
         PLT.savefig(figuresdir+'asm_beam_chromaticity.png', bbox_inches=0)
         PLT.savefig(figuresdir+'asm_beam_chromaticity.eps', bbox_inches=0)    
 
-    print '\n\tPlotted and saved off-axis point source beam chromaticity'
+    print '\n\tPlotted and saved ASM beam chromaticity'
 
+if '2a' in plots:
         
+    # 02-a) Plot ratio of signal to foreground ratio as a function of staggered delays to set a spec on reflectometry
+        
+    pass
     
 
 PDB.set_trace()

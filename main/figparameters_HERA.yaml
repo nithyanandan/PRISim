@@ -263,6 +263,82 @@ fgparm   :
                                 # one of lidz or 21cmfast can be set
                                 # to true
 
+######### EoR model ##########
+
+eorparm   :
+
+    model           : 'HI_cube'
+                                # EoR model. Accepted values
+                                # are 'HI_monopole' (global EoR),
+                                # HI_cube # (HI cube from external
+                                # simulations), and'HI_fluctuations'
+                                # (HI fluctuations with the global
+                                # mean signal removed), 'HI_model'
+                                # (for just P(k) tabulated data)
+
+    nside           : 256
+                                # Healpix nside parameter for EoR
+                                # model input map. Accepted values are
+                                # valid nside values
+
+    spindex         : -0.83
+                                # Spectral indices of point sources
+
+    spindex_rms     : 0.0
+                                # rms in distribution of spectral
+                                # indices
+
+    spindex_seed    : null
+                                # Random seed for generation of random
+                                # spectral indices
+
+    lidz_cube       : true
+                                # Use simulations of Adam Lidz. Only
+                                # one of lidz_cube or 21cmfast_cube
+                                # can be set to true
+
+    21cmfast_cube   : false
+                                # Use 21CMFAST simulations of Andrei
+                                # Mesinger. Only one of lidz_cube or
+                                # 21cmfast_cube can be set to true
+
+    lidz_model      : true
+                                # Use P(k) models of Adam Lidz
+
+    21cmfast_model  : true
+                                # Use 21CMFAST P(k) models of Andrei
+                                # Mesinger
+
+    lidz_modelfile  : '/data3/t_nithyanandan/EoR_models/Lidz/PS_model.fits'
+                                # Full path to Model file consisting of
+                                # P(k) models of Adam Lidz. Will be
+                                # used if lidz_model is set to true
+
+    21cmfast_modelfile: '/data3/t_nithyanandan/EoR_models/21cmFAST/PS_model.fits'
+                                # Full path to Model file consisting 
+                                # of P(k) models of 21cmFAST. Will be 
+                                # used if 21cmfast_model is set to true
+
+    cube_freq       : 167050000.0
+                                # Center frequency (in Hz) for
+                                # simulated HI cubes
+                                # 167.05 MHz for Adam Lidz's cube
+
+    freq_resolution : 80000.0
+                                # Frequency resolution (in Hz) for
+                                # simulated HI cubes
+                                # 80 kHz for Adam Lidz's cube
+
+    nchan           : 704
+                                # Number of channels for simulated
+                                # HI cubes
+                                # 704 for Adam Lidz's cube
+
+    model_freq      : 150000000.0
+                                # Center frequency (Hz) for EoR
+                                # models. Applies to Lidz and
+                                # 21cmFAST models
+
 ########## Processing setup ##########
 
 processing:
@@ -297,6 +373,40 @@ clean   :
                                 # (Blackman-Nuttall window), and 'bhw'
                                 # (Blackman-Harris window)
 
+########## Subband parameters ##########
+
+subband :
+
+    freq_center     : [150000000.0, 170000000.0]
+                                # subband center frequencies (in Hz)
+                                # as a list
+
+    bw_eff          : [10000000.0, 10000000.0]
+                                # effective bandwidths (in Hz) of
+                                # subbands. Specify as a list with
+                                # same number of elements as in
+                                # freq_center
+
+    shape           : 'bhw'
+                                # subband window shape to be applied
+                                # to each of the subband windows.
+                                # Accepted values are 'bhw'
+                                # (Blackman-Harris), 'bnw' (Blackman-
+                                # Nuttall) and 'rect' (rectangular)
+
+########## Reflectometry parameters ##########
+
+reflectometry   :
+
+    k               : [0.08, 0.1, 0.12]
+                                # wavenumber(s) (in h/Mpc) where
+                                # delay reflectometry is required
+
+    bll             : 14.6
+                                # Baseline length (in m) for which
+                                # the delay reflectometry specs are
+                                # needed
+
 ########## Plot parameters ##########
 
 plot    :
@@ -308,10 +418,15 @@ plot    :
     1b      : true
                                 # Plot all-sky foreground delay power
                                 # spectra with different beam
-                                # chromaticities
+                                # chromaticities with EoR models
+                                # overplotted
 
     2a      : true
                                 # Plot ratio of signal to foreground
                                 # ratio as a function of staggered
                                 # delays to set a spec on
                                 # reflectometry
+
+    3a      : true
+                                # Plot signal and foreground
+                                # as a function of LST

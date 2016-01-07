@@ -176,18 +176,19 @@ beam    :
                                 # analytically from antenna aperture
                                 # specifications
 
-    file            : '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_healpix.fits'
+    file            : # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_healpix.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl03/X4Y2H_490.hmap'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
+                      '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_hp_nside128full.fits'
 
                                 # Full pathname to the FITS file
                                 # containing the external antenna
                                 # beam. Used only if use_external is
                                 # set to true
 
-    identifier      : 'RBAN-128'
+    identifier      : 'RBAN-128H'
                                 # string to identify source of beam
                                 # Any string. e.g. RB=Rich Bradley,
                                 # AN=Abraham Neben
@@ -214,7 +215,9 @@ beam    :
                                 # method to interpolate external beam
                                 # along spectral (frequency) direction.
                                 # allowed values are 'fft' (default),
-                                # 'linear', 'bilinear' or 'cubic'
+                                # 'linear', 'bilinear' or 'cubic'.
+                                # Applies only if chromatic is set to
+                                # True
 
 ########## Observation setup ##########
 

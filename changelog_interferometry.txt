@@ -1,3 +1,11 @@
+From 30c95c0 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Add function dkprll_deta with docstring to compute the jacobian to
+transform from delays to k_parallel
+
 From f79570e (master):
 =====================
 

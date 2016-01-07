@@ -338,7 +338,46 @@ def complex1dClean(inp, kernel, cbox=None, gain=0.1, maxiter=10000,
 
     return outdict
 
-#################################################################################
+################################################################################
+
+def dkprll_deta(redshift, cosmo=cosmo100):
+
+    """
+    ----------------------------------------------------------------------------
+    Compute jacobian to transform delays (eta or tau) to line-of-sight 
+    wavenumbers (h/Mpc) corresponding to specified redshift(s) and cosmology
+    corresponding to the HI 21 cm line
+
+    Inputs:
+
+    redshift  [scalar, list or numpy array] redshift(s). Must be a 
+              scalar, list or numpy array
+
+    cosmo     [instance of cosmology class from astropy] An instance of class
+              FLRW or default_cosmology of astropy cosmology module. Default
+              uses Flat lambda CDM cosmology with Omega_m=0.27, 
+              H0=100 km/s/Mpc
+
+    Outputs:
+
+    Jacobian to convert eta (lags) to k_parallel. Same size as redshift
+    ----------------------------------------------------------------------------
+    """
+
+    if not isinstance(redshift, (int, float, list, NP.ndarray)):
+        raise TypeError('redshift must be a scalar, list or numpy array')
+    redshift = NP.asarray(redshift)
+    if NP.any(redshift < 0.0):
+        raise ValueError('redshift(s) must be non-negative')
+
+    if not isinstance(cosmo, (CP.FLRW, CP.default_cosmology)):
+        raise TypeError('Input cosmology must be a cosmology class defined in Astropy')
+    
+    jacobian = 2 * NP.pi * cosmo.H0.value * CNST.rest_freq_HI * cosmo.efunc(redshift) / FCNST.c / (1+redshift)**2 * 1e3
+
+    return jacobian
+
+################################################################################
 
 class DelaySpectrum(object):
 
