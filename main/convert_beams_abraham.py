@@ -9,17 +9,25 @@ beams_dir = 'power_patterns/Abraham/'
 # infile = 'Abraham_DeBoer_beam_A_17_197_137o5_healpix.txt'
 # outfile = 'Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
 
+# simsource = 'ABRAHAM-DAVE-128'
+# infile = 'Abraham_DeBoer_beam_195_137o5_hp_nside128full.txt'
+# outfile = 'Abraham_DeBoer_beam_195_137o5_hp_nside128full.fits'
+
+simsource = 'ABRAHAM-DAVE-128'
+infile = 'XRFBg_195_137o5_hp_nside128full.txt'
+outfile = 'XRFBg_195_137o5_hp_nside128full.fits'
+
 # simsource = 'ABRAHAM-RICH'
 # infile = 'Abraham_Rich_beam_1375_18H_P1_healpix.txt'
 # outfile = 'Abraham_Rich_beam_1375_18H_P1_healpix.fits'
 
-simsource = 'ABRAHAM-RICH-128'
-infile = 'Abraham_Rich_beam_1375_18L_P1_hp_nside128.txt'
-outfile = 'Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
+# simsource = 'ABRAHAM-RICH-128'
+# infile = 'Abraham_Rich_beam_1375_18L_P1_hp_nside128.txt'
+# outfile = 'Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
 
-simsource = 'ABRAHAM-RICH-128'
-infile = 'Abraham_Rich_beam_1375_18H_P1_hp_nside128full.txt'
-outfile = 'Abraham_Rich_beam_1375_18H_P1_hp_nside128full.fits'
+# simsource = 'ABRAHAM-RICH-128'
+# infile = 'Abraham_Rich_beam_1375_18H_P1_hp_nside128full.txt'
+# outfile = 'Abraham_Rich_beam_1375_18H_P1_hp_nside128full.fits'
 
 beam = NP.loadtxt(rootdir+beams_dir+infile)
 nside_in = HP.get_nside(beam)

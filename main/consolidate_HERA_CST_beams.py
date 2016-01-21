@@ -2,7 +2,6 @@ import numpy as NP
 import healpy as HP
 from astropy.io import fits
 import glob
-import ipdb as PDB
 
 rootdir = '/data3/t_nithyanandan/project_HERA/'
 beams_dir = 'power_patterns/CST/mdl03/'

@@ -1,3 +1,11 @@
+From c8dd0b2 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Correct visibilities after CLEANing by padding factor to keep them
+at same amplitudes as before CLEANing
+
 From c4f56de (master):
 =====================
 

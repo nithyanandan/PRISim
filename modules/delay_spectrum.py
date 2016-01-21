@@ -1417,11 +1417,12 @@ class DelaySpectrum(object):
                 progress.finish()
     
         deta = lags[1] - lags[0]
-        cc_skyvis = NP.fft.fft(ccomponents_noiseless, axis=1) * deta
-        cc_skyvis_res = NP.fft.fft(ccres_noiseless, axis=1) * deta
+        pad_factor = (1.0 + 1.0*npad/self.f.size) # to make sure visibilities after CLEANing are at the same amplitude level as before CLEANing
+        cc_skyvis = NP.fft.fft(ccomponents_noiseless, axis=1) * deta * pad_factor
+        cc_skyvis_res = NP.fft.fft(ccres_noiseless, axis=1) * deta * pad_factor
     
-        cc_vis = NP.fft.fft(ccomponents_noisy, axis=1) * deta
-        cc_vis_res = NP.fft.fft(ccres_noisy, axis=1) * deta
+        cc_vis = NP.fft.fft(ccomponents_noisy, axis=1) * deta * pad_factor
+        cc_vis_res = NP.fft.fft(ccres_noisy, axis=1) * deta * pad_factor
     
         self.lags = lags
         self.skyvis_lag = NP.fft.fftshift(skyvis_lag, axes=1)

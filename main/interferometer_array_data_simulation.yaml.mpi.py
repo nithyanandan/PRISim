@@ -38,7 +38,7 @@ name = MPI.Get_processor_name()
 
 ## global parameters
 
-sday = 0.99726958 # (in number of mean of solar days)
+sday = CNST.sday
 sday_correction = 1 / sday
 
 ## Parse input arguments
@@ -587,6 +587,11 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
         lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_acc/3.6e3*15/sday))
 
     duration_str = '_{0:0d}x{1:.1f}s'.format(n_acc, t_acc[0])
+
+pointings_radec = NP.fmod(pointings_radec, 360.0)
+pointings_hadec = NP.fmod(pointings_hadec, 360.0)
+pointings_altaz = NP.fmod(pointings_altaz, 360.0)
+lst = NP.fmod(lst, 360.0)
 
 # elif pointing_info is not None:
 #     pointing_info = NP.asarray(pointing_info)

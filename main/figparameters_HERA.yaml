@@ -159,7 +159,8 @@ phasedarray:
 
 ########## External beam specifications #########
 
-beam    :
+achrmbeam    :
+                                # Achromatic beam information
 
     identifier      : 'HERA-CST'
                                 # string to identify source of beam
@@ -167,12 +168,12 @@ beam    :
                                 # AN=Abraham Neben
                                 # DD=Dave DeBoer, or 'HERA-CST'
 
-    file            : # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_healpix.fits'
+    srcfile         : # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_healpix.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
-                      '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl03/X4Y2H_490.hmap'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
-
+                      '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl03/X4Y2H_490.hmap'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/analytic/14.0m_dish_Airy_no_ground_nside_256_derr_0.000ns_gerr_0.00dB_nrand_1_128x781.2_kHz_150.0_MHz.fits'
                                 # Full pathname to the FITS file
                                 # containing the external antenna
                                 # beam. Used only if use_external is
@@ -183,6 +184,26 @@ beam    :
                                 # case of achromatic usage of the beam
                                 # If set to null (default), it defaults
                                 # to using value defined in freq
+
+chrmbeam    :
+                                # Chromatic beam information
+
+    identifier      : 'HERA-CST'
+                                # string to identify source of beam
+                                # Any string. e.g. RB=Rich Bradley,
+                                # AN=Abraham Neben
+                                # DD=Dave DeBoer, or 'HERA-CST'
+
+    srcfile         : # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_healpix.fits'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
+                      '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl03/X4Y2H_490.hmap'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/analytic/14.0m_dish_Airy_no_ground_nside_256_derr_0.000ns_gerr_0.00dB_nrand_1_128x781.2_kHz_150.0_MHz.fits'
+                                # Full pathname to the FITS file
+                                # containing the external antenna
+                                # beam. Used only if use_external is
+                                # set to true
 
     spec_interp     : 'cubic'
                                 # method to interpolate external beam
@@ -214,6 +235,11 @@ obsparm  :
                                 # 'drift', 'track', 'dns', 'lstbin', and 
                                 # 'custom' or null (default)
 
+    t_obs           : null      
+                                # Duration of observation (in seconds)
+                                # Only two of t_obs, n_acc, t_acc
+                                # must be set
+
     n_acc           : 80     
                                 # Number of accumulations. Only two of
                                 # t_obs, n_acc, and t_acc must be set
@@ -222,6 +248,69 @@ obsparm  :
                                 # Accumulation time (in seconds) for
                                 # each snapshot. Only two of t_obs,
                                 # n_acc, and t_acc must be set
+
+    timeformat      : 'JD'
+                                # Output format for timestamp. Can
+                                # be 'DT' (default) for DateTime format
+                                # yyyy-mm-dd hh:mm:ss.s or 'JD' for
+                                # julian date format
+                                
+######### Pointing information #########
+
+pointing :                      # If pointing file is specified to be
+                                # non-null, other parameters like
+                                # drift_init and track_init are ignored
+
+    file            : null
+                                # File containing pointing information
+                                # Only one of 'file' or 'initial' must
+                                # be specified
+                                # for example,
+                                # '/data3/MWA/lstbin_RA0/EoR0_high_sem1_1_obsinfo.txt'
+
+    drift_init :
+                                # Applies in case of initializing pointing
+                                # information for drift scan mode
+
+        alt         : null
+                                # Altitude of telescope pointing (degrees)
+
+        az          : null
+                                # Azimuth of telescope pointing (degrees)
+
+        ha          : 0.0
+                                # Hour angle of telescope pointing
+                                # (degrees). Only one of the Alt-Az or
+                                # HA-Dec pairs must be specified and the
+                                # other pair must be set to null
+
+        dec         : -30.7224
+                                # Declination of telescope pointing
+                                # (degrees). Only one of the Alt-Az or
+                                # HA-Dec pairs must be specified and the
+                                # other pair must be set to null
+
+        lst         : 0.0
+                                # LST at start of observation (hours).
+                                # The epoch is assumed to be the date of
+                                # observation
+
+    track_init :
+
+        ra          : 0.0
+                                # RA of sky position to track (degrees)
+
+        dec         : -30.7224
+                                # Declination of sky position to track
+                                # (degrees)
+
+        ha          : -30.0
+                                # Hour angle (degrees) at start of
+                                # observation. 
+
+        epoch       : '2000'
+                                # Epoch in which the RA of the sky
+                                # position to track is specified
 
 ######### Foreground model ##########
 
@@ -241,6 +330,10 @@ fgparm   :
                                 # (HI cube from external simulations), 
                                 # and'HI_fluctuations' (HI fluctuations
                                 # with the global mean signal removed)
+
+    epoch           : '2000'
+                                # Epoch of the coordinates of the
+                                # foreground model or EoR signal
 
     nside           : 256
                                 # Healpix nside parameter for foreground
@@ -262,6 +355,30 @@ fgparm   :
                                 # Use simulations of Adam Lidz. Only
                                 # one of lidz or 21cmfast can be set
                                 # to true
+
+######### Foreground Catalogs #########
+
+catalog  :
+
+    DSM_file_prefix : '/data3/t_nithyanandan/project_MWA/foregrounds/gsmdata'
+                               # Diffuse Sky Model map file name prefix
+                 
+
+    SUMSS_file      : '/data3/t_nithyanandan/project_MWA/foregrounds/sumsscat.Mar-11-2008.txt'
+                                # SUMSS catalog file
+
+    NVSS_file       : '/data3/t_nithyanandan/project_MWA/foregrounds/NVSS_catalog.fits'
+                                # NVSS catalog file
+
+    MWACS_file      : '/data3/t_nithyanandan/project_MWA/foregrounds/mwacs_b1_131016.csv'
+                                # MWACS catalog file
+
+    GLEAM_file      : '/data3/t_nithyanandan/project_MWA/foregrounds/mwacs_b1_131016.csv'
+                                # GLEAM catalog file
+
+    PS_file         : '/data3/t_nithyanandan/project_MWA/foregrounds/PS_catalog.txt'
+                                # User defined point sources catalog
+                                # file
 
 ######### EoR model ##########
 
@@ -411,22 +528,41 @@ reflectometry   :
 
 plot    :
 
-    1a      : true
+    1a      : false
                                 # Plot beam chromaticity with single
                                 # point source at different locations
 
-    1b      : true
+    1b      : false
+                                # Plot healpix map of beam
+                                # chromaticity
+
+    1b0     : false
+                                # if True, plot bright foregrounds
+                                # on map of beam chromaticity as
+                                # they transit
+
+    1c      : false
                                 # Plot all-sky foreground delay power
                                 # spectra with different beam
                                 # chromaticities with EoR models
-                                # overplotted
+                                # overplotted for a 14.6m baseline
+                                # for one LST
 
-    2a      : true
+    1d      : true
+                                # Plot all-sky foreground delay power
+                                # spectra with different beam
+                                # chromaticities with EoR models
+                                # overplotted for all baselines
+                                # (wedge) for all LST
+
+    2a      : false
                                 # Plot ratio of signal to foreground
                                 # ratio as a function of staggered
                                 # delays to set a spec on
                                 # reflectometry
 
-    3a      : true
-                                # Plot signal and foreground
-                                # as a function of LST
+    3a      : false
+                                # Plot signal-to-foreground ratio
+                                # as a function of LST and k_parallel
+                                # for a given baseline
+

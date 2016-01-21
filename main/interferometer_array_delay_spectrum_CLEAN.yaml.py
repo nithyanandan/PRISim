@@ -311,7 +311,9 @@ bl_id = bl_id[:min(baseline_bin_indices[n_bl_chunks], total_baselines)]
     
 n_channels = nchan
 
-window = n_channels * DSP.windowing(n_channels, shape=bpass_shape, pad_width=0, centering=True, area_normalize=True) 
+frac_width = DSP.window_N2width(shape=bpass_shape, area_normalize=False, power_normalize=True)
+# window = NP.sqrt(frac_width * n_channels) * DSP.windowing(n_channels, shape=bpass_shape, pad_width=0, centering=True, area_normalize=False, power_normalize=True)
+window = n_channels * DSP.windowing(n_channels, shape=bpass_shape, pad_width=0, centering=True, area_normalize=True, power_normalize=False) 
 bw = n_channels * freq_resolution
 bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(nchan, freq_resolution/1e3)
 
@@ -363,6 +365,7 @@ for k in range(n_sky_sectors):
     iafg.phase_centering(phase_center=pc, phase_center_coords=pc_coords,
                               do_delay_transform=False)   
     dsofg = DS.DelaySpectrum(interferometer_array=iafg)
+    PDB.set_trace()
     dsofg.delayClean(pad=pad, freq_wts=window, clean_window_buffer=clean_window_buffer, gain=gain, maxiter=maxiter, threshold=threshold, threshold_type=threshold_type, parallel=parallel, nproc=nproc)
     dsofg_sbds = dsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return')
     dpsofg = DS.DelayPowerSpectrum(dsofg)
