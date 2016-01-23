@@ -1086,13 +1086,15 @@ if '1a' in plots:
     pad = 0.0
     npad = int(pad * chans.size)
     lags = DSP.spectral_axis(npad+chans.size, delx=chans[1]-chans[0], shift=True)
-    chrm_extbeam_FFT = NP.fft.fft(NP.pad(chrm_extbeam, ((0,0),(0,npad)), mode='constant'), axis=1) / (npad+chans.size)
+    wndw = chans.size * DSP.windowing(chans.size, shape=bpass_shape, pad_width=0, peak=None, area_normalize=True, power_normalize=False)
+    wndw = wndw.reshape(1,-1)
+    chrm_extbeam_FFT = NP.fft.fft(NP.pad(chrm_extbeam * wndw, ((0,0),(0,npad)), mode='constant'), axis=1) / (npad+chans.size)
     chrm_extbeam_FFT = NP.fft.fftshift(chrm_extbeam_FFT, axes=1)
     chrm_extbeam_FFT_max = NP.max(NP.abs(chrm_extbeam_FFT), axis=1, keepdims=True)
-    achrm_extbeam_FFT = NP.fft.fft(NP.pad(achrm_extbeam, ((0,0),(0,npad)), mode='constant'), axis=1) / (npad+chans.size)
+    achrm_extbeam_FFT = NP.fft.fft(NP.pad(achrm_extbeam * wndw, ((0,0),(0,npad)), mode='constant'), axis=1) / (npad+chans.size)
     achrm_extbeam_FFT = NP.fft.fftshift(achrm_extbeam_FFT, axes=1)
     achrm_extbeam_FFT_max = NP.max(NP.abs(achrm_extbeam_FFT), axis=1, keepdims=True)
-    funcbeam_FFT = NP.fft.fft(NP.pad(funcbeam, ((0,0),(0,npad)), mode='constant'), axis=1) / (npad+chans.size)
+    funcbeam_FFT = NP.fft.fft(NP.pad(funcbeam * wndw, ((0,0),(0,npad)), mode='constant'), axis=1) / (npad+chans.size)
     funcbeam_FFT = NP.fft.fftshift(funcbeam_FFT, axes=1)
     funcbeam_FFT_max = NP.max(NP.abs(funcbeam_FFT), axis=1, keepdims=True)
 
@@ -1378,6 +1380,19 @@ if '1c' in plots:
         
     # 01-c) Plot all-sky foreground delay power spectra with different beam chromaticities with EoR models overplotted for a 14.6m baseline for one LST
    
+    if 'bli' in plot_info:
+        bli = plot_info['bli']
+    else:
+        bli = 0
+    if 'lsti' in plot_info:
+        lsti = plot_info['lsti']
+    else:
+        lsti = 0
+    if 'sbi' in plot_info:
+        sbi = plot_info['sbi']
+    else:
+        sbi = 0
+
     kprll = fgdps_achrmbeam.k_parallel(fgds_achrmbeam.cc_lags, fgdps_achrmbeam.z, action='return')
     for fwi, fw in enumerate(freq_window_centers['cc']):
 
@@ -1392,54 +1407,54 @@ if '1c' in plots:
         ax20 = PLT.subplot(gs2[0,0])
         ax21 = PLT.subplot(gs2[0,1], sharex=ax20)
 
-        ax10.plot(kprll, fgdps_achrmbeam.dps['skyvis'][0,:,0], color='black', lw=2, ls='-')
-        ax10.plot(kprll, fgdps_chrmbeam.dps['skyvis'][0,:,0], color='blue', lw=2, ls='-')
-        ax10.plot(kprll, fgdps_funcbeam.dps['skyvis'][0,:,0], color='red', lw=2, ls='-')
-        ax10.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[0,0,0], ymax=0.9, ls='-', lw=2, color='gray')
-        ax10.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[0,0,1], ymax=0.9, ls='-', lw=2, color='gray')        
+        ax10.plot(kprll, fgdps_achrmbeam.dps['skyvis'][bli,:,lsti], color='black', lw=2, ls='-')
+        ax10.plot(kprll, fgdps_chrmbeam.dps['skyvis'][bli,:,lsti], color='blue', lw=2, ls='-')
+        ax10.plot(kprll, fgdps_funcbeam.dps['skyvis'][bli,:,lsti], color='red', lw=2, ls='-')
+        ax10.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[lsti,bli,0], ymax=0.9, ls='-', lw=2, color='gray')
+        ax10.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[lsti,bli,1], ymax=0.9, ls='-', lw=2, color='gray')
         ax10.set_yscale('log')
         ax10.set_xlim(-0.25, 0.25)
         ax10.set_ylim(5e-5, 5e12)
        
-        ax11.plot(kprll, fgdps_achrmbeam.dps['cc_skyvis'][0,:,0], color='black', lw=2, ls='-')
-        ax11.plot(kprll, fgdps_chrmbeam.dps['cc_skyvis'][0,:,0], color='blue', lw=2, ls='-')
-        ax11.plot(kprll, fgdps_funcbeam.dps['cc_skyvis'][0,:,0], color='red', lw=2, ls='-')
-        ax11.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[0,0,0], ymax=0.9, ls='-', lw=2, color='gray')
-        ax11.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[0,0,1], ymax=0.9, ls='-', lw=2, color='gray')        
+        ax11.plot(kprll, fgdps_achrmbeam.dps['cc_skyvis'][bli,:,lsti], color='black', lw=2, ls='-')
+        ax11.plot(kprll, fgdps_chrmbeam.dps['cc_skyvis'][bli,:,lsti], color='blue', lw=2, ls='-')
+        ax11.plot(kprll, fgdps_funcbeam.dps['cc_skyvis'][bli,:,lsti], color='red', lw=2, ls='-')
+        ax11.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[lsti,bli,0], ymax=0.9, ls='-', lw=2, color='gray')
+        ax11.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[lsti,bli,1], ymax=0.9, ls='-', lw=2, color='gray')
         ax11.set_yscale('log')
         ax11.set_xlim(-0.25, 0.25)
         ax11.set_ylim(5e-5, 5e12)
         PLT.setp(ax11.get_yticklabels(), visible=False)
 
-        ax12.plot(kprll, fgdps_achrmbeam.dps['cc_skyvis_res'][0,:,0], color='black', lw=2, ls='-')
-        ax12.plot(kprll, fgdps_chrmbeam.dps['cc_skyvis_res'][0,:,0], color='blue', lw=2, ls='-')
-        ax12.plot(kprll, fgdps_funcbeam.dps['cc_skyvis_res'][0,:,0], color='red', lw=2, ls='-')
-        ax12.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[0,0,0], ymax=0.9, ls='-', lw=2, color='gray')
-        ax12.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[0,0,1], ymax=0.9, ls='-', lw=2, color='gray')        
+        ax12.plot(kprll, fgdps_achrmbeam.dps['cc_skyvis_res'][bli,:,lsti], color='black', lw=2, ls='-')
+        ax12.plot(kprll, fgdps_chrmbeam.dps['cc_skyvis_res'][bli,:,lsti], color='blue', lw=2, ls='-')
+        ax12.plot(kprll, fgdps_funcbeam.dps['cc_skyvis_res'][bli,:,lsti], color='red', lw=2, ls='-')
+        ax12.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[lsti,bli,0], ymax=0.9, ls='-', lw=2, color='gray')
+        ax12.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[lsti,bli,1], ymax=0.9, ls='-', lw=2, color='gray')        
         ax12.set_yscale('log')
         ax12.set_xlim(-0.25, 0.25)
         ax12.set_ylim(5e-5, 5e12)
         PLT.setp(ax12.get_yticklabels(), visible=False)
 
-        ax20.plot(fgdps_achrmbeam.subband_delay_power_spectra['sim']['kprll'][fwi,:], fgdps_achrmbeam.subband_delay_power_spectra['sim']['skyvis_lag'][0,fwi,:,0], color='black', lw=2, ls='-')
-        ax20.plot(fgdps_chrmbeam.subband_delay_power_spectra['sim']['kprll'][fwi,:], fgdps_chrmbeam.subband_delay_power_spectra['sim']['skyvis_lag'][0,fwi,:,0], color='blue', lw=2, ls='-')
-        ax20.plot(fgdps_funcbeam.subband_delay_power_spectra['sim']['kprll'][fwi,:], fgdps_funcbeam.subband_delay_power_spectra['sim']['skyvis_lag'][0,fwi,:,0], color='red', lw=2, ls='-')
+        ax20.plot(fgdps_achrmbeam.subband_delay_power_spectra['sim']['kprll'][fwi,:], fgdps_achrmbeam.subband_delay_power_spectra['sim']['skyvis_lag'][bli,fwi,:,lsti], color='black', lw=2, ls='-')
+        ax20.plot(fgdps_chrmbeam.subband_delay_power_spectra['sim']['kprll'][fwi,:], fgdps_chrmbeam.subband_delay_power_spectra['sim']['skyvis_lag'][bli,fwi,:,lsti], color='blue', lw=2, ls='-')
+        ax20.plot(fgdps_funcbeam.subband_delay_power_spectra['sim']['kprll'][fwi,:], fgdps_funcbeam.subband_delay_power_spectra['sim']['skyvis_lag'][bli,fwi,:,lsti], color='red', lw=2, ls='-')
         if model_21cmfast:
-            ax20.plot(kprll, eor_21cmfast_Pk_interp[fwi,:,0], 'k--', lw=2)
+            ax20.plot(kprll, eor_21cmfast_Pk_interp[fwi,:,bli], 'k--', lw=2)
         
-        ax20.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['sim']['horizon_kprll_limits'][0,fwi,0,0], ymax=0.9, ls='-', lw=2, color='gray')
-        ax20.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['sim']['horizon_kprll_limits'][0,fwi,0,1], ymax=0.9, ls='-', lw=2, color='gray')        
+        ax20.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['sim']['horizon_kprll_limits'][lsti,fwi,bli,0], ymax=0.9, ls='-', lw=2, color='gray')
+        ax20.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['sim']['horizon_kprll_limits'][lsti,fwi,bli,1], ymax=0.9, ls='-', lw=2, color='gray')        
         ax20.set_yscale('log')
         ax20.set_xlim(-0.25, 0.25)
         ax20.set_ylim(5e-5, 5e12)
 
-        ax21.plot(fgdps_achrmbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_achrmbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][0,fwi,:,0], color='black', lw=2, ls='-')
-        ax21.plot(fgdps_chrmbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_chrmbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][0,fwi,:,0], color='blue', lw=2, ls='-')
-        ax21.plot(fgdps_funcbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_funcbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][0,fwi,:,0], color='red', lw=2, ls='-')
+        ax21.plot(fgdps_achrmbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_achrmbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][bli,fwi,:,lsti], color='black', lw=2, ls='-')
+        ax21.plot(fgdps_chrmbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_chrmbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][bli,fwi,:,lsti], color='blue', lw=2, ls='-')
+        ax21.plot(fgdps_funcbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_funcbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][bli,fwi,:,lsti], color='red', lw=2, ls='-')
         if model_21cmfast:
-            ax21.plot(kprll, eor_21cmfast_Pk_interp[fwi,:,0], 'k--', lw=2)
-        ax21.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['cc']['horizon_kprll_limits'][0,fwi,0,0], ymax=0.9, ls='-', lw=2, color='gray')
-        ax21.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['cc']['horizon_kprll_limits'][0,fwi,0,1], ymax=0.9, ls='-', lw=2, color='gray')        
+            ax21.plot(kprll, eor_21cmfast_Pk_interp[fwi,:,bli], 'k--', lw=2)
+        ax21.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['cc']['horizon_kprll_limits'][lsti,fwi,bli,0], ymax=0.9, ls='-', lw=2, color='gray')
+        ax21.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['cc']['horizon_kprll_limits'][lsti,fwi,bli,1], ymax=0.9, ls='-', lw=2, color='gray')        
         ax21.set_yscale('log')
         ax21.set_xlim(-0.25, 0.25)
         ax21.set_ylim(5e-5, 5e12)
@@ -1646,7 +1661,6 @@ if '1d' in plots:
     #         # PLT.savefig(figuresdir+'ccres_asm_wedge_beam_chromaticity_subband_{0:.1f}_MHz_lst_{1:03d}.eps'.format(fw/1e6,lsti), bbox_inches=0)
     #         PLT.close()
             
-    PDB.set_trace()
 if '2a' in plots:
         
     # 02-a) Plot ratio of signal to foreground ratio as a function of staggered delays to set a spec on reflectometry

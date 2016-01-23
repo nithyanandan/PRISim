@@ -17,7 +17,6 @@ import baseline_delay_horizon as DLY
 import geometry as GEOM
 import interferometry as RI
 import lookup_operations as LKP
-import ipdb as PDB
 
 cosmo100 = CP.FlatLambdaCDM(H0=100.0, Om0=0.27)  # Using H0 = 100 km/s/Mpc
 
@@ -1677,7 +1676,7 @@ class DelaySpectrum(object):
         for key in ['cc', 'sim']:
             if (key == 'sim') or ((key == 'cc') and (self.cc_lags is not None)):
                 freq_wts = NP.empty((bw_eff[key].size, self.f.size))
-                frac_width = DSP.window_N2width(n_window=None, shape=shape[key])
+                frac_width = DSP.window_N2width(n_window=None, shape=shape[key], area_normalize=False, power_normalize=True)
                 window_loss_factor = 1 / frac_width
                 n_window = NP.round(window_loss_factor * bw_eff[key] / self.df).astype(NP.int)
                 ind_freq_center, ind_channels, dfrequency = LKP.find_1NN(self.f.reshape(-1,1), freq_center[key].reshape(-1,1), distance_ULIM=0.5*self.df, remove_oob=True)
@@ -1688,7 +1687,7 @@ class DelaySpectrum(object):
                 n_window = n_window[sortind]
     
                 for i,ind_chan in enumerate(ind_channels):
-                    window = DSP.windowing(n_window[i], shape=shape[key], centering=True)
+                    window = NP.sqrt(frac_width * n_window[i]) * DSP.windowing(n_window[i], shape=shape[key], centering=True, peak=None, area_normalize=False, power_normalize=True)
                     window_chans = self.f[ind_chan] + self.df * (NP.arange(n_window[i]) - int(n_window[i]/2))
                     ind_window_chans, ind_chans, dfreq = LKP.find_1NN(self.f.reshape(-1,1), window_chans.reshape(-1,1), distance_ULIM=0.5*self.df, remove_oob=True)
                     sind = NP.argsort(ind_window_chans)
@@ -1893,7 +1892,7 @@ class DelaySpectrum(object):
         if verbose:
             print '\tCreated an extension for horizon delay limits of size {0[0]} x {0[1]} x {0[2]} as a function of snapshot instance, baseline, and (min,max) limits'.format(self.horizon_delay_limits.shape)
 
-        hdulist += [fits.ImageHDU(self.bp_wts, name='BANDPASS')]
+        hdulist += [fits.ImageHDU(self.bp, name='BANDPASS')]
         if verbose:
             print '\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape)
 

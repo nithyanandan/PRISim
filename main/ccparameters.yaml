@@ -132,7 +132,7 @@ beam    :
                                 # analytically from antenna aperture
                                 # specifications
 
-    identifier      : 'HERA-CST'
+    identifier      : 'RBAN-128H'
                                 # string to identify source of beam
                                 # Any string. e.g. RB=Rich Bradley,
                                 # AN=Abraham Neben
@@ -145,7 +145,7 @@ beam    :
                                 # all frequencies. if true, beam
                                 # scales with frequency
 
-    select_freq     : 150000000.0
+    select_freq     : 137500000.0
                                 # Frequency (Hz) to use for beam in 
                                 # case of achromatic usage of the beam
                                 # If set to null (default), it defaults
@@ -181,11 +181,11 @@ obsparm  :
                                 # 'drift', 'track', 'dns', 'lstbin', and 
                                 # 'custom' or null (default)
 
-    n_acc           : 2     
+    n_acc           : 80     
                                 # Number of accumulations. Only two of
                                 # t_obs, n_acc, and t_acc must be set
 
-    t_acc           : 60.0
+    t_acc           : 1080.0
                                 # Accumulation time (in seconds) for
                                 # each snapshot. Only two of t_obs,
                                 # n_acc, and t_acc must be set

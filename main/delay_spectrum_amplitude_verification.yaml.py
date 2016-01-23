@@ -1,17 +1,20 @@
+import numpy as NP
 import yaml
 import argparse
-import numpy as NP 
 from astropy.io import fits
 import progressbar as PGB
+import matplotlib.pyplot as PLT
+import matplotlib.colors as PLTC
+import matplotlib.gridspec as GS
 import interferometry as RI
 import delay_spectrum as DS
-import my_DSP_modules as DSP 
+import my_DSP_modules as DSP
 import geometry as GEOM
 import ipdb as PDB
 
 ## Parse input arguments
 
-parser = argparse.ArgumentParser(description='Program to create delay spectra from interferometer array data')
+parser = argparse.ArgumentParser(description='Program to verify delay spectra amplitudes from interferometer array data')
 
 input_group = parser.add_argument_group('Input parameters', 'Input specifications')
 input_group.add_argument('-i', '--infile', dest='infile', default='/home/t_nithyanandan/codes/mine/python/interferometry/main/ccparameters.yaml', type=file, required=False, help='File specifying input parameters')
@@ -80,6 +83,9 @@ pp_method = parms['pp']['method']
 
 freq_window_centers = {key: [150e6, 160e6, 170e6] for key in ['cc', 'sim']}
 freq_window_bw = {key: [10e6, 10e6, 10e6] for key in ['cc', 'sim']}
+frange = NP.zeros(2*len(freq_window_centers['sim'])).reshape(-1,2)
+for fwi,fwc in enumerate(freq_window_centers['sim']):
+    frange[fwi,:] = freq_window_centers['sim'][fwi] + freq_window_bw['sim'][fwi]*2.0*(NP.arange(2) - 0.5)
 
 if project not in ['project_MWA', 'project_global_EoR', 'project_HERA', 'project_drift_scan', 'project_beams', 'project_LSTbin']:
     raise ValueError('Invalid project specified')
@@ -364,12 +370,100 @@ for k in range(n_sky_sectors):
     iafg.phase_centering(phase_center=pc, phase_center_coords=pc_coords,
                               do_delay_transform=False)   
     dsofg = DS.DelaySpectrum(interferometer_array=iafg)
-    dsofg.delayClean(pad=pad, freq_wts=window, clean_window_buffer=clean_window_buffer, gain=gain, maxiter=maxiter, threshold=threshold, threshold_type=threshold_type, parallel=parallel, nproc=nproc)
+    # dsofg.delayClean(pad=pad, freq_wts=window, clean_window_buffer=clean_window_buffer, gain=gain, maxiter=maxiter, threshold=threshold, threshold_type=threshold_type, parallel=parallel, nproc=nproc)
     dsofg_sbds = dsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return')
     dpsofg = DS.DelayPowerSpectrum(dsofg)
     dpsofg.compute_power_spectrum()
-    dsofg.save(outfile, ia_outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
-    # dsoia = DS.DelaySpectrum(init_file=outfile+'.ds.fits')
+
+    bli = 2
+    lsti = 0
+    sbi = 0
+
+    fig = PLT.figure(figsize=(6,8))
+    # gs1 = GS.GridSpec(1,1)
+    gs2 = GS.GridSpec(2,1)
+    gs3 = GS.GridSpec(2,1)
+    # gs1.update(left=0.13, right=0.98, top=0.98, bottom=0.67, hspace=0, wspace=0)
+    gs2.update(left=0.13, right=0.48, top=0.6, bottom=0.1, hspace=0, wspace=0)
+    gs3.update(left=0.63, right=0.98, top=0.6, bottom=0.1, hspace=0, wspace=0)
+    # ax00 = PLT.subplot(gs1[0,0])
+    ax10 = PLT.subplot(gs2[0,0])
+    ax20 = PLT.subplot(gs2[1,0], sharex=ax10)
+    ax11 = PLT.subplot(gs3[0,0])
+    ax21 = PLT.subplot(gs3[1,0], sharex=ax11)
+    
+    ax00 = fig.add_axes([0.13, 0.67, 0.82, 0.3])
+    ax00.plot(iafg.channels/1e6, NP.abs(iafg.skyvis_freq[bli,:,lsti]), 'k-', lw=2)
+    ax00.set_yscale('log')
+    ax00.set_xlim(100, 200)
+    ax00.set_ylim(1e-1, 1e3)
+    ax00.set_xlabel('f [MHz]', fontsize=16)
+    ax00.set_ylabel(r'$V_b(f)$ [Jy]', fontsize=16, labelpad=0)
+
+    ax10.plot(dsofg.f/1e6, dsofg_sbds['sim']['freq_wts'][sbi,:], 'k-', lw=2)
+    ax10.set_yscale('log')
+    ax10.set_xlim(frange[sbi,:]/1e6)
+    ax10.set_ylim(2e-3,9)
+    ax10.set_ylabel('W(f)', weight='medium', fontsize=16, labelpad=0)
+    ax10.get_xaxis().set_visible(False)    
+
+    ax11.plot(1e9*dsofg_sbds['sim']['lags'], NP.abs(dsofg_sbds['sim']['lag_kernel'][bli,sbi,:,lsti]), 'k-', lw=2)
+    ax11.set_yscale('log')
+    ax11.set_xlim(-490,490)
+    ax11.set_ylim(2e-1,5e7)
+    ax11.set_ylabel(r'$\widetilde{W}(\tau)$ [Hz]', weight='medium', fontsize=16, labelpad=0)    
+    ax11.get_xaxis().set_visible(False)    
+
+    ax20.plot(iafg.channels/1e6, NP.abs(iafg.skyvis_freq[bli,:,lsti] * dsofg_sbds['sim']['freq_wts'][sbi,:]), 'k-', lw=2)
+    ax20.set_yscale('log')
+    ax10.set_xlim(frange[sbi,:]/1e6)
+    ax20.set_ylim(2e-2, 9e1)
+    ax20.set_ylabel(r'$V_{1b}(f)$ [Jy]', fontsize=16, labelpad=0)
+
+    ax21.plot(1e9*dsofg_sbds['sim']['lags'], NP.abs(dsofg_sbds['sim']['skyvis_lag'][bli,sbi,:,lsti]), 'k-', lw=2)
+    ax21.set_yscale('log')
+    ax21.set_xlim(-490,490)
+    ax21.set_ylim(2e2,8e8)
+    ax21.set_ylabel(r'$\widetilde{V}_{1b}(\tau)$ [Jy Hz]', weight='medium', fontsize=16, labelpad=0)
+
+    pos10 = ax10.get_position()
+    pos20 = ax20.get_position()
+    x0 = pos10.x0
+    x1 = pos10.x1
+    y0 = pos20.y0
+    y1 = pos10.y1
+    big_ax1 = fig.add_axes([x0, y0, x1-x0, y1-y0])
+    big_ax1.set_axis_bgcolor('none')
+    big_ax1.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+    big_ax1.set_xticks([])
+    big_ax1.set_yticks([])
+    big_ax1.set_xlabel('f [MHz]', fontsize=16, weight='medium', labelpad=20)
+
+    pos11 = ax11.get_position()
+    pos21 = ax21.get_position()
+    x0 = pos11.x0
+    x1 = pos11.x1
+    y0 = pos21.y0
+    y1 = pos11.y1
+    big_ax2 = fig.add_axes([x0, y0, x1-x0, y1-y0])
+    big_ax2.set_axis_bgcolor('none')
+    big_ax2.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+    big_ax2.set_xticks([])
+    big_ax2.set_yticks([])
+    big_ax2.set_xlabel(r'$\tau$ [ns]', fontsize=16, weight='medium', labelpad=20)
+    PLT.savefig(rootdir+project_dir+'figures/delay_spectrum_amplitude_verification'+duration_str+'_'+bandpass_str+'_'+beam_usage_str+'.png', bbox_inches=0)
+
+    fig = PLT.figure(figsize=(3,3))
+    ax = fig.add_subplot(111)
+    ax.plot(dpsofg.subband_delay_power_spectra['sim']['kprll'][sbi,:], dpsofg.subband_delay_power_spectra['sim']['skyvis_lag'][bli,sbi,:,lsti], 'k-', lw=2)
+    ax.set_yscale('log')
+    ax.set_xlim(-0.45,0.45)
+    ax.set_ylim(2e-5,9e8)
+    ax.set_xlabel(r'$k_\parallel$ [h Mpc$^{-1}$]', weight='medium', fontsize=14)
+    ax.set_ylabel(r'$P_{1b}^{FG}(k_\parallel)$ [K$^2$ (h$^{-1}$ Mpc)$^3$]', weight='medium', fontsize=14, labelpad=0)
+    fig.subplots_adjust(left=0.27, bottom=0.2, right=0.95, top=0.95)
+    PLT.savefig(rootdir+project_dir+'figures/delay_power_spectrum_amplitude_verification'+duration_str+'_'+bandpass_str+'_'+beam_usage_str+'.png', bbox_inches=0)
 
 PDB.set_trace()
 
+    

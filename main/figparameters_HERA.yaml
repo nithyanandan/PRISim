@@ -384,7 +384,7 @@ catalog  :
 
 eorparm   :
 
-    model           : 'HI_cube'
+    model           : 'HI_model'
                                 # EoR model. Accepted values
                                 # are 'HI_monopole' (global EoR),
                                 # HI_cube # (HI cube from external
@@ -494,11 +494,11 @@ clean   :
 
 subband :
 
-    freq_center     : [150000000.0, 170000000.0]
+    freq_center     : [150000000.0, 160000000.0, 170000000.0]
                                 # subband center frequencies (in Hz)
                                 # as a list
 
-    bw_eff          : [10000000.0, 10000000.0]
+    bw_eff          : [10000000.0, 10000000.0, 10000000.0]
                                 # effective bandwidths (in Hz) of
                                 # subbands. Specify as a list with
                                 # same number of elements as in
@@ -541,14 +541,23 @@ plot    :
                                 # on map of beam chromaticity as
                                 # they transit
 
-    1c      : false
+    1c      : true
                                 # Plot all-sky foreground delay power
                                 # spectra with different beam
                                 # chromaticities with EoR models
                                 # overplotted for a 14.6m baseline
                                 # for one LST
 
-    1d      : true
+    bli     : 2
+                                # selected baseline index for plotting
+
+    lsti    : 13
+                                # selected LST index for plotting
+
+    sbi     : 0
+                                # Selected subband index for plotting
+
+    1d      : false
                                 # Plot all-sky foreground delay power
                                 # spectra with different beam
                                 # chromaticities with EoR models
