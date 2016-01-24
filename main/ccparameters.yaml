@@ -126,19 +126,19 @@ phasedarray:
 
 beam    :
 
-    use_external    : false
+    use_external    : true
                                 # If true, use an externally specified
                                 # antenna beam. If false, determine
                                 # analytically from antenna aperture
                                 # specifications
 
-    identifier      : 'HERA-CST'
+    identifier      : 'RBAN-128H'
                                 # string to identify source of beam
                                 # Any string. e.g. RB=Rich Bradley,
                                 # AN=Abraham Neben
                                 # DD=Dave DeBoer, or 'HERA-CST'
 
-    chromatic       : true
+    chromatic       : false
                                 # if false, the beam is the same at
                                 # all frequencies and the beam at
                                 # reference frequency will be used for

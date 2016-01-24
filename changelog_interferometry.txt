@@ -1,3 +1,12 @@
+From b2f8b2c (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Import healpy module
+(*) Add function beam3Dvol() (with docstring) to compute 3D volume
+in units of Sr Hz using the squared power pattern of an antenna
+
 From a65343d (master):
 =====================
 

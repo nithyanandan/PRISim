@@ -10,6 +10,7 @@ import astropy
 from astropy.io import fits
 import astropy.cosmology as CP
 import scipy.constants as FCNST
+import healpy as HP
 from distutils.version import LooseVersion
 import constants as CNST
 import my_DSP_modules as DSP 
@@ -375,6 +376,91 @@ def dkprll_deta(redshift, cosmo=cosmo100):
     jacobian = 2 * NP.pi * cosmo.H0.value * CNST.rest_freq_HI * cosmo.efunc(redshift) / FCNST.c / (1+redshift)**2 * 1e3
 
     return jacobian
+
+################################################################################
+
+def beam3Dvol(beam, freqs, hemisphere=True):
+
+    """
+    ----------------------------------------------------------------------------
+    Compute 3D volume relevant for power spectrum given an antenna power 
+    pattern. It is estimated by summing square of the beam in angular and 
+    frequency coordinates and in units of "Sr Hz".
+
+    Inputs:
+
+    beam        [numpy array] Antenna power pattern with peak normalized to 
+                unity. It can be of shape (npix x nchan) or (npix x 1) or 
+                (npix,). npix must be a HEALPix compatible value. nchan is the
+                number of frequency channels, same as the size of input freqs.
+                If it is of shape (npix x 1) or (npix,), the beam will be 
+                assumed to be identical for all frequency channels.
+
+    freqs       [list or numpy array] Frequency channels (in Hz) of size nchan.
+
+    Keyword Inputs:
+
+    hemisphere  [boolean] If set to True (default), the 3D volume will be 
+                estimated using the upper hemisphere. If False, the full sphere
+                is used.
+
+    Output:
+
+    The product Omega x bandwdith (in Sr Hz) computed using the integral of 
+    squared power pattern
+    ----------------------------------------------------------------------------
+    """
+
+    try:
+        beam, freqs
+    except NameError:
+        raise NameError('Both inputs beam and freqs must be specified')
+
+    if not isinstance(beam, NP.ndarray):
+        raise TypeError('Input beam must be a numpy array')
+
+    if not isinstance(freqs, (list, NP.ndarray)):
+        raise TypeError('Input freqs must be a list or numpy array')
+    freqs = NP.asarray(freqs).astype(NP.float).reshape(-1)
+    if freqs.size < 2:
+        raise ValueError('Input freqs does not have enough elements to determine frequency resolution')
+
+    if beam.ndim > 2:
+        raise ValueError('Invalid dimensions for beam')
+    elif beam.ndim == 2:
+        if beam.shape[1] != 1:
+            if beam.shape[1] != freqs.size:
+                raise ValueError('Dimensions of beam do not match the number of frequency channels')
+    elif beam.ndim == 1:
+        beam = beam.reshape(-1,1)
+    else:
+        raise ValueError('Invalid dimensions for beam')
+
+    eps = 1e-10
+    if beam.max() > 1.0+eps:
+        raise ValueError('Input beam maximum exceeds unity. Input beam should be normalized to peak of unity')
+
+    nside = HP.npix2nside(beam.shape[0])
+    domega = HP.nside2pixarea(nside, degrees=False)
+    df = freqs[1] - freqs[0]
+    bw = df * freqs.size
+
+    theta, phi = HP.pix2ang(nside, NP.arange(beam.shape[0]))
+    if hemisphere:
+        ind, = NP.where(theta <= NP.pi/2)  # Select upper hemisphere
+    else:
+        ind = NP.arange(beam.shape[0])
+
+    if beam.shape[1] == 1:
+        omega = domega * NP.sum(beam[ind,:]**2)
+        omega_bw = bw * omega
+    else:
+        omega_bw = domega * df * NP.sum(beam[ind,:]**2)
+
+    if omega_bw > 4*NP.pi*bw:
+        raise ValueError('3D volume estimated from beam exceeds the upper limit. Check normalization of the input beam')
+
+    return omega_bw
 
 ################################################################################
 
