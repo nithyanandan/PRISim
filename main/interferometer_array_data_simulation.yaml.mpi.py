@@ -1863,6 +1863,7 @@ if rank == 0:
                 progress.update(i+1)
             progress.finish()
 
+        simvis.simparms_file = metafile
         if do_delay_transform:
             simvis.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
 

@@ -208,7 +208,7 @@ beam    :
                                 # all frequencies. if true, beam
                                 # scales with frequency
 
-    select_freq     : 137500000.0
+    select_freq     : 150000000.0
                                 # Frequency (Hz) to use for beam in 
                                 # case of achromatic usage of the beam
                                 # If set to null (default), it defaults
@@ -230,11 +230,11 @@ obsparm  :
                                 # Center frequency (in Hz)
                                 # 167.05 MHz for Adam Lidz's cube
 
-    freq_resolution : 781250.0
+    freq_resolution : 390625.0
                                 # Frequency resolution (in Hz)
                                 # 80 kHz for Adam Lidz's cube
 
-    nchan           : 128
+    nchan           : 256
                                 # Number of channels
                                 # 704 for Adam Lidz's cube
 
@@ -482,7 +482,7 @@ processing:
                                 # used to split data for parallel
                                 # processing
 
-    freq_chunk_size : 8
+    freq_chunk_size : 16
                                 # Frequency chunk size. Will be used
                                 # in a single process during parallel
                                 # processing

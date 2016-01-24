@@ -1,3 +1,15 @@
+From a65343d (master):
+=====================
+
+In interferometry.py,
+
+(*) Add attribute simparms_file to class InterferometerArray and
+initialize it in __init__() member function using input keyword
+simparms_file or from a header keyword in init_file. Update
+docstring accordingly
+(*) Save attribute simparms_file in header keyword 'simparms' in
+save() member function of class InterferometerArray
+
 From 9438a63 (master):
 =====================
 

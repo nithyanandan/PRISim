@@ -162,7 +162,7 @@ phasedarray:
 achrmbeam    :
                                 # Achromatic beam information
 
-    identifier      : 'HERA-CST'
+    identifier      : 'RBAN-128H'
                                 # string to identify source of beam
                                 # Any string. e.g. RB=Rich Bradley,
                                 # AN=Abraham Neben
@@ -172,14 +172,16 @@ achrmbeam    :
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
-                      '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl03/X4Y2H_490.hmap'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl03/X4Y2H_490.hmap'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/analytic/14.0m_dish_Airy_no_ground_nside_256_derr_0.000ns_gerr_0.00dB_nrand_1_128x781.2_kHz_150.0_MHz.fits'
+                      '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_hp_nside128full.fits'
+
                                 # Full pathname to the FITS file
                                 # containing the external antenna
                                 # beam. Used only if use_external is
                                 # set to true
 
-    select_freq     : 150000000.0
+    select_freq     : 137500000.0
                                 # Frequency (Hz) to use for beam in 
                                 # case of achromatic usage of the beam
                                 # If set to null (default), it defaults

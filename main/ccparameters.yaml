@@ -126,26 +126,26 @@ phasedarray:
 
 beam    :
 
-    use_external    : true
+    use_external    : false
                                 # If true, use an externally specified
                                 # antenna beam. If false, determine
                                 # analytically from antenna aperture
                                 # specifications
 
-    identifier      : 'RBAN-128H'
+    identifier      : 'HERA-CST'
                                 # string to identify source of beam
                                 # Any string. e.g. RB=Rich Bradley,
                                 # AN=Abraham Neben
                                 # DD=Dave DeBoer, or 'HERA-CST'
 
-    chromatic       : false
+    chromatic       : true
                                 # if false, the beam is the same at
                                 # all frequencies and the beam at
                                 # reference frequency will be used for
                                 # all frequencies. if true, beam
                                 # scales with frequency
 
-    select_freq     : 137500000.0
+    select_freq     : 150000000.0
                                 # Frequency (Hz) to use for beam in 
                                 # case of achromatic usage of the beam
                                 # If set to null (default), it defaults
@@ -165,11 +165,11 @@ obsparm  :
                                 # Center frequency (in Hz)
                                 # 167.05 MHz for Adam Lidz's cube
 
-    freq_resolution : 781250.0
+    freq_resolution : 390625.0
                                 # Frequency resolution (in Hz)
                                 # 80 kHz for Adam Lidz's cube
 
-    nchan           : 128
+    nchan           : 256
                                 # Number of channels
                                 # 704 for Adam Lidz's cube
 
