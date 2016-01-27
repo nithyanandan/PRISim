@@ -6,6 +6,10 @@ directory:
     rootdir         : '/data3/t_nithyanandan/'
                                 # Base directory
 
+    figdir          : 'figures/'
+                                # Figures directory under
+                                # project directory
+
 ########## Project information #########
 
 project  : project_HERA
@@ -24,7 +28,6 @@ telescope:
                                 # Accepts 'mwa', 'vla', 'gmrt',
                                 # 'hera', 'mwa_dipole', 'custom',
                                 # 'paper_dipole', 'mwa_tools'
-                                # This name sets the dish type
 
     latitude        : -30.7224
                                 # Latitude in degrees
@@ -41,10 +44,6 @@ telescope:
                                 # +21.4278 for PAPER and HERA,
                                 # +74.0497 for GMRT
 
-    A_eff           : 154
-                                # Effective area of antenna element
-                                # in m^2
-
     Tsys            : 220.0
                                 # System temperature (in K)
 
@@ -53,11 +52,6 @@ telescope:
                                 # means no use of PFB. Other accepted
                                 # values are 'theoretical' and
                                 # 'empirical'
-
-    pfb_file        : '/data3/t_nithyanandan/project_MWA/foregrounds/PFB/Prabu/test_pfb_512x8.fits'
-                                # File containing PFB coefficients.
-                                # Applicable only is pfb_method is
-                                # set to non-null value
 
 ########## Antenna layout #########
 
@@ -73,7 +67,6 @@ array   :                       # Parameters 'file' and 'layout'
                                 # 'HERA-61', 'HERA-91', 'HERA-127',
                                 # 'HERA-169', 'HERA-217', 'HERA-271',
                                 # 'HERA-331', 'CIRC', or null
-                           
 
     minR            : 141.0
                                 # Minimum radius of circular ring.
@@ -100,8 +93,7 @@ baseline :                      # Parameters specifying baseline
                                 # Default = null (all directions).
                                 # Other accepted values are 'E' (east)
                                 # 'SE' (south-east), 'NE' (north-east),
-                                # and 'N' (north), 45 deg width
-                                # Multiple values from
+                                # and 'N' (north). Multiple values from
                                 # this accepted list can be specified
                                 # as a list of strings.
                                 # e.g., ['N', 'E'], ['NE', 'SE', 'E'],
@@ -109,7 +101,7 @@ baseline :                      # Parameters specifying baseline
                                 # equivalent to null, etc.
 
 ########## Antenna Element information #########                      
-# activated when telescope.id='custom's 
+
 antenna  :
 
     shape           : 'dish'      
@@ -149,19 +141,15 @@ antenna  :
                                 # (null) means no ground plane
 
 ########## Phased array parameters #########
-# used when antenna.phased_array is set to true 
-phasedarray:
 
-    file            : '/data3/t_nithyanandan/project_MWA/MWA_tile_dipole_locations.txt'
-                                # File containing phased array elements
-                                # locations
+phasedarray:
 
     delayerr        : 0.0
                                 # Delay error rms (in ns). null means
                                 # delayerr is not applicable
 
     gainerr         : 0.0
-                                # fGain error rms in dB. null means
+                                # Gain error rms in dB. null means
                                 # gainerr is not applicable
 
     nrand           : 1
@@ -169,30 +157,10 @@ phasedarray:
                                 # average. null means gainerr and 
                                 # delayerr are not applicable
 
-########## Beam specifications #########
+########## External beam specifications #########
 
-beam    :
-
-    use_external    : true
-                                # If true, use an externally specified
-                                # antenna beam. If false, determine
-                                # analytically from antenna aperture
-                                # specifications
-
-    file            : # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_healpix.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_195_137o5_hp_nside128full.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl03/X4Y2H_490.hmap'
-                      '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_hp_nside128full.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/XRFBg_195_137o5_hp_nside128full.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/analytic/14.0m_dish_Airy_no_ground_nside_256_derr_0.000ns_gerr_0.00dB_nrand_1_128x781.2_kHz_150.0_MHz.fits'
-
-                                # Full pathname to the FITS file
-                                # containing the external antenna
-                                # beam. Used only if use_external is
-                                # set to true
+achrmbeam    :
+                                # Achromatic beam information
 
     identifier      : 'RBAN-128H'
                                 # string to identify source of beam
@@ -200,30 +168,50 @@ beam    :
                                 # AN=Abraham Neben
                                 # DD=Dave DeBoer, or 'HERA-CST'
 
-    pol             : 'X'
-                                # Beam polarization. Accepted values
-                                # are 'X' and 'Y'
+    srcfile         : # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_healpix.fits'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl03/X4Y2H_490.hmap'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/analytic/14.0m_dish_Airy_no_ground_nside_256_derr_0.000ns_gerr_0.00dB_nrand_1_128x781.2_kHz_150.0_MHz.fits'
+                      '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_hp_nside128full.fits'
 
-    chromatic       : false
-                                # if false, the beam is the same at
-                                # all frequencies and the beam at
-                                # reference frequency will be used for
-                                # all frequencies. if true, beam
-                                # scales with frequency
+                                # Full pathname to the FITS file
+                                # containing the external antenna
+                                # beam. Used only if use_external is
+                                # set to true
 
-    select_freq     : 150000000.0
+    select_freq     : 137500000.0
                                 # Frequency (Hz) to use for beam in 
                                 # case of achromatic usage of the beam
                                 # If set to null (default), it defaults
                                 # to using value defined in freq
 
+chrmbeam    :
+                                # Chromatic beam information
+
+    identifier      : 'HERA-CST'
+                                # string to identify source of beam
+                                # Any string. e.g. RB=Rich Bradley,
+                                # AN=Abraham Neben
+                                # DD=Dave DeBoer, or 'HERA-CST'
+
+    srcfile         : # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_healpix.fits'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
+                      '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl03/X4Y2H_490.hmap'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/analytic/14.0m_dish_Airy_no_ground_nside_256_derr_0.000ns_gerr_0.00dB_nrand_1_128x781.2_kHz_150.0_MHz.fits'
+                                # Full pathname to the FITS file
+                                # containing the external antenna
+                                # beam. Used only if use_external is
+                                # set to true
+
     spec_interp     : 'cubic'
                                 # method to interpolate external beam
                                 # along spectral (frequency) direction.
                                 # allowed values are 'fft' (default),
-                                # 'linear', 'bilinear' or 'cubic'.
-                                # Applies only if chromatic is set to
-                                # True
+                                # 'linear', 'bilinear' or 'cubic'
 
 ########## Observation setup ##########
 
@@ -233,11 +221,11 @@ obsparm  :
                                 # Center frequency (in Hz)
                                 # 167.05 MHz for Adam Lidz's cube
 
-    freq_resolution : 390625.0
+    freq_resolution : 781250.0
                                 # Frequency resolution (in Hz)
                                 # 80 kHz for Adam Lidz's cube
 
-    nchan           : 256
+    nchan           : 128
                                 # Number of channels
                                 # 704 for Adam Lidz's cube
 
@@ -248,8 +236,6 @@ obsparm  :
                                 # Observing mode. Accepted values are
                                 # 'drift', 'track', 'dns', 'lstbin', and 
                                 # 'custom' or null (default)
-                                # dns=drift n' shift  
-                                # requires pointing file (see below)
 
     t_obs           : null      
                                 # Duration of observation (in seconds)
@@ -328,53 +314,7 @@ pointing :                      # If pointing file is specified to be
                                 # Epoch in which the RA of the sky
                                 # position to track is specified
 
-######### Phase center information #########
-#NOT USED.  Phase center is always = pointing center.
-phasing :                       # Phase center parameters
-
-    center          : [90.0, 270.0]
-                                # Phase center in coordinate system
-                                # in coords below. Must be 3-elements
-                                # if coordinate system is set to
-                                # 'dircos'
-
-    coords          : altaz
-                                # Coordinate system for specifying
-                                # phase center. Accepted values are
-                                # 'altaz', 'hadec', 'radec', and
-                                # 'dircos'
-
-######### Snapshot selection ##########
-# use this to cut down your run for diagnostic purposes.
-snapshot :                      # Parameters below are mutually
-                                # exclusive. Only one of them can be
-                                # set to True or non-null values
-
-    avg_drifts      : false
-                                # Consider durations equal to the
-                                # drift duration before pointing
-                                # changes
-
-    beam_switch     : false
-                                # Consider snapshots only at beam
-                                # switches if set to true (applicable 
-                                # only if obs_mode is set to 'dns').
-                                # Default = false
-
-    pick            : null
-                                # Consider only these snapshots. Can
-                                # be a list or null (default)
-
-    range           : null
-                                # Consider snapshots between these
-                                # indices. Must be a two element list
-                                # or null (default)
-
-    all             : true
-                                # Consider all snapshots if set to
-                                # true. Default = false
-
-######### Sky model ##########
+######### Foreground model ##########
 
 fgparm   :
 
@@ -402,15 +342,8 @@ fgparm   :
                                 # model input map. Accepted values are
                                 # valid nside values
 
-    flux_unit       : 'K'
-                                # Units of flux or flux density.
-                                # Accepted values are 'K' for
-                                # temperature in K or 'Jy' for flux
-                                # density in Jy
-
     spindex         : -0.83
-                                # Default spectral index to use if
-                                # none is found in catalog
+                                # Spectral indices of point sources
 
     spindex_rms     : 0.0
                                 # rms in distribution of spectral
@@ -425,19 +358,6 @@ fgparm   :
                                 # one of lidz or 21cmfast can be set
                                 # to true
 
-    21cmfast        : false
-                                # Use 21CMFAST simulations of Andrei
-                                # Mesinger. Only one of lidz or
-                                # 21cmfast can be set to true
-
-    global_EoR_parms: [0.027, 150e6, 1.0] 
-                                # Parameters defining the global EoR
-                                # signal. 3-element list with elements
-                                # in the following order: T_spin
-                                # amplitude (in K), frequency at
-                                # x_i=0.5, and characteristic redshift
-                                # width for tanh() function
-                               
 ######### Foreground Catalogs #########
 
 catalog  :
@@ -462,6 +382,82 @@ catalog  :
                                 # User defined point sources catalog
                                 # file
 
+######### EoR model ##########
+
+eorparm   :
+
+    model           : 'HI_model'
+                                # EoR model. Accepted values
+                                # are 'HI_monopole' (global EoR),
+                                # HI_cube # (HI cube from external
+                                # simulations), and'HI_fluctuations'
+                                # (HI fluctuations with the global
+                                # mean signal removed), 'HI_model'
+                                # (for just P(k) tabulated data)
+
+    nside           : 256
+                                # Healpix nside parameter for EoR
+                                # model input map. Accepted values are
+                                # valid nside values
+
+    spindex         : -0.83
+                                # Spectral indices of point sources
+
+    spindex_rms     : 0.0
+                                # rms in distribution of spectral
+                                # indices
+
+    spindex_seed    : null
+                                # Random seed for generation of random
+                                # spectral indices
+
+    lidz_cube       : true
+                                # Use simulations of Adam Lidz. Only
+                                # one of lidz_cube or 21cmfast_cube
+                                # can be set to true
+
+    21cmfast_cube   : false
+                                # Use 21CMFAST simulations of Andrei
+                                # Mesinger. Only one of lidz_cube or
+                                # 21cmfast_cube can be set to true
+
+    lidz_model      : true
+                                # Use P(k) models of Adam Lidz
+
+    21cmfast_model  : true
+                                # Use 21CMFAST P(k) models of Andrei
+                                # Mesinger
+
+    lidz_modelfile  : '/data3/t_nithyanandan/EoR_models/Lidz/PS_model.fits'
+                                # Full path to Model file consisting of
+                                # P(k) models of Adam Lidz. Will be
+                                # used if lidz_model is set to true
+
+    21cmfast_modelfile: '/data3/t_nithyanandan/EoR_models/21cmFAST/PS_model.fits'
+                                # Full path to Model file consisting 
+                                # of P(k) models of 21cmFAST. Will be 
+                                # used if 21cmfast_model is set to true
+
+    cube_freq       : 167050000.0
+                                # Center frequency (in Hz) for
+                                # simulated HI cubes
+                                # 167.05 MHz for Adam Lidz's cube
+
+    freq_resolution : 80000.0
+                                # Frequency resolution (in Hz) for
+                                # simulated HI cubes
+                                # 80 kHz for Adam Lidz's cube
+
+    nchan           : 704
+                                # Number of channels for simulated
+                                # HI cubes
+                                # 704 for Adam Lidz's cube
+
+    model_freq      : 150000000.0
+                                # Center frequency (Hz) for EoR
+                                # models. Applies to Lidz and
+                                # 21cmFAST models
+
 ########## Processing setup ##########
 
 processing:
@@ -471,9 +467,6 @@ processing:
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
                                 # processing
-                                #NB: This number is redundant with uvmax, 
-                                # and is best left as null.
-
 
     bl_chunk_size   : 30
                                 # Baseline chunk size. Will be used
@@ -483,150 +476,104 @@ processing:
     bl_chunk        : null
                                 # Baseline chunk indices to process.
                                 # null means process all chunks.
-                                # Should be given as a list eg [1,3,4]
-
-    n_freq_chunks   : 16
-                                # Upper limit on number of frequency
-                                # chunks to be processed. Will be
-                                # used to split data for parallel
-                                # processing
-
-    freq_chunk_size : 16
-                                # Frequency chunk size. Will be used
-                                # in a single process during parallel
-                                # processing
-
-    freq_chunk      : null
-                                # Frequency chunk indices to process.
-                                # null means process all chunks.
                                 # Should be given as a list
 
-    n_bins_blo      : 4
-                                # Number of bins in baseline
-                                # orientation
-
     n_sky_sectors   : 1
-                                # produces this many seperate outputs 
-                                # one for each sky slice
                                 # Number of sky sectors
+
+########## CLEAN parameters ##########
+
+clean   :
 
     bpass_shape     : 'bhw'
                                 # Bandpass shape for tapering window
-                                # before delay transform. Accepted values are
-                                # 'rect' (rectangular), 'bnw'
+                                # before delay transform. Accepted values 
+                                # are 'rect' (rectangular), 'bnw'
                                 # (Blackman-Nuttall window), and 'bhw'
                                 # (Blackman-Harris window)
 
-    ant_bpass_file  : null
-                                # '/data3/t_nithyanandan/project_HERA/newGainfiltered.npz'
-                                # '/data3/t_nithyanandan/project_HERA/specGainfiltered.npz'
-                                # '/data3/t_nithyanandan/project_HERA/steepGainfiltered.npz'                                
-                                # Antenna bandpass file (.npz) which will be
-                                # stored in multiplication to that 
-                                # specified in bpass_shape
-                                
-    f_pad           : 1.0
-                                # See bpass_shape...
-                                # frequency padding fraction for
-                                # delay transform
+########## Subband parameters ##########
 
-    coarse_channel_width : 16
-                                # Coarse channel width in number of
-                                # fine channels. Used only if PFB (MWA-like passband)
-                                # settings are to be used. 
-                                # 32 for 40kHz
-                                # 16 for 80kHz
-                                # etc
+subband :
 
-    bp_correct      : true
-                                # Correct bandpass shape if set to
-                                # true. Do not correct if set to
-                                # false 
-                                # in other words, false applies the pb
-                                #   true gives you a flat pb
+    freq_center     : [150000000.0, 160000000.0, 170000000.0]
+                                # subband center frequencies (in Hz)
+                                # as a list
 
-    noise_bp_correct : false
-                                # Bandpass correction for Tsys if
-                                # set to true, no correction if set
-                                # to false
-                                # EXPERIMENTAL/MWA
+    bw_eff          : [10000000.0, 10000000.0, 10000000.0]
+                                # effective bandwidths (in Hz) of
+                                # subbands. Specify as a list with
+                                # same number of elements as in
+                                # freq_center
 
-    n_pad           : 0         # useful during dspec computation
-                                # Bandpass window padding length.
-                                # Will be applied only if f_pad is
-                                # not set
-                        
+    shape           : 'bhw'
+                                # subband window shape to be applied
+                                # to each of the subband windows.
+                                # Accepted values are 'bhw'
+                                # (Blackman-Harris), 'bnw' (Blackman-
+                                # Nuttall) and 'rect' (rectangular)
 
-    max_abs_delay   : 1.0
-                                # useful during dspec plotting
-                                # Maximum delay (in micro-seconds)
-                                # above which will be considered
-                                # thermal noise window. Keep this
-                                # value below 0.5/freq_resolution
+########## Reflectometry parameters ##########
 
-    delay_transform : false
-                                # if true, compute delay transform
+reflectometry   :
 
-########## Parallel processing setup #########
+    k               : [0.08, 0.1, 0.12]
+                                # wavenumber(s) (in h/Mpc) where
+                                # delay reflectometry is required
 
-pp       :
+    bll             : 14.6
+                                # Baseline length (in m) for which
+                                # the delay reflectometry specs are
+                                # needed
 
-    nproc           : 1
-                                # used with multiprocessing, set on cmd line for mpi
-                                # Number of parallel processes.
-                                # 1 means serial processing.
+########## Plot parameters ##########
 
-    key             : 'freq'
-                                # Split the data by 'bl' (baselines),
-                                # 'src' (sources) or 'freq' (frequency),
-                                # for parallel processing
+plot    :
 
-    eqvol           : true
-                                # if set to true, load is split equally
-                                # between the parallel processes. If
-                                # set to false, load may be split
-                                # unevenly across processes as and when
-                                # a process becomes free
+    1a      : false
+                                # Plot beam chromaticity with single
+                                # point source at different locations
 
-    method          : 'pool'
-                                # method used in parallel processing.
-                                # Accepted values are 'pool' and
-                                # 'queue'
+    1b      : false
+                                # Plot healpix map of beam
+                                # chromaticity
 
-########## Frequency flagging ##########
+    1b0     : false
+                                # if True, plot bright foregrounds
+                                # on map of beam chromaticity as
+                                # they transit
 
-flags    :
+    1c      : true
+                                # Plot all-sky foreground delay power
+                                # spectra with different beam
+                                # chromaticities with EoR models
+                                # overplotted for a 14.6m baseline
+                                # for one LST
 
-    flag_chan       : -1
-                                # list of specific frequency channels
-                                # to be flagged. -1 means no specific
-                                # channels to be flagged
+    bli     : 2
+                                # selected baseline index for plotting
 
-    bp_flag_repeat  : false
-                                # If set to true, repeat flag_chan
-                                # for every coarse channel periodically
+    lsti    : 13
+                                # selected LST index for plotting
 
-    n_edge_flag     : [0, 0]
-                                # Flag edge channels in the band. Two
-                                # element list. First and second
-                                # elements are number of channels
-                                # leading and trailing the coarse
-                                # channel edges respectively
+    sbi     : 0
+                                # Selected subband index for plotting
 
-    flag_repeat_edge_channels: false
-                                # If set to true, repeat the flagged
-                                # edge channels periodically for every
-                                # coarse channels. Do not repeat if
-                                # set to false
+    1d      : false
+                                # Plot all-sky foreground delay power
+                                # spectra with different beam
+                                # chromaticities with EoR models
+                                # overplotted for all baselines
+                                # (wedge) for all LST
 
-########## Save format ##########
+    2a      : false
+                                # Plot ratio of signal to foreground
+                                # ratio as a function of staggered
+                                # delays to set a spec on
+                                # reflectometry
 
-save_formats :
+    3a      : false
+                                # Plot signal-to-foreground ratio
+                                # as a function of LST and k_parallel
+                                # for a given baseline
 
-    npz             : true
-                                # If true, save to numpy NPZ format
-
-########## Create plots ##########
-
-plots    : false
-                                # If true, create relevant plots

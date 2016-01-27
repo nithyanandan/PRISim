@@ -1,0 +1,381 @@
+########## Directory information #########
+
+directory:
+                                # Directory information
+
+    rootdir         : '/data3/t_nithyanandan/'
+                                # Base directory
+
+########## Project information #########
+
+project  : project_HERA
+                                # Accepted values are project_MWA,
+                                # project_global_EoR, project_HERA, 
+                                # project_drift_scan, project_beams,
+                                # project_LSTbin
+
+########## Telescope information ##########
+
+telescope:
+
+    label_prefix    : ''
+
+    id              : 'custom'
+                                # Accepts 'mwa', 'vla', 'gmrt',
+                                # 'hera', 'mwa_dipole', 'custom',
+                                # 'paper_dipole', 'mwa_tools'
+
+    Tsys            : 220.0
+                                # System temperature (in K)
+
+    pfb_method      : null 
+                                # PFB method to be used. Default (null)
+                                # means no use of PFB. Other accepted
+                                # values are 'theoretical' and
+                                # 'empirical'
+
+########## Antenna layout #########
+
+array   :                       # Parameters 'file' and 'layout'
+                                # below are mutually exclusive
+
+    file            : null
+                                # File containing antenna locations
+
+    layout          : 'HERA-19'
+                                # Accepted values are 'MWA-128T',
+                                # 'HERA-7', 'HERA-19', 'HERA-37',
+                                # 'HERA-61', 'HERA-91', 'HERA-127',
+                                # 'HERA-169', 'HERA-217', 'HERA-271',
+                                # 'HERA-331', 'CIRC', or null
+
+    minR            : 141.0
+                                # Minimum radius of circular ring.
+                                # Applies only when layout = 'CIRC'
+
+    maxR            : 141.0
+                                # Maximum radius of circular ring.
+                                # Applies only when layout = 'CIRC'
+
+########## Baseline Selection #########
+
+baseline :                      # Parameters specifying baseline
+                                # selection criteria
+
+    min             : null
+                                # Minimum baseline in distance
+                                # units (m). Default = 0 (null)
+
+    max             : null
+                                # Maximum baseline in distance
+                                # units (m). Default = max (null)
+
+    direction       : null
+                                # Default = null (all directions).
+                                # Other accepted values are 'E' (east)
+                                # 'SE' (south-east), 'NE' (north-east),
+                                # and 'N' (north). Multiple values from
+                                # this accepted list can be specified
+                                # as a list of strings.
+                                # e.g., ['N', 'E'], ['NE', 'SE', 'E'],
+                                # ['SE', 'E', 'NE', 'N'] which is
+                                # equivalent to null, etc.
+
+########## Antenna Element information #########                      
+
+antenna  :
+
+    shape           : 'dish'      
+                                # Shape of antenna element
+                                # Accepted values are 'dish', 'dipole',
+                                # and 'delta' or null (defaults to
+                                # 'delta')
+
+    size            : 14.0
+                                # Size of antenna element (in m)
+                                # diameter for dish, linear size for
+                                # dipole
+                    
+    phased_array    : false
+                                # If true, the antenna is a phased
+                                # array of antenna elements.
+                                # Default = false
+                    
+    ground_plane    : null
+                                # Ground plane height (in m). Default
+                                # (null) means no ground plane
+
+########## Phased array parameters #########
+
+phasedarray:
+
+    delayerr        : 0.0
+                                # Delay error rms (in ns). null means
+                                # delayerr is not applicable
+
+    gainerr         : 0.0
+                                # Gain error rms in dB. null means
+                                # gainerr is not applicable
+
+    nrand           : 1
+                                # Number of random realizations to
+                                # average. null means gainerr and 
+                                # delayerr are not applicable
+
+########## Beam specifications #########
+
+beam    :
+
+    use_external    : true
+                                # If true, use an externally specified
+                                # antenna beam. If false, determine
+                                # analytically from antenna aperture
+                                # specifications
+
+    identifier      : 'RBAN-128H'
+                                # string to identify source of beam
+                                # Any string. e.g. RB=Rich Bradley,
+                                # AN=Abraham Neben
+                                # DD=Dave DeBoer, or 'HERA-CST'
+
+    chromatic       : false
+                                # if false, the beam is the same at
+                                # all frequencies and the beam at
+                                # reference frequency will be used for
+                                # all frequencies. if true, beam
+                                # scales with frequency
+
+    select_freq     : 150000000.0
+                                # Frequency (Hz) to use for beam in 
+                                # case of achromatic usage of the beam
+                                # If set to null (default), it defaults
+                                # to using value defined in freq
+
+    spec_interp     : 'cubic'
+                                # method to interpolate external beam
+                                # along spectral (frequency) direction.
+                                # allowed values are 'fft' (default),
+                                # 'linear', 'bilinear' or 'cubic'
+
+########## Observation setup ##########
+
+obsparm  :
+
+    freq            : 150000000.0
+                                # Center frequency (in Hz)
+                                # 167.05 MHz for Adam Lidz's cube
+
+    freq_resolution : 390625.0
+                                # Frequency resolution (in Hz)
+                                # 80 kHz for Adam Lidz's cube
+
+    nchan           : 256
+                                # Number of channels
+                                # 704 for Adam Lidz's cube
+
+    obs_date        : '2015/11/23'
+                                # Observation start date yyyy/mm/dd
+
+    obs_mode        : 'drift'  
+                                # Observing mode. Accepted values are
+                                # 'drift', 'track', 'dns', 'lstbin', and 
+                                # 'custom' or null (default)
+
+    n_acc           : 80     
+                                # Number of accumulations. Only two of
+                                # t_obs, n_acc, and t_acc must be set
+
+    t_acc           : 1080.0
+                                # Accumulation time (in seconds) for
+                                # each snapshot. Only two of t_obs,
+                                # n_acc, and t_acc must be set
+
+######### Phase center information #########
+
+phasing :                       # Phase center parameters
+
+    center          : [90.0, 270.0]
+                                # Phase center in coordinate system
+                                # in coords below. Must be 3-elements
+                                # if coordinate system is set to
+                                # 'dircos'
+
+    coords          : altaz
+                                # Coordinate system for specifying
+                                # phase center. Accepted values are
+                                # 'altaz', 'hadec', 'radec', and
+                                # 'dircos'
+
+######### Snapshot selection ##########
+
+snapshot :                      # Parameters below are mutually
+                                # exclusive. Only one of them can be
+                                # set to True or non-null values
+
+    avg_drifts      : false
+                                # Consider durations equal to the
+                                # drift duration before pointing
+                                # changes
+
+    beam_switch     : false
+                                # Consider snapshots only at beam
+                                # switches if set to true (applicable 
+                                # only if obs_mode is set to 'dns').
+                                # Default = false
+
+    pick            : null
+                                # Consider only these snapshots. Can
+                                # be a list or null (default)
+
+    range           : null
+                                # Consider snapshots between these
+                                # indices. Must be a two element list
+                                # or null (default)
+
+    all             : true
+                                # Consider all snapshots if set to
+                                # true. Default = false
+
+######### Foreground model ##########
+
+fgparm   :
+
+    model           : 'asm'
+                                # Foreground model. Accepted values
+                                # are 'csm' (NVSS+SUMSS point sources), 
+                                # 'dsm' (diffuse emission), 'asm' (both
+                                # point sources and diffuse emission),
+                                # 'sumss' (SUMSS catalog), nvss (NVSS
+                                # catalog), 'mss' (Molonglo Sky Survey),
+                                # 'gleam' (GLEAM catalog), 'point' (user-
+                                # defined point sources), 'usm' (uniform
+                                # sky model), 'mwacs' (MWACS catalog),
+                                # 'HI_monopole' (global EoR), HI_cube
+                                # (HI cube from external simulations), 
+                                # and'HI_fluctuations' (HI fluctuations
+                                # with the global mean signal removed)
+
+    nside           : 256
+                                # Healpix nside parameter for foreground
+                                # model input map. Accepted values are
+                                # valid nside values
+
+    spindex         : -0.83
+                                # Spectral indices of point sources
+
+    spindex_rms     : 0.0
+                                # rms in distribution of spectral
+                                # indices
+
+    spindex_seed    : null
+                                # Random seed for generation of random
+                                # spectral indices
+
+    lidz            : true
+                                # Use simulations of Adam Lidz. Only
+                                # one of lidz or 21cmfast can be set
+                                # to true
+
+    21cmfast        : false
+                                # Use 21CMFAST simulations of Andrei
+                                # Mesinger. Only one of lidz or
+                                # 21cmfast can be set to true
+
+    global_EoR_parms: [0.027, 150e6, 1.0] 
+                                # Parameters defining the global EoR
+                                # signal. 3-element list with elements
+                                # in the following order: T_spin
+                                # amplitude (in K), frequency at
+                                # x_i=0.5, and characteristic redshift
+                                # width for tanh() function
+                               
+########## Processing setup ##########
+
+processing:
+
+    n_bl_chunks     : 1
+                                # Upper limit on number of baseline
+                                # chunks to be processed. Will be
+                                # used to split data for parallel
+                                # processing
+
+    bl_chunk_size   : 30
+                                # Baseline chunk size. Will be used
+                                # in a single process during parallel
+                                # processing
+
+    bl_chunk        : null
+                                # Baseline chunk indices to process.
+                                # null means process all chunks.
+                                # Should be given as a list
+
+    n_sky_sectors   : 1
+                                # Number of sky sectors
+
+########## Parallel processing setup #########
+
+pp       :
+
+    parallel        : true
+                                # true (default) invokes parallel
+                                # processing. false imposes serial
+                                # processing
+
+    nproc           : 16
+                                # Number of parallel processes.
+                                # 1 means serial processing.
+
+    method          : 'pool'
+                                # method used in parallel processing.
+                                # Accepted values are 'pool' and
+                                # 'queue'
+
+########## CLEAN parameters ##########
+
+clean   :
+
+    bpass_shape     : 'bhw'
+                                # Bandpass shape for tapering window
+                                # before delay transform. Accepted values 
+                                # are 'rect' (rectangular), 'bnw'
+                                # (Blackman-Nuttall window), and 'bhw'
+                                # (Blackman-Harris window)
+
+    pad             : 1.0
+                                # padding fraction relative to the
+                                # number of frequency channels.
+                                # Default=1.0
+
+    window_buffer   : 3.0
+                                # clean window buffer (in number of)
+                                # delay pixels where each delay pixel
+                                # is equal to inverse of bandwidth.
+                                # Default=3.0
+
+    gain            : 0.1
+                                # clean loop gain. Default=0.1
+
+    maxiter         : 80000
+                                # maximum number of clean iterations
+                                # Default=80000
+
+    threshold       : 0.000001
+                                # clean threshold. Default=1e-6
+                                # relative or absolute set by
+                                # threshold_type
+                                
+    threshold_type  : 'relative'
+                                # threshold type. Accepted values are
+                                # 'relative' (default) and 'absolute'
+                                # If 'relative', threshold is relative
+                                # to the maximum in the initial delay
+                                # spectrum. If 'absolute' this is the
+                                # clean threshold in absolute value
+
+########## Save format ##########
+
+save_formats :
+
+    npz             : true
+                                # If true, save to numpy NPZ format
+

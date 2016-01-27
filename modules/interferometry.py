@@ -1559,7 +1559,7 @@ class InterferometerArray(object):
                 interferometers (in m^2). If a scalar is provided, it is assumed
                 to be identical for all interferometers. Otherwise, one value
                 must be specified for each interferometer. Default is
-                 pi * (25/2)^2, appropriate for a 25 m VLA dish.
+                pi * (25/2)^2, appropriate for a 25 m VLA dish.
 
     baselines:  [M x 3 Numpy array] The baseline vectors associated with the
                 M interferometers in SI units. The coordinate system of these
@@ -1773,6 +1773,10 @@ class InterferometerArray(object):
                 (2 k T_sys / (A_eff x sqrt(2 x channel_width x t_acc))) / Jy, or
                 T_sys / sqrt(2 x channel_width x t_acc)
 
+    simparms_file
+                [string] Full path to filename containing simulation parameters
+                in YAML format
+ 
     Member functions:
 
     __init__()          Initializes an instance of class InterferometerArray
@@ -1825,7 +1829,8 @@ class InterferometerArray(object):
     def __init__(self, labels, baselines, channels, telescope=None, eff_Q=0.89,
                  latitude=34.0790, longitude=0.0, skycoords='radec',
                  A_eff=NP.pi*(25.0/2)**2, pointing_coords='hadec',
-                 baseline_coords='localenu', freq_scale=None, init_file=None):
+                 baseline_coords='localenu', freq_scale=None, init_file=None,
+                 simparms_file=None):
         
         """
         ------------------------------------------------------------------------
@@ -1838,7 +1843,7 @@ class InterferometerArray(object):
         channels, bp, bp_wts, freq_resolution, lags, lst, obs_catalog_indices, 
         pointing_center, skyvis_freq, skyvis_lag, timestamp, t_acc, Tsys, 
         vis_freq, vis_lag, t_obs, n_acc, vis_noise_freq, vis_noise_lag, 
-        vis_rms_freq, geometric_delays, and projected_baselines.
+        vis_rms_freq, geometric_delays, projected_baselines, simparms_file
 
         Read docstring of class InterferometerArray for details on these
         attributes.
@@ -1849,6 +1854,10 @@ class InterferometerArray(object):
                      instance of class InterferometerArray will be created. 
                      File format must be compatible with the one saved to disk 
                      by member function save().
+
+        simparms_file
+                     [string] Location of the simulation parameters in YAML 
+                     format that went into making the simulated data product
 
         Other input parameters have their usual meanings. Read the docstring of
         class InterferometerArray for details on these inputs.
@@ -1865,6 +1874,14 @@ class InterferometerArray(object):
                 print '\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...'
 
             extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,len(hdulist))]
+
+            self.simparms_file = None
+            if 'simparms' in hdulist[0].header:
+                if isinstance(hdulist[0].header['simparms'], str):
+                    self.simparms_file = hdulist[0].header['simparms']
+                else:
+                    print '\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.'
+
             try:
                 self.freq_resolution = hdulist[0].header['freq_resolution']
             except KeyError:
@@ -2102,6 +2119,12 @@ class InterferometerArray(object):
             raise ValueError('Number of labels do not match the number of baselines specified.')
         else:
             self.labels = labels
+
+        self.simparms_file = None
+        if isinstance(simparms_file, str):
+            self.simparms_file = simparms_file
+        else:
+            print '\tInvalid specification found in input simparms_file for simulation parameters file. Proceeding with None as default.'
 
         if isinstance(telescope, dict):
             self.telescope = telescope
@@ -3410,7 +3433,7 @@ class InterferometerArray(object):
                 
         return {'skyvis_lag': skyvis_lag, 'vis_noise_lag': vis_noise_lag, 'lag_kernel': lag_kernel, 'lag_corr_length': self.channels.size / NP.sum(freq_wts, axis=1)}
 
-    #############################################################################    
+    #############################################################################
 
     def concatenate(self, others, axis):
 
@@ -3504,7 +3527,8 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def save(self, outfile, tabtype='BinTableHDU', overwrite=False, verbose=True):
+    def save(self, outfile, tabtype='BinTableHDU', npz=True, overwrite=False,
+             verbose=True):
 
         """
         -------------------------------------------------------------------------
@@ -3521,6 +3545,11 @@ class InterferometerArray(object):
                      the FITS file. Allowed values are 'BinTableHDU' and 
                      'TableHDU' for binary and ascii tables respectively. Default 
                      is 'BinTableHDU'.
+
+        npz          [boolean] True (default) indicates a numpy NPZ format file
+                     is created in addition to the FITS file to store essential
+                     attributes of the class InterferometerArray for easy 
+                     handing over of python files
                      
         overwrite    [boolean] True indicates overwrite even if a file already 
                      exists. Default = False (does not overwrite)
@@ -3554,6 +3583,8 @@ class InterferometerArray(object):
         hdulist[0].header['skycoords'] = (self.skycoords, 'Sky coordinate system')
         if 'id' in self.telescope:
             hdulist[0].header['telescope'] = (self.telescope['id'], 'Telescope Name')
+        if self.simparms_file is not None:
+            hdulist[0].header['simparms'] = (self.simparms_file, 'YAML file with simulation parameters')
         hdulist[0].header['element_shape'] = (self.telescope['shape'], 'Antenna element shape')
         hdulist[0].header['element_size'] = (self.telescope['size'], 'Antenna element size')
         hdulist[0].header['element_ocoords'] = (self.telescope['ocoords'], 'Antenna element orientation coordinates')
@@ -3716,16 +3747,12 @@ class InterferometerArray(object):
 
         if verbose:
             print '\tInterferometer array information written successfully to FITS file on disk:\n\t\t{0}\n'.format(filename)
-        return True
-def newcolumns(cols,tabtype):
-    use_ascii = False
-    if tabtype == 'TableHDU':
-        use_ascii = True
-    if astropy.__version__ == '0.4':
-        columns = fits.ColDefs(cols, tbtype=tabtype)
-    elif LooseVersion(astropy.__version__)>=LooseVersion('0.4.2'):
-        columns = fits.ColDefs(cols, ascii=use_ascii)
-    return columns
+
+        if npz:
+            NP.savez_compressed(outfile+'.npz', skyvis_freq=self.skyvis_freq, vis_freq=self.vis_freq, vis_noise_freq=self.vis_noise_freq, lst=self.lst, freq=self.channels, timestamp=self.timestamp, bl=self.baselines, bl_length=self.baseline_lengths)
+            if verbose:
+                print '\tInterferometer array information written successfully to NPZ file on disk:\n\t\t{0}\n'.format(outfile+'.npz')
+
 #################################################################################
 
     

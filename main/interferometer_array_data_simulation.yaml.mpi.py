@@ -38,7 +38,7 @@ name = MPI.Get_processor_name()
 
 ## global parameters
 
-sday = 0.99726958 # (in number of mean of solar days)
+sday = CNST.sday
 sday_correction = 1 / sday
 
 ## Parse input arguments
@@ -82,11 +82,6 @@ maxR = parms['array']['maxR']
 minbl = parms['baseline']['min']
 maxbl = parms['baseline']['max']
 bldirection = parms['baseline']['direction']
-beam_info = parms['beam']
-use_external_beam = beam_info['use_external']
-if use_external_beam:
-    external_beam_file = beam_info['file']
-    beam_pol = beam_info['pol']
 obs_date = parms['obsparm']['obs_date']
 obs_mode = parms['obsparm']['obs_mode']
 n_acc = parms['obsparm']['n_acc']
@@ -96,6 +91,17 @@ freq = parms['obsparm']['freq']
 freq_resolution = parms['obsparm']['freq_resolution']
 nchan = parms['obsparm']['nchan']
 timeformat = parms['obsparm']['timeformat']
+beam_info = parms['beam']
+use_external_beam = beam_info['use_external']
+if use_external_beam:
+    external_beam_file = beam_info['file']
+    beam_pol = beam_info['pol']
+    beam_id = beam_info['identifier']
+    select_beam_freq = beam_info['select_freq']
+    if select_beam_freq is None:
+        select_beam_freq = freq
+    pbeam_spec_interp_method = beam_info['spec_interp']
+beam_chromaticity = beam_info['chromatic']
 avg_drifts = parms['snapshot']['avg_drifts']
 beam_switch = parms['snapshot']['beam_switch']
 pick_snapshots = parms['snapshot']['pick']
@@ -146,6 +152,8 @@ pc = parms['phasing']['center']
 pc_coords = parms['phasing']['coords']
 mpi_key = parms['pp']['key']
 mpi_eqvol = parms['pp']['eqvol']
+save_formats = parms['save_formats']
+save_to_npz = save_formats['npz']
 plots = parms['plots']
 
 if project not in ['project_MWA', 'project_global_EoR', 'project_HERA', 'project_drift_scan', 'project_beams', 'project_LSTbin']:
@@ -280,6 +288,18 @@ else:
 if use_external_beam:
     external_beam = fits.getdata(external_beam_file, extname='BEAM_{0}'.format(beam_pol))
     external_beam_freqs = fits.getdata(external_beam_file, extname='FREQS_{0}'.format(beam_pol))
+    external_beam = external_beam.reshape(-1,external_beam_freqs.size)
+    beam_usage_str = 'extpb_'+beam_id
+    if beam_chromaticity:
+        if pbeam_spec_interp_method == 'fft':
+            external_beam = external_beam[:,:-1]
+            external_beam_freqs = external_beam_freqs[:-1]
+        beam_usage_str = beam_usage_str + '_chromatic'
+    else:
+        beam_usage_str = beam_usage_str + '_{0:.1f}_MHz'.format(select_beam_freq/1e6)+'_achromatic'
+else:
+    beam_usage_str = 'funcpb'
+    beam_usage_str = beam_usage_str + '_chromatic'
 
 if (antenna_file is None) and (array_layout is None):
     raise ValueError('One of antenna array file or layout must be specified')
@@ -568,6 +588,11 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
 
     duration_str = '_{0:0d}x{1:.1f}s'.format(n_acc, t_acc[0])
 
+pointings_radec = NP.fmod(pointings_radec, 360.0)
+pointings_hadec = NP.fmod(pointings_hadec, 360.0)
+pointings_altaz = NP.fmod(pointings_altaz, 360.0)
+lst = NP.fmod(lst, 360.0)
+
 # elif pointing_info is not None:
 #     pointing_info = NP.asarray(pointing_info)
 #     pointing_init = NP.asarray(pointing_info[1:])
@@ -653,7 +678,6 @@ elif fg_str == 'HI_fluctuations':
     use_HI_fluctuations = True
 elif fg_str == 'HI_cube':
     use_HI_cube = True
-
 
 if global_HI_parms is not None:
     try:
@@ -1184,7 +1208,7 @@ elif use_USM:
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
     spec_parms['freq-width'] = NP.zeros(ra_deg.size)
 
-    skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes_USM.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
   
 elif use_CSM:
     freq_SUMSS = 0.843 # in GHz
@@ -1511,7 +1535,13 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 roiinfo['ind'] = NP.asarray(roi_subset)
                 if use_external_beam:
                     theta_phi = NP.hstack((NP.pi/2-NP.radians(src_altaz_current[roi_subset,0]).reshape(-1,1), NP.radians(src_altaz_current[roi_subset,1]).reshape(-1,1)))
-                    interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e3, axis=1, kind='cubic', assume_sorted=True)
+                    if beam_chromaticity:
+                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e3, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
+                        # interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e3, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
+                        
+                    else:
+                        nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs*1e6 - select_beam_freq))
+                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e3, outloc_axis=chans*1e3, axis=1, assume_sorted=True)
                     roiinfo['pbeam'] = 10**interp_logbeam
                     # roiinfo['pbeam'] = NP.ones((roiinfo['ind'].size,chans.size), dtype=NP.float32)
                 else:
@@ -1526,7 +1556,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 
                 progress.update(j+1)
             progress.finish()
-            roifile = rootdir+project_dir+'roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)
+            roifile = rootdir+project_dir+'roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str
             roi.save(roifile, tabtype='BinTableHDU', overwrite=True, verbose=True)
             del roi   # to save memory if primary beam arrays or n_acc are large
         else:
@@ -1546,7 +1576,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             # nchan_chunk = min(frequency_bin_indices[freq_chunk[i]]+frequency_chunk_size,nchan) - frequency_bin_indices[freq_chunk[i]]
             f0_chunk = chans[freq_chunk[i]*frequency_chunk_size] + NP.floor(0.5*nchan_chunk) * freq_resolution / 1e9
             bw_chunk_str = '{0:0d}x{1:.1f}_kHz'.format(nchan_chunk, freq_resolution/1e3)
-            outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length.min(),bl_length.max())+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.3f}_MHz_'.format(Tsys, bw_chunk_str, f0_chunk*1e3)+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)            
+            outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length.min(),bl_length.max())+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.3f}_MHz_'.format(Tsys, bw_chunk_str, f0_chunk*1e3)+beam_usage_str+'_'+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)            
             ia = RI.InterferometerArray(labels, bl, chans_chunk, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')
             
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
@@ -1577,7 +1607,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             ia.add_noise()
             # ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
             ia.project_baselines()
-            ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
+            ia.save(outfile, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
 
 else: # MPI based on baseline multiplexing
 
@@ -1631,7 +1661,7 @@ else: # MPI based on baseline multiplexing
                 ia.generate_noise()
                 ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
-                ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
+                ia.save(outfile, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
         counter.free()
         pte = time.time()
         pte_str = str(DT.datetime.now())
@@ -1688,7 +1718,12 @@ else: # MPI based on baseline multiplexing
                     roiinfo['ind'] = NP.asarray(roi_subset)
                     if use_external_beam:
                         theta_phi = NP.hstack((NP.pi/2-NP.radians(src_altaz_current[roi_subset,0]).reshape(-1,1), NP.radians(src_altaz_current[roi_subset,1]).reshape(-1,1)))
-                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e3, axis=1, kind='cubic', assume_sorted=True)
+                        if beam_chromaticity:
+                            interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e3, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
+                        else:
+                            nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs*1e6 - freq))
+                            interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e3, outloc_axis=chans*1e3, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
+                        
                         roiinfo['pbeam'] = 10**interp_logbeam
                         # roiinfo['pbeam'] = NP.ones((roiinfo['ind'].size,chans.size), dtype=NP.float32)
                     else:
@@ -1703,7 +1738,7 @@ else: # MPI based on baseline multiplexing
                     
                     progress.update(j+1)
                 progress.finish()
-                roifile = rootdir+project_dir+'roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)
+                roifile = rootdir+project_dir+'roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str
                 roi.save(roifile, tabtype='BinTableHDU', overwrite=True, verbose=True)
                 del roi   # to save memory if primary beam arrays or n_acc are large
             else:
@@ -1751,7 +1786,7 @@ else: # MPI based on baseline multiplexing
             for i in range(cumm_bl_chunks[rank], cumm_bl_chunks[rank+1]):
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i])
         
-                outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+                outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+'_'+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')
                 
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
@@ -1782,11 +1817,11 @@ else: # MPI based on baseline multiplexing
                 ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
                 ia.project_baselines()
-                ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
+                ia.save(outfile, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
         pte_str = str(DT.datetime.now())                
  
 if rank == 0:
-    metafile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_str2+'.yaml'
+    metafile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+pfb_str2+'.yaml'
 
     with open(metafile, 'w') as mfile:
         yaml.dump(parms, mfile, default_flow_style=False)
@@ -1803,7 +1838,7 @@ if rank == 0:
         if mpi_on_bl:
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Baseline chunks '.format(n_bl_chunks), PGB.ETA()], maxval=n_bl_chunks).start()
             for i in range(0, n_bl_chunks):
-                blchunk_infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+                blchunk_infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+'_'+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
                 if i == 0:
                     simvis = RI.InterferometerArray(None, None, None, init_file=blchunk_infile+'.fits')    
                 else:
@@ -1821,7 +1856,7 @@ if rank == 0:
                 nchan_chunk = chans_chunk.size
                 f0_chunk = chans[freq_chunk[i]*frequency_chunk_size] + NP.floor(0.5*nchan_chunk) * freq_resolution / 1e9
                 bw_chunk_str = '{0:0d}x{1:.1f}_kHz'.format(nchan_chunk, freq_resolution/1e3)
-                freqchunk_infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length.min(),bl_length.max())+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.3f}_MHz_'.format(Tsys, bw_chunk_str, f0_chunk*1e3)+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+                freqchunk_infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length.min(),bl_length.max())+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.3f}_MHz_'.format(Tsys, bw_chunk_str, f0_chunk*1e3)+beam_usage_str+'_'+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
                 if i == 0:
                     simvis = RI.InterferometerArray(None, None, None, init_file=freqchunk_infile+'.fits')    
                 else:
@@ -1831,12 +1866,14 @@ if rank == 0:
                 progress.update(i+1)
             progress.finish()
 
+        simvis.simparms_file = metafile
         if do_delay_transform:
             simvis.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
 
-        consolidated_outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz'.format(Tsys, bandpass_str, freq/1e6)+pfb_str2
-        simvis.save(consolidated_outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
-    skymod.save(consolidated_outfile+'.skymodel.txt', fileformat='ascii')
+        consolidated_outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+pfb_str2
+        simvis.save(consolidated_outfile, verbose=True, tabtype='BinTableHDU', npz=save_to_npz, overwrite=True)
+    if fg_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:
+        skymod.save(consolidated_outfile+'.skymodel.txt', fileformat='ascii')
             
 print 'Process {0} has completed.'.format(rank)
 PDB.set_trace()

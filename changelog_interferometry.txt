@@ -1,3 +1,403 @@
+From b2f8b2c (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Import healpy module
+(*) Add function beam3Dvol() (with docstring) to compute 3D volume
+in units of Sr Hz using the squared power pattern of an antenna
+
+From a65343d (master):
+=====================
+
+In interferometry.py,
+
+(*) Add attribute simparms_file to class InterferometerArray and
+initialize it in __init__() member function using input keyword
+simparms_file or from a header keyword in init_file. Update
+docstring accordingly
+(*) Save attribute simparms_file in header keyword 'simparms' in
+save() member function of class InterferometerArray
+
+From 9438a63 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Fix bug in saving correct attribute bp for bandpass instead of
+bp_wts in save() member function of class DelaySpectrum
+(*) Generate power normalized window function instead of peak
+normalized window in member function subband_delay_transform() of
+class DelaySpectrum
+(*) Determine fractional width using power normalized window function
+in member function subband_delay_transform() of class DelaySpectrum
+
+From c8dd0b2 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Correct visibilities after CLEANing by padding factor to keep them
+at same amplitudes as before CLEANing
+
+From c4f56de (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Modify member function k_parallel() of class DelayPowerSpectrum to
+use jacobian from dkprll_deta()
+
+From 30c95c0 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Add function dkprll_deta with docstring to compute the jacobian to
+transform from delays to k_parallel
+
+From f79570e (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Add and initialize attribute horizon_kprll_limits for class
+DelayPowerSpectrum in member function __init__(). Update docstring
+accordingly
+(*) Add and assign values to key 'horizon_kprll_limits' under
+attribute subband_delay_power_spectra in member function
+compute_power_spectrum() of class DelayPowerSpectrum. Update
+docstring accordingly.
+
+From d30bb7a (master):
+=====================
+
+(*) Add figparameters_HERA.yaml to git repo
+
+In delay_spectrum.py,
+
+(*) Add and initialize keys 'cc_skyvis_net' and 'cc_vis_net' under
+attribute dps in member function __init__() of class
+DelayPowerSpectrum. Update docstring acccordingly
+(*) Compute values under keys 'cc_skyvis_net' and 'cc_vis_net' under
+attribute dps in member function compute_power_spectrum() of class
+DelayPowerSpectrum. 
+(*) Compute values under keys 'cc_skyvis_net' and 'cc_vis_net' under
+attribute subband_delay_power_spectra in member function
+compute_power_spectrum() of class DelayPowerSpectrum. Update docstring
+of class DelayPowerSpectrum accordingly
+(*) Fix all delay power spectrum calculations to perform square of the
+absolute value instead of simply squaring in member function
+compute_power_spectrum() of class DelayPowerSpectrum
+(*) Assign attribute lags in member function delayClean() of class
+DelaySpectrum to match the size of attribute skyvis_lag
+
+From 0d5734f (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Initialize values under keys 'skyvis_net_lag' and 'vis_net_lag'
+of attribute subband_delay_spectra in member function __init__() of
+class DelaySpectrum. Update docstring describing this attribute
+accordingly
+(*) Compute values under keys 'skyvis_net_lag' and 'vis_net_lag'
+of attribute subband_delay_spectra in member function
+subband_delay_transform() of class DelaySpectrum
+(*) Fix bug in __init__() member function of class DelaySpectrum to
+read attributes cc_lags and cc_freq using the right keys that were
+used in save() member function of class DelaySpectrum
+
+From 66873dc (cosmo):
+====================
+
+In delay_spectrum.py,
+
+(*) Add required input ia_outfile for saving interferometer array
+visibilities information inside save() member function of class
+DelaySpectrum. Update docstring of member function accordingly
+
+From 36d9b97 (cosmo):
+====================
+
+(*) Add config file ccparameters.yaml for setting delay CLEAN parameters
+to git repo
+
+In delay_spectrum.py,
+
+(*) Add and initialize attribute subband_delay_power_spectrum in
+class DelayPowerSpectrum. Update docstring of class DelayPowerSpectrum
+accordingly
+(*) Add member function compute_power_spectrum() under class
+DelayPowerSpectrum to compute delay power spectrum (in power spectrum)
+units from its delay spectrum. Add description of this member function
+to docstring of class DelayPowerSpectrum
+(*) Assign values to attribute subband_delay_power_spectra inside
+member function compute_power_spectrum of class DelayPowerSpectrum
+
+From 7df4252 (cosmo):
+====================
+
+In delay_spectrum.py,
+
+(*) Modify saving and initialization of attribute
+subband_delay_spectra of class DelaySpectrum in member functions
+save() and __init__() member functions respectively in accordnace with
+changes in previous commit
+(*) Change default file extension to save delay spectrum information
+to .ds from .cc in save() member function of class DelaySpectrum
+
+From 7962b2c (cosmo):
+====================
+
+In delay_spectrum.py,
+
+(*) Restructure member function subband_delay_transform() of class
+DelaySpectrum to compute subband delay spectra for both CLEANed and
+simulated visibilities in a single call. Modify docstring of member
+function and class DelaySPectrum accordingly
+
+From 81f0345 (cosmo):
+====================
+
+In delay_spectrum.py,
+
+(*) Save attribute subband_delay_spectra in member function save() of
+class DelaySpectrum
+(*) Load attribute subband_delay_spectra from saved file in member
+function __init__() member function of class DelaySpectrum
+(*) Enforce correct usage of keyword input action in member function
+subband_delay_transform() of class DelaySpectrum as described in its
+docstring
+
+From 3441ef1 (cosmo):
+====================
+
+In delay_spectrum.py,
+
+(*) Rename member function multi_window_delay_transform() of class
+DelaySpectrum to subband_delay_transform(). Modify class docstring
+accordingly
+(*) Rename attribute multiwin_delay_transform of class DelaySpectrum
+to subband_delay_spectra. Update docstring accordingly
+(*) Add few more keys and values to the output of member function
+subband_delay_transform() of class DelaySpectrum. Update docstring
+of member function accordingly
+(*) Add description of attribute subband_delay_spectra in docstring
+of class DelaySpectra
+
+From dc23985 (cosmo):
+====================
+
+In delay_spectrum.py,
+
+(*) Change usage of keyword input action in member functions of class
+DelayPowerSpectrum. Update docstrings accordingly
+
+From 54f7a5a (cosmo):
+====================
+
+In delay_spectrum.py,
+
+(*) Add attributes dps, Jy2K and K2Jy and their docstrings to class
+DelayPowerSpectrum
+(*) Add member function compute_power_spectrum() with docstring to
+class DelayPowerSpectrum. Update docstring of class DelayPowerSpectrum
+accordingly
+
+From 77bf541 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Import cosmology module from astropy
+(*) Import fundamental constants from scipy
+(*) Add class DelayPowerSpectrum to hold cosmological delay power
+spectrum information for delay spectrum object
+(*) Add member functions __init__(), comoving_los_depth(), k_perp(),
+k_parallel(), comoving_transverse_distance(), comoving_los_distance()
+with docstrings. Add their description in docstring of class
+DelayPowerSpectrum
+(*) Update docstring of class DelaySpectrum
+(*) Make minor changes in save() member function of class
+DelaySpectrum
+
+From 1816869 (parallel):
+=======================
+
+In delay_spectrum.py,
+
+(*) Minor change to docstring of function complex1dClean()
+
+From e262697 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Add parallelization functionality in member function delayClean()
+of class delaySpectrum using keyword inputs parallel and nproc.
+Update docstring of member function and class accordingly.
+(*) Import newly written module writer_module to handle printing of
+progress bar on terminal
+(*) Add input keywords progressbar, pid and progressbar_yloc to
+function complex1dClean() to display progress bars in case of
+parallel processing. Update docstring accordingly
+(*) CLEAN noise-added delay spectrum instead of doing it twice on
+noiseless delay spectrum in member function delayClean() of class
+delaySpectrum
+
+From dfeabae (master):
+=====================
+
+In interferometry.py,
+
+(*) Add functionality in member function save() of class
+InterferometerArray to save essential attributes of the class to
+numpy compatible NPZ format. Modify docstring of save() member
+function accordingly
+
+From 3ad024e (delay-transform):
+==============================
+
+In delay_spectrum.py,
+
+(*) Use input freq_wts in member functions delayClean() and clean()
+of member function DelaySpectrum
+(*) Minor change in definition of rms in function complex1dClean()
+(*) Add member function multi_window_delay_transform() with docstring
+to class DelaySpectrum. Modify class docstring accordingly
+
+In interferometer_array_data_simulation.yaml.mpi.py, add capability
+to perform simulations with achromatic beams from a variety of
+different input beam formats
+
+From 64bf959 (delay-transform):
+==============================
+
+In delay_spectrum.py,
+
+(*) Add and initialize attributes cc_lags, cc_freq, cc_lag_kernel
+in __init__() member function of class DelaySpectrum. Update
+docstring accordingly
+(*) Modify initialization of attribute lags from None to actual
+values in __init__() member function of class DelaySpectrum
+(*) Estimate attributes cc_lags, cc_freq and cc_lag_kernel in
+delayClean() member function of class DelaySpectrum
+(*) Save attributes cc_lags, cc_freq, and cc_lag_kernel in save()
+member function of class DelaySpectrum
+
+In changelog_interferometry.txt,
+
+(*) Fix a minor typo in the changelog of previous commit
+
+From 40531dc (delay-transform):
+==============================
+
+In delay_spectrum.py,
+
+(*) Add global function complex1dClean() (with docstring) to perform
+1D complex-valued clean.
+(*) Add member function delayClean() (with docstring) to class
+DelaySpectrum. Update its docstring accordingly
+
+From f5fff3d (delay-transform):
+==============================
+
+In delay_spectrum.py,
+
+(*) Remove unused attribtues skyvis_freq, vis_freq, vis_noise_freq
+and their initialization from __init__() member function of class
+DelaySpectrum
+(*) Add value checking before saving attributes to disk in member
+function save() of class DelaySpectrum
+(*) Add ability to initialize an instance of class DelaySpectrum
+using an init_file by adding a keyword input init_file in __init__()
+member function of class DelaySpectrum
+
+From c2bc67a (delay-transform):
+==============================
+
+In delay_spectrum.py,
+
+(*) Remove attributes baselines, baseline_lengths, baseline_coords,
+phase_center, phase_center_coords, pointing_center, pointing_coords,
+lst, timestamp and their initialization from class DelaySpectrum
+and its __init__() member function. Update docstring accordingly.
+Update their occurrence throughout with corresponding attributes from
+the attribute ia that contains interferometer array simulated
+information
+(*) Save bandpass attribute bp to disk in member function save() of
+class DelaySpectrum
+
+From 5f81c08 (delay-transform):
+==============================
+
+In delay_spectrum.py,
+
+(*) Add and initialize attributes cc_skyvis_lag, cc_skyvis_res_lag, 
+cc_skyvis_net_lag, cc_vis_lag, cc_vis_res_lag, cc_vis_net_lag, 
+cc_skyvis_freq, cc_skyvis_res_freq, cc_sktvis_net_freq, cc_vis_freq,
+cc_vis_res_freq, cc_vis_net_freq, clean_window_buffer in __init__()
+member function of class DelaySpectrum
+(*) Add descriptions of newly added attributes in docstring of class
+DelaySpectrum
+(*) Add save() member function (with docstring) to class
+DelaySpectrum. Update docstring of class DelaySpectrum accordingly
+
+From 2b0c750 (delay-transform):
+==============================
+
+In delay_transform.py,
+
+(*) Add input keyword downsample to member function delay_transform()
+of class DelaySpectrum. Update docstring accordingly
+(*) Downsampling in member function delay_transform() of class
+DelaySpectrum is done depending on keyword input downsample
+(*) Add member function clean() to class DelaySpectrum. Update
+docstrings accordingly
+(*) Add a global function _gentle_clean() for delay deconvolution
+which automatically decides where the relative levels of inside and
+outside residuals are to decide the stopping criterion. Needs a
+docstring, currently has none
+(*) Add member functions get_horizon_delay_limits() and
+set_horizon_delay_limits() (with docstrings) to class DelaySpectrum.
+Update docstring of class DelaySpectrum accordingly
+(*) Add and initialize attribute horizon_delay_limits in __init__()
+member function of class DelaySpectrum. Update docstring of class
+DelaySpectrum accordingly
+
+In baseline_delay_horizon.py,
+
+(*) Add function horizon_delay_limits() (with docstring) to estimate
+the horizon delay limits for given baselines and given phase centers
+(*) Update docstring of delay_envelope()
+
+From 0a469aa (delay-transform):
+==============================
+
+(*) Add delay_spectrum.py module to git repo
+
+In delay_spectrum.py,
+
+(*) Add class DelaySpectrum (with attributes and member functions)
+along with docstring
+(*) Add member functions __init__() and delay_transform() along with
+docstrings under class DelaySpectrum
+
+From 5f025c8 (vis-debug):
+========================
+
+(*) Add YAML based visibility delay CLEAN script to git repo
+
+In interferometer_array_data_simulation.yaml.mpi.py,
+
+(*) Add ability to use chromatic or achromatic beams while using
+external beams
+
+In simparameters.yaml,
+
+(*) Add inputs for specifying usage of chromatic or achromatic beams
+
 From 4c7ba61 (master) + 755ef77 (healpix_pbeam):
 ===============================================
 

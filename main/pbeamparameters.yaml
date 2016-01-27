@@ -1,0 +1,216 @@
+########## Directory information #########
+
+directory:
+                                # Directory information
+
+    rootdir         : '/data3/t_nithyanandan/'
+                                # Base directory
+
+    pbdir           : 'power_patterns/analytic/'
+
+    outfile         : null
+                                # Name of the file to write beam
+                                # information under pbdir. If set
+                                # to null, a filename will be
+                                # determined automatically
+
+########## Project information #########
+
+project  : project_HERA
+                                # Accepted values are project_MWA,
+                                # project_global_EoR, project_HERA, 
+                                # project_drift_scan, project_beams,
+                                # project_LSTbin
+
+########## Telescope information ##########
+
+telescope:
+
+    label_prefix    : ''
+
+    id              : 'custom'
+                                # Accepts 'mwa', 'vla', 'gmrt',
+                                # 'hera', 'mwa_dipole', 'custom',
+                                # 'paper_dipole', 'mwa_tools'
+
+    latitude        : -30.7224
+                                # Latitude in degrees
+                                # -26.701 for MWA,
+                                # -30.7224 for HERA, PAPER
+                                # 34.079 for VLA,
+                                # 19.0965 for GMRT
+
+    longitude       : +21.4278
+                                # Longitude of observatory (in degrees)
+                                # Default (null) implies 0.0 degrees
+                                # corresponding to GMT.
+                                # -107.6184 for VLA, +116.670815 for MWA
+                                # +21.4278 for PAPER and HERA,
+                                # +74.0497 for GMRT
+
+    A_eff           : 154
+                                # Effective area of antenna element
+                                # in m^2
+
+########## Antenna Element information #########                      
+
+antenna  :
+
+    shape           : 'dish'      
+                                # Shape of antenna element
+                                # Accepted values are 'dish', 'dipole',
+                                # and 'delta' or null (defaults to
+                                # 'delta')
+
+    size            : 14.0
+                                # Size of antenna element (in m)
+                                # diameter for dish, linear size for
+                                # dipole
+                    
+    short_dipole    : false
+                                # Use short dipole approximation if
+                                # shape is set to 'dipole'
+
+    halfwave_dipole : false
+                                # Use half-wave dipole approximation
+                                # if shape is set to 'dipole'
+
+    orientation     : [90.0, 270.0]
+                                # Orientation of antenna element
+                                # Applicable in case of dipoles
+                                # Coordinate system as specified in
+                                # key 'ocoords'. Must contain two
+                                # elements for Alt and Az if 'ocoords'
+                                # is set to 'altaz' or l and m if
+                                # 'ocoords' is set to 'dircos'
+                                # [Alt, Az] in degrees (altaz) or
+                                # [l,m] (dircos)
+                    
+    ocoords         : 'altaz'
+                                # Coordinate system describing the
+                                # orientation of antenna element.
+                                # Accepted values are 'altaz', 'dircos'
+                    
+    phased_array    : false
+                                # If true, the antenna is a phased
+                                # array of antenna elements.
+                                # Default = false
+                    
+    ground_plane    : null
+                                # Ground plane height (in m). Default
+                                # (null) means no ground plane
+
+########## Phased array parameters #########
+
+phasedarray:
+
+    file            : '/data3/t_nithyanandan/project_MWA/MWA_tile_dipole_locations.txt'
+                                # File containing phased array elements
+                                # locations
+
+    delayerr        : 0.0
+                                # Delay error rms (in ns). null means
+                                # delayerr is not applicable
+
+    gainerr         : 0.0
+                                # Gain error rms in dB. null means
+                                # gainerr is not applicable
+
+    nrand           : 1
+                                # Number of random realizations to
+                                # average. null means gainerr and 
+                                # delayerr are not applicable
+
+########## Beam specifications #########
+
+beam    :
+
+    identifier      : 'Airy'
+                                # string to identify source of beam
+                                # Any string. e.g. RB=Rich Bradley,
+                                # AN=Abraham Neben
+                                # DD=Dave DeBoer, or 'HERA-CST'
+
+    pol             : 'X'
+                                # Beam polarization. Accepted values
+                                # are 'X' and 'Y'
+
+########## Observation setup ##########
+
+obsparm  :
+
+    freq            : 150000000.0
+                                # Center frequency in units specified
+                                # in freq_scale
+
+    freq_resolution : 781250.0
+                                # Frequency resolution in units
+                                # specified in freq_scale
+                                
+    nchan           : 128
+                                # Number of channels
+
+    nside           : 256
+                                # nside parameter
+
+    ordering        : 'RING'
+                                # HEALPIX ordering scheme. Accepted
+                                # values are 'RING' or 'NESTED'
+
+######### Pointing information #########
+
+pointing :                      # If pointing file is specified to be
+                                # non-null, other parameters like
+                                # drift_init and track_init are ignored
+
+        alt         : 90.0
+                                # Altitude of telescope pointing (degrees)
+
+        az          : 270.0
+                                # Azimuth of telescope pointing (degrees)
+
+        ha          : null
+                                # Hour angle of telescope pointing
+                                # (degrees). Only one of the Alt-Az or
+                                # HA-Dec pairs must be specified and the
+                                # other pair must be set to null
+
+        dec         : null
+                                # Declination of telescope pointing
+                                # (degrees). Only one of the Alt-Az or
+                                # HA-Dec pairs must be specified and the
+                                # other pair must be set to null
+
+########## Processing setup ##########
+
+processing:
+
+    n_freq_chunks   : 16
+                                # Upper limit on number of frequency
+                                # chunks to be processed. Will be
+                                # used to split data for parallel
+                                # processing
+
+    freq_chunk_size : 8
+                                # Frequency chunk size. Will be used
+                                # in a single process during parallel
+                                # processing
+
+########## Parallel processing setup #########
+
+pp       :
+
+    nproc           : 16
+                                # Number of parallel processes.
+                                # 1 means serial processing.
+
+    key             : 'freq'
+                                # Split the data by 
+                                # 'loc' (sky positions) or 'freq'
+                                # (frequency), for parallel processing
+
+    method          : 'pool'
+                                # method used in parallel processing.
+                                # Accepted values are 'pool' and
+                                # 'queue'
+
