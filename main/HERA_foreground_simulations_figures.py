@@ -1413,7 +1413,7 @@ if '1c' in plots:
         ax10.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[lsti,bli,0], ymax=0.9, ls='-', lw=2, color='gray')
         ax10.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[lsti,bli,1], ymax=0.9, ls='-', lw=2, color='gray')
         ax10.set_yscale('log')
-        ax10.set_xlim(-0.25, 0.25)
+        ax10.set_xlim(-0.49, 0.49)
         ax10.set_ylim(5e-5, 5e12)
        
         ax11.plot(kprll, fgdps_achrmbeam.dps['cc_skyvis'][bli,:,lsti], color='black', lw=2, ls='-')
@@ -1422,7 +1422,7 @@ if '1c' in plots:
         ax11.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[lsti,bli,0], ymax=0.9, ls='-', lw=2, color='gray')
         ax11.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[lsti,bli,1], ymax=0.9, ls='-', lw=2, color='gray')
         ax11.set_yscale('log')
-        ax11.set_xlim(-0.25, 0.25)
+        ax11.set_xlim(-0.49, 0.49)
         ax11.set_ylim(5e-5, 5e12)
         PLT.setp(ax11.get_yticklabels(), visible=False)
 
@@ -1432,7 +1432,7 @@ if '1c' in plots:
         ax12.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[lsti,bli,0], ymax=0.9, ls='-', lw=2, color='gray')
         ax12.axvline(x=fgdps_achrmbeam.horizon_kprll_limits[lsti,bli,1], ymax=0.9, ls='-', lw=2, color='gray')        
         ax12.set_yscale('log')
-        ax12.set_xlim(-0.25, 0.25)
+        ax12.set_xlim(-0.49, 0.49)
         ax12.set_ylim(5e-5, 5e12)
         PLT.setp(ax12.get_yticklabels(), visible=False)
 
@@ -1445,8 +1445,8 @@ if '1c' in plots:
         ax20.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['sim']['horizon_kprll_limits'][lsti,fwi,bli,0], ymax=0.9, ls='-', lw=2, color='gray')
         ax20.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['sim']['horizon_kprll_limits'][lsti,fwi,bli,1], ymax=0.9, ls='-', lw=2, color='gray')        
         ax20.set_yscale('log')
-        ax20.set_xlim(-0.25, 0.25)
-        ax20.set_ylim(5e-5, 5e12)
+        ax20.set_xlim(-0.49, 0.49)
+        ax20.set_ylim(5e-7, 5e12)
 
         ax21.plot(fgdps_achrmbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_achrmbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][bli,fwi,:,lsti], color='black', lw=2, ls='-')
         ax21.plot(fgdps_chrmbeam.subband_delay_power_spectra['cc']['kprll'][fwi,:], fgdps_chrmbeam.subband_delay_power_spectra['cc']['skyvis_res_lag'][bli,fwi,:,lsti], color='blue', lw=2, ls='-')
@@ -1456,8 +1456,8 @@ if '1c' in plots:
         ax21.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['cc']['horizon_kprll_limits'][lsti,fwi,bli,0], ymax=0.9, ls='-', lw=2, color='gray')
         ax21.axvline(x=fgdps_achrmbeam.subband_delay_power_spectra['cc']['horizon_kprll_limits'][lsti,fwi,bli,1], ymax=0.9, ls='-', lw=2, color='gray')        
         ax21.set_yscale('log')
-        ax21.set_xlim(-0.25, 0.25)
-        ax21.set_ylim(5e-5, 5e12)
+        ax21.set_xlim(-0.49, 0.49)
+        ax21.set_ylim(5e-7, 5e12)
         PLT.setp(ax21.get_yticklabels(), visible=False)
 
         pos10 = ax10.get_position()

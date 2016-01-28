@@ -221,11 +221,11 @@ obsparm  :
                                 # Center frequency (in Hz)
                                 # 167.05 MHz for Adam Lidz's cube
 
-    freq_resolution : 781250.0
+    freq_resolution : 390625.0 
                                 # Frequency resolution (in Hz)
                                 # 80 kHz for Adam Lidz's cube
 
-    nchan           : 128
+    nchan           : 256
                                 # Number of channels
                                 # 704 for Adam Lidz's cube
 
@@ -550,7 +550,7 @@ plot    :
                                 # overplotted for a 14.6m baseline
                                 # for one LST
 
-    bli     : 2
+    bli     : 8
                                 # selected baseline index for plotting
 
     lsti    : 13
@@ -566,7 +566,7 @@ plot    :
                                 # overplotted for all baselines
                                 # (wedge) for all LST
 
-    2a      : false
+    2a      : true
                                 # Plot ratio of signal to foreground
                                 # ratio as a function of staggered
                                 # delays to set a spec on

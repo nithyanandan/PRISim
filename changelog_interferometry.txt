@@ -1,3 +1,12 @@
+From caa4a53 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Make multiple subband omega x bw product possible through numpy
+broadcasting in function beam3Dvol(). Update docstring accordingly
+(*) Account for NaN in estimating 3D beam volume in beam3Dvol()
+
 From b2f8b2c (master):
 =====================
 

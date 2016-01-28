@@ -12,11 +12,14 @@ import astropy.cosmology as CP
 import scipy.constants as FCNST
 import healpy as HP
 from distutils.version import LooseVersion
+import yaml
 import constants as CNST
-import my_DSP_modules as DSP 
+import my_DSP_modules as DSP
+import my_operations as OPS
 import baseline_delay_horizon as DLY
 import geometry as GEOM
 import interferometry as RI
+import primary_beams as PB
 import lookup_operations as LKP
 
 cosmo100 = CP.FlatLambdaCDM(H0=100.0, Om0=0.27)  # Using H0 = 100 km/s/Mpc
@@ -379,7 +382,7 @@ def dkprll_deta(redshift, cosmo=cosmo100):
 
 ################################################################################
 
-def beam3Dvol(beam, freqs, hemisphere=True):
+def beam3Dvol(beam, freqs, freq_wts=None, hemisphere=True):
 
     """
     ----------------------------------------------------------------------------
@@ -396,7 +399,10 @@ def beam3Dvol(beam, freqs, hemisphere=True):
                 If it is of shape (npix x 1) or (npix,), the beam will be 
                 assumed to be identical for all frequency channels.
 
-    freqs       [list or numpy array] Frequency channels (in Hz) of size nchan.
+    freqs       [list or numpy array] Frequency channels (in Hz) of size nchan
+
+    freq_wts    [numpy array] Frequency weights to be applied to the
+                beam. Must be of shape (nchan,) or (nwin, nchan)
 
     Keyword Inputs:
 
@@ -407,7 +413,7 @@ def beam3Dvol(beam, freqs, hemisphere=True):
     Output:
 
     The product Omega x bandwdith (in Sr Hz) computed using the integral of 
-    squared power pattern
+    squared power pattern. It is of shape (nwin,)
     ----------------------------------------------------------------------------
     """
 
@@ -436,6 +442,20 @@ def beam3Dvol(beam, freqs, hemisphere=True):
     else:
         raise ValueError('Invalid dimensions for beam')
 
+    if freq_wts is not None:
+        if not isinstance(freq_wts, NP.ndarray):
+            raise TypeError('Input freq_wts must be a numpy array')
+        if freq_wts.ndim == 1:
+            freq_wts = freq_wts.reshape(1,-1)
+        elif freq_wts.ndim > 2:
+            raise ValueError('Input freq_wts must be of shape nwin x nchan')
+
+        freq_wts = NP.asarray(freq_wts).astype(NP.float).reshape(-1,freqs.size)
+        if freq_wts.shape[1] != freqs.size:
+            raise ValueError('Input freq_wts does not have shape compatible with freqs')
+    else:
+        freq_wts = NP.ones(freqs.size, dtype=NP.float).reshape(1,-1)
+
     eps = 1e-10
     if beam.max() > 1.0+eps:
         raise ValueError('Input beam maximum exceeds unity. Input beam should be normalized to peak of unity')
@@ -444,6 +464,7 @@ def beam3Dvol(beam, freqs, hemisphere=True):
     domega = HP.nside2pixarea(nside, degrees=False)
     df = freqs[1] - freqs[0]
     bw = df * freqs.size
+    weighted_beam = beam[:,NP.newaxis,:] * freq_wts[NP.newaxis,:,:]
 
     theta, phi = HP.pix2ang(nside, NP.arange(beam.shape[0]))
     if hemisphere:
@@ -451,13 +472,8 @@ def beam3Dvol(beam, freqs, hemisphere=True):
     else:
         ind = NP.arange(beam.shape[0])
 
-    if beam.shape[1] == 1:
-        omega = domega * NP.sum(beam[ind,:]**2)
-        omega_bw = bw * omega
-    else:
-        omega_bw = domega * df * NP.sum(beam[ind,:]**2)
-
-    if omega_bw > 4*NP.pi*bw:
+    omega_bw = domega * df * NP.nansum(weighted_beam[ind,:,:]**2, axis=(0,2))
+    if NP.any(omega_bw > 4*NP.pi*bw):
         raise ValueError('3D volume estimated from beam exceeds the upper limit. Check normalization of the input beam')
 
     return omega_bw
@@ -2379,7 +2395,9 @@ class DelayPowerSpectrum(object):
         self.rz_transverse = self.comoving_transverse_distance(self.z, action='return')   # in Mpc/h
         self.rz_los = self.comoving_los_distance(self.z, action='return')   # in Mpc/h
 
-        self.jacobian1 = NP.mean(self.ds.ia.A_eff) / self.wl0**2 / self.bw
+        # self.jacobian1 = NP.mean(self.ds.ia.A_eff) / self.wl0**2 / self.bw
+        omega_bw = self.beam3Dvol(freq_wts=self.ds.bp_wts[0,:,0])
+        self.jacobian1 = 1 / omega_bw
         self.jacobian2 = self.rz_transverse**2 * self.drz_los / self.bw
         self.Jy2K = self.wl0**2 * CNST.Jy / (2*FCNST.k)
         self.K2Jy = 1 / self.Jy2K
@@ -2580,6 +2598,61 @@ class DelayPowerSpectrum(object):
         
     ############################################################################
 
+    def beam3Dvol(self, freq_wts=None, nside=32):
+
+        if self.ds.ia.simparms_file is not None:
+            parms_file = open(self.ds.ia.simparms_file, 'r')
+            parms = yaml.safe_load(parms_file)
+            parms_file.close()
+            # sky_nside = parms['fgparm']['nside']
+            beam_info = parms['beam']
+            use_external_beam = beam_info['use_external']
+            beam_chromaticity = beam_info['chromatic']
+            if use_external_beam:
+                beam_file = beam_info['file']
+                beam_pol = beam_info['pol']
+                beam_id = beam_info['identifier']
+                select_beam_freq = beam_info['select_freq']
+                if select_beam_freq is None:
+                    select_beam_freq = self.f0
+                pbeam_spec_interp_method = beam_info['spec_interp']
+                extbeam = fits.getdata(beam_file, extname='BEAM_{0}'.format(beam_pol))
+                beam_freqs = 1e6 * fits.getdata(beam_file, extname='FREQS_{0}'.format(beam_pol))
+                extbeam = extbeam.reshape(-1,beam_freqs.size)
+                beam_nside = HP.npix2nside(extbeam.shape[0])
+                if beam_nside < nside:
+                    nside = beam_nside
+                theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
+                theta_phi = NP.hstack((theta.reshape(-1,1), phi.reshape(-1,1)))
+                if beam_chromaticity:
+                    if pbeam_spec_interp_method == 'fft':
+                        extbeam = extbeam[:,:-1]
+                        beam_freqs = beam_freqs[:-1]
+                
+                    interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(extbeam), theta_phi=theta_phi, inloc_axis=beam_freqs, outloc_axis=self.f, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
+                else:
+                    nearest_freq_ind = NP.argmin(NP.abs(beam_freqs - select_beam_freq))
+                    interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(extbeam[:,nearest_freq_ind].reshape(-1,1), self.f.size, axis=1)), theta_phi=theta_phi, inloc_axis=self.f, outloc_axis=self.f, axis=1, assume_sorted=True)
+                beam = 10**interp_logbeam
+            else:
+                theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
+                alt = 90.0 - NP.degrees(theta)
+                az = NP.degrees(phi)
+                altaz = NP.hstack((alt.reshape(-1,1), az.reshape(-1,1)))
+                beam = PB.primary_beam_generator(altaz, self.f, self.ds.ia.telescope, freq_scale='Hz', skyunits='altaz', east2ax1=0.0, pointing_info=None, pointing_center=None)
+        else:
+            theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
+            alt = 90.0 - NP.degrees(theta)
+            az = NP.degrees(phi)
+            altaz = NP.hstack((alt.reshape(-1,1), az.reshape(-1,1)))
+            beam = PB.primary_beam_generator(altaz, self.f, self.ds.ia.telescope, freq_scale='Hz', skyunits='altaz', east2ax1=0.0, pointing_info=None, pointing_center=None)
+            # omega_bw =  self.wl0**2 / NP.mean(self.ds.ia.A_eff) * self.bw
+
+        omega_bw = beam3Dvol(beam, self.f, freq_wts=freq_wts, hemisphere=True)
+        return omega_bw
+
+    ############################################################################
+
     def compute_power_spectrum(self):
 
         """
@@ -2620,7 +2693,9 @@ class DelayPowerSpectrum(object):
                 self.subband_delay_power_spectra[key]['horizon_kprll_limits'] = horizon_kprll_limits
                 self.subband_delay_power_spectra[key]['rz_transverse'] = self.comoving_transverse_distance(self.subband_delay_power_spectra[key]['z'], action='return')
                 self.subband_delay_power_spectra[key]['drz_los'] = self.comoving_los_depth(self.ds.subband_delay_spectra[key]['bw_eff'], self.subband_delay_power_spectra[key]['z'], action='return')
-                self.subband_delay_power_spectra[key]['jacobian1'] = NP.mean(self.ds.ia.A_eff) / wl**2 / self.ds.subband_delay_spectra[key]['bw_eff']
+                # self.subband_delay_power_spectra[key]['jacobian1'] = NP.mean(self.ds.ia.A_eff) / wl**2 / self.ds.subband_delay_spectra[key]['bw_eff']
+                omega_bw = self.beam3Dvol(freq_wts=self.ds.subband_delay_spectra[key]['freq_wts'])
+                self.subband_delay_power_spectra[key]['jacobian1'] = 1 / omega_bw
                 self.subband_delay_power_spectra[key]['jacobian2'] = self.subband_delay_power_spectra[key]['rz_transverse']**2 * self.subband_delay_power_spectra[key]['drz_los'] / self.ds.subband_delay_spectra[key]['bw_eff']
                 self.subband_delay_power_spectra[key]['Jy2K'] = wl**2 * CNST.Jy / (2*FCNST.k)
                 self.subband_delay_power_spectra[key]['factor'] = self.subband_delay_power_spectra[key]['jacobian1'] * self.subband_delay_power_spectra[key]['jacobian2'] * self.subband_delay_power_spectra[key]['Jy2K']**2
