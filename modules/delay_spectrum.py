@@ -1092,7 +1092,7 @@ class DelaySpectrum(object):
     #############################################################################
 
     def delay_transform(self, pad=1.0, freq_wts=None, downsample=True,
-                        verbose=True):
+                        action=None, verbose=True):
 
         """
         ------------------------------------------------------------------------
@@ -1127,6 +1127,10 @@ class DelaySpectrum(object):
                     False, no downsampling will be done even if the original 
                     quantities were padded 
 
+        action      [boolean] If set to None (default), just return the delay-
+                    transformed quantities. If set to 'store', these quantities
+                    will be stored as internal attributes
+
         verbose     [boolean] If set to True (default), print diagnostic and 
                     progress messages. If set to False, no such messages are
                     printed.
@@ -1154,9 +1158,10 @@ class DelaySpectrum(object):
                 freq_wts = freq_wts.reshape(self.ia.baselines.shape[0], self.f.size, self.n_acc)
             else:
                 raise ValueError('window shape dimensions incompatible with number of channels and/or number of tiemstamps.')
-            self.bp_wts = freq_wts
-            if verbose:
-                print '\tFrequency window weights assigned.'
+        else:
+            freq_wts = self.bp_wts
+        if verbose:
+            print '\tFrequency window weights assigned.'
 
         if not isinstance(downsample, bool):
             raise TypeError('Input downsample must be of boolean type')
@@ -1164,35 +1169,77 @@ class DelaySpectrum(object):
         if verbose:
             print '\tInput parameters have been verified to be compatible.\n\tProceeding to compute delay transform.'
             
-        self.lags = DSP.spectral_axis(int(self.f.size*(1+pad)), delx=self.df, use_real=False, shift=True)
+        result = {}
+        result['freq_wts'] = freq_wts
+        result['pad'] = pad
+        result['lags'] = DSP.spectral_axis(int(self.f.size*(1+pad)), delx=self.df, use_real=False, shift=True)
         if pad == 0.0:
-            self.vis_lag = DSP.FT1D(self.ia.vis_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
-            self.skyvis_lag = DSP.FT1D(self.ia.skyvis_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
-            self.vis_noise_lag = DSP.FT1D(self.ia.vis_noise_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
-            self.lag_kernel = DSP.FT1D(self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
+            result['vis_lag'] = DSP.FT1D(self.ia.vis_freq * self.bp * freq_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
+            result['skyvis_lag'] = DSP.FT1D(self.ia.skyvis_freq * self.bp * freq_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
+            result['vis_noise_lag'] = DSP.FT1D(self.ia.vis_noise_freq * self.bp * freq_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
+            result['lag_kernel'] = DSP.FT1D(self.bp * freq_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
             if verbose:
                 print '\tDelay transform computed without padding.'
         else:
             npad = int(self.f.size * pad)
-            self.vis_lag = DSP.FT1D(NP.pad(self.ia.vis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-            self.skyvis_lag = DSP.FT1D(NP.pad(self.ia.skyvis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-            self.vis_noise_lag = DSP.FT1D(NP.pad(self.ia.vis_noise_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-            self.lag_kernel = DSP.FT1D(NP.pad(self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-
+            result['vis_lag'] = DSP.FT1D(NP.pad(self.ia.vis_freq * self.bp * freq_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+            result['skyvis_lag'] = DSP.FT1D(NP.pad(self.ia.skyvis_freq * self.bp * freq_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+            result['vis_noise_lag'] = DSP.FT1D(NP.pad(self.ia.vis_noise_freq * self.bp * freq_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+            result['lag_kernel'] = DSP.FT1D(NP.pad(self.bp * freq_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
             if verbose:
                 print '\tDelay transform computed with padding fraction {0:.1f}'.format(pad)
+
         if downsample:
-            self.vis_lag = DSP.downsampler(self.vis_lag, 1+pad, axis=1)
-            self.skyvis_lag = DSP.downsampler(self.skyvis_lag, 1+pad, axis=1)
-            self.vis_noise_lag = DSP.downsampler(self.vis_noise_lag, 1+pad, axis=1)
-            self.lag_kernel = DSP.downsampler(self.lag_kernel, 1+pad, axis=1)
-            self.lags = DSP.downsampler(self.lags, 1+pad)
-            self.lags = self.lags.flatten()
+            result['vis_lag'] = DSP.downsampler(result['vis_lag'], 1+pad, axis=1)
+            result['skyvis_lag'] = DSP.downsampler(result['skyvis_lag'], 1+pad, axis=1)
+            result['vis_noise_lag'] = DSP.downsampler(result['vis_noise_lag'], 1+pad, axis=1)
+            result['lag_kernel'] = DSP.downsampler(result['lag_kernel'], 1+pad, axis=1)
+            result['lags'] = DSP.downsampler(result['lags'], 1+pad)
+            result['lags'] = result['lags'].flatten()
             if verbose:
                 print '\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad)
                 print 'delay_transform() completed successfully.'
 
-        self.pad = pad
+        if action == 'store':
+            self.pad = pad
+            self.lags = result['lags']
+            self.bp_wts = freq_wts
+            self.vis_lag = result['vis_lag']
+            self.skyvis_lag = result['skyvis_lag']
+            self.vis_noise_lag = result['vis_noise_lag']
+            self.lag_kernel = result['lag_kernel']
+
+        return result
+
+        # self.lags = DSP.spectral_axis(int(self.f.size*(1+pad)), delx=self.df, use_real=False, shift=True)
+        # if pad == 0.0:
+        #     self.vis_lag = DSP.FT1D(self.ia.vis_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
+        #     self.skyvis_lag = DSP.FT1D(self.ia.skyvis_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
+        #     self.vis_noise_lag = DSP.FT1D(self.ia.vis_noise_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
+        #     self.lag_kernel = DSP.FT1D(self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
+        #     if verbose:
+        #         print '\tDelay transform computed without padding.'
+        # else:
+        #     npad = int(self.f.size * pad)
+        #     self.vis_lag = DSP.FT1D(NP.pad(self.ia.vis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        #     self.skyvis_lag = DSP.FT1D(NP.pad(self.ia.skyvis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        #     self.vis_noise_lag = DSP.FT1D(NP.pad(self.ia.vis_noise_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        #     self.lag_kernel = DSP.FT1D(NP.pad(self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+
+        #     if verbose:
+        #         print '\tDelay transform computed with padding fraction {0:.1f}'.format(pad)
+        # if downsample:
+        #     self.vis_lag = DSP.downsampler(self.vis_lag, 1+pad, axis=1)
+        #     self.skyvis_lag = DSP.downsampler(self.skyvis_lag, 1+pad, axis=1)
+        #     self.vis_noise_lag = DSP.downsampler(self.vis_noise_lag, 1+pad, axis=1)
+        #     self.lag_kernel = DSP.downsampler(self.lag_kernel, 1+pad, axis=1)
+        #     self.lags = DSP.downsampler(self.lags, 1+pad)
+        #     self.lags = self.lags.flatten()
+        #     if verbose:
+        #         print '\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad)
+        #         print 'delay_transform() completed successfully.'
+
+        # self.pad = pad
 
     #############################################################################
         

@@ -433,7 +433,7 @@ eorparm   :
                                 # P(k) models of Adam Lidz. Will be
                                 # used if lidz_model is set to true
 
-    21cmfast_modelfile: '/data3/t_nithyanandan/EoR_models/21cmFAST/PS_model.fits'
+    21cmfast_modelfile: '/data3/t_nithyanandan/EoR_models/21cmFAST/v2/PS_model.fits'
                                 # Full path to Model file consisting 
                                 # of P(k) models of 21cmFAST. Will be 
                                 # used if 21cmfast_model is set to true
@@ -517,7 +517,7 @@ subband :
 
 reflectometry   :
 
-    k               : [0.08, 0.1, 0.12]
+    k               : [0.1, 0.15, 0.2]
                                 # wavenumber(s) (in h/Mpc) where
                                 # delay reflectometry is required
 
@@ -530,50 +530,119 @@ reflectometry   :
 
 plot    :
 
-    1a      : false
+    1a      : 
                                 # Plot beam chromaticity with single
                                 # point source at different locations
+            action  : false                                
 
-    1b      : false
+    1b      : 
                                 # Plot healpix map of beam
                                 # chromaticity
+            action  : false
 
-    1b0     : false
+    1b0     : 
                                 # if True, plot bright foregrounds
                                 # on map of beam chromaticity as
                                 # they transit
+            action  : false                                
 
-    1c      : true
+    1c      : 
                                 # Plot all-sky foreground delay power
                                 # spectra with different beam
                                 # chromaticities with EoR models
                                 # overplotted for a 14.6m baseline
                                 # for one LST
+            action  : false
 
-    bli     : 8
+            bli     : 2
                                 # selected baseline index for plotting
 
-    lsti    : 13
+            lsti    : 13
                                 # selected LST index for plotting
 
-    sbi     : 0
+            sbi     : 0
                                 # Selected subband index for plotting
 
-    1d      : false
+    1d      : 
                                 # Plot all-sky foreground delay power
                                 # spectra with different beam
                                 # chromaticities with EoR models
                                 # overplotted for all baselines
                                 # (wedge) for all LST
+            action  : false
 
-    2a      : true
+    1e      :
+                                # Plot all-sky foreground delay power
+                                # spectra on selected baselines,
+                                # selected LST and selected subband
+                                # as listed below
+            action  : true                                
+
+            blx_list: [7.3, 21.9, 14.6, 29.2, 21.9, 43.8, -14.6, 29.2]
+                                # List of baseline x-components whose
+                                # delay power spectra are to be
+                                # plotted
+
+            bly_list: [12.64, -12.64, 25.29, -25.29, 37.93, 25.29, 50.58, 50.58]
+                                # List of baseline y-components whose
+                                # delay power spectra are to be
+                                # plotted
+
+            lst_list: [3.66, 4.26, 2.76, 3.06, 3.66, 22.91, 22.91, 6.67]
+                                # List of LST (hours) at which delay
+                                # power spectra are to be plotted
+
+            eor_mdl : '21cmfast'
+                                # EoR model power spectrum to plot
+
+            strategies  : ['sim', 'cc']
+                                # list of strategies, namely,
+                                # Foreground avoidance (specified
+                                # by 'sim') or foreground removal
+                                # (specified by 'cc') or both 
+
+            subband : 160000000.0
+                                # Subband frequency (in Hz)
+
+    2a      : 
                                 # Plot ratio of signal to foreground
                                 # ratio as a function of staggered
                                 # delays to set a spec on
                                 # reflectometry
+            action  : false
 
-    3a      : false
+            bll     : 14.6
+                                # Baseline lengths (in m) to average
+                                # foregrounds in
+
+            lst_beg : 21.0
+                                # LST beginning (in hours). If this 
+                                # is less than lst_beg, then the
+                                # range lst_beg < LST < 24 and
+                                # 0 < LST < lst_end is selected,
+                                # else lst_beg < LST < lst_end is
+                                # selected
+
+            lst_end : 15.0
+                                # LST end (in hours). If this is
+                                # less than lst_beg, then the
+                                # range lst_beg < LST < 24 and
+                                # 0 < LST < lst_end is selected,
+                                # else lst_beg < LST < lst_end is
+                                # selected
+
+            sbfreq  : 150000000.0
+                                # Subband frequency (in Hz)
+
+    3a      : 
                                 # Plot signal-to-foreground ratio
                                 # as a function of LST and k_parallel
                                 # for a given baseline
+            action  : false
+
+    3b      : 
+                                # Plot signal-to-foreground ratio
+                                # summed in quadrature over k_parallel
+                                # as a function of LST and baseline
+            action  : false
 

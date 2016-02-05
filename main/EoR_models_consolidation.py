@@ -8,12 +8,13 @@ import ipdb as PDB
 rootdir = '/data3/t_nithyanandan/EoR_models/'
 model = '21cmFAST' # 'Lidz' or '21cmFAST'
 modeldir = model + '/'
-outfile = rootdir + modeldir + 'PS_model.fits'
+versiondir = 'v2/'
+outfile = rootdir + modeldir + versiondir + 'PS_model.fits'
 
 if model == 'Lidz':
-    fullfnames = glob.glob(rootdir + modeldir + '*.dat')
+    fullfnames = glob.glob(rootdir + modeldir + versiondir + '*.dat')
 elif model == '21cmFAST':
-    fullfnames = glob.glob(rootdir + modeldir + 'ps_*')
+    fullfnames = glob.glob(rootdir + modeldir + versiondir + 'ps_*')
 else:
     raise ValueError('This EoR model is currently not implemented')
 fullfnames = NP.asarray(fullfnames)

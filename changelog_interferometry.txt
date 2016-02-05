@@ -1,3 +1,13 @@
+From c29e3d5 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Add input keyword action to member function delay_transform()
+of class DelaySpectrum. Update docstring accordingly. This input
+keyword determines whether the estimated delay spectrum quantities
+are to be returned and/or stored as internal attributes
+
 From caa4a53 (master):
 =====================
 
