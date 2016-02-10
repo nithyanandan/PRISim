@@ -1003,9 +1003,9 @@ fgds_achrmbeam = DS.DelaySpectrum(init_file=fgdsfile_achrmbeam+'.ds.fits')
 fgds_chrmbeam = DS.DelaySpectrum(init_file=fgdsfile_chrmbeam+'.ds.fits')
 fgds_funcbeam = DS.DelaySpectrum(init_file=fgdsfile_funcbeam+'.ds.fits')
 
-fgds_achrmbeam_sbds = fgds_achrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return')
-fgds_chrmbeam_sbds = fgds_chrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return')
-fgds_funcbeam_sbds = fgds_funcbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return')
+fgds_achrmbeam_sbds = fgds_achrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return_resampled')
+fgds_chrmbeam_sbds = fgds_chrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return_resampled')
+fgds_funcbeam_sbds = fgds_funcbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return_resampled')
 
 # frac_width = DSP.window_N2width(n_window=None, shape=bpass_shape, area_normalize=False, power_normalize=True)
 # n_window = NP.round(chans.size / frac_width).astype(NP.int)

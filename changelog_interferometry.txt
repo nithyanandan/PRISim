@@ -1,3 +1,13 @@
+From db814ea (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Modify member function subband_delay_transform() of class
+DelaySPectrum to compute downsampled subband delay spectrum
+attribute subband_delay_spectra_resampled. Update docstring
+accordingly
+
 From aa0a8a9 (master):
 =====================
 

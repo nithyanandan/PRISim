@@ -1763,10 +1763,14 @@ class DelaySpectrum(object):
                      CLEAN. If False (default), do not apply the correction, 
                      namely, inverse of bandpass weights
 
-        action       [string or None] If set to 'return' it returns the output 
-                     dictionary and updates its attribute 
-                     subband_delay_spectra else just updates the attribute.
-                     Default=None (just updates the attribute)
+        action       [string or None] If set to None (default) just updates the 
+                     attribute. If set to 'return_oversampled' it returns the 
+                     output dictionary corresponding to oversampled delay space
+                     quantities and updates its attribute 
+                     subband_delay_spectra with full resolution in delay space. 
+                     If set to 'return_resampled' it returns the output 
+                     dictionary corresponding to resampled/downsampled delay
+                     space quantities and updates the attribute.
 
         verbose      [boolean] If set to True (default), print diagnostic and 
                      progress messages. If set to False, no such messages are
@@ -1775,8 +1779,9 @@ class DelaySpectrum(object):
         Output: 
 
         If keyword input action is set to None (default), the output
-        is internally stored in the class attribute 
-        subband_delay_spectra. If action is set to 'return', this 
+        is internally stored in the class attributes
+        subband_delay_spectra and subband_delay_spectra_resampled. If action is 
+        set to 'return_oversampled', the following  
         output is returned. The output is a dictionary that contains two top
         level keys, namely, 'cc' and 'sim' denoting information about CLEAN
         and simulated visibilities respectively. Under each of these keys is
@@ -1859,6 +1864,71 @@ class DelaySpectrum(object):
                     weights specified under key 'freq_wts'. Only present for
                     top level key 'cc' and absent for 'sim'. It is of
                     size n_bl x n_win x (nchan+npad) x n_t
+
+        If action is set to 'return_resampled', the following  
+        output is returned. The output is a dictionary that contains two top
+        level keys, namely, 'cc' and 'sim' denoting information about CLEAN
+        and simulated visibilities respectively. Under each of these keys is
+        information about delay spectra of different frequency sub-bands (n_win 
+        in number) in the form of a dictionary under the following keys:
+        'freq_center' 
+                    [numpy array] contains the center frequencies 
+                    (in Hz) of the frequency subbands of the subband
+                    delay spectra. It is of size n_win. It is roughly 
+                    equivalent to redshift(s)
+        'bw_eff'    [numpy array] contains the effective bandwidths 
+                    (in Hz) of the subbands being delay transformed. It
+                    is of size n_win. It is roughly equivalent to width 
+                    in redshift or along line-of-sight
+        'lags'      [numpy array] lags of the resampled subband delay spectra 
+                    after padding in frequency during the transform. It
+                    is of size nlags where nlags is the number of 
+                    independent delay bins
+        'lag_kernel'
+                    [numpy array] delay transform of the frequency 
+                    weights under the key 'freq_wts'. It is of size
+                    n_bl x n_win x nlags x n_t.
+        'lag_corr_length' 
+                    [numpy array] It is the correlation timescale (in 
+                    pixels) of the resampled subband delay spectra. It is 
+                    proportional to inverse of effective bandwidth. It
+                    is of size n_win. The unit size of a pixel is 
+                    determined by the difference between adjacent pixels 
+                    in lags under key 'lags' which in turn is 
+                    effectively inverse of the effective bandwidth 
+        'skyvis_lag'
+                    [numpy array] resampled subband delay spectra of simulated 
+                    or CLEANed noiseless visibilities, depending on whether
+                    the top level key is 'cc' or 'sim' respectively,
+                    after applying the frequency weights under the key 
+                    'freq_wts'. It is of size 
+                    n_bl x n_win x nlags x n_t. 
+        'vis_lag'   [numpy array] resampled subband delay spectra of simulated 
+                    or CLEANed noisy visibilities, depending on whether
+                    the top level key is 'cc' or 'sim' respectively,
+                    after applying the frequency weights under the key 
+                    'freq_wts'. It is of size 
+                    n_bl x n_win x nlags x n_t. 
+        'vis_noise_lag'   
+                    [numpy array] resampled subband delay spectra of simulated 
+                    noise after applying the frequency weights under 
+                    the key 'freq_wts'. Only present if top level key is 'sim'
+                    and absent for 'cc'. It is of size 
+                    n_bl x n_win x nlags x n_t. 
+        'skyvis_res_lag'
+                    [numpy array] resampled subband delay spectra of residuals
+                    after delay CLEAN of simualted noiseless 
+                    visibilities obtained after applying frequency 
+                    weights specified under key 'freq_wts'. Only present for
+                    top level key 'cc' and absent for 'sim'. It is of
+                    size n_bl x n_win x nlags x n_t
+        'vis_res_lag'
+                    [numpy array] resampled subband delay spectra of residuals
+                    after delay CLEAN of simualted noisy 
+                    visibilities obtained after applying frequency 
+                    weights specified under key 'freq_wts'. Only present for
+                    top level key 'cc' and absent for 'sim'. It is of
+                    size n_bl x n_win x nlags x n_t
         ------------------------------------------------------------------------
         """
 
@@ -1994,8 +2064,37 @@ class DelaySpectrum(object):
             print '\tSub-band(s) delay transform computed'
 
         self.subband_delay_spectra = result
-        if action == 'return':
-            return result
+
+        result_resampled = {}
+        for key in ['cc', 'sim']:
+            result_resampled[key] = {}
+            result_resampled[key]['freq_center'] = result[key]['freq_center']
+            result_resampled[key]['bw_eff'] = result[key]['bw_eff']
+
+            downsample_factor = NP.min((self.f.size + npad) * self.df / result_resampled[key]['bw_eff'])
+            result_resampled[key]['lags'] = DSP.downsampler(result[key]['lags'], downsample_factor, axis=-1, method='interp', kind='linear')
+            result_resampled[key]['lag_kernel'] = DSP.downsampler(result[key]['lag_kernel'], downsample_factor, axis=2, method='interp', kind='linear')
+            result_resampled[key]['skyvis_lag'] = DSP.downsampler(result[key]['skyvis_lag'], downsample_factor, axis=2, method='FFT')
+            result_resampled[key]['vis_lag'] = DSP.downsampler(result[key]['vis_lag'], downsample_factor, axis=2, method='FFT')
+            dlag = result_resampled[key]['lags'][1] - result_resampled[key]['lags'][0]
+            result_resampled[key]['lag_corr_length'] = (1/result[key]['bw_eff']) / dlag
+            if key == 'cc': 
+                result_resampled[key]['skyvis_res_lag'] = DSP.downsampler(result[key]['skyvis_res_lag'], downsample_factor, axis=2, method='FFT')
+                result_resampled[key]['vis_res_lag'] = DSP.downsampler(result[key]['vis_res_lag'], downsample_factor, axis=2, method='FFT')
+                result_resampled[key]['skyvis_net_lag'] = DSP.downsampler(result[key]['skyvis_net_lag'], downsample_factor, axis=2, method='FFT')
+                result_resampled[key]['vis_net_lag'] = DSP.downsampler(result[key]['vis_net_lag'], downsample_factor, axis=2, method='FFT')
+            else:
+                result_resampled[key]['vis_noise_lag'] = DSP.downsampler(result[key]['vis_noise_lag'], downsample_factor, axis=2, method='FFT')
+        if verbose:
+            print '\tDownsampled Sub-band(s) delay transform computed'
+
+        self.subband_delay_spectra_resampled = result_resampled
+
+        if action is not None:
+            if action == 'return_oversampled':
+                return result
+            if action == 'return_resampled':
+                return result_resampled
 
     #############################################################################
 
