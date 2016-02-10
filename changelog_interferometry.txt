@@ -1,3 +1,12 @@
+From c63c148 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Add attribute subband_delay_power_spectra_resampled in class
+DelayPowerSpectrum and initialize inside member function __init__().
+Modify docstring accordingly
+
 From db814ea (master):
 =====================
 

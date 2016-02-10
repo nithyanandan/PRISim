@@ -2507,7 +2507,7 @@ class DelayPowerSpectrum(object):
                 'kperp'     [numpy array] transverse k-modes (in h/Mpc) 
                             corresponding to the baseline lengths and the 
                             center frequencies. It is of size 
-                            n_win x (nchan+npad)
+                            n_win x n_bl
                 horizon_kprll_limits
                             [numpy array] limits on k_parallel corresponding to 
                             limits on horizon delays for each subband. It is of 
@@ -2592,6 +2592,89 @@ class DelayPowerSpectrum(object):
                             under instance of class DelaySpectrum. It is of size 
                             n_bl x n_win x (nchan+npad) x n_t
 
+    subband_delay_power_spectra_resampled
+                [dictionary] contains two top level keys, namely, 'cc' and 'sim' 
+                denoting information about CLEAN and simulated visibilities 
+                respectively. Essentially this is the power spectrum equivalent 
+                of the attribute suuband_delay_spectra_resampled under class 
+                DelaySpectrum. Under each of these keys is information about 
+                delay power spectra of different frequency sub-bands (n_win in 
+                number) in the form of a dictionary under the following keys: 
+                'kprll'     [numpy array] line-of-sight k-modes (in h/Mpc) 
+                            corresponding to lags of the subband delay spectra. 
+                            It is of size n_win x nlags, where nlags is the 
+                            resampeld number of delay bins
+                'kperp'     [numpy array] transverse k-modes (in h/Mpc) 
+                            corresponding to the baseline lengths and the 
+                            center frequencies. It is of size 
+                            n_win x n_bl
+                'horizon_kprll_limits'
+                            [numpy array] limits on k_parallel corresponding to 
+                            limits on horizon delays for each subband. It is of 
+                            size N x n_win x M x 2 denoting the neagtive and 
+                            positive horizon delay limits where N is the number 
+                            of timestamps, n_win is the number of subbands, M is 
+                            the number of baselines. The 0 index in the fourth 
+                            dimenstion denotes the negative horizon limit while 
+                            the 1 index denotes the positive horizon limit
+                'skyvis_lag'
+                            [numpy array] delay power spectrum (in K^2 (Mpc/h)^3) 
+                            corresponding to noiseless simulated (under top level 
+                            key 'sim') or CLEANed (under top level key 'cc') 
+                            delay spectrum under key 'skyvis_lag' in attribute 
+                            subband_delay_spectra_resampled under instance of 
+                            class DelaySpectrum. It is of size 
+                            n_bl x n_win x nlags x n_t
+                'vis_lag'   [numpy array] delay power spectrum (in K^2 (Mpc/h)^3) 
+                            corresponding to noisy simulated (under top level 
+                            key 'sim') or CLEANed (under top level key 'cc') 
+                            delay spectrum under key 'vis_lag' in attribute 
+                            subband_delay_spectra_resampled under instance of 
+                            class DelaySpectrum. It is of size 
+                            n_bl x n_win x nlags x n_t
+                'vis_noise_lag'
+                            [numpy array] delay power spectrum (in K^2 (Mpc/h)^3) 
+                            corresponding to thermal noise simulated (under top 
+                            level key 'sim') delay spectrum under key 
+                            'vis_noise_lag' in attribute 
+                            subband_delay_spectra_resampled under instance of 
+                            class DelaySpectrum. It is of size 
+                            n_bl x n_win x nlags x n_t
+                'skyvis_res_lag'
+                            [numpy array] delay power spectrum (in K^2 (Mpc/h)^3) 
+                            corresponding to CLEAN residuals (under top level key 
+                            'cc') from noiseless simulated delay spectrum under 
+                            key 'skyvis_res_lag' in attribute 
+                            subband_delay_spectra_resampled under instance of 
+                            class DelaySpectrum. It is of size 
+                            n_bl x n_win x nlags x n_t
+                'vis_res_lag'
+                            [numpy array] delay power spectrum (in K^2 (Mpc/h)^3) 
+                            corresponding to CLEAN residuals (under top level key 
+                            'cc') from noisy delay spectrum under key 
+                            'vis_res_lag' in attribute 
+                            subband_delay_spectra_resampled under instance of 
+                            class DelaySpectrum. It is of size 
+                            n_bl x n_win x nlags x n_t
+                'skyvis_net_lag'
+                            [numpy array] delay power spectrum (in K^2 (Mpc/h)^3) 
+                            corresponding to sum of CLEAN components and 
+                            residuals (under top level key 
+                            'cc') from noiseless simulated delay spectrum under 
+                            key 'skyvis_net_lag' in attribute 
+                            subband_delay_spectra_resampled under instance of 
+                            class DelaySpectrum. It is of size 
+                            n_bl x n_win x nlags x n_t
+                'vis_net_lag'
+                            [numpy array] delay power spectrum (in K^2 (Mpc/h)^3) 
+                            corresponding to sum of CLEAN components and 
+                            residuals (under top level key 
+                            'cc') from noisy delay spectrum under key 
+                            'vis_net_lag' in attribute 
+                            subband_delay_spectra_resampled under instance of 
+                            class DelaySpectrum. It is of size 
+                            n_bl x n_win x nlags x n_t
+
     Member functions:
 
     __init__()  Initialize an instance of class DelayPowerSpectrum
@@ -2629,7 +2712,8 @@ class DelayPowerSpectrum(object):
         ------------------------------------------------------------------------
         Initialize an instance of class DelayPowerSpectrum. Attributes 
         initialized are: ds, cosmo, f, df, f0, z, bw, drz_los, rz_transverse,
-        rz_los, kprll, kperp, jacobian1, jacobian2
+        rz_los, kprll, kperp, jacobian1, jacobian2, subband_delay_power_spectra,
+        subband_delay_power_spectra_resampled
 
         Inputs:
 
@@ -2694,6 +2778,7 @@ class DelayPowerSpectrum(object):
         self.dps['cc_vis_net'] = None
 
         self.subband_delay_power_spectra = {}
+        self.subband_delay_power_spectra_resampled = {}
 
     ############################################################################
 
