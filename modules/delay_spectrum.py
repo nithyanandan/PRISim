@@ -652,10 +652,10 @@ class DelaySpectrum(object):
                 spectra of different frequency sub-bands (n_win in number) in the 
                 form of a dictionary under the following keys:
                 'freq_center' 
-                           [numpy array] contains the center frequencies 
-                           (in Hz) of the frequency subbands of the subband
-                           delay spectra. It is of size n_win. It is roughly 
-                           equivalent to redshift(s)
+                            [numpy array] contains the center frequencies 
+                            (in Hz) of the frequency subbands of the subband
+                            delay spectra. It is of size n_win. It is roughly 
+                            equivalent to redshift(s)
                 'freq_wts'  [numpy array] Contains frequency weights applied 
                             on each frequency sub-band during the subband delay 
                             transform. It is of size n_win x nchan. 
@@ -745,6 +745,93 @@ class DelaySpectrum(object):
                             for top level key 'cc' and absent for 'sim'. It is of
                             size n_bl x n_win x (nchan+npad) x n_t
 
+    subband_delay_spectra_resampled
+                [dictionary] Very similar to the attribute 
+                subband_delay_spectra except now it has been resampled along 
+                delay axis to contain usually only independent delay bins. It 
+                contains two top level keys, namely, 'cc' and 'sim' 
+                denoting information about CLEAN and simulated visibilities 
+                respectively. Under each of these keys is information about delay 
+                spectra of different frequency sub-bands (n_win in number) after 
+                resampling to independent number of delay bins in the 
+                form of a dictionary under the following keys:
+                'freq_center' 
+                            [numpy array] contains the center frequencies 
+                            (in Hz) of the frequency subbands of the subband
+                            delay spectra. It is of size n_win. It is roughly 
+                            equivalent to redshift(s)
+                'bw_eff'    [numpy array] contains the effective bandwidths 
+                            (in Hz) of the subbands being delay transformed. It
+                            is of size n_win. It is roughly equivalent to width 
+                            in redshift or along line-of-sight
+                'lags'      [numpy array] lags of the subband delay spectra 
+                            after padding in frequency during the transform. It
+                            is of size nlags where nlags is the number of 
+                            independent delay bins. It roughly corresponds to 
+                            k_parallel.
+                'lag_kernel'
+                            [numpy array] delay transform of the frequency 
+                            weights under the key 'freq_wts'. It is of size
+                            n_bl x n_win x nlags x n_t.
+                'lag_corr_length' 
+                            [numpy array] It is the correlation timescale (in 
+                            pixels) of the resampled subband delay spectra. It is 
+                            proportional to inverse of effective bandwidth. It
+                            is of size n_win. The unit size of a pixel is 
+                            determined by the difference between adjacent pixels 
+                            in lags under key 'lags' which in turn is 
+                            usually approximately inverse of the effective
+                            bandwidth of the subband
+                'skyvis_lag'
+                            [numpy array] subband delay spectra of simulated 
+                            or CLEANed noiseless visibilities, depending on 
+                            whether the top level key is 'cc' or 'sim' 
+                            respectively, after applying the frequency weights 
+                            under the key 'freq_wts'. It is of size 
+                            n_bl x n_win x nlags x n_t. 
+                'vis_lag'   [numpy array] subband delay spectra of simulated 
+                            or CLEANed noisy visibilities, depending on whether
+                            the top level key is 'cc' or 'sim' respectively,
+                            after applying the frequency weights under the key 
+                            'freq_wts'. It is of size 
+                            n_bl x n_win x nlags x n_t. 
+                'vis_noise_lag'   
+                            [numpy array] subband delay spectra of simulated 
+                            noise after applying the frequency weights under 
+                            the key 'freq_wts'. Only present if top level key is 
+                            'sim' and absent for 'cc'. It is of size 
+                            n_bl x n_win x nlags x n_t. 
+                'skyvis_res_lag'
+                            [numpy array] subband delay spectra of residuals
+                            after delay CLEAN of simulated noiseless 
+                            visibilities obtained after applying frequency 
+                            weights specified under key 'freq_wts'. Only present 
+                            for top level key 'cc' and absent for 'sim'. It is of
+                            size n_bl x n_win x nlags x n_t
+                'vis_res_lag'
+                            [numpy array] subband delay spectra of residuals
+                            after delay CLEAN of simulated noisy 
+                            visibilities obtained after applying frequency 
+                            weights specified under key 'freq_wts'. Only present 
+                            for top level key 'cc' and absent for 'sim'. It is of
+                            size n_bl x n_win x nlags x n_t
+                'skyvis_net_lag'
+                            [numpy array] subband delay spectra of sum of 
+                            residuals and clean components
+                            after delay CLEAN of simulated noiseless 
+                            visibilities obtained after applying frequency 
+                            weights specified under key 'freq_wts'. Only present 
+                            for top level key 'cc' and absent for 'sim'. It is of
+                            size n_bl x n_win x nlags x n_t
+                'vis_res_lag'
+                            [numpy array] subband delay spectra of sum of 
+                            residuals and clean components
+                            after delay CLEAN of simulated noisy 
+                            visibilities obtained after applying frequency 
+                            weights specified under key 'freq_wts'. Only present 
+                            for top level key 'cc' and absent for 'sim'. It is of
+                            size n_bl x n_win x nlags x n_t
+
     Member functions:
 
     __init__()  Initializes an instance of class DelaySpectrum
@@ -802,7 +889,7 @@ class DelaySpectrum(object):
         cc_skyvis_net_lag, cc_vis_lag, cc_vis_res_lag, cc_vis_net_lag, 
         cc_skyvis_freq, cc_skyvis_res_freq, cc_sktvis_net_freq, cc_vis_freq,
         cc_vis_res_freq, cc_vis_net_freq, clean_window_buffer, cc_freq, cc_lags,
-        cc_lag_kernel, multiwin_delay_transform
+        cc_lag_kernel, subband_delay_spectra, subband_delay_spectra_resampled
 
         Read docstring of class DelaySpectrum for details on these
         attributes.
@@ -1013,6 +1100,7 @@ class DelaySpectrum(object):
                 self.cc_vis_net_freq = self.cc_vis_freq + self.cc_vis_res_freq
                 
             self.subband_delay_spectra = {}
+            self.subband_delay_spectra_resampled = {}
             if 'SBDS' in hdulist[0].header:
                 for key in ['cc', 'sim']:
                     if '{0}-SBDS'.format(key) in hdulist[0].header:
@@ -1037,6 +1125,25 @@ class DelaySpectrum(object):
                             self.subband_delay_spectra[key]['skyvis_net_lag'] = self.subband_delay_spectra[key]['skyvis_lag'] + self.subband_delay_spectra[key]['skyvis_res_lag']
                             self.subband_delay_spectra[key]['vis_net_lag'] = self.subband_delay_spectra[key]['vis_lag'] + self.subband_delay_spectra[key]['vis_res_lag']
 
+            if 'SBDS-RS' in hdulist[0].header:
+                for key in ['cc', 'sim']:
+                    if '{0}-SBDS-RS'.format(key) in hdulist[0].header:
+                        self.subband_delay_spectra_resampled[key] = {}
+                        self.subband_delay_spectra_resampled[key]['freq_center'] = hdulist['{0}-SBDSRS-F0'.format(key)].data
+                        self.subband_delay_spectra_resampled[key]['bw_eff'] = hdulist['{0}-SBDSRS-BWEFF'.format(key)].data
+                        self.subband_delay_spectra_resampled[key]['lags'] = hdulist['{0}-SBDSRS-LAGS'.format(key)].data
+                        self.subband_delay_spectra_resampled[key]['lag_kernel'] = hdulist['{0}-SBDSRS-LAGKERN-REAL'.format(key)].data + 1j * hdulist['{0}-SBDSRS-LAGKERN-IMAG'.format(key)].data
+                        self.subband_delay_spectra_resampled[key]['lag_corr_length'] = hdulist['{0}-SBDSRS-LAGCORR'.format(key)].data
+                        self.subband_delay_spectra_resampled[key]['skyvis_lag'] = hdulist['{0}-SBDSRS-SKYVISLAG-REAL'.format(key)].data + 1j * hdulist['{0}-SBDSRS-SKYVISLAG-IMAG'.format(key)].data
+                        self.subband_delay_spectra_resampled[key]['vis_lag'] = hdulist['{0}-SBDSRS-VISLAG-REAL'.format(key)].data + 1j * hdulist['{0}-SBDSRS-VISLAG-IMAG'.format(key)].data
+                        if key == 'sim':
+                            self.subband_delay_spectra_resampled[key]['vis_noise_lag'] = hdulist['{0}-SBDSRS-NOISELAG-REAL'.format(key)].data + 1j * hdulist['{0}-SBDSRS-NOISELAG-IMAG'.format(key)].data
+                        if key == 'cc':
+                            self.subband_delay_spectra_resampled[key]['skyvis_res_lag'] = hdulist['{0}-SBDSRS-SKYVISRESLAG-REAL'.format(key)].data + 1j * hdulist['{0}-SBDSRS-SKYVISRESLAG-IMAG'.format(key)].data
+                            self.subband_delay_spectra_resampled[key]['vis_res_lag'] = hdulist['{0}-SBDSRS-VISRESLAG-REAL'.format(key)].data + 1j * hdulist['{0}-SBDSRS-VISRESLAG-IMAG'.format(key)].data
+                            self.subband_delay_spectra_resampled[key]['skyvis_net_lag'] = self.subband_delay_spectra_resampled[key]['skyvis_lag'] + self.subband_delay_spectra_resampled[key]['skyvis_res_lag']
+                            self.subband_delay_spectra_resampled[key]['vis_net_lag'] = self.subband_delay_spectra_resampled[key]['vis_lag'] + self.subband_delay_spectra_resampled[key]['vis_res_lag']
+                            
             hdulist.close()
             init_file_success = True
             return
@@ -1088,6 +1195,7 @@ class DelaySpectrum(object):
         self.cc_vis_net_freq = None
 
         self.subband_delay_spectra = {}
+        self.subband_delay_spectra_resampled = {}
 
     #############################################################################
 
@@ -2144,6 +2252,32 @@ class DelaySpectrum(object):
             if verbose:
                 print '\tCreated extensions for information on subband delay spectra for simulated and clean components of visibilities as a function of baselines, lags/frequency and snapshot instance'
 
+        if self.subband_delay_spectra_resampled:
+            hdulist[0].header['SBDS-RS'] = (1, 'Presence of Resampled Subband Delay Spectra')
+            for key in self.subband_delay_spectra_resampled:
+                hdulist[0].header['{0}-SBDS-RS'.format(key)] = (1, 'Presence of {0} Reampled Subband Delay Spectra'.format(key))
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['freq_center'], name='{0}-SBDSRS-F0'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['bw_eff'], name='{0}-SBDSRS-BWEFF'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['lags'], name='{0}-SBDSRS-LAGS'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['lag_kernel'].real, name='{0}-SBDSRS-LAGKERN-REAL'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['lag_kernel'].imag, name='{0}-SBDSRS-LAGKERN-IMAG'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['lag_corr_length'], name='{0}-SBDSRS-LAGCORR'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['skyvis_lag'].real, name='{0}-SBDSRS-SKYVISLAG-REAL'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['skyvis_lag'].imag, name='{0}-SBDSRS-SKYVISLAG-IMAG'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['vis_lag'].real, name='{0}-SBDSRS-VISLAG-REAL'.format(key))]
+                hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['vis_lag'].imag, name='{0}-SBDSRS-VISLAG-IMAG'.format(key))]
+                if key == 'sim':
+                    hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['vis_noise_lag'].real, name='{0}-SBDSRS-NOISELAG-REAL'.format(key))]
+                    hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['vis_noise_lag'].imag, name='{0}-SBDSRS-NOISELAG-IMAG'.format(key))]
+                if key == 'cc':
+                    hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['skyvis_res_lag'].real, name='{0}-SBDSRS-SKYVISRESLAG-REAL'.format(key))]
+                    hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['skyvis_res_lag'].imag, name='{0}-SBDSRS-SKYVISRESLAG-IMAG'.format(key))]
+                    hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['vis_res_lag'].real, name='{0}-SBDSRS-VISRESLAG-REAL'.format(key))]
+                    hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['vis_res_lag'].imag, name='{0}-SBDSRS-VISRESLAG-IMAG'.format(key))]
+
+            if verbose:
+                print '\tCreated extensions for information on resampled subband delay spectra for simulated and clean components of visibilities as a function of baselines, lags/frequency and snapshot instance'
+                
         hdu = fits.HDUList(hdulist)
         hdu.writeto(ds_outfile+'.ds.fits', clobber=overwrite)
 

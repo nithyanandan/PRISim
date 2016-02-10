@@ -1,3 +1,14 @@
+From aa0a8a9 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Add attribute subband_delay_spectra_resampled to class
+DelaySpectrum. Update docstring accordingly.
+(*) Newly added attribute subband_delay_spectra_resampled is
+initialized in __init__() and saved in save() member functions of
+class DelaySpectrum
+
 From c29e3d5 (master):
 =====================
 
