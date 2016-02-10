@@ -3075,5 +3075,29 @@ class DelayPowerSpectrum(object):
                 else:
                     self.subband_delay_power_spectra[key]['vis_noise_lag'] = NP.abs(self.ds.subband_delay_spectra[key]['vis_noise_lag'])**2 * conversion_factor
 
+        if self.ds.subband_delay_spectra_resampled:
+            for key in self.ds.subband_delay_spectra_resampled:
+                self.subband_delay_power_spectra_resampled[key] = {}
+                kprll = NP.empty((self.ds.subband_delay_spectra_resampled[key]['freq_center'].size, self.ds.subband_delay_spectra_resampled[key]['lags'].size))
+                kperp = NP.empty((self.ds.subband_delay_spectra_resampled[key]['freq_center'].size, self.bl_length.size))
+                horizon_kprll_limits = NP.empty((self.ds.n_acc, self.ds.subband_delay_spectra_resampled[key]['freq_center'].size, self.bl_length.size, 2))
+                for zind,z in enumerate(self.subband_delay_power_spectra[key]['z']):
+                    kprll[zind,:] = self.k_parallel(self.ds.subband_delay_spectra_resampled[key]['lags'], z, action='return')
+                    kperp[zind,:] = self.k_perp(self.bl_length, z, action='return')
+                    horizon_kprll_limits[:,zind,:,:] = self.k_parallel(self.ds.horizon_delay_limits, z, action='return')
+                self.subband_delay_power_spectra_resampled[key]['kprll'] = kprll
+                self.subband_delay_power_spectra_resampled[key]['kperp'] = kperp
+                self.subband_delay_power_spectra_resampled[key]['horizon_kprll_limits'] = horizon_kprll_limits
+                conversion_factor = self.subband_delay_power_spectra[key]['factor'].reshape(1,-1,1,1)
+                self.subband_delay_power_spectra_resampled[key]['skyvis_lag'] = NP.abs(self.ds.subband_delay_spectra_resampled[key]['skyvis_lag'])**2 * conversion_factor
+                self.subband_delay_power_spectra_resampled[key]['vis_lag'] = NP.abs(self.ds.subband_delay_spectra_resampled[key]['vis_lag'])**2 * conversion_factor
+                if key == 'cc':
+                    self.subband_delay_power_spectra_resampled[key]['skyvis_res_lag'] = NP.abs(self.ds.subband_delay_spectra_resampled[key]['skyvis_res_lag'])**2 * conversion_factor
+                    self.subband_delay_power_spectra_resampled[key]['vis_res_lag'] = NP.abs(self.ds.subband_delay_spectra_resampled[key]['vis_res_lag'])**2 * conversion_factor
+                    self.subband_delay_power_spectra_resampled[key]['skyvis_net_lag'] = NP.abs(self.ds.subband_delay_spectra_resampled[key]['skyvis_net_lag'])**2 * conversion_factor
+                    self.subband_delay_power_spectra_resampled[key]['vis_net_lag'] = NP.abs(self.ds.subband_delay_spectra_resampled[key]['vis_net_lag'])**2 * conversion_factor
+                else:
+                    self.subband_delay_power_spectra_resampled[key]['vis_noise_lag'] = NP.abs(self.ds.subband_delay_spectra_resampled[key]['vis_noise_lag'])**2 * conversion_factor
+
     ############################################################################
 

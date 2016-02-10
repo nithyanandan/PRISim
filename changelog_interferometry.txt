@@ -1,3 +1,11 @@
+From 5ef1f24 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Compute attribute subband_delay_power_spectra_resampled in
+member function compute_power_spectrum() of class DelayPowerSpectrum
+
 From c63c148 (master):
 =====================
 
