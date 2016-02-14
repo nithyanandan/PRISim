@@ -1707,7 +1707,7 @@ class DelaySpectrum(object):
     #############################################################################
         
     def subband_delay_transform(self, bw_eff, freq_center=None, shape=None,
-                                pad=None, bpcorrect=False, action=None,
+                                fftpow=None, pad=None, bpcorrect=False, action=None,
                                 verbose=True):
 
         """
@@ -1744,6 +1744,11 @@ class DelaySpectrum(object):
                      'BNW' (for Blackman-Nuttall), and 'bhw' or 'BHW' (for 
                      Blackman-Harris). Default=None sets it to 'rect' 
                      (rectangular window) for both keys
+
+        fftpow       [dictionary] dictionary with two keys 'cc' and 'sim' to 
+                     specify the power to which the FFT of the window will be 
+                     raised. The values under these keys must be a positive 
+                     scalar. Default = 1.0 for each key
 
         pad          [dictionary] dictionary with two keys 'cc' and 'sim' to 
                      specify padding fraction relative to the number of frequency 
@@ -1982,6 +1987,17 @@ class DelaySpectrum(object):
             shape = {key: 'rect' for key in ['cc', 'sim']}
             # shape = 'rect'
 
+        if fftpow is None:
+            fftpow = {key: 1.0 for key in ['cc', 'sim']}
+        else:
+            if not isinstance(fftpow, dict):
+                raise TypeError('Power to raise FFT of window by must be specified as a dictionary')
+            for key in ['cc', 'sim']:
+                if not isinstance(fftpow[key], (int, float)):
+                    raise TypeError('Power to raise window FFT by must be a scalar value.')
+                if fftpow[key] < 0.0:
+                    raise ValueError('Power for raising FFT of window by must be positive.')
+
         if pad is None:
             pad = {key: 1.0 for key in ['cc', 'sim']}
         else:
@@ -2003,7 +2019,7 @@ class DelaySpectrum(object):
         for key in ['cc', 'sim']:
             if (key == 'sim') or ((key == 'cc') and (self.cc_lags is not None)):
                 freq_wts = NP.empty((bw_eff[key].size, self.f.size))
-                frac_width = DSP.window_N2width(n_window=None, shape=shape[key], area_normalize=False, power_normalize=True)
+                frac_width = DSP.window_N2width(n_window=None, shape=shape[key], fftpow=fftpow[key], area_normalize=False, power_normalize=True)
                 window_loss_factor = 1 / frac_width
                 n_window = NP.round(window_loss_factor * bw_eff[key] / self.df).astype(NP.int)
                 ind_freq_center, ind_channels, dfrequency = LKP.find_1NN(self.f.reshape(-1,1), freq_center[key].reshape(-1,1), distance_ULIM=0.5*self.df, remove_oob=True)
@@ -2014,7 +2030,8 @@ class DelaySpectrum(object):
                 n_window = n_window[sortind]
     
                 for i,ind_chan in enumerate(ind_channels):
-                    window = NP.sqrt(frac_width * n_window[i]) * DSP.windowing(n_window[i], shape=shape[key], centering=True, peak=None, area_normalize=False, power_normalize=True)
+                    window = NP.sqrt(frac_width * n_window[i]) * DSP.window_fftpow(n_window[i], shape=shape[key], fftpow=fftpow[key], centering=True, peak=None, area_normalize=False, power_normalize=True)
+                    # window = NP.sqrt(frac_width * n_window[i]) * DSP.windowing(n_window[i], shape=shape[key], centering=True, peak=None, area_normalize=False, power_normalize=True)
                     window_chans = self.f[ind_chan] + self.df * (NP.arange(n_window[i]) - int(n_window[i]/2))
                     ind_window_chans, ind_chans, dfreq = LKP.find_1NN(self.f.reshape(-1,1), window_chans.reshape(-1,1), distance_ULIM=0.5*self.df, remove_oob=True)
                     sind = NP.argsort(ind_window_chans)

@@ -1,3 +1,14 @@
+From 9cde45c (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Add input keyword fftpow in subband_delay_transform() member
+function of class DelaySpectrum. Update docstring accordingly
+(*) Invoke newly created function window_fftpow() in my_DSP_modules.py
+inside subband_delay_trasnform() member function of class
+DelaySpectrum thus replacing earlier call to windowing() function
+
 From 5ef1f24 (master):
 =====================
 

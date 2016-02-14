@@ -513,6 +513,12 @@ subband :
                                 # (Blackman-Harris), 'bnw' (Blackman-
                                 # Nuttall) and 'rect' (rectangular)
 
+    fftpow          : 2.0
+                                # FFT of the window function will be
+                                # raised to this power. Default=1.0.
+                                # Value of 2 implies a window covolved
+                                # with itself to make a new window
+
 ########## Reflectometry parameters ##########
 
 reflectometry   :
@@ -576,7 +582,15 @@ plot    :
                                 # spectra on selected baselines,
                                 # selected LST and selected subband
                                 # as listed below
-            action  : true                                
+            action  : true
+
+            dpstype : 'win'
+                                # Type of subband delay power
+                                # spectrum. Accepted values are 'win'
+                                # (default) for windowed delay power
+                                # spectrum and 'ic' for inverse
+                                # covariance weighted delay power
+                                # spectrum
 
             blx_list: [7.3, 21.9, 14.6, 29.2, 21.9, 43.8, -14.6, 29.2]
                                 # List of baseline x-components whose
@@ -601,7 +615,7 @@ plot    :
                                 # by 'sim') or foreground removal
                                 # (specified by 'cc') or both 
 
-            subband : 160000000.0
+            subband : 150000000.0
                                 # Subband frequency (in Hz)
 
     2a      : 

@@ -116,6 +116,8 @@ chrmbeam_spec_interp_method = chrmbeam_info['spec_interp']
 freq_window_centers = {key: parms['subband']['freq_center'] for key in ['cc', 'sim']}
 freq_window_bw = {key: parms['subband']['bw_eff'] for key in ['cc', 'sim']}
 freq_window_shape={key: parms['subband']['shape'] for key in ['cc', 'sim']}
+freq_window_fftpow={key: parms['subband']['fftpow'] for key in ['cc', 'sim']}
+rect_freq_window_shape={key: 'rect' for key in ['cc', 'sim']}
 n_sky_sectors = parms['processing']['n_sky_sectors']
 bpass_shape = parms['clean']['bpass_shape']
 spindex_rms = parms['fgparm']['spindex_rms']
@@ -1003,9 +1005,26 @@ fgds_achrmbeam = DS.DelaySpectrum(init_file=fgdsfile_achrmbeam+'.ds.fits')
 fgds_chrmbeam = DS.DelaySpectrum(init_file=fgdsfile_chrmbeam+'.ds.fits')
 fgds_funcbeam = DS.DelaySpectrum(init_file=fgdsfile_funcbeam+'.ds.fits')
 
-fgds_achrmbeam_sbds = fgds_achrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return_resampled')
-fgds_chrmbeam_sbds = fgds_chrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return_resampled')
-fgds_funcbeam_sbds = fgds_funcbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, pad=None, bpcorrect=False, action='return_resampled')
+# ############
+
+# fgds_achrmbeam_sbds = fgds_achrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=rect_freq_window_shape, pad=None, bpcorrect=False, action='return_resampled')
+# fgds_chrmbeam_sbds = fgds_chrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=rect_freq_window_shape, pad=None, bpcorrect=False, action='return_resampled')
+# fgds_funcbeam_sbds = fgds_funcbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=rect_freq_window_shape, pad=None, bpcorrect=False, action='return_resampled')
+
+# fgdps_achrmbeam = DS.DelayPowerSpectrum(fgds_achrmbeam)
+# fgdps_achrmbeam.compute_power_spectrum()
+# fgdps_chrmbeam = DS.DelayPowerSpectrum(fgds_chrmbeam)
+# fgdps_chrmbeam.compute_power_spectrum()
+# fgdps_funcbeam = DS.DelayPowerSpectrum(fgds_funcbeam)
+# fgdps_funcbeam.compute_power_spectrum()
+
+# PDB.set_trace()
+
+# ############
+
+fgds_achrmbeam_sbds = fgds_achrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, fftpow=freq_window_fftpow, pad=None, bpcorrect=False, action='return_resampled')
+fgds_chrmbeam_sbds = fgds_chrmbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, fftpow=freq_window_fftpow, pad=None, bpcorrect=False, action='return_resampled')
+fgds_funcbeam_sbds = fgds_funcbeam.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, fftpow=freq_window_fftpow, pad=None, bpcorrect=False, action='return_resampled')
 
 # frac_width = DSP.window_N2width(n_window=None, shape=bpass_shape, area_normalize=False, power_normalize=True)
 # n_window = NP.round(chans.size / frac_width).astype(NP.int)
@@ -1020,6 +1039,14 @@ fgdps_chrmbeam = DS.DelayPowerSpectrum(fgds_chrmbeam)
 fgdps_chrmbeam.compute_power_spectrum()
 fgdps_funcbeam = DS.DelayPowerSpectrum(fgds_funcbeam)
 fgdps_funcbeam.compute_power_spectrum()
+
+# PDB.set_trace()
+# fgds_achrmbeam1 = DS.DelaySpectrum(init_file=fgdsfile_achrmbeam+'.ds.fits')
+# fgds_achrmbeam_sbds1 = fgds_achrmbeam1.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, fftpow={'cc': 1.0, 'sim': 1.0}, pad=None, bpcorrect=False, action='return_resampled')
+# fgdps_achrmbeam1 = DS.DelayPowerSpectrum(fgds_achrmbeam1)
+# fgdps_achrmbeam1.compute_power_spectrum()
+
+fgdps_sbIC = {beamstr: NP.load(rootdir+project_dir+'pspecs_{0}_sbinfo.npz'.format(beamstr)) for beamstr in ['achrmbeam', 'chrmbeam', 'funcbeam']}
 
 # eorvisfile_achrmbeam = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+eor_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(eor_nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, eor_bandpass_str, eor_cube_freq/1e6)+achromatic_extbeam_str+pfb_instr
 # eorvisfile_chrmbeam = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+eor_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(eor_nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, eor_bandpass_str, eor_cube_freq/1e6)+chromatic_extbeam_str+pfb_instr
@@ -1676,6 +1703,7 @@ if '1e' in plots:
     # 01-e) Plot all-sky foreground delay power spectra on selected baselines, selected LST and selected subband
 
     mdl = parms['plot']['1e']['eor_mdl']
+    dpstype = parms['plot']['1e']['dpstype']
     strategies = parms['plot']['1e']['strategies']
     subband_freq = parms['plot']['1e']['subband']
     subband_index = NP.argmin(NP.abs(freq_window_centers['sim'] - subband_freq))
@@ -1697,6 +1725,11 @@ if '1e' in plots:
     inplstind_sorted = inplstind[sortind]
     bl_angle = NP.degrees(NP.angle(blref[refblind_sorted,0]+1j*blref[refblind_sorted,1]))
 
+    dfreq = fgds_achrmbeam.f[1] - fgds_achrmbeam.f[0]
+    sbIC_lags = DSP.spectral_axis(fgdps_sbIC['achrmbeam']['pCnorm'].shape[2], delx=dfreq, shift=True)
+    eta2kprll = DS.dkprll_deta(fgdps_achrmbeam.z, fgdps_achrmbeam.cosmo)
+    sbIC_kprll = sbIC_lags * eta2kprll
+
     for strategy in strategies:
         if strategy == 'sim': dpskey = 'skyvis_lag'
         if strategy == 'cc': dpskey = 'skyvis_res_lag'
@@ -1704,13 +1737,22 @@ if '1e' in plots:
         for row in range(axs.shape[0]):
             for col in range(axs.shape[1]):
                 i = col + row * axs.shape[1]
-                axs[row,col].plot(fgdps_achrmbeam.subband_delay_power_spectra[strategy]['kprll'][subband_index,:], fgdps_achrmbeam.subband_delay_power_spectra[strategy][dpskey][refblind_sorted[i],subband_index,:,reflstind_sorted[i]], color='black', lw=2, ls='-')
-                axs[row,col].plot(fgdps_funcbeam.subband_delay_power_spectra[strategy]['kprll'][subband_index,:], fgdps_funcbeam.subband_delay_power_spectra[strategy][dpskey][refblind_sorted[i],subband_index,:,reflstind_sorted[i]], color='red', lw=2, ls='-')
-                axs[row,col].plot(fgdps_chrmbeam.subband_delay_power_spectra[strategy]['kprll'][subband_index,:], fgdps_chrmbeam.subband_delay_power_spectra[strategy][dpskey][refblind_sorted[i],subband_index,:,reflstind_sorted[i]], color='blue', lw=2, ls='-')
+                if dpstype == 'ic':
+                    clrs = ['black', 'red', 'blue']
+                    beamstr = ['achrmbeam', 'funcbeam', 'chrmbeam']
+                    for bmi,bmstr in enumerate(beamstr):
+                        axs[row,col].plot(sbIC_kprll, NP.abs(fgdps_sbIC[bmstr]['pCnorm'][subband_index,refblind_sorted[i],:,reflstind_sorted[i]]), color=clrs[bmi], lw=2, ls='-')
+                else:
+                    axs[row,col].plot(fgdps_achrmbeam.subband_delay_power_spectra_resampled[strategy]['kprll'][subband_index,:], fgdps_achrmbeam.subband_delay_power_spectra_resampled[strategy][dpskey][refblind_sorted[i],subband_index,:,reflstind_sorted[i]], color='black', lw=2, ls='-')
+                    axs[row,col].plot(fgdps_funcbeam.subband_delay_power_spectra_resampled[strategy]['kprll'][subband_index,:], fgdps_funcbeam.subband_delay_power_spectra_resampled[strategy][dpskey][refblind_sorted[i],subband_index,:,reflstind_sorted[i]], color='red', lw=2, ls='-')
+                    axs[row,col].plot(fgdps_chrmbeam.subband_delay_power_spectra_resampled[strategy]['kprll'][subband_index,:], fgdps_chrmbeam.subband_delay_power_spectra_resampled[strategy][dpskey][refblind_sorted[i],subband_index,:,reflstind_sorted[i]], color='blue', lw=2, ls='-')
+                    # axs[row,col].plot(fgdps_achrmbeam.subband_delay_power_spectra[strategy]['kprll'][subband_index,:], fgdps_achrmbeam.subband_delay_power_spectra[strategy][dpskey][refblind_sorted[i],subband_index,:,reflstind_sorted[i]], color='black', lw=2, ls='-')
+                    # axs[row,col].plot(fgdps_funcbeam.subband_delay_power_spectra[strategy]['kprll'][subband_index,:], fgdps_funcbeam.subband_delay_power_spectra[strategy][dpskey][refblind_sorted[i],subband_index,:,reflstind_sorted[i]], color='red', lw=2, ls='-')
+                    # axs[row,col].plot(fgdps_chrmbeam.subband_delay_power_spectra[strategy]['kprll'][subband_index,:], fgdps_chrmbeam.subband_delay_power_spectra[strategy][dpskey][refblind_sorted[i],subband_index,:,reflstind_sorted[i]], color='blue', lw=2, ls='-')
         
                 axs[row,col].axvline(x=fgdps_achrmbeam.subband_delay_power_spectra[strategy]['horizon_kprll_limits'][reflstind_sorted[i],subband_index,refblind_sorted[i],0], ymax=0.9, ls=':', lw=2, color='black')
                 axs[row,col].axvline(x=fgdps_achrmbeam.subband_delay_power_spectra[strategy]['horizon_kprll_limits'][reflstind_sorted[i],subband_index,refblind_sorted[i],1], ymax=0.9, ls=':', lw=2, color='black')        
-        
+    
                 # if mdl == '21cmfast':
                 axs[row,col].plot(kprll, eor_21cmfast_Pk_interp[subband_index,:,refblind_sorted[i]], ls='-', lw=3, color='cyan')
                 # elif mdl == 'lidz':
@@ -1736,8 +1778,8 @@ if '1e' in plots:
         fig.subplots_adjust(left=0.15)
         fig.subplots_adjust(right=0.98)    
     
-        PLT.savefig(figuresdir+'{0}_asm_foreground_eor_beam_chromaticity_{1:.1f}_MHz_subband.png'.format(strategy, subband_freq/1e6), bbox_inches=0)
-        PLT.savefig(figuresdir+'{0}_asm_foreground_eor_beam_chromaticity_{1:.1f}_MHz_subband.eps'.format(strategy, subband_freq/1e6), bbox_inches=0)    
+        PLT.savefig(figuresdir+'{0}_asm_foreground_eor_beam_chromaticity_{1:.1f}_MHz_subband_{2}_method.png'.format(strategy, subband_freq/1e6, dpstype), bbox_inches=0)
+        PLT.savefig(figuresdir+'{0}_asm_foreground_eor_beam_chromaticity_{1:.1f}_MHz_subband_{2}_method.eps'.format(strategy, subband_freq/1e6, dpstype), bbox_inches=0)    
 
     print '\n\tPlotted and saved EoR and ASM foreground with varying beam chromaticity in {0:.1f} MHz subband'.format(subband_freq/1e6)
 
