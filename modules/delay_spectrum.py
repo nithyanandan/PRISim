@@ -2018,7 +2018,7 @@ class DelaySpectrum(object):
         result = {}
         for key in ['cc', 'sim']:
             if (key == 'sim') or ((key == 'cc') and (self.cc_lags is not None)):
-                freq_wts = NP.empty((bw_eff[key].size, self.f.size))
+                freq_wts = NP.empty((bw_eff[key].size, self.f.size), dtype=NP.float_)
                 frac_width = DSP.window_N2width(n_window=None, shape=shape[key], fftpow=fftpow[key], area_normalize=False, power_normalize=True)
                 window_loss_factor = 1 / frac_width
                 n_window = NP.round(window_loss_factor * bw_eff[key] / self.df).astype(NP.int)

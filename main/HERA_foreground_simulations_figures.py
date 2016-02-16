@@ -1040,11 +1040,11 @@ fgdps_chrmbeam.compute_power_spectrum()
 fgdps_funcbeam = DS.DelayPowerSpectrum(fgds_funcbeam)
 fgdps_funcbeam.compute_power_spectrum()
 
-# PDB.set_trace()
 # fgds_achrmbeam1 = DS.DelaySpectrum(init_file=fgdsfile_achrmbeam+'.ds.fits')
 # fgds_achrmbeam_sbds1 = fgds_achrmbeam1.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, fftpow={'cc': 1.0, 'sim': 1.0}, pad=None, bpcorrect=False, action='return_resampled')
 # fgdps_achrmbeam1 = DS.DelayPowerSpectrum(fgds_achrmbeam1)
 # fgdps_achrmbeam1.compute_power_spectrum()
+# PDB.set_trace()
 
 fgdps_sbIC = {beamstr: NP.load(rootdir+project_dir+'pspecs_{0}_sbinfo.npz'.format(beamstr)) for beamstr in ['achrmbeam', 'chrmbeam', 'funcbeam']}
 

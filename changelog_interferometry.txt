@@ -1,3 +1,11 @@
+From 97c2fa5 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Enforce double precision arithmetic in subband_delay_transform()
+member function of class DelaySpectrum
+
 From 9cde45c (master):
 =====================
 
