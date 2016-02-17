@@ -1,3 +1,11 @@
+From 38d2085 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Check for presence of foreground strategy key in member function
+subband_delay_transform() of class DelaySpectrum
+
 From 97c2fa5 (master):
 =====================
 

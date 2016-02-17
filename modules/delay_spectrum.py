@@ -2084,24 +2084,25 @@ class DelaySpectrum(object):
 
         result_resampled = {}
         for key in ['cc', 'sim']:
-            result_resampled[key] = {}
-            result_resampled[key]['freq_center'] = result[key]['freq_center']
-            result_resampled[key]['bw_eff'] = result[key]['bw_eff']
-
-            downsample_factor = NP.min((self.f.size + npad) * self.df / result_resampled[key]['bw_eff'])
-            result_resampled[key]['lags'] = DSP.downsampler(result[key]['lags'], downsample_factor, axis=-1, method='interp', kind='linear')
-            result_resampled[key]['lag_kernel'] = DSP.downsampler(result[key]['lag_kernel'], downsample_factor, axis=2, method='interp', kind='linear')
-            result_resampled[key]['skyvis_lag'] = DSP.downsampler(result[key]['skyvis_lag'], downsample_factor, axis=2, method='FFT')
-            result_resampled[key]['vis_lag'] = DSP.downsampler(result[key]['vis_lag'], downsample_factor, axis=2, method='FFT')
-            dlag = result_resampled[key]['lags'][1] - result_resampled[key]['lags'][0]
-            result_resampled[key]['lag_corr_length'] = (1/result[key]['bw_eff']) / dlag
-            if key == 'cc': 
-                result_resampled[key]['skyvis_res_lag'] = DSP.downsampler(result[key]['skyvis_res_lag'], downsample_factor, axis=2, method='FFT')
-                result_resampled[key]['vis_res_lag'] = DSP.downsampler(result[key]['vis_res_lag'], downsample_factor, axis=2, method='FFT')
-                result_resampled[key]['skyvis_net_lag'] = DSP.downsampler(result[key]['skyvis_net_lag'], downsample_factor, axis=2, method='FFT')
-                result_resampled[key]['vis_net_lag'] = DSP.downsampler(result[key]['vis_net_lag'], downsample_factor, axis=2, method='FFT')
-            else:
-                result_resampled[key]['vis_noise_lag'] = DSP.downsampler(result[key]['vis_noise_lag'], downsample_factor, axis=2, method='FFT')
+            if key in result:
+                result_resampled[key] = {}
+                result_resampled[key]['freq_center'] = result[key]['freq_center']
+                result_resampled[key]['bw_eff'] = result[key]['bw_eff']
+    
+                downsample_factor = NP.min((self.f.size + npad) * self.df / result_resampled[key]['bw_eff'])
+                result_resampled[key]['lags'] = DSP.downsampler(result[key]['lags'], downsample_factor, axis=-1, method='interp', kind='linear')
+                result_resampled[key]['lag_kernel'] = DSP.downsampler(result[key]['lag_kernel'], downsample_factor, axis=2, method='interp', kind='linear')
+                result_resampled[key]['skyvis_lag'] = DSP.downsampler(result[key]['skyvis_lag'], downsample_factor, axis=2, method='FFT')
+                result_resampled[key]['vis_lag'] = DSP.downsampler(result[key]['vis_lag'], downsample_factor, axis=2, method='FFT')
+                dlag = result_resampled[key]['lags'][1] - result_resampled[key]['lags'][0]
+                result_resampled[key]['lag_corr_length'] = (1/result[key]['bw_eff']) / dlag
+                if key == 'cc': 
+                    result_resampled[key]['skyvis_res_lag'] = DSP.downsampler(result[key]['skyvis_res_lag'], downsample_factor, axis=2, method='FFT')
+                    result_resampled[key]['vis_res_lag'] = DSP.downsampler(result[key]['vis_res_lag'], downsample_factor, axis=2, method='FFT')
+                    result_resampled[key]['skyvis_net_lag'] = DSP.downsampler(result[key]['skyvis_net_lag'], downsample_factor, axis=2, method='FFT')
+                    result_resampled[key]['vis_net_lag'] = DSP.downsampler(result[key]['vis_net_lag'], downsample_factor, axis=2, method='FFT')
+                else:
+                    result_resampled[key]['vis_noise_lag'] = DSP.downsampler(result[key]['vis_noise_lag'], downsample_factor, axis=2, method='FFT')
         if verbose:
             print '\tDownsampled Sub-band(s) delay transform computed'
 

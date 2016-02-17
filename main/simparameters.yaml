@@ -181,8 +181,8 @@ beam    :
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_195_137o5_hp_nside128full.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl03/X4Y2H_490.hmap'
-                      '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_hp_nside128full.fits'
+                      '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl04/X4Y2H_4900.hmap'
+                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_hp_nside128full.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/XRFBg_195_137o5_hp_nside128full.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/analytic/14.0m_dish_Airy_no_ground_nside_256_derr_0.000ns_gerr_0.00dB_nrand_1_128x781.2_kHz_150.0_MHz.fits'
 
@@ -191,7 +191,7 @@ beam    :
                                 # beam. Used only if use_external is
                                 # set to true
 
-    identifier      : 'RBAN-128H'
+    identifier      : 'HERA-CST'
                                 # string to identify source of beam
                                 # Any string. e.g. RB=Rich Bradley,
                                 # AN=Abraham Neben
@@ -208,7 +208,7 @@ beam    :
                                 # all frequencies. if true, beam
                                 # scales with frequency
 
-    select_freq     : 137500000.0
+    select_freq     : 150000000.0
                                 # Frequency (Hz) to use for beam in 
                                 # case of achromatic usage of the beam
                                 # If set to null (default), it defaults
@@ -251,11 +251,11 @@ obsparm  :
                                 # Only two of t_obs, n_acc, t_acc
                                 # must be set
 
-    n_acc           : 80     
+    n_acc           : 2     
                                 # Number of accumulations. Only two of
                                 # t_obs, n_acc, and t_acc must be set
 
-    t_acc           : 1080.0
+    t_acc           : 60.0
                                 # Accumulation time (in seconds) for
                                 # each snapshot. Only two of t_obs,
                                 # n_acc, and t_acc must be set
@@ -373,7 +373,7 @@ snapshot :                      # Parameters below are mutually
 
 fgparm   :
 
-    model           : 'asm'
+    model           : 'point'
                                 # Foreground model. Accepted values
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both
@@ -436,23 +436,23 @@ fgparm   :
 
 catalog  :
 
-    DSM_file_prefix : '/data3/t_nithyanandan/project_MWA/foregrounds/gsmdata'
+    DSM_file_prefix : '/data3/t_nithyanandan/foregrounds/gsmdata'
                                # Diffuse Sky Model map file name prefix
                  
 
-    SUMSS_file      : '/data3/t_nithyanandan/project_MWA/foregrounds/sumsscat.Mar-11-2008.txt'
+    SUMSS_file      : '/data3/t_nithyanandan/foregrounds/sumsscat.Mar-11-2008.txt'
                                 # SUMSS catalog file
 
-    NVSS_file       : '/data3/t_nithyanandan/project_MWA/foregrounds/NVSS_catalog.fits'
+    NVSS_file       : '/data3/t_nithyanandan/foregrounds/NVSS_catalog.fits'
                                 # NVSS catalog file
 
-    MWACS_file      : '/data3/t_nithyanandan/project_MWA/foregrounds/mwacs_b1_131016.csv'
+    MWACS_file      : '/data3/t_nithyanandan/foregrounds/mwacs_b1_131016.csv'
                                 # MWACS catalog file
 
-    GLEAM_file      : '/data3/t_nithyanandan/project_MWA/foregrounds/mwacs_b1_131016.csv'
+    GLEAM_file      : '/data3/t_nithyanandan/foregrounds/mwacs_b1_131016.csv'
                                 # GLEAM catalog file
 
-    PS_file         : '/data3/t_nithyanandan/project_MWA/foregrounds/PS_catalog.txt'
+    PS_file         : '/data3/t_nithyanandan/foregrounds/PS_catalog.txt'
                                 # User defined point sources catalog
                                 # file
 
