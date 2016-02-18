@@ -547,6 +547,11 @@ processing:
     delay_transform : false
                                 # if true, compute delay transform
 
+    memsave         : false
+                                # Parameter to save memory. If set
+                                # to true use single precision, if
+                                # false, use double precision
+
 ########## Parallel processing setup #########
 
 pp       :

@@ -1,3 +1,11 @@
+From 2d3fb5e (master):
+=====================
+
+In interferometry.py,
+
+(*) Enforce double precision while initializing visibilities from
+init file in __init__() member function of class InterferometerArray
+
 From 38d2085 (master):
 =====================
 

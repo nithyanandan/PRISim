@@ -2037,7 +2037,7 @@ class InterferometerArray(object):
             if 'REAL_FREQ_OBS_VISIBILITY' in extnames:
                 self.vis_freq = hdulist['real_freq_obs_visibility'].data
                 if 'IMAG_FREQ_OBS_VISIBILITY' in extnames:
-                    self.vis_freq = self.vis_freq.astype(NP.complex64)
+                    self.vis_freq = self.vis_freq.astype(NP.complex128)
                     self.vis_freq += 1j * hdulist['imag_freq_obs_visibility'].data
             else:
                 raise KeyError('Extension named "REAL_FREQ_OBS_VISIBILITY" not found in init_file.')
@@ -2045,7 +2045,7 @@ class InterferometerArray(object):
             if 'REAL_FREQ_SKY_VISIBILITY' in extnames:
                 self.skyvis_freq = hdulist['real_freq_sky_visibility'].data
                 if 'IMAG_FREQ_SKY_VISIBILITY' in extnames:
-                    self.skyvis_freq = self.skyvis_freq.astype(NP.complex64)
+                    self.skyvis_freq = self.skyvis_freq.astype(NP.complex128)
                     self.skyvis_freq += 1j * hdulist['imag_freq_sky_visibility'].data
             else:
                 raise KeyError('Extension named "REAL_FREQ_SKY_VISIBILITY" not found in init_file.')
@@ -2053,7 +2053,7 @@ class InterferometerArray(object):
             if 'REAL_FREQ_NOISE_VISIBILITY' in extnames:
                 self.vis_noise_freq = hdulist['real_freq_noise_visibility'].data
                 if 'IMAG_FREQ_NOISE_VISIBILITY' in extnames:
-                    self.vis_noise_freq = self.vis_noise_freq.astype(NP.complex64)
+                    self.vis_noise_freq = self.vis_noise_freq.astype(NP.complex128)
                     self.vis_noise_freq += 1j * hdulist['imag_freq_noise_visibility'].data
             else:
                 raise KeyError('Extension named "REAL_FREQ_NOISE_VISIBILITY" not found in init_file.')
@@ -2061,7 +2061,7 @@ class InterferometerArray(object):
             if 'REAL_LAG_VISIBILITY' in extnames:
                 self.vis_lag = hdulist['real_lag_visibility'].data
                 if 'IMAG_LAG_VISIBILITY' in extnames:
-                    self.vis_lag = self.vis_lag.astype(NP.complex64)
+                    self.vis_lag = self.vis_lag.astype(NP.complex128)
                     self.vis_lag += 1j * hdulist['imag_lag_visibility'].data
             else:
                 self.vis_lag = None
@@ -2069,7 +2069,7 @@ class InterferometerArray(object):
             if 'REAL_LAG_SKY_VISIBILITY' in extnames:
                 self.skyvis_lag = hdulist['real_lag_sky_visibility'].data
                 if 'IMAG_LAG_SKY_VISIBILITY' in extnames:
-                    self.skyvis_lag = self.skyvis_lag.astype(NP.complex64)
+                    self.skyvis_lag = self.skyvis_lag.astype(NP.complex128)
                     self.skyvis_lag += 1j * hdulist['imag_lag_sky_visibility'].data
             else:
                 self.skyvis_lag = None
@@ -2077,7 +2077,7 @@ class InterferometerArray(object):
             if 'REAL_LAG_NOISE_VISIBILITY' in extnames:
                 self.vis_noise_lag = hdulist['real_lag_noise_visibility'].data
                 if 'IMAG_LAG_NOISE_VISIBILITY' in extnames:
-                    self.vis_noise_lag = self.vis_noise_lag.astype(NP.complex64)
+                    self.vis_noise_lag = self.vis_noise_lag.astype(NP.complex128)
                     self.vis_noise_lag += 1j * hdulist['imag_lag_noise_visibility'].data
             else:
                 self.vis_noise_lag = None
