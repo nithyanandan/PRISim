@@ -1,3 +1,11 @@
+From dcb4fc0 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Enforce interpolated beam never exceeds unity in member function
+beam3Dvol() of class DelayPowerSpectrum
+
 From 2d3fb5e (master):
 =====================
 

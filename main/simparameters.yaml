@@ -138,7 +138,9 @@ antenna  :
                     
     phased_array    : false
                                 # If true, the antenna is a phased
-                                # array of antenna elements.
+                                # array of antenna elements and
+                                # phased array parameters specified
+                                # below are used.
                                 # Default = false
                     
     ground_plane    : null
@@ -170,7 +172,7 @@ phasedarray:
 
 beam    :
 
-    use_external    : true
+    use_external    : false
                                 # If true, use an externally specified
                                 # antenna beam. If false, determine
                                 # analytically from antenna aperture
@@ -201,7 +203,7 @@ beam    :
                                 # Beam polarization. Accepted values
                                 # are 'X' and 'Y'
 
-    chromatic       : false
+    chromatic       : true
                                 # if false, the beam is the same at
                                 # all frequencies and the beam at
                                 # reference frequency will be used for
@@ -251,11 +253,11 @@ obsparm  :
                                 # Only two of t_obs, n_acc, t_acc
                                 # must be set
 
-    n_acc           : 2     
+    n_acc           : 1     
                                 # Number of accumulations. Only two of
                                 # t_obs, n_acc, and t_acc must be set
 
-    t_acc           : 60.0
+    t_acc           : 1080.0
                                 # Accumulation time (in seconds) for
                                 # each snapshot. Only two of t_obs,
                                 # n_acc, and t_acc must be set
@@ -373,7 +375,7 @@ snapshot :                      # Parameters below are mutually
 
 fgparm   :
 
-    model           : 'point'
+    model           : 'asm'
                                 # Foreground model. Accepted values
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both

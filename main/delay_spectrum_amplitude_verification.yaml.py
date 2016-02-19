@@ -371,7 +371,7 @@ for k in range(n_sky_sectors):
                               do_delay_transform=False)   
     dsofg = DS.DelaySpectrum(interferometer_array=iafg)
     # dsofg.delayClean(pad=pad, freq_wts=window, clean_window_buffer=clean_window_buffer, gain=gain, maxiter=maxiter, threshold=threshold, threshold_type=threshold_type, parallel=parallel, nproc=nproc)
-    dsofg_sbds = dsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return')
+    dsofg_sbds = dsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return_oversampled')
     dpsofg = DS.DelayPowerSpectrum(dsofg)
     dpsofg.compute_power_spectrum()
 

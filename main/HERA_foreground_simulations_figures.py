@@ -1001,9 +1001,12 @@ fgdsfile_funcbeam = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visi
 fgvis_achrmbeam = RI.InterferometerArray(None, None, None, init_file=fgvisfile_achrmbeam+'.fits')
 fgvis_chrmbeam = RI.InterferometerArray(None, None, None, init_file=fgvisfile_chrmbeam+'.fits')
 fgvis_funcbeam = RI.InterferometerArray(None, None, None, init_file=fgvisfile_funcbeam+'.fits')
-fgds_achrmbeam = DS.DelaySpectrum(init_file=fgdsfile_achrmbeam+'.ds.fits')
-fgds_chrmbeam = DS.DelaySpectrum(init_file=fgdsfile_chrmbeam+'.ds.fits')
-fgds_funcbeam = DS.DelaySpectrum(init_file=fgdsfile_funcbeam+'.ds.fits')
+fgds_achrmbeam = DS.DelaySpectrum(interferometer_array=fgvis_achrmbeam)
+fgds_chrmbeam = DS.DelaySpectrum(interferometer_array=fgvis_chrmbeam)
+fgds_funcbeam = DS.DelaySpectrum(interferometer_array=fgvis_funcbeam)
+# fgds_achrmbeam = DS.DelaySpectrum(init_file=fgdsfile_achrmbeam+'.ds.fits')
+# fgds_chrmbeam = DS.DelaySpectrum(init_file=fgdsfile_chrmbeam+'.ds.fits')
+# fgds_funcbeam = DS.DelaySpectrum(init_file=fgdsfile_funcbeam+'.ds.fits')
 
 # ############
 
@@ -1040,11 +1043,11 @@ fgdps_chrmbeam.compute_power_spectrum()
 fgdps_funcbeam = DS.DelayPowerSpectrum(fgds_funcbeam)
 fgdps_funcbeam.compute_power_spectrum()
 
-# fgds_achrmbeam1 = DS.DelaySpectrum(init_file=fgdsfile_achrmbeam+'.ds.fits')
-# fgds_achrmbeam_sbds1 = fgds_achrmbeam1.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, fftpow={'cc': 1.0, 'sim': 1.0}, pad=None, bpcorrect=False, action='return_resampled')
-# fgdps_achrmbeam1 = DS.DelayPowerSpectrum(fgds_achrmbeam1)
-# fgdps_achrmbeam1.compute_power_spectrum()
-# PDB.set_trace()
+fgds_achrmbeam1 = DS.DelaySpectrum(init_file=fgdsfile_achrmbeam+'.ds.fits')
+fgds_achrmbeam_sbds1 = fgds_achrmbeam1.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape=freq_window_shape, fftpow={'cc': 1.0, 'sim': 1.0}, pad=None, bpcorrect=False, action='return_resampled')
+fgdps_achrmbeam1 = DS.DelayPowerSpectrum(fgds_achrmbeam1)
+fgdps_achrmbeam1.compute_power_spectrum()
+PDB.set_trace()
 
 fgdps_sbIC = {beamstr: NP.load(rootdir+project_dir+'pspecs_{0}_sbinfo.npz'.format(beamstr)) for beamstr in ['achrmbeam', 'chrmbeam', 'funcbeam']}
 

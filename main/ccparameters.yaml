@@ -165,11 +165,11 @@ obsparm  :
                                 # Center frequency (in Hz)
                                 # 167.05 MHz for Adam Lidz's cube
 
-    freq_resolution : 390625.0
+    freq_resolution : 97656.25
                                 # Frequency resolution (in Hz)
                                 # 80 kHz for Adam Lidz's cube
 
-    nchan           : 256
+    nchan           : 1024
                                 # Number of channels
                                 # 704 for Adam Lidz's cube
 
@@ -181,11 +181,11 @@ obsparm  :
                                 # 'drift', 'track', 'dns', 'lstbin', and 
                                 # 'custom' or null (default)
 
-    n_acc           : 80     
+    n_acc           : 1     
                                 # Number of accumulations. Only two of
                                 # t_obs, n_acc, and t_acc must be set
 
-    t_acc           : 1080.0
+    t_acc           : 60.0
                                 # Accumulation time (in seconds) for
                                 # each snapshot. Only two of t_obs,
                                 # n_acc, and t_acc must be set

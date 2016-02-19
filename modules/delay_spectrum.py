@@ -3016,6 +3016,10 @@ class DelayPowerSpectrum(object):
                 else:
                     nearest_freq_ind = NP.argmin(NP.abs(beam_freqs - select_beam_freq))
                     interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(extbeam[:,nearest_freq_ind].reshape(-1,1), self.f.size, axis=1)), theta_phi=theta_phi, inloc_axis=self.f, outloc_axis=self.f, axis=1, assume_sorted=True)
+                interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)
+                interp_logbeam_max[interp_logbeam_max <= 0.0] = 0.0
+                interp_logbeam_max = interp_logbeam_max.reshape(1,-1)
+                interp_logbeam = interp_logbeam - interp_logbeam_max
                 beam = 10**interp_logbeam
             else:
                 theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))

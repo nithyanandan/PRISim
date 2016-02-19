@@ -172,7 +172,7 @@ achrmbeam    :
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
-                      '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl03/X4Y2H_490.hmap'
+                      '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl04/X4Y2H_4900.hmap'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/analytic/14.0m_dish_Airy_no_ground_nside_256_derr_0.000ns_gerr_0.00dB_nrand_1_128x781.2_kHz_150.0_MHz.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_hp_nside128full.fits'
 
@@ -200,7 +200,7 @@ chrmbeam    :
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
-                      '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl03/X4Y2H_490.hmap'
+                      '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl04/X4Y2H_4900.hmap'
                       # '/data3/t_nithyanandan/project_HERA/power_patterns/analytic/14.0m_dish_Airy_no_ground_nside_256_derr_0.000ns_gerr_0.00dB_nrand_1_128x781.2_kHz_150.0_MHz.fits'
                                 # Full pathname to the FITS file
                                 # containing the external antenna
@@ -242,7 +242,7 @@ obsparm  :
                                 # Only two of t_obs, n_acc, t_acc
                                 # must be set
 
-    n_acc           : 80     
+    n_acc           : 1     
                                 # Number of accumulations. Only two of
                                 # t_obs, n_acc, and t_acc must be set
 

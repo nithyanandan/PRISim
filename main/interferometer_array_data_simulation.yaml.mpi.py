@@ -1540,6 +1540,10 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                     else:
                         nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs*1e6 - select_beam_freq))
                         interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e3, outloc_axis=chans*1e3, axis=1, assume_sorted=True)
+                    interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)
+                    interp_logbeam_max[interp_logbeam_max <= 0.0] = 0.0
+                    interp_logbeam_max = interp_logbeam_max.reshape(1,-1)
+                    interp_logbeam = interp_logbeam - interp_logbeam_max
                     roiinfo['pbeam'] = 10**interp_logbeam
                     # roiinfo['pbeam'] = NP.ones((roiinfo['ind'].size,chans.size), dtype=NP.float32)
                 else:
@@ -1722,6 +1726,10 @@ else: # MPI based on baseline multiplexing
                             nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs*1e6 - freq))
                             interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e3, outloc_axis=chans*1e3, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
                         
+                        interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)
+                        interp_logbeam_max[interp_logbeam_max <= 0.0] = 0.0
+                        interp_logbeam_max = interp_logbeam_max.reshape(1,-1)
+                        interp_logbeam = interp_logbeam - interp_logbeam_max
                         roiinfo['pbeam'] = 10**interp_logbeam
                         # roiinfo['pbeam'] = NP.ones((roiinfo['ind'].size,chans.size), dtype=NP.float32)
                     else:
