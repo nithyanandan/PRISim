@@ -1,3 +1,12 @@
+From 8527d38 (master):
+=====================
+
+In interferometry.py,
+
+(*) In observe() member function of class InterferometerArray, enforce
+double precision in case of memory shortage only if input keyword
+memsave is set to True
+
 From dcb4fc0 (master):
 =====================
 
