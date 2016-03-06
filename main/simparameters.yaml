@@ -172,7 +172,7 @@ phasedarray:
 
 beam    :
 
-    use_external    : false
+    use_external    : true
                                 # If true, use an externally specified
                                 # antenna beam. If false, determine
                                 # analytically from antenna aperture
@@ -253,7 +253,7 @@ obsparm  :
                                 # Only two of t_obs, n_acc, t_acc
                                 # must be set
 
-    n_acc           : 80    
+    n_acc           : 80
                                 # Number of accumulations. Only two of
                                 # t_obs, n_acc, and t_acc must be set
 

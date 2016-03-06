@@ -242,7 +242,7 @@ obsparm  :
                                 # Only two of t_obs, n_acc, t_acc
                                 # must be set
 
-    n_acc           : 1     
+    n_acc           : 80
                                 # Number of accumulations. Only two of
                                 # t_obs, n_acc, and t_acc must be set
 
@@ -582,7 +582,7 @@ plot    :
                                 # spectra on selected baselines,
                                 # selected LST and selected subband
                                 # as listed below
-            action  : true
+            action  : false
 
             dpstype : 'win'
                                 # Type of subband delay power
@@ -609,7 +609,7 @@ plot    :
             eor_mdl : '21cmfast'
                                 # EoR model power spectrum to plot
 
-            strategies  : ['sim', 'cc']
+            strategies  : ['sim']
                                 # list of strategies, namely,
                                 # Foreground avoidance (specified
                                 # by 'sim') or foreground removal
@@ -660,3 +660,21 @@ plot    :
                                 # as a function of LST and baseline
             action  : false
 
+    3c      :
+                                # Plot signal-to-foreground ratio
+                                # lower limit over k_parallel
+                                # as a function of LST and baseline
+            action  : true
+
+            kprll_buffer: 3.5
+                                # Number of kprll bins to be provided
+                                # as buffer in determining lower
+                                # limit on k_prll
+
+    4a      :
+                                # Plot Blackman-Harris window and its
+                                # modified version based on fftpow
+                                # and their responses in delay space
+            action  : false
+            sbfreq  : 150000000.0
+                                # Subband frequency (in Hz)

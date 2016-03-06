@@ -60,6 +60,7 @@ if use_external_beam:
 beam_chromaticity = beam_info['chromatic']
 n_sky_sectors = parms['processing']['n_sky_sectors']
 bpass_shape = parms['clean']['bpass_shape']
+fftpow = parms['clean']['fftpow']
 pad = parms['clean']['pad']
 clean_window_buffer = parms['clean']['window_buffer']
 gain = parms['clean']['gain']
@@ -310,9 +311,11 @@ bl_id = bl_id[:min(baseline_bin_indices[n_bl_chunks], total_baselines)]
     
 n_channels = nchan
 
-frac_width = DSP.window_N2width(shape=bpass_shape, area_normalize=False, power_normalize=True)
+frac_width = DSP.window_N2width(n_window=None, shape=bpass_shape, fftpow=fftpow, area_normalize=True, power_normalize=False)
 # window = NP.sqrt(frac_width * n_channels) * DSP.windowing(n_channels, shape=bpass_shape, pad_width=0, centering=True, area_normalize=False, power_normalize=True)
-window = n_channels * DSP.windowing(n_channels, shape=bpass_shape, pad_width=0, centering=True, area_normalize=True, power_normalize=False) 
+PDB.set_trace()
+# window = n_channels * DSP.windowing(n_channels, shape=bpass_shape, pad_width=0, centering=True, area_normalize=True, power_normalize=False)
+window = n_channels * DSP.window_fftpow(n_channels, shape=bpass_shape, fftpow=fftpow, pad_width=0, centering=True, area_normalize=True, power_normalize=False)
 bw = n_channels * freq_resolution
 bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(nchan, freq_resolution/1e3)
 
@@ -357,7 +360,7 @@ for k in range(n_sky_sectors):
         sky_sector_str = '_sky_sector_{0:0d}_'.format(k)
     
     infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+pfb_instr
-    outfile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+'_'+pfb_outstr+bpass_shape
+    outfile = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+'_'+pfb_outstr+bpass_shape+'{0:.1f}'.format(fftpow)
 
     ia_outfile = infile
     iafg = RI.InterferometerArray(None, None, None, init_file=infile+'.fits')
@@ -365,9 +368,10 @@ for k in range(n_sky_sectors):
                               do_delay_transform=False)   
     dsofg = DS.DelaySpectrum(interferometer_array=iafg)
     dsofg.delayClean(pad=pad, freq_wts=window, clean_window_buffer=clean_window_buffer, gain=gain, maxiter=maxiter, threshold=threshold, threshold_type=threshold_type, parallel=parallel, nproc=nproc)
-    dsofg_sbds = dsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, pad=None, bpcorrect=False, action='return')
+    dsofg_sbds = dsofg.subband_delay_transform(freq_window_bw, freq_center=freq_window_centers, shape={key: 'bhw' for key in ['cc', 'sim']}, fftpow={key: fftpow for key in ['cc','sim']}, pad=None, bpcorrect=False, action='return_resampled')
     dpsofg = DS.DelayPowerSpectrum(dsofg)
     dpsofg.compute_power_spectrum()
+    PDB.set_trace()
     dsofg.save(outfile, ia_outfile, tabtype='BinTableHDU', overwrite=True, verbose=True)
     # dsoia = DS.DelaySpectrum(init_file=outfile+'.ds.fits')
 

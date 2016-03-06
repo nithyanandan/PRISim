@@ -1,3 +1,10 @@
+From 1147d95 (master):
+=====================
+
+(*) Commit version corresponding to paper draft submission for
+HERA collaboration review on effects of antenna beam chromaticity and
+HERA performance
+
 From 8527d38 (master):
 =====================
 

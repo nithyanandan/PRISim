@@ -1,4 +1,4 @@
-########## Directory information #########
+########## Directory information ######### 
 
 directory:
                                 # Directory information
@@ -132,7 +132,7 @@ beam    :
                                 # analytically from antenna aperture
                                 # specifications
 
-    identifier      : 'RBAN-128H'
+    identifier      : 'HERA-CST'
                                 # string to identify source of beam
                                 # Any string. e.g. RB=Rich Bradley,
                                 # AN=Abraham Neben
@@ -145,7 +145,7 @@ beam    :
                                 # all frequencies. if true, beam
                                 # scales with frequency
 
-    select_freq     : 137500000.0
+    select_freq     : 150000000.0
                                 # Frequency (Hz) to use for beam in 
                                 # case of achromatic usage of the beam
                                 # If set to null (default), it defaults
@@ -165,11 +165,11 @@ obsparm  :
                                 # Center frequency (in Hz)
                                 # 167.05 MHz for Adam Lidz's cube
 
-    freq_resolution : 97656.25
+    freq_resolution : 390625.0
                                 # Frequency resolution (in Hz)
                                 # 80 kHz for Adam Lidz's cube
 
-    nchan           : 1024
+    nchan           : 256
                                 # Number of channels
                                 # 704 for Adam Lidz's cube
 
@@ -181,11 +181,11 @@ obsparm  :
                                 # 'drift', 'track', 'dns', 'lstbin', and 
                                 # 'custom' or null (default)
 
-    n_acc           : 1     
+    n_acc           : 80
                                 # Number of accumulations. Only two of
                                 # t_obs, n_acc, and t_acc must be set
 
-    t_acc           : 60.0
+    t_acc           : 1080.0
                                 # Accumulation time (in seconds) for
                                 # each snapshot. Only two of t_obs,
                                 # n_acc, and t_acc must be set
@@ -340,6 +340,10 @@ clean   :
                                 # are 'rect' (rectangular), 'bnw'
                                 # (Blackman-Nuttall window), and 'bhw'
                                 # (Blackman-Harris window)
+
+    fftpow          : 2.0
+                                # FFT of the bandpass window function
+                                # will be raised to this power.
 
     pad             : 1.0
                                 # padding fraction relative to the

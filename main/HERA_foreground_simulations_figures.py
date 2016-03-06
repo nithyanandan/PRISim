@@ -994,19 +994,19 @@ fgvisfile_achrmbeam = rootdir+project_dir+telescope_str+'multi_baseline_visibili
 fgvisfile_chrmbeam = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+chromatic_extbeam_str+pfb_instr
 fgvisfile_funcbeam = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+funcbeam_str+pfb_instr
 
-fgdsfile_achrmbeam = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+achromatic_extbeam_str+'_'+pfb_outstr+bpass_shape
-fgdsfile_chrmbeam = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+chromatic_extbeam_str+'_'+pfb_outstr+bpass_shape
-fgdsfile_funcbeam = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+funcbeam_str+'_'+pfb_outstr+bpass_shape
+fgdsfile_achrmbeam = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+achromatic_extbeam_str+'_'+pfb_outstr+bpass_shape+'{0:.1f}'.format(freq_window_fftpow['sim'])
+fgdsfile_chrmbeam = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+chromatic_extbeam_str+'_'+pfb_outstr+bpass_shape+'{0:.1f}'.format(freq_window_fftpow['sim'])
+fgdsfile_funcbeam = rootdir+project_dir+telescope_str+'multi_baseline_CLEAN_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+funcbeam_str+'_'+pfb_outstr+bpass_shape+'{0:.1f}'.format(freq_window_fftpow['sim'])
 
 fgvis_achrmbeam = RI.InterferometerArray(None, None, None, init_file=fgvisfile_achrmbeam+'.fits')
 fgvis_chrmbeam = RI.InterferometerArray(None, None, None, init_file=fgvisfile_chrmbeam+'.fits')
 fgvis_funcbeam = RI.InterferometerArray(None, None, None, init_file=fgvisfile_funcbeam+'.fits')
-fgds_achrmbeam = DS.DelaySpectrum(interferometer_array=fgvis_achrmbeam)
-fgds_chrmbeam = DS.DelaySpectrum(interferometer_array=fgvis_chrmbeam)
-fgds_funcbeam = DS.DelaySpectrum(interferometer_array=fgvis_funcbeam)
-# fgds_achrmbeam = DS.DelaySpectrum(init_file=fgdsfile_achrmbeam+'.ds.fits')
-# fgds_chrmbeam = DS.DelaySpectrum(init_file=fgdsfile_chrmbeam+'.ds.fits')
-# fgds_funcbeam = DS.DelaySpectrum(init_file=fgdsfile_funcbeam+'.ds.fits')
+# fgds_achrmbeam = DS.DelaySpectrum(interferometer_array=fgvis_achrmbeam)
+# fgds_chrmbeam = DS.DelaySpectrum(interferometer_array=fgvis_chrmbeam)
+# fgds_funcbeam = DS.DelaySpectrum(interferometer_array=fgvis_funcbeam)
+fgds_achrmbeam = DS.DelaySpectrum(init_file=fgdsfile_achrmbeam+'.ds.fits')
+fgds_chrmbeam = DS.DelaySpectrum(init_file=fgdsfile_chrmbeam+'.ds.fits')
+fgds_funcbeam = DS.DelaySpectrum(init_file=fgdsfile_funcbeam+'.ds.fits')
 
 # ############
 
@@ -1061,9 +1061,11 @@ fgds_funcbeam_sbds1 = fgds_funcbeam1.subband_delay_transform(freq_window_bw, fre
 fgdps_funcbeam1 = DS.DelayPowerSpectrum(fgds_funcbeam1)
 fgdps_funcbeam1.compute_power_spectrum()
 
-PDB.set_trace()
+# fgds_achrmbeam1_DT = fgds_achrmbeam1.delay_transform(pad=1.0, freq_wts=window, downsample=False, action='store')
+# fgds_chrmbeam1_DT = fgds_chrmbeam1.delay_transform(pad=1.0, freq_wts=window, downsample=False, action='store')
+# fgds_funcbeam1_DT = fgds_funcbeam1.delay_transform(pad=1.0, freq_wts=window, downsample=False, action='store')
 
-fgdps_sbIC = {beamstr: NP.load(rootdir+project_dir+'pspecs_{0}_sbinfo.npz'.format(beamstr)) for beamstr in ['achrmbeam', 'chrmbeam', 'funcbeam']}
+fgdps_sbIC = {beamstr: NP.load(rootdir+project_dir+'pspecs_{0}_sbinfo.npz_50.npz'.format(beamstr)) for beamstr in ['achrmbeam', 'chrmbeam', 'funcbeam']}
 
 # eorvisfile_achrmbeam = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+eor_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(eor_nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, eor_bandpass_str, eor_cube_freq/1e6)+achromatic_extbeam_str+pfb_instr
 # eorvisfile_chrmbeam = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+eor_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(eor_nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, eor_bandpass_str, eor_cube_freq/1e6)+chromatic_extbeam_str+pfb_instr
@@ -1747,16 +1749,19 @@ if '1e' in plots:
     eta2kprll = DS.dkprll_deta(fgdps_achrmbeam.z, fgdps_achrmbeam.cosmo)
     sbIC_kprll = sbIC_lags * eta2kprll
 
+    ymin = 5e-7
+    ymax = 5e9
     for strategy in strategies:
         if strategy == 'sim': dpskey = 'skyvis_lag'
         if strategy == 'cc': dpskey = 'skyvis_res_lag'
-        fig, axs = PLT.subplots(ncols=2, nrows=4, sharex=True, sharey=True, figsize=(6,8))
+        fig, axs = PLT.subplots(ncols=4, nrows=2, sharex=True, sharey=True, figsize=(8,4))
         for row in range(axs.shape[0]):
             for col in range(axs.shape[1]):
                 i = col + row * axs.shape[1]
                 if dpstype == 'ic':
                     clrs = ['black', 'red', 'blue']
                     beamstr = ['achrmbeam', 'funcbeam', 'chrmbeam']
+                    reflstind_sorted = NP.where(reflstind_sorted < fgdps_sbIC[beamstr[0]]['pCnorm'].shape[3], reflstind_sorted, fgdps_sbIC[beamstr[0]]['pCnorm'].shape[3]-1)
                     for bmi,bmstr in enumerate(beamstr):
                         axs[row,col].plot(sbIC_kprll, NP.abs(fgdps_sbIC[bmstr]['pCnorm'][subband_index,refblind_sorted[i],:,reflstind_sorted[i]]), color=clrs[bmi], lw=2, ls='-')
                 else:
@@ -1766,7 +1771,9 @@ if '1e' in plots:
                     # axs[row,col].plot(fgdps_achrmbeam.subband_delay_power_spectra[strategy]['kprll'][subband_index,:], fgdps_achrmbeam.subband_delay_power_spectra[strategy][dpskey][refblind_sorted[i],subband_index,:,reflstind_sorted[i]], color='black', lw=2, ls='-')
                     # axs[row,col].plot(fgdps_funcbeam.subband_delay_power_spectra[strategy]['kprll'][subband_index,:], fgdps_funcbeam.subband_delay_power_spectra[strategy][dpskey][refblind_sorted[i],subband_index,:,reflstind_sorted[i]], color='red', lw=2, ls='-')
                     # axs[row,col].plot(fgdps_chrmbeam.subband_delay_power_spectra[strategy]['kprll'][subband_index,:], fgdps_chrmbeam.subband_delay_power_spectra[strategy][dpskey][refblind_sorted[i],subband_index,:,reflstind_sorted[i]], color='blue', lw=2, ls='-')
-        
+
+                    if freq_window_fftpow[strategy] > 1.0:
+                        ymin = 5e-9
                 axs[row,col].axvline(x=fgdps_achrmbeam.subband_delay_power_spectra[strategy]['horizon_kprll_limits'][reflstind_sorted[i],subband_index,refblind_sorted[i],0], ymax=0.9, ls=':', lw=2, color='black')
                 axs[row,col].axvline(x=fgdps_achrmbeam.subband_delay_power_spectra[strategy]['horizon_kprll_limits'][reflstind_sorted[i],subband_index,refblind_sorted[i],1], ymax=0.9, ls=':', lw=2, color='black')        
     
@@ -1777,44 +1784,53 @@ if '1e' in plots:
                 # else:
                 #     raise ValueError('This EoR model is not currently implemented')
         
-                axs[row,col].text(0.9, 0.9, '{0:.1f} m\n{1:.1f}'.format(bl_length[refblind_sorted[i]], bl_angle[i])+r'$^\circ$', transform=axs[row,col].transAxes, fontsize=12, weight='medium', ha='right', va='top', color='black')
+                axs[row,col].text(0.95, 0.95, '{0:.1f} m\n{1:.1f}'.format(bl_length[refblind_sorted[i]], bl_angle[i])+r'$^\circ$', transform=axs[row,col].transAxes, fontsize=10, weight='medium', ha='right', va='top', color='black')
                 axs[row,col].set_yscale('log')
                 axs[row,col].set_xlim(-0.59, 0.59)
-                axs[row,col].set_ylim(5e-7, 9e9)
-    
+                axs[row,col].set_ylim(ymin, ymax)
+                axs[row,col].tick_params(axis='x', labelsize=9)
+                # if dpstype == 'win':
+                #     if freq_window_fftpow[strategy] > 1.0:
+                #         axs[row,col].set_yticks(yticks)
+
         fig.subplots_adjust(hspace=0, wspace=0)
         big_ax = fig.add_subplot(111)
         big_ax.set_axis_bgcolor('none')
         big_ax.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
         big_ax.set_xticks([])
         big_ax.set_yticks([])
-        big_ax.set_xlabel(r'$k_\parallel$ [$h$ Mpc$^{-1}$]', fontsize=16, weight='medium', labelpad=16)
-        big_ax.set_ylabel(r'$P(k_\parallel)$ [K$^2$(h$^{-1}$ Mpc)$^3$]', fontsize=16, weight='medium', labelpad=30)
-        fig.subplots_adjust(top=0.98)
-        fig.subplots_adjust(bottom=0.1)
-        fig.subplots_adjust(left=0.15)
+        big_ax.set_xlabel(r'$k_\parallel$ [$h$ Mpc$^{-1}$]', fontsize=12, weight='medium', labelpad=16)
+        big_ax.set_ylabel(r'$P(k_\parallel)$ [K$^2$(h$^{-1}$ Mpc)$^3$]', fontsize=12, weight='medium', labelpad=30)
+        fig.subplots_adjust(top=0.96)
+        fig.subplots_adjust(bottom=0.12)
+        fig.subplots_adjust(left=0.09)
         fig.subplots_adjust(right=0.98)    
     
-        PLT.savefig(figuresdir+'{0}_asm_foreground_eor_beam_chromaticity_{1:.1f}_MHz_subband_{2}_method.png'.format(strategy, subband_freq/1e6, dpstype), bbox_inches=0)
-        PLT.savefig(figuresdir+'{0}_asm_foreground_eor_beam_chromaticity_{1:.1f}_MHz_subband_{2}_method.eps'.format(strategy, subband_freq/1e6, dpstype), bbox_inches=0)    
+        if dpstype == 'ic':
+            plotfilename = '{0}_asm_foreground_eor_beam_chromaticity_{1:.1f}_MHz_subband_{2}_method'.format(strategy, subband_freq/1e6, dpstype)
+        else:
+            plotfilename = '{0}_asm_foreground_eor_beam_chromaticity_{1:.1f}_MHz_subband_{2}_method_{3}{4:.1f}'.format(strategy, subband_freq/1e6, dpstype, freq_window_shape[strategy], freq_window_fftpow[strategy])
+        PLT.savefig(figuresdir+plotfilename+'.png'.format(strategy, subband_freq/1e6, dpstype), bbox_inches=0)
+        PLT.savefig(figuresdir+plotfilename+'.eps'.format(strategy, subband_freq/1e6, dpstype), bbox_inches=0)
 
     print '\n\tPlotted and saved EoR and ASM foreground with varying beam chromaticity in {0:.1f} MHz subband'.format(subband_freq/1e6)
 
-    fig, axs = PLT.subplots(ncols=2, nrows=4, sharex=True, sharey=True, figsize=(6,8))
+    fig, axs = PLT.subplots(ncols=4, nrows=2, sharex=True, sharey=True, figsize=(8,4))
     for row in range(axs.shape[0]):
         for col in range(axs.shape[1]):
             i = col + row * axs.shape[1]
             axs[row,col].plot(kprll, fgdps_achrmbeam.dps['skyvis'][refblind_sorted[i],:,reflstind_sorted[i]], color='black', lw=2, ls='-')
             axs[row,col].plot(kprll, fgdps_funcbeam.dps['skyvis'][refblind_sorted[i],:,reflstind_sorted[i]], color='red', lw=2, ls='-', alpha=0.7)
             axs[row,col].plot(kprll, fgdps_chrmbeam.dps['skyvis'][refblind_sorted[i],:,reflstind_sorted[i]], color='blue', lw=2, ls='-', alpha=0.7)
-    
+
             axs[row,col].axvline(x=fgdps_achrmbeam.horizon_kprll_limits[reflstind_sorted[i],refblind_sorted[i],0], ymax=0.9, ls=':', lw=2, color='black')
-            axs[row,col].axvline(x=fgdps_achrmbeam.horizon_kprll_limits[reflstind_sorted[i],refblind_sorted[i],1], ymax=0.9, ls=':', lw=2, color='black')        
-    
-            axs[row,col].text(0.9, 0.9, '{0:.1f} m\n{1:.1f}'.format(bl_length[refblind_sorted[i]], bl_angle[i])+r'$^\circ$', transform=axs[row,col].transAxes, fontsize=12, weight='medium', ha='right', va='top', color='black')
+            axs[row,col].axvline(x=fgdps_achrmbeam.horizon_kprll_limits[reflstind_sorted[i],refblind_sorted[i],1], ymax=0.9, ls=':', lw=2, color='black')
+
+            axs[row,col].text(0.95, 0.95, '{0:.1f} m\n{1:.1f}'.format(bl_length[refblind_sorted[i]], bl_angle[i])+r'$^\circ$', transform=axs[row,col].transAxes, fontsize=10, weight='medium', ha='right', va='top', color='black')
             axs[row,col].set_yscale('log')
             axs[row,col].set_xlim(-0.59, 0.59)
-            axs[row,col].set_ylim(5e-7, 9e9)
+            axs[row,col].set_ylim(ymin, ymax)
+            axs[row,col].tick_params(axis='x', labelsize=9)
 
     fig.subplots_adjust(hspace=0, wspace=0)
     big_ax = fig.add_subplot(111)
@@ -1822,15 +1838,15 @@ if '1e' in plots:
     big_ax.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
     big_ax.set_xticks([])
     big_ax.set_yticks([])
-    big_ax.set_xlabel(r'$k_\parallel$ [$h$ Mpc$^{-1}$]', fontsize=16, weight='medium', labelpad=16)
-    big_ax.set_ylabel(r'$P(k_\parallel)$ [K$^2$(h$^{-1}$ Mpc)$^3$]', fontsize=16, weight='medium', labelpad=30)
-    fig.subplots_adjust(top=0.98)
-    fig.subplots_adjust(bottom=0.1)
-    fig.subplots_adjust(left=0.15)
-    fig.subplots_adjust(right=0.98)    
+    big_ax.set_xlabel(r'$k_\parallel$ [$h$ Mpc$^{-1}$]', fontsize=12, weight='medium', labelpad=16)
+    big_ax.set_ylabel(r'$P(k_\parallel)$ [K$^2$(h$^{-1}$ Mpc)$^3$]', fontsize=12, weight='medium', labelpad=30)
+    fig.subplots_adjust(top=0.96)
+    fig.subplots_adjust(bottom=0.12)
+    fig.subplots_adjust(left=0.09)
+    fig.subplots_adjust(right=0.98)
 
-    PLT.savefig(figuresdir+'asm_foreground_eor_beam_chromaticity_fullband.png', bbox_inches=0)
-    PLT.savefig(figuresdir+'asm_foreground_eor_beam_chromaticity_fullband.eps', bbox_inches=0)    
+    PLT.savefig(figuresdir+'asm_foreground_eor_beam_chromaticity_fullband_{0}{1:.1f}.png'.format(freq_window_shape['sim'], freq_window_fftpow['sim']), bbox_inches=0)
+    PLT.savefig(figuresdir+'asm_foreground_eor_beam_chromaticity_fullband_{0}{1:.1f}.eps'.format(freq_window_shape['sim'], freq_window_fftpow['sim']), bbox_inches=0)
 
     print '\n\tPlotted and saved EoR and ASM foreground with varying beam chromaticity in {0:.1f} MHz subband'.format(subband_freq/1e6)
     
@@ -1894,9 +1910,10 @@ if '2a' in plots:
     # tau_bll = NP.arange(0.0, fg_lags_fold.max(), bll/FCNST.c)
     # kprll_bll = eta2kprll * tau_bll
     beamkeys = ['chrmbeam', 'funcbeam', 'achrmbeam']
-    beamlabels = ['Chrm.', 'Airy', 'Achrm.']
+    beamlabels = ['Sim.', 'Airy', 'Achrm.']
     ls = ['-', '--', ':']
     bcolors = ['0.75', '0.5', '0.25']
+    kcolors = ['0.75', '0.5', '0.25']
     # zorder = [3,2,1]
 
     # # fig, axs = PLT.subplots(ncols=kprll_reflectometry.size, sharex=True, sharey=True, figsize=(7,3.5))
@@ -1939,7 +1956,7 @@ if '2a' in plots:
         if beamtype == 'funcbeam': fg_pow = fgmdl_funcbeam[:,lst_ind]
         fg_pow = NP.mean(fg_pow, axis=1)
         # fg_mdl = NP.copy(fg_pow)
-        fg_mdl = NP.where(fg_pow > 1e1, fg_pow, 0.0)
+        fg_mdl = NP.where(fg_pow > 1e1, fg_pow, 0.0) # Need to understand why this threshold is used
         for cuti,kprll_cut in enumerate(kprll_reflectometry):
             for j,fgkpl in enumerate(fg_kprll):
                 if fg_mdl[j] <= 0.0: continue
@@ -1947,21 +1964,41 @@ if '2a' in plots:
                 resp = NP.sqrt(eorvals[subband_index,:] / fg_mdl[j])
                 resp = NP.where(kprll+fgkpl < kprll_cut, 1.0, resp)
                 dspec[beamtype][cuti,:] = NP.where(resp < dspec[beamtype][cuti,:], resp, dspec[beamtype][cuti,:])
-        dspec[beamtype] = 10 * NP.log10(dspec[beamtype])
+        dspec[beamtype] = -10.0 * NP.log10(dspec[beamtype])
+
+    bkey = 'achrmbeam'
+    fig = PLT.figure(figsize=(3.5,3.5))
+    ax = fig.add_subplot(111)
+    for kpi in range(kprll_reflectometry.size):
+        ax.plot(tau, dspec[bkey][kpi,:], ls=ls[kpi], lw=2, color='black', zorder=2, label=r'$k_\parallel \geq$'+' {0:.2f} h Mpc'.format(kprll_reflectometry[kpi])+r'$^{-1}$')
+        ax.fill_between(tau, NP.zeros_like(tau), dspec[bkey][kpi,:], facecolor=kcolors[kpi], edgecolor='none', zorder=1)
+        ax.set_xlim(0, 490)
+        ax.set_ylim(80, 0)
+        ax.set_ylabel('Attenuation [dB]', fontsize=14, weight='medium')
+        ax.set_xlabel(r'$\tau$ [ns]', fontsize=14, weight='medium')
+    lgnd = ax.legend(frameon=True, fontsize=8, loc='upper right', bbox_to_anchor=(0.999,0.999))
+
+    fig.subplots_adjust(top=0.95)
+    fig.subplots_adjust(bottom=0.15)
+    fig.subplots_adjust(left=0.2)
+    fig.subplots_adjust(right=0.98)
+
+    PLT.savefig(figuresdir+'spec_on_{0}_foreground_reflected_power_21cmfast_{1:.1f}m_{2:.1f}_MHz_subband_v2.png'.format(bkey, bll, subband_freq/1e6), bbox_inches=0)
+    PLT.savefig(figuresdir+'spec_on_{0}_foreground_reflected_power_21cmfast_{1:.1f}m_{2:.1f}_MHz_subband_v2.eps'.format(bkey, bll, subband_freq/1e6), bbox_inches=0)
 
     fig, axs = PLT.subplots(ncols=kprll_reflectometry.size, sharex=True, sharey=True, figsize=(7,3.5))
     for kpi in range(kprll_reflectometry.size):
-        for bi,bkey in enumerate(beamkeys):
+        for bi,bkey in enumerate(beamkeys[:2]):
             axs[kpi].plot(tau, dspec[bkey][kpi,:], ls=ls[bi], lw=2, color='black', label=beamlabels[bi], zorder=2)
             axs[kpi].fill_between(tau, NP.zeros_like(tau), dspec[bkey][kpi,:], facecolor=bcolors[bi], edgecolor='none', zorder=1)
         # for lag_refl in tau_bll:
         #     axs[kpi].axvline(x=1e9*lag_refl, ymin=0.0, ymax=0.85, lw=1, ls='-', color='0.33')
         axs[kpi].set_xlim(0, 490)
-        axs[kpi].set_ylim(-80, 0)
+        axs[kpi].set_ylim(80, 0)
         lgnd = axs[kpi].legend(frameon=True, fontsize=10, loc='upper right', bbox_to_anchor=(0.99,0.93))
         for txt in lgnd.get_texts():
             txt.set_color('black')
-        axs[kpi].text(0.98, 0.98, r'$k_\parallel \geq$'+' {0:.2f} h Mpc'.format(kprll_reflectometry[kpi])+r'$^{-1}$', transform=axs[kpi].transAxes, fontsize=10, weight='medium', ha='right', va='top', color='1.0')
+        axs[kpi].text(0.98, 0.98, r'$k_\parallel \geq$'+' {0:.2f} h Mpc'.format(kprll_reflectometry[kpi])+r'$^{-1}$', transform=axs[kpi].transAxes, fontsize=10, weight='medium', ha='right', va='top', color='0.0')
     fig.subplots_adjust(hspace=0, wspace=0)
     big_ax = fig.add_subplot(111)
     big_ax.set_axis_bgcolor('none')
@@ -1981,12 +2018,12 @@ if '2a' in plots:
     
     print '\n\tPlotted and saved spec on foreground reflected power'
         
-if ('3a' in plots) or ('3b' in plots):
+if ('3a' in plots) or ('3b' in plots) or ('3c' in plots):
         
     # 03-a) Plot signal-to-foreground ratio as a function of LST and k_parallel for a given baseline
 
-    kprll_sb = fgdps_achrmbeam.subband_delay_power_spectra['sim']['kprll']
-    kperp_sb = fgdps_achrmbeam.subband_delay_power_spectra['sim']['kperp']
+    kprll_sb = fgdps_achrmbeam.subband_delay_power_spectra_resampled['sim']['kprll']
+    kperp_sb = fgdps_achrmbeam.subband_delay_power_spectra_resampled['sim']['kperp']
     k_sb = NP.sqrt(kprll_sb[:,NP.newaxis,:]**2 + kperp_sb[:,:,NP.newaxis]**2)
 
     eormdl_sb = {}
@@ -2001,11 +2038,12 @@ if ('3a' in plots) or ('3b' in plots):
 
     for si, subband_freq in enumerate(freq_window_centers['sim']):
         for mdl in ['lidz', '21cmfast']:
-            if mdl == '21cmfast':
-                eorPk = lidz_Pk_interp_func(NP.log10(k_sb[si,:,:].flatten()))
             if mdl == 'lidz':
+                eorPk = lidz_Pk_interp_func(NP.log10(k_sb[si,:,:].flatten()))
+            if mdl == '21cmfast':
                 eorPk = Pk_21cmfast_interp_func(NP.log10(k_sb[si,:,:].flatten()))
-            eormdl_sb[mdl][si,:,:] = 10 ** eorPk[si,:].reshape(kperp_sb.shape[1], -1)
+            eorPk = 10 ** eorPk.reshape(freq_window_centers['sim'].size, kperp_sb.shape[1], -1)
+            eormdl_sb[mdl][si,:,:] = NP.copy(eorPk[si,:,:])
 
     fgpower = None
     for mdl in ['lidz', '21cmfast']:
@@ -2015,18 +2053,18 @@ if ('3a' in plots) or ('3b' in plots):
             for strategy in ['cc', 'sim']:
                 if strategy == 'cc':
                     if beamtype == 'achrmbeam':
-                        fgpower = fgdps_achrmbeam.subband_delay_power_spectra[strategy]['skyvis_res_lag']
+                        fgpower = fgdps_achrmbeam.subband_delay_power_spectra_resampled[strategy]['skyvis_res_lag']
                     if beamtype == 'chrmbeam':
-                        fgpower = fgdps_chrmbeam.subband_delay_power_spectra[strategy]['skyvis_res_lag']
+                        fgpower = fgdps_chrmbeam.subband_delay_power_spectra_resampled[strategy]['skyvis_res_lag']
                     if beamtype == 'funcbeam':
-                        fgpower = fgdps_funcbeam.subband_delay_power_spectra[strategy]['skyvis_res_lag']
+                        fgpower = fgdps_funcbeam.subband_delay_power_spectra_resampled[strategy]['skyvis_res_lag']
                 else:
                     if beamtype == 'achrmbeam':
-                        fgpower = fgdps_achrmbeam.subband_delay_power_spectra[strategy]['skyvis_lag']
+                        fgpower = fgdps_achrmbeam.subband_delay_power_spectra_resampled[strategy]['skyvis_lag']
                     if beamtype == 'chrmbeam':
-                        fgpower = fgdps_chrmbeam.subband_delay_power_spectra[strategy]['skyvis_lag']
+                        fgpower = fgdps_chrmbeam.subband_delay_power_spectra_resampled[strategy]['skyvis_lag']
                     if beamtype == 'funcbeam':
-                        fgpower = fgdps_funcbeam.subband_delay_power_spectra[strategy]['skyvis_lag']
+                        fgpower = fgdps_funcbeam.subband_delay_power_spectra_resampled[strategy]['skyvis_lag']
                 # fgpower = NP.mean(fgpower[:3,...], axis=0, keepdims=True)
                 eor_fg_ratio_sb[mdl][beamtype][strategy] = eormdl_sb[mdl] / fgpower
 
@@ -2147,5 +2185,119 @@ if ('3a' in plots) or ('3b' in plots):
                         PLT.savefig(figuresdir+'eor_fg_ratio_quadrature_sum_{0}_{1}_{2}_{3:.1f}_MHz_subband.png'.format(mdl,bmtype,strtgy,freq_window_centers[strtgy][sbi]/1e6), bbox_inches=0)
                         PLT.savefig(figuresdir+'eor_fg_ratio_quadrature_sum_{0}_{1}_{2}_{3:.1f}_MHz_subband.png'.format(mdl,bmtype,strtgy,freq_window_centers[strtgy][sbi]/1e6), bbox_inches=0)
                         PLT.close()
+
+    if '3c' in plots:
+
+        # 03-c) Plot signal-to-foreground ratio lower limit over k_parallel as a function of LST and baseline
+
+        mdl_str = ['21cmfast', 'lidz']
+        beamtype = ['chrmbeam', 'achrmbeam', 'funcbeam']
+        strategy = ['sim']
+        subband_index = range(len(freq_window_centers['sim']))
+        kprll_buffer = parms['plot']['3c']['kprll_buffer']
+        eor_fg_ratio_sb_kprll_masked = {}
+        eor_fg_ratio_sb_kprll_llim = {}
+
+        eta2kprll_sb = DS.dkprll_deta(fgdps_achrmbeam.subband_delay_power_spectra['sim']['z'], fgdps_achrmbeam.cosmo)
+        kprll_bw_sb = eta2kprll_sb * (1 / fgds_achrmbeam.subband_delay_spectra['sim']['bw_eff'])
+        kprll_sb_horizon = fgdps_achrmbeam.subband_delay_power_spectra_resampled['sim']['horizon_kprll_limits'][:,:,:,1]
+        kprll_sb_llim = kprll_sb_horizon + kprll_buffer * kprll_bw_sb[NP.newaxis,:,NP.newaxis]
+        kprll_sb_llim_reax = NP.swapaxes(kprll_sb_llim, 0, 2)
+        kprll_sb_llim_reax = kprll_sb_llim_reax[:,:,NP.newaxis,:]
+
+        kprll_sb_reax = kprll_sb[NP.newaxis,:,:,NP.newaxis]
+        kprll_mask = NP.abs(kprll_sb_reax) <= kprll_sb_llim_reax
+
+        for mdl in mdl_str:
+            eor_fg_ratio_sb_kprll_masked[mdl] = {}
+            eor_fg_ratio_sb_kprll_llim[mdl] = {}
+            for bmtype in beamtype:
+                eor_fg_ratio_sb_kprll_masked[mdl][bmtype] = {}
+                eor_fg_ratio_sb_kprll_llim[mdl][bmtype] = {}
+                for strtgy in strategy:
+                    eor_fg_ratio_sb_kprll_masked[mdl][bmtype][strtgy] = NP.ma.array(eor_fg_ratio_sb[mdl][bmtype][strtgy], mask=kprll_mask)
+                    eor_fg_ratio_sb_kprll_llim[mdl][bmtype][strtgy] = NP.nanmin(eor_fg_ratio_sb_kprll_masked[mdl][bmtype][strtgy], axis=2)
+
+        for mdl in mdl_str:
+            for bmtype in beamtype:
+                for strtgy in strategy:
+                    for sbi in subband_index:
+                        fig = PLT.figure(figsize=(5,4))
+                        ax = fig.add_subplot(111)
+                        ratio2D = ax.imshow(eor_fg_ratio_sb_kprll_llim[mdl][bmtype][strtgy][:,sbi,:].T, origin='lower', extent=[0,bl_length.size,0,24], norm=PLTC.LogNorm(eor_fg_ratio_sb_kprll_llim[mdl][bmtype][strtgy].min(),eor_fg_ratio_sb_kprll_llim[mdl][bmtype][strtgy].max()), interpolation='none')
+                        ax.set_xlim(0, bl_length.size)
+                        for bli in range(bl_length.size):
+                            ax.text(bli+1, -0.5, '{0:.1f}'.format(bl_length[bli]), transform=ax.transData, fontsize=8, weight='medium', ha='right', va='top', rotation=90, color='black')
+                            ax.text(bli+1, 24.5, '{0:.1f}'.format(blo[bli]), transform=ax.transData, fontsize=8, weight='medium', ha='right', va='bottom', rotation=90, color='black')
+                        ax.set_xlabel('Baseline length [m]', weight='medium', fontsize=14, labelpad=25)
+                        ax.set_aspect('auto')
+                        axt = ax.twiny()
+                        axt.set_xlim(0, bl_length.size)
+                        PLT.setp(ax.get_xticklabels(), visible=False)
+                        PLT.setp(axt.get_xticklabels(), visible=False)
+                        ax.set_ylabel('RA [hours]', weight='medium', fontsize=14)
+                        axt.set_xlabel('Baseline Orientation [deg]', weight='medium', fontsize=14, labelpad=33)
+                        cbaxr = fig.add_axes([0.88, 0.18, 0.02, 0.6])
+                        cbarr = fig.colorbar(ratio2D, cax=cbaxr, orientation='vertical')
+
+                        fig.subplots_adjust(right=0.87)
+                        fig.subplots_adjust(top=0.81)
+                        fig.subplots_adjust(bottom=0.16)
+                        fig.subplots_adjust(left=0.12)
+
+                        PLT.savefig(figuresdir+'eor_fg_ratio_llim_{0}_{1}_{2}_{3:.1f}_MHz_subband.png'.format(mdl,bmtype,strtgy,freq_window_centers[strtgy][sbi]/1e6), dpi=600, bbox_inches=0)
+                        PLT.savefig(figuresdir+'eor_fg_ratio_llim_{0}_{1}_{2}_{3:.1f}_MHz_subband.eps'.format(mdl,bmtype,strtgy,freq_window_centers[strtgy][sbi]/1e6), dpi=600, bbox_inches=0)
+
+                        PLT.close()
+if '4a' in plots:
+    # 04-a) Plot Blackman-Harris window and its modified version based on fftpow and their responses in delay space
+
+    subband_freq = parms['plot']['4a']['sbfreq']
+    subband_index = NP.argmin(NP.abs(freq_window_centers['sim'] - subband_freq))
+
+    fullband_freq_wts = fgds_achrmbeam.bp_wts[0,:,0]
+    fullband_freq_wts /= fullband_freq_wts.max()
+    # subband_freq_wts = fgds_achrmbeam.subband_delay_spectra['sim']['freq_wts'][subband_index,:]
+    # subband_freq_wts /= subband_freq_wts.max()
+
+    frac_width = DSP.window_N2width(n_window=None, shape=bpass_shape, fftpow=1.0, area_normalize=False, power_normalize=True)
+    n_window = NP.round(nchan / frac_width).astype(NP.int)
+    fullband_freq_wts_1 = DSP.window_fftpow(nchan, shape=bpass_shape, fftpow=1.0, pad_width=0, centering=True, area_normalize=False, power_normalize=True)
+    fullband_freq_wts_1 /= fullband_freq_wts_1.max()
+    # subband_freq_wts_1 = fgds_achrmbeam1.subband_delay_spectra['sim']['freq_wts'][subband_index,:]
+    # subband_freq_wts_1 /= subband_freq_wts_1.max()
+
+    fullband_delay_response = DSP.FT1D(fullband_freq_wts, ax=-1, inverse=True, use_real=False, shift=True) * fgds_achrmbeam.f.size * fgds_achrmbeam.df
+    fullband_delay_response_1 = DSP.FT1D(fullband_freq_wts_1, ax=-1, inverse=True, use_real=False, shift=True) * fgds_achrmbeam1.f.size * fgds_achrmbeam1.df
+    # subband_delay_response = DSP.FT1D(subband_freq_wts, ax=-1, inverse=True, use_real=False, shift=True) * fgds_achrmbeam.f.size * fgds_achrmbeam.df
+    # subband_delay_response_1 = DSP.FT1D(subband_freq_wts_1, ax=-1, inverse=True, use_real=False, shift=True) * fgds_achrmbeam1.f.size * fgds_achrmbeam1.df
+
+    lags = DSP.spectral_axis(fgds_achrmbeam.f.size, delx=fgds_achrmbeam.df, shift=True)
+
+    fig, axs = PLT.subplots(nrows=2, figsize=(3.5,7))
+    axs[0].plot(fgds_achrmbeam1.f/1e6, fullband_freq_wts_1, ls='-', lw=2, color='gray', label='BH')
+    axs[0].plot(fgds_achrmbeam.f/1e6, fullband_freq_wts, ls='-', lw=2, color='black', label=r'BH '+r'$\ast$'+' BH')
+    axs[0].set_xlim(100,200)
+    axs[0].set_ylim(5e-9, 1.1)
+    axs[0].set_yscale('log')
+    axs[0].set_xlabel('f [MHz]', fontsize=12, weight='medium')
+    axs[0].set_ylabel('W(f) [MHz]', fontsize=12, weight='medium')
+    lgnd0 = axs[0].legend(frameon=True, fontsize=8, loc='center', bbox_to_anchor=(0.5,0.5))
+
+    axs[1].plot(1e9 * lags, NP.abs(fullband_delay_response_1)**2, ls='-', lw=2, color='gray', label='BH')
+    axs[1].plot(1e9 * lags, NP.abs(fullband_delay_response)**2, ls='-', lw=2, color='black', label='BH '+r'$\ast$'+' BH')
+    axs[1].set_xlim(-490, 490)
+    axs[1].set_yscale('log')
+    axs[1].set_xlabel(r'$\tau$'+' [ns]', fontsize=12, weight='medium')
+    axs[1].set_ylabel('|'+r'$\widetilde{W}(\tau)$'+'|'+r'$^2$'+' [Hz'+r'$^2$'+']', fontsize=12, weight='medium', labelpad=-5)
+    lgnd1 = axs[1].legend(frameon=True, fontsize=8, loc='upper right', bbox_to_anchor=(0.999,0.999))
+
+    fig.subplots_adjust(right=0.93)
+    fig.subplots_adjust(left=0.22)
+    fig.subplots_adjust(top=0.97)
+    fig.subplots_adjust(bottom=0.08)
+
+    PLT.savefig(figuresdir+'window_function_modifications.png', dpi=600, bbox_inches=0)
+    PLT.savefig(figuresdir+'window_function_modifications.eps', dpi=600, bbox_inches=0)
 
 PDB.set_trace()
