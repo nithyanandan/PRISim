@@ -1,3 +1,9 @@
+From 62f97d1 (master):
+=====================
+
+(*) Commit just to tag HERA foreground simulations paper submission
+to ApJ
+
 From 1147d95 (master):
 =====================
 

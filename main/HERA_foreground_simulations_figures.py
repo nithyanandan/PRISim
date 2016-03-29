@@ -1960,6 +1960,7 @@ if '2a' in plots:
         for cuti,kprll_cut in enumerate(kprll_reflectometry):
             for j,fgkpl in enumerate(fg_kprll):
                 if fg_mdl[j] <= 0.0: continue
+                # eorvals = 10 ** lidz_Pk_interp_func(NP.log10(kprll+fgkpl))
                 eorvals = 10 ** Pk_21cmfast_interp_func(NP.log10(kprll+fgkpl))
                 resp = NP.sqrt(eorvals[subband_index,:] / fg_mdl[j])
                 resp = NP.where(kprll+fgkpl < kprll_cut, 1.0, resp)
@@ -2224,7 +2225,8 @@ if ('3a' in plots) or ('3b' in plots) or ('3c' in plots):
                     for sbi in subband_index:
                         fig = PLT.figure(figsize=(5,4))
                         ax = fig.add_subplot(111)
-                        ratio2D = ax.imshow(eor_fg_ratio_sb_kprll_llim[mdl][bmtype][strtgy][:,sbi,:].T, origin='lower', extent=[0,bl_length.size,0,24], norm=PLTC.LogNorm(eor_fg_ratio_sb_kprll_llim[mdl][bmtype][strtgy].min(),eor_fg_ratio_sb_kprll_llim[mdl][bmtype][strtgy].max()), interpolation='none')
+                        ratio2D = ax.imshow(eor_fg_ratio_sb_kprll_llim[mdl][bmtype][strtgy][:,sbi,:].T, origin='lower', extent=[0,bl_length.size,0,24], norm=PLTC.LogNorm(1e-2,1e3), interpolation='none')
+                        # ratio2D = ax.imshow(eor_fg_ratio_sb_kprll_llim[mdl][bmtype][strtgy][:,sbi,:].T, origin='lower', extent=[0,bl_length.size,0,24], norm=PLTC.LogNorm(eor_fg_ratio_sb_kprll_llim[mdl][bmtype][strtgy].min(),eor_fg_ratio_sb_kprll_llim[mdl][bmtype][strtgy].max()), interpolation='none')
                         ax.set_xlim(0, bl_length.size)
                         for bli in range(bl_length.size):
                             ax.text(bli+1, -0.5, '{0:.1f}'.format(bl_length[bli]), transform=ax.transData, fontsize=8, weight='medium', ha='right', va='top', rotation=90, color='black')
@@ -2273,7 +2275,7 @@ if '4a' in plots:
     # subband_delay_response_1 = DSP.FT1D(subband_freq_wts_1, ax=-1, inverse=True, use_real=False, shift=True) * fgds_achrmbeam1.f.size * fgds_achrmbeam1.df
 
     lags = DSP.spectral_axis(fgds_achrmbeam.f.size, delx=fgds_achrmbeam.df, shift=True)
-
+    PDB.set_trace()
     fig, axs = PLT.subplots(nrows=2, figsize=(3.5,7))
     axs[0].plot(fgds_achrmbeam1.f/1e6, fullband_freq_wts_1, ls='-', lw=2, color='gray', label='BH')
     axs[0].plot(fgds_achrmbeam.f/1e6, fullband_freq_wts, ls='-', lw=2, color='black', label=r'BH '+r'$\ast$'+' BH')

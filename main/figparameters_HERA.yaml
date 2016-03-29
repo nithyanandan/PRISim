@@ -664,7 +664,7 @@ plot    :
                                 # Plot signal-to-foreground ratio
                                 # lower limit over k_parallel
                                 # as a function of LST and baseline
-            action  : true
+            action  : false
 
             kprll_buffer: 3.5
                                 # Number of kprll bins to be provided
@@ -675,6 +675,6 @@ plot    :
                                 # Plot Blackman-Harris window and its
                                 # modified version based on fftpow
                                 # and their responses in delay space
-            action  : false
+            action  : true
             sbfreq  : 150000000.0
                                 # Subband frequency (in Hz)
