@@ -3768,4 +3768,109 @@ class InterferometerArray(object):
 
 #################################################################################
 
-    
+class ApertureSynthesis(object):
+
+    """
+    ----------------------------------------------------------------------------
+    Class to manage aperture synthesis of visibility measurements of a 
+    multi-element interferometer array. 
+
+    Attributes:
+
+    ia          [instance of class InterferometerArray] Instance of class
+                InterferometerArray created at the time of instantiating an 
+                object of class ApertureSynthesis
+
+    baselines:  [M x 3 Numpy array] The baseline vectors associated with the
+                M interferometers in SI units. The coordinate system of these
+                vectors is local East, North, Up system
+
+    blxyz       [M x 3 Numpy array] The baseline vectors associated with the
+                M interferometers in SI units. The coordinate system of these
+                vectors is X, Y, Z in equatorial coordinates
+
+    f           [numpy vector] frequency channels in Hz
+
+    df          [scalar] Frequency resolution (in Hz)
+
+    latitude    [Scalar] Latitude of the interferometer's location. Default
+                is 34.0790 degrees North corresponding to that of the VLA.
+
+    lst         [list] List of LST (in degrees) for each timestamp
+
+    n_acc       [scalar] Number of accumulations
+
+    pointing_center
+                [2-column numpy array] Pointing center (latitude and 
+                longitude) of the observation at a given timestamp. This is 
+                where the telescopes will be phased up to as reference. 
+                Coordinate system for the pointing_center is specified by another 
+                attribute pointing_coords.
+
+    phase_center
+                [2-column numpy array] Phase center (latitude and 
+                longitude) of the observation at a given timestamp. This is 
+                where the telescopes will be phased up to as reference. 
+                Coordinate system for the phase_center is specified by another 
+                attribute phase_center_coords.
+
+    pointing_coords
+                [string] Coordinate system for telescope pointing. Accepted 
+                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz' 
+                (Altitude-Azimuth). Default = 'hadec'.
+
+    phase_center_coords
+                [string] Coordinate system for array phase center. Accepted 
+                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz' 
+                (Altitude-Azimuth). Default = 'hadec'.
+
+    timestamp   [list] List of timestamps during the observation
+
+    ----------------------------------------------------------------------------
+    """
+
+    def __init__(self, interferometer_array=None):
+
+        """
+        ------------------------------------------------------------------------
+        Intialize the ApertureSynthesis class which manages information on a 
+        aperture synthesis with an interferometer array.
+
+        Class attributes initialized are:
+        ia, f, df, lst, timestamp, baselines, blxyz, phase_center, n_acc,
+        phase_center_coords, pointing_center, pointing_coords, latitude
+
+        Read docstring of class ApertureSynthesis for details on these
+        attributes.
+
+        Keyword input(s):
+
+        interferometer_array    
+                     [instance of class InterferometerArray] Instance of class
+                     InterferometerArray used to initialize an instance of 
+                     class ApertureSynthesis
+        ------------------------------------------------------------------------
+        """
+
+        if interferometer_array is not None:
+            if isinstance(interferometer_array, InterferometerArray):
+                self.ia = interferometer_array
+            else:
+                raise TypeError('Input interferometer_array must be an instance of class InterferoemterArray')
+        else:
+            raise NameError('No input interferometer_array provided')
+
+        self.f = self.ia.channels
+        self.df = interferometer_array.freq_resolution
+        self.n_acc = interferometer_array.n_acc
+        self.lst = interferometer_array.lst
+        self.phase_center = interferometer_array.phase_center
+        self.pointing_center = interferometer_array.pointing_center
+        self.phase_center_coords = interferometer_array.phase_center_coords
+        self.pointing_coords = interferometer_array.pointing_coords
+        self.baselines = interferometer_array.baselines
+        self.timestamp = interferometer_array.timestamp
+        self.latitude = interferometer_array.latitude
+        self.blxyz = GEOM.enu2xyz(self.baselines, self.latitude, units='degrees')
+
+    #############################################################################

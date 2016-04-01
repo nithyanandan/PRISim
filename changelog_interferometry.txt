@@ -1,3 +1,11 @@
+From 461c706 (synthesis):
+========================
+
+In interferometry.py,
+
+(*) Add new class ApertureSynthesis with a preliminary __init__()
+member function and docstring
+
 From 62f97d1 (master):
 =====================
 
