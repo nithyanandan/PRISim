@@ -12,6 +12,7 @@ from astropy.io import fits
 from distutils.version import LooseVersion
 import psutil 
 import geometry as GEOM
+import my_gridding_modules as GRD
 import primary_beams as PB
 import baseline_delay_horizon as DLY
 import constants as CNST
@@ -3802,6 +3803,39 @@ class ApertureSynthesis(object):
                 components. This is uvw_lambda / wavelength and in units of 
                 number of wavelengths
 
+    blc         [numpy array] 3-element numpy array specifying bottom left 
+                corner of the grid coincident with bottom left interferometer 
+                location in UVW coordinate system (same units as uvw)
+
+    trc         [numpy array] 3-element numpy array specifying top right 
+                corner of the grid coincident with top right interferometer 
+                location in UVW coordinate system (same units as uvw)
+
+    grid_blc    [numpy array] 3-element numpy array specifying bottom left 
+                corner of the grid in UVW coordinate system including any 
+                padding used (same units as uvw)
+
+    grid_trc    [numpy array] 2-element numpy array specifying top right 
+                corner of the grid in UVW coordinate system including any 
+                padding used (same units as uvw)
+
+    gridu       [numpy array] 3-dimensional numpy meshgrid array specifying
+                grid u-locations in units of uvw in the UVW coordinate system 
+                whose corners are specified by attributes grid_blc and grid_trc
+
+    gridv       [numpy array] 3-dimensional numpy meshgrid array specifying
+                grid v-locations in units of uvw in the UVW coordinate system 
+                whose corners are specified by attributes grid_blc and grid_trc
+
+    gridw       [numpy array] 3-dimensional numpy meshgrid array specifying
+                grid w-locations in units of uvw in the UVW coordinate system 
+                whose corners are specified by attributes grid_blc and grid_trc
+
+    grid_ready  [boolean] set to True if the gridding has been performed,
+                False if grid is not available yet. Set to False in case 
+                blc, trc, grid_blc or grid_trc is updated indicating gridding
+                is to be perfomed again
+
     f           [numpy vector] frequency channels in Hz
 
     df          [scalar] Frequency resolution (in Hz)
@@ -3851,6 +3885,10 @@ class ApertureSynthesis(object):
 
     reorderUVW()    Reorder U, V, W (in units of number of wavelengths) of shape 
                     nbl x 3 x nchan x n_acc to 3 x (nbl x nchan x n_acc)
+
+    gridUVW()       Generate U, V, W (in units of number of wavelengths) by 
+                    phasing the baseline vectors to the phase centers of each 
+                    pointing at all frequencies
     ----------------------------------------------------------------------------
     """
 
@@ -3863,7 +3901,9 @@ class ApertureSynthesis(object):
 
         Class attributes initialized are:
         ia, f, df, lst, timestamp, baselines, blxyz, phase_center, n_acc,
-        phase_center_coords, pointing_center, pointing_coords, latitude
+        phase_center_coords, pointing_center, pointing_coords, latitude, blc,
+        trc, grid_blc, grid_trc, grid_ready, uvw, uvw_lambda, gridu, gridv,
+        gridw
 
         Read docstring of class ApertureSynthesis for details on these
         attributes.
@@ -3899,6 +3939,12 @@ class ApertureSynthesis(object):
         self.blxyz = GEOM.enu2xyz(self.baselines, self.latitude, units='degrees')
         self.uvw_lambda = None
         self.uvw = None
+        self.blc = NP.zeros(2)
+        self.trc = NP.zeros(2)
+        self.grid_blc = NP.zeros(2)
+        self.grid_trc = NP.zeros(2)
+        self.gridu, self.gridv, self.gridw = None, None, None
+        self.grid_ready = False
 
     #############################################################################
 
@@ -3949,3 +3995,47 @@ class ApertureSynthesis(object):
 
     #############################################################################
     
+    def gridUVW(self, spacing=0.5, pad=None, pow2=True):
+        
+        """
+        ------------------------------------------------------------------------
+        Routine to produce a grid based on the UVW spacings of the 
+        interferometer array 
+
+        Inputs:
+
+        spacing     [Scalar] Positive value indicating the upper limit on grid 
+                    spacing in uvw-coordinates desirable at the lowest 
+                    wavelength (max frequency). Default = 0.5
+
+        pad         [List] Padding to be applied around the locations 
+                    before forming a grid. List elements should be positive. If 
+                    it is a one-element list, the element is applicable to all 
+                    x, y and z axes. If list contains four or more elements, 
+                    only the first three elements are considered one for each 
+                    axis. Default = None (no padding).
+
+        pow2        [Boolean] If set to True, the grid is forced to have a size 
+                    a next power of 2 relative to the actual size required. If 
+                    False, gridding is done with the appropriate size as 
+                    determined by spacing. Default = True.
+        ------------------------------------------------------------------------
+        """
+        
+        if self.uvw is None:
+            self.genUVW()
+
+        uvw = self.reorderUVW()
+        blc = NP.amin(uvw, axis=1)
+        trc = NP.amax(uvw, axis=1)
+
+        self.trc = NP.amax(NP.abs(NP.vstack((blc, trc))), axis=0)
+        self.blc = -1 * self.trc
+        
+        self.gridu, self.gridv, self.gridw = GRD.grid_3d([(self.blc[0], self.trc[0]), (self.blc[1], self.trc[1]), (self.blc[2], self.trc[2])], pad=pad, spacing=spacing, pow2=True)
+
+        self.grid_blc = NP.asarray([self.gridu.min(), self.gridv.min(), self.gridw.min()])
+        self.grid_trc = NP.asarray([self.gridu.max(), self.gridv.max(), self.gridw.max()])
+        self.grid_ready = True
+
+    ############################################################################

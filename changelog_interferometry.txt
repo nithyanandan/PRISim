@@ -1,3 +1,15 @@
+From 8a84fc2 (synthesis):
+========================
+
+In interferometry.py,
+
+(*) Add member function gridUVW() to class ApertureSynthesis along with
+docstring
+(*) Add and initialize attributes blc, trc, gridu, gridv, gridw,
+grid_blc, grid_trc in __init__() member function of class
+ApertureSynthesis
+(*) Update docstring of class ApertureSynthesis
+
 From ecf2dab (synthesis):
 ========================
 
