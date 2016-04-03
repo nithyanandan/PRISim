@@ -3848,6 +3848,9 @@ class ApertureSynthesis(object):
     genUVW()        Generate U, V, W (in units of number of wavelengths) by 
                     phasing the baseline vectors to the phase centers of each 
                     pointing at all frequencies
+
+    reorderUVW()    Reorder U, V, W (in units of number of wavelengths) of shape 
+                    nbl x 3 x nchan x n_acc to 3 x (nbl x nchan x n_acc)
     ----------------------------------------------------------------------------
     """
 
@@ -3930,3 +3933,19 @@ class ApertureSynthesis(object):
         self.uvw = self.uvw_lambda[:,:,NP.newaxis,:] / wl.reshape(1,1,-1,1)
         
     #############################################################################
+
+    def reorderUVW(self):
+
+        """
+        ------------------------------------------------------------------------
+        Reorder U, V, W (in units of number of wavelengths) of shape 
+        nbl x 3 x nchan x n_acc to 3 x (nbl x nchan x n_acc)
+        ------------------------------------------------------------------------
+        """
+
+        reorderedUVW = NP.swapaxes(self.uvw, 0, 1) # now 3 x Nbl x nchan x n_acc
+        reorderedUVW = reorderedUVW.reshape(3,-1) # now 3 x (Nbl x nchan x n_acc)
+        return reorderedUVW
+
+    #############################################################################
+    

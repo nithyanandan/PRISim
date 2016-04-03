@@ -1,3 +1,13 @@
+From ecf2dab (synthesis):
+========================
+
+In interferometry.py,
+
+(*) Add member function reorderUVW() to class ApertureSynthesis
+along with docstring
+(*) Update docstring of class ApertureSynthesis with that of
+newly added member function reorderUVW()
+
 From 6453399 (synthesis):
 ========================
 
