@@ -23,6 +23,7 @@ try:
     from mwapy.pb import primary_beam as MWAPB
 except ImportError:
     mwa_tools_found = False
+import ipdb as PDB    
 
 ################################################################################
 
@@ -3789,6 +3790,18 @@ class ApertureSynthesis(object):
                 M interferometers in SI units. The coordinate system of these
                 vectors is X, Y, Z in equatorial coordinates
 
+    uvw_lambda  [M x 3 x Nt numpy array] Baseline vectors phased to the phase 
+                center of each accummulation. M is the number of baselines, Nt 
+                is the number of accumulations and 3 denotes U, V and W 
+                components. This is in units of physical distance (usually in m)
+
+    uvw         [M x 3 x Nch x Nt numpy array] Baseline vectors phased to the 
+                phase center of each accummulation at each frequency. M is the 
+                number of baselines, Nt is the number of accumulations, Nch is
+                the number of frequency channels, and 3 denotes U, V and W 
+                components. This is uvw_lambda / wavelength and in units of 
+                number of wavelengths
+
     f           [numpy vector] frequency channels in Hz
 
     df          [scalar] Frequency resolution (in Hz)
@@ -3826,6 +3839,15 @@ class ApertureSynthesis(object):
 
     timestamp   [list] List of timestamps during the observation
 
+    Member functions:
+
+    __init__()      Initialize an instance of class ApertureSynthesis which 
+                    manages information on a aperture synthesis with an 
+                    interferometer array.
+
+    genUVW()        Generate U, V, W (in units of number of wavelengths) by 
+                    phasing the baseline vectors to the phase centers of each 
+                    pointing at all frequencies
     ----------------------------------------------------------------------------
     """
 
@@ -3872,5 +3894,39 @@ class ApertureSynthesis(object):
         self.timestamp = interferometer_array.timestamp
         self.latitude = interferometer_array.latitude
         self.blxyz = GEOM.enu2xyz(self.baselines, self.latitude, units='degrees')
+        self.uvw_lambda = None
+        self.uvw = None
 
+    #############################################################################
+
+    def genUVW(self):
+
+        """
+        ------------------------------------------------------------------------
+        Generate U, V, W (in units of number of wavelengths) by phasing the 
+        baseline vectors to the phase centers of each pointing at all 
+        frequencies
+        ------------------------------------------------------------------------
+        """
+
+        if self.phase_center_coords == 'hadec':
+            pc_hadec = self.phase_center
+        elif self.phase_center_coords == 'radec':
+            pc_hadec = NP.hstack((NP.asarray(self.lst).reshape(-1,1), NP.zeros(len(self.lst)).reshape(-1,1)))
+        elif self.phase_center_coords == 'altaz':
+            pc_altaz = self.phase_center
+            pc_hadec = GEOM.altaz2hadec(pc_altaz, self.latitude, units='degrees')
+        else:
+            raise ValueError('Attribute phase_center_coords must be set to one of "hadec", "radec" or "altaz"')
+
+        pc_hadec = NP.radians(pc_hadec)
+        ha = pc_hadec[:,0]
+        dec = pc_hadec[:,1]
+        rotmat = NP.asarray([[NP.sin(ha), NP.cos(ha), NP.zeros_like(ha)],
+                            [-NP.sin(dec)*NP.cos(ha), NP.sin(dec)*NP.sin(ha), NP.cos(dec)],
+                            [NP.cos(dec)*NP.cos(ha), -NP.cos(dec)*NP.sin(ha), NP.sin(dec)]])
+        self.uvw_lambda = NP.tensordot(self.blxyz, rotmat, axes=[1,1])
+        wl = FCNST.c / self.f
+        self.uvw = self.uvw_lambda[:,:,NP.newaxis,:] / wl.reshape(1,1,-1,1)
+        
     #############################################################################
