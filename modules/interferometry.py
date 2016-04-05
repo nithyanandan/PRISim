@@ -489,9 +489,11 @@ def uniq_baselines(baseline_locations, redundant=None):
     blo = NP.angle(baseline_locations[:,0] + 1j * baseline_locations[:,1], deg=True)
     blo[blo >= 180.0] -= 180.0
     blo[blo < 0.0] += 180.0
-    bll = NP.sqrt(baseline_locations[:,0]**2 + baseline_locations[:,1]**2)
 
-    blstr = ['{0[0]:.2f}_{0[1]:.3f}'.format(lo) for lo in zip(bll,blo)]
+    bll = NP.sqrt(NP.sum(baseline_locations**2, axis=1))
+    blza = NP.degrees(NP.arccos(baseline_locations[:,2] / bll))
+
+    blstr = ['{0[0]:.2f}_{0[1]:.3f}_{0[2]:.3f}'.format(lo) for lo in zip(bll,blza,blo)]
 
     uniq_blstr, ind, invind = NP.unique(blstr, return_index=True, return_inverse=True)  ## if numpy.__version__ < 1.9.0
 

@@ -1,3 +1,11 @@
+From 461c706 (uniqbl):
+=====================
+
+In interferometry.py,
+
+(*) Determine unique baselines in uniq_baselines() using r, theta,
+and phi parameters of the baseline vectors
+
 From 62f97d1 (master):
 =====================
 
