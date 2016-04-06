@@ -3886,9 +3886,8 @@ class ApertureSynthesis(object):
     reorderUVW()    Reorder U, V, W (in units of number of wavelengths) of shape 
                     nbl x 3 x nchan x n_acc to 3 x (nbl x nchan x n_acc)
 
-    gridUVW()       Generate U, V, W (in units of number of wavelengths) by 
-                    phasing the baseline vectors to the phase centers of each 
-                    pointing at all frequencies
+    setUVWgrid()    Set up U, V, W grid (in units of number of wavelengths) 
+                    based on the synthesized U, V, W
     ----------------------------------------------------------------------------
     """
 
@@ -3995,7 +3994,7 @@ class ApertureSynthesis(object):
 
     #############################################################################
     
-    def gridUVW(self, spacing=0.5, pad=None, pow2=True):
+    def setUVWgrid(self, spacing=0.5, pad=None, pow2=True):
         
         """
         ------------------------------------------------------------------------

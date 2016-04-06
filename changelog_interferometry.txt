@@ -1,3 +1,11 @@
+From 37d619a (synthesis):
+========================
+
+In interferometry.py,
+
+(*) Rename member function gridUVW() to setUVWgrid() in class
+ApertureSynthesis. Update docstring accordingly
+
 From 8a84fc2 (synthesis):
 ========================
 
