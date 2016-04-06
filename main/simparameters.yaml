@@ -172,7 +172,7 @@ phasedarray:
 
 beam    :
 
-    use_external    : true
+    use_external    : false
                                 # If true, use an externally specified
                                 # antenna beam. If false, determine
                                 # analytically from antenna aperture
@@ -253,7 +253,7 @@ obsparm  :
                                 # Only two of t_obs, n_acc, t_acc
                                 # must be set
 
-    n_acc           : 80
+    n_acc           : 2
                                 # Number of accumulations. Only two of
                                 # t_obs, n_acc, and t_acc must be set
 
@@ -375,7 +375,7 @@ snapshot :                      # Parameters below are mutually
 
 fgparm   :
 
-    model           : 'asm'
+    model           : 'csm'
                                 # Foreground model. Accepted values
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both
@@ -478,13 +478,13 @@ processing:
                                 # null means process all chunks.
                                 # Should be given as a list
 
-    n_freq_chunks   : 32
+    n_freq_chunks   : 1
                                 # Upper limit on number of frequency
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
                                 # processing
 
-    freq_chunk_size : 8
+    freq_chunk_size : 256
                                 # Frequency chunk size (in number of
                                 # channels). Will be used
                                 # in a single process during parallel

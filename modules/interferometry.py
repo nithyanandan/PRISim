@@ -12,6 +12,7 @@ from astropy.io import fits
 from distutils.version import LooseVersion
 import psutil 
 import geometry as GEOM
+import my_gridding_modules as GRD
 import primary_beams as PB
 import baseline_delay_horizon as DLY
 import constants as CNST
@@ -23,6 +24,7 @@ try:
     from mwapy.pb import primary_beam as MWAPB
 except ImportError:
     mwa_tools_found = False
+import ipdb as PDB    
 
 ################################################################################
 
@@ -3770,4 +3772,271 @@ class InterferometerArray(object):
 
 #################################################################################
 
+class ApertureSynthesis(object):
+
+    """
+    ----------------------------------------------------------------------------
+    Class to manage aperture synthesis of visibility measurements of a 
+    multi-element interferometer array. 
+
+    Attributes:
+
+    ia          [instance of class InterferometerArray] Instance of class
+                InterferometerArray created at the time of instantiating an 
+                object of class ApertureSynthesis
+
+    baselines:  [M x 3 Numpy array] The baseline vectors associated with the
+                M interferometers in SI units. The coordinate system of these
+                vectors is local East, North, Up system
+
+    blxyz       [M x 3 Numpy array] The baseline vectors associated with the
+                M interferometers in SI units. The coordinate system of these
+                vectors is X, Y, Z in equatorial coordinates
+
+    uvw_lambda  [M x 3 x Nt numpy array] Baseline vectors phased to the phase 
+                center of each accummulation. M is the number of baselines, Nt 
+                is the number of accumulations and 3 denotes U, V and W 
+                components. This is in units of physical distance (usually in m)
+
+    uvw         [M x 3 x Nch x Nt numpy array] Baseline vectors phased to the 
+                phase center of each accummulation at each frequency. M is the 
+                number of baselines, Nt is the number of accumulations, Nch is
+                the number of frequency channels, and 3 denotes U, V and W 
+                components. This is uvw_lambda / wavelength and in units of 
+                number of wavelengths
+
+    blc         [numpy array] 3-element numpy array specifying bottom left 
+                corner of the grid coincident with bottom left interferometer 
+                location in UVW coordinate system (same units as uvw)
+
+    trc         [numpy array] 3-element numpy array specifying top right 
+                corner of the grid coincident with top right interferometer 
+                location in UVW coordinate system (same units as uvw)
+
+    grid_blc    [numpy array] 3-element numpy array specifying bottom left 
+                corner of the grid in UVW coordinate system including any 
+                padding used (same units as uvw)
+
+    grid_trc    [numpy array] 2-element numpy array specifying top right 
+                corner of the grid in UVW coordinate system including any 
+                padding used (same units as uvw)
+
+    gridu       [numpy array] 3-dimensional numpy meshgrid array specifying
+                grid u-locations in units of uvw in the UVW coordinate system 
+                whose corners are specified by attributes grid_blc and grid_trc
+
+    gridv       [numpy array] 3-dimensional numpy meshgrid array specifying
+                grid v-locations in units of uvw in the UVW coordinate system 
+                whose corners are specified by attributes grid_blc and grid_trc
+
+    gridw       [numpy array] 3-dimensional numpy meshgrid array specifying
+                grid w-locations in units of uvw in the UVW coordinate system 
+                whose corners are specified by attributes grid_blc and grid_trc
+
+    grid_ready  [boolean] set to True if the gridding has been performed,
+                False if grid is not available yet. Set to False in case 
+                blc, trc, grid_blc or grid_trc is updated indicating gridding
+                is to be perfomed again
+
+    f           [numpy vector] frequency channels in Hz
+
+    df          [scalar] Frequency resolution (in Hz)
+
+    latitude    [Scalar] Latitude of the interferometer's location. Default
+                is 34.0790 degrees North corresponding to that of the VLA.
+
+    lst         [list] List of LST (in degrees) for each timestamp
+
+    n_acc       [scalar] Number of accumulations
+
+    pointing_center
+                [2-column numpy array] Pointing center (latitude and 
+                longitude) of the observation at a given timestamp. This is 
+                where the telescopes will be phased up to as reference. 
+                Coordinate system for the pointing_center is specified by another 
+                attribute pointing_coords.
+
+    phase_center
+                [2-column numpy array] Phase center (latitude and 
+                longitude) of the observation at a given timestamp. This is 
+                where the telescopes will be phased up to as reference. 
+                Coordinate system for the phase_center is specified by another 
+                attribute phase_center_coords.
+
+    pointing_coords
+                [string] Coordinate system for telescope pointing. Accepted 
+                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz' 
+                (Altitude-Azimuth). Default = 'hadec'.
+
+    phase_center_coords
+                [string] Coordinate system for array phase center. Accepted 
+                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz' 
+                (Altitude-Azimuth). Default = 'hadec'.
+
+    timestamp   [list] List of timestamps during the observation
+
+    Member functions:
+
+    __init__()      Initialize an instance of class ApertureSynthesis which 
+                    manages information on a aperture synthesis with an 
+                    interferometer array.
+
+    genUVW()        Generate U, V, W (in units of number of wavelengths) by 
+                    phasing the baseline vectors to the phase centers of each 
+                    pointing at all frequencies
+
+    reorderUVW()    Reorder U, V, W (in units of number of wavelengths) of shape 
+                    nbl x 3 x nchan x n_acc to 3 x (nbl x nchan x n_acc)
+
+    setUVWgrid()    Set up U, V, W grid (in units of number of wavelengths) 
+                    based on the synthesized U, V, W
+    ----------------------------------------------------------------------------
+    """
+
+    def __init__(self, interferometer_array=None):
+
+        """
+        ------------------------------------------------------------------------
+        Intialize the ApertureSynthesis class which manages information on a 
+        aperture synthesis with an interferometer array.
+
+        Class attributes initialized are:
+        ia, f, df, lst, timestamp, baselines, blxyz, phase_center, n_acc,
+        phase_center_coords, pointing_center, pointing_coords, latitude, blc,
+        trc, grid_blc, grid_trc, grid_ready, uvw, uvw_lambda, gridu, gridv,
+        gridw
+
+        Read docstring of class ApertureSynthesis for details on these
+        attributes.
+
+        Keyword input(s):
+
+        interferometer_array    
+                     [instance of class InterferometerArray] Instance of class
+                     InterferometerArray used to initialize an instance of 
+                     class ApertureSynthesis
+        ------------------------------------------------------------------------
+        """
+
+        if interferometer_array is not None:
+            if isinstance(interferometer_array, InterferometerArray):
+                self.ia = interferometer_array
+            else:
+                raise TypeError('Input interferometer_array must be an instance of class InterferoemterArray')
+        else:
+            raise NameError('No input interferometer_array provided')
+
+        self.f = self.ia.channels
+        self.df = interferometer_array.freq_resolution
+        self.n_acc = interferometer_array.n_acc
+        self.lst = interferometer_array.lst
+        self.phase_center = interferometer_array.phase_center
+        self.pointing_center = interferometer_array.pointing_center
+        self.phase_center_coords = interferometer_array.phase_center_coords
+        self.pointing_coords = interferometer_array.pointing_coords
+        self.baselines = interferometer_array.baselines
+        self.timestamp = interferometer_array.timestamp
+        self.latitude = interferometer_array.latitude
+        self.blxyz = GEOM.enu2xyz(self.baselines, self.latitude, units='degrees')
+        self.uvw_lambda = None
+        self.uvw = None
+        self.blc = NP.zeros(2)
+        self.trc = NP.zeros(2)
+        self.grid_blc = NP.zeros(2)
+        self.grid_trc = NP.zeros(2)
+        self.gridu, self.gridv, self.gridw = None, None, None
+        self.grid_ready = False
+
+    #############################################################################
+
+    def genUVW(self):
+
+        """
+        ------------------------------------------------------------------------
+        Generate U, V, W (in units of number of wavelengths) by phasing the 
+        baseline vectors to the phase centers of each pointing at all 
+        frequencies
+        ------------------------------------------------------------------------
+        """
+
+        if self.phase_center_coords == 'hadec':
+            pc_hadec = self.phase_center
+        elif self.phase_center_coords == 'radec':
+            pc_hadec = NP.hstack((NP.asarray(self.lst).reshape(-1,1), NP.zeros(len(self.lst)).reshape(-1,1)))
+        elif self.phase_center_coords == 'altaz':
+            pc_altaz = self.phase_center
+            pc_hadec = GEOM.altaz2hadec(pc_altaz, self.latitude, units='degrees')
+        else:
+            raise ValueError('Attribute phase_center_coords must be set to one of "hadec", "radec" or "altaz"')
+
+        pc_hadec = NP.radians(pc_hadec)
+        ha = pc_hadec[:,0]
+        dec = pc_hadec[:,1]
+        rotmat = NP.asarray([[NP.sin(ha), NP.cos(ha), NP.zeros_like(ha)],
+                            [-NP.sin(dec)*NP.cos(ha), NP.sin(dec)*NP.sin(ha), NP.cos(dec)],
+                            [NP.cos(dec)*NP.cos(ha), -NP.cos(dec)*NP.sin(ha), NP.sin(dec)]])
+        self.uvw_lambda = NP.tensordot(self.blxyz, rotmat, axes=[1,1])
+        wl = FCNST.c / self.f
+        self.uvw = self.uvw_lambda[:,:,NP.newaxis,:] / wl.reshape(1,1,-1,1)
+        
+    #############################################################################
+
+    def reorderUVW(self):
+
+        """
+        ------------------------------------------------------------------------
+        Reorder U, V, W (in units of number of wavelengths) of shape 
+        nbl x 3 x nchan x n_acc to 3 x (nbl x nchan x n_acc)
+        ------------------------------------------------------------------------
+        """
+
+        reorderedUVW = NP.swapaxes(self.uvw, 0, 1) # now 3 x Nbl x nchan x n_acc
+        reorderedUVW = reorderedUVW.reshape(3,-1) # now 3 x (Nbl x nchan x n_acc)
+        return reorderedUVW
+
+    #############################################################################
     
+    def setUVWgrid(self, spacing=0.5, pad=None, pow2=True):
+        
+        """
+        ------------------------------------------------------------------------
+        Routine to produce a grid based on the UVW spacings of the 
+        interferometer array 
+
+        Inputs:
+
+        spacing     [Scalar] Positive value indicating the upper limit on grid 
+                    spacing in uvw-coordinates desirable at the lowest 
+                    wavelength (max frequency). Default = 0.5
+
+        pad         [List] Padding to be applied around the locations 
+                    before forming a grid. List elements should be positive. If 
+                    it is a one-element list, the element is applicable to all 
+                    x, y and z axes. If list contains four or more elements, 
+                    only the first three elements are considered one for each 
+                    axis. Default = None (no padding).
+
+        pow2        [Boolean] If set to True, the grid is forced to have a size 
+                    a next power of 2 relative to the actual size required. If 
+                    False, gridding is done with the appropriate size as 
+                    determined by spacing. Default = True.
+        ------------------------------------------------------------------------
+        """
+        
+        if self.uvw is None:
+            self.genUVW()
+
+        uvw = self.reorderUVW()
+        blc = NP.amin(uvw, axis=1)
+        trc = NP.amax(uvw, axis=1)
+
+        self.trc = NP.amax(NP.abs(NP.vstack((blc, trc))), axis=0)
+        self.blc = -1 * self.trc
+        
+        self.gridu, self.gridv, self.gridw = GRD.grid_3d([(self.blc[0], self.trc[0]), (self.blc[1], self.trc[1]), (self.blc[2], self.trc[2])], pad=pad, spacing=spacing, pow2=True)
+
+        self.grid_blc = NP.asarray([self.gridu.min(), self.gridv.min(), self.gridw.min()])
+        self.grid_trc = NP.asarray([self.gridu.max(), self.gridv.max(), self.gridw.max()])
+        self.grid_ready = True
+
+    ############################################################################
