@@ -2,7 +2,6 @@ from __future__ import division
 import numpy as NP
 import multiprocessing as MP
 import itertools as IT
-import statsmodels.robust.scale as stats
 import progressbar as PGB
 # import aipy as AP
 import astropy 

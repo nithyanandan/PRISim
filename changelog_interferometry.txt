@@ -1,3 +1,15 @@
+From cbf524f (pkg):
+==================
+
+In setup.py,
+
+(*) Add package dependencies under keywords install_requires and
+setup_requires
+
+In prisim/delay_spectrum.py,
+
+(*) Remove import of unused module statsmodels
+
 From 8fd5179 (pkg):
 ==================
 
