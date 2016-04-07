@@ -50,7 +50,7 @@ prisim_path = prisim.__path__[0]+'/'
 parser = argparse.ArgumentParser(description='Program to simulate interferometer array data')
 
 input_group = parser.add_argument_group('Input parameters', 'Input specifications')
-input_group.add_argument('-i', '--infile', dest='infile', default='/home/t_nithyanandan/codes/mine/python/interferometry/main/simparameters.yaml', type=file, required=False, help='File specifying input parameters')
+input_group.add_argument('-i', '--infile', dest='infile', default=prisim_path+'examples/simparms/defaultparms.yaml', type=file, required=False, help='File specifying input parameters')
 
 args = vars(parser.parse_args())
 

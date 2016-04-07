@@ -1,4 +1,4 @@
-include *.txt prisim/simparms/*.yaml prisim/simparms/examples/*.yaml
+include *.txt prisim/examples/simparms/*.yaml prisim/examples/schedulers/*.txt
 include prisim/data/catalogs/*.txt prisim/data/catalogs/*.csv
 include prisim/data/catalogs/*.fits prisim/data/beams/*.hmap
 include prisim/data/phasedarray_layouts/*.txt prisim/data/bandpass/*.fits

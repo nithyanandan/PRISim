@@ -1,3 +1,29 @@
+From d28aaaa (paths):
+====================
+
+(*) Add examples/ folder under prisim/
+(*) Remove examples/ folder under prisim/simparms/
+(*) Move prisim/simparms to prisim/examples/simparms
+(*) Add schedulers/ folder under prisim/examples/
+(*) Add MWA_Aug23_obs_scheduler.txt under prisim/examples/schedulers/
+
+In setup.py,
+
+(*) Adjust for changes above
+
+In MANIFEST.in,
+
+(*) Adjust for changes above
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Update commented information on specifying pointing file under
+group named pointing information
+
+In scripts/run_prisim.py,
+
+(*) Modify location of default input parameters file
+
 From eb7a9a4 (pkg):
 ==================
 

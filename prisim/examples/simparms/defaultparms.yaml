@@ -298,11 +298,13 @@ pointing :                      # If pointing file is specified to be
                                 # drift_init and track_init are ignored
 
     file            : null
-                                # File containing pointing information
-                                # Only one of 'file' or 'initial' must
-                                # be specified
-                                # for example,
-                                # '/data3/MWA/lstbin_RA0/EoR0_high_sem1_1_obsinfo.txt'
+                                # Full path to file containing pointing
+                                # information. Only one of 'file' or
+                                # 'initial' must be specified.
+                                # for MWA format, see example in
+                                # 'examples/scheduler/MWA_Aug23_obs_scheduler.txt'
+                                # Formats for other telescopes under
+                                # development
 
     drift_init :
                                 # Applies in case of initializing pointing
