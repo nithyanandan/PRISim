@@ -1,3 +1,35 @@
+From ba4dac9 (pkg):
+==================
+
+(*) Add folder simparms/ under prisim/
+(*) Add folder examples/ under prisim/simparms/ and add an
+example yaml parameters file
+
+In prisim/data/,
+
+(*) Move simparameters.yaml to prisim/simparms and rename as
+defaultparms.yaml
+
+(*) Add folders catalogs, beams, array_layouts, phasedarray_layouts,
+bandpass under prisim/data and add catalog, beam, layouts, and
+bandpass files under the respective folders
+
+In setup.py,
+
+(*) Add keywords classifiers, maintainer, and maintainer_email
+(*) Modify values under keyword package_data to include newly
+included data
+(*) Import glob and use it to specify scripts from the scripts
+folder automatically
+
+In MANIFEST.in
+
+(*) Modify to include the recently added package data files
+
+In prisim/__init__.py,
+
+(*) Add info on maintainer and maintainer_email
+
 From cbf524f (pkg):
 ==================
 

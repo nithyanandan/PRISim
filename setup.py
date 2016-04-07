@@ -1,6 +1,5 @@
-import setuptools
+import setuptools, re, glob
 from setuptools import setup, find_packages
-import re
 
 metafile = open('./prisim/__init__.py').read()
 metadata = dict(re.findall("__([a-z]+)__\s*=\s*'([^']+)'", metafile))
@@ -13,10 +12,22 @@ setup(name='PRISim',
     author=metadata['author'],
     author_email=metadata['authoremail'],
     license='MIT',
+    classifiers=['Development Status :: 4 - Beta',
+                 'Intended Audience :: Science/Research',
+                 'License :: OSI Approved :: MIT License',
+                 'Programming Language :: Python :: 2.7',
+                 'Topic :: Scientific/Engineering',
+                 'Topic :: Scientific/Engineering :: Astronomy',
+                 'Topic :: Utilities'],
     packages=find_packages(),
-    package_data={'prisim': ['data/*.yaml']},
+    package_data={'prisim': ['simparms/*.yaml', 'simparms/examples/*.yaml',
+                             'data/catalogs/*.txt', 'data/catalogs/*.csv',
+                             'data/catalogs/*.fits', 'data/beams/*.hmap',
+                             'data/phasedarray_layouts/*.txt',
+                             'data/array_layouts/*.txt',
+                             'data/bandpass/*.fits']},
     include_package_data=True,
-    scripts=['scripts/run_prisim.py'],
+    scripts=glob.glob('scripts/*'),
     install_requires=['astropy>=1.0', 'astroutils>=0.1.0', 'healpy>=1.5.3',
                       'ipdb>=0.6.1', 'matplotlib>=1.4.3', 'mpi4py>=1.2.2',
                       'numpy>=1.8.1', 'progressbar>=2.3', 'psutil>=2.2.1',
