@@ -26,6 +26,7 @@ from astroutils import constants as CNST
 from astroutils import DSP_modules as DSP 
 from astroutils import lookup_operations as LKP
 from astroutils import mathops as OPS
+import prisim
 from prisim import interferometry as RI
 from prisim import primary_beams as PB
 from prisim import baseline_delay_horizon as DLY
@@ -42,6 +43,7 @@ name = MPI.Get_processor_name()
 
 sday = CNST.sday
 sday_correction = 1 / sday
+prisim_path = prisim.__path__[0]+'/'
 
 ## Parse input arguments
 
@@ -65,8 +67,11 @@ latitude = parms['telescope']['latitude']
 longitude = parms['telescope']['longitude']
 if longitude is None:
     longitude = 0.0
-pfb_method = parms['telescope']['pfb_method']
-pfb_file = parms['telescope']['pfb_file']
+pfb_method = parms['bandpass']['pfb_method']
+pfb_filepath = parms['bandpass']['pfb_filepath']
+pfb_file = parms['bandpass']['pfb_file']
+if pfb_filepath == 'default':
+    pfb_file = prisim_path + 'data/bandpass/'+pfb_file
 element_shape = parms['antenna']['shape']
 element_size = parms['antenna']['size']
 element_ocoords = parms['antenna']['ocoords']
@@ -89,9 +94,9 @@ obs_mode = parms['obsparm']['obs_mode']
 n_acc = parms['obsparm']['n_acc']
 t_acc = parms['obsparm']['t_acc']
 t_obs = parms['obsparm']['t_obs']
-freq = parms['obsparm']['freq']
-freq_resolution = parms['obsparm']['freq_resolution']
-nchan = parms['obsparm']['nchan']
+freq = parms['bandpass']['freq']
+freq_resolution = parms['bandpass']['freq_resolution']
+nchan = parms['bandpass']['nchan']
 timeformat = parms['obsparm']['timeformat']
 beam_info = parms['beam']
 use_external_beam = beam_info['use_external']

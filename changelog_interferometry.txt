@@ -1,3 +1,15 @@
+From eb7a9a4 (pkg):
+==================
+
+In simparms/defaultparms.yaml,
+
+(*) Move bandpass related parameters to a new group under bandpass
+(*) Add ability to specify default or custom paths for PFB file info
+
+In scripts/run_prisim.py,
+
+(*) Adjust to changes to format in simparms/defaultparms.yaml
+
 From ba4dac9 (pkg):
 ==================
 

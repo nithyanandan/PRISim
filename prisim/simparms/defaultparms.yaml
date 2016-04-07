@@ -47,17 +47,6 @@ telescope:
     Tsys            : 220.0
                                 # System temperature (in K)
 
-    pfb_method      : null 
-                                # PFB method to be used. Default (null)
-                                # means no use of PFB. Other accepted
-                                # values are 'theoretical' and
-                                # 'empirical'
-
-    pfb_file        : '/data3/t_nithyanandan/project_MWA/foregrounds/PFB/Prabu/test_pfb_512x8.fits'
-                                # File containing PFB coefficients.
-                                # Applicable only is pfb_method is
-                                # set to non-null value
-
 ########## Antenna layout #########
 
 array   :                       # Parameters 'file' and 'layout'
@@ -224,9 +213,9 @@ beam    :
                                 # Applies only if chromatic is set to
                                 # True
 
-########## Observation setup ##########
+########## Bandpass setup ##########
 
-obsparm  :
+bandpass :
 
     freq            : 150000000.0
                                 # Center frequency (in Hz)
@@ -239,6 +228,40 @@ obsparm  :
     nchan           : 256
                                 # Number of channels
                                 # 704 for Adam Lidz's cube
+
+    pfb_method      : null 
+                                # PFB method to be used. Default (null)
+                                # means no use of PFB. Other accepted
+                                # values are 'theoretical' and
+                                # 'empirical'
+
+    pfb_filepath    : 'default'
+                                # Can be set to 'default' or 'custom'.
+                                # If set to 'relative' the pfb_file is
+                                # located in the PRIRim package
+                                # data/bandpass directory. If set to
+                                # 'custom' then the full path is
+                                # specified in pfb_file
+
+    pfb_file        :           # File containing PFB coefficients.
+                                # Applicable only is pfb_method is
+                                # set to non-null value. If pfb_filepath
+                                # is set to 'default' specify only the
+                                # filename and it will be located in the
+                                # default folder under the PRISim package,
+                                # namely, data/bandpass but if pfb_filepath
+                                # is set to 'custom' then the full path
+                                # must be specified
+
+                      'MWA_pfb_512x8.fits'
+                                # Just filename assuming default relative
+                                # path
+                      # '/path/to/PFBfile'
+                                # Full path to filename
+
+########## Observation setup ##########
+
+obsparm  :
 
     obs_date        : '2015/11/23'
                                 # Observation start date yyyy/mm/dd
