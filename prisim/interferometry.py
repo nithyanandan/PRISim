@@ -1,5 +1,4 @@
 from __future__ import division
-# import os as OS
 import numpy as NP
 import numpy.linalg as LA
 import scipy.constants as FCNST
@@ -11,20 +10,20 @@ import astropy
 from astropy.io import fits
 from distutils.version import LooseVersion
 import psutil 
-import geometry as GEOM
-import my_gridding_modules as GRD
-import primary_beams as PB
+from astroutils import geometry as GEOM
+from astroutils import gridding_modules as GRD
+from astroutils import constants as CNST
+from astroutils import DSP_modules as DSP
+from astroutils import catalog as SM
+from astroutils import lookup_operations as LKP
 import baseline_delay_horizon as DLY
-import constants as CNST
-import my_DSP_modules as DSP
-import catalog as SM
-import lookup_operations as LKP
+import primary_beams as PB
 mwa_tools_found = True
 try:
     from mwapy.pb import primary_beam as MWAPB
 except ImportError:
     mwa_tools_found = False
-import ipdb as PDB    
+import ipdb as PDB
 
 ################################################################################
 
@@ -2553,8 +2552,8 @@ class InterferometerArray(object):
                 skyvis = NP.zeros((self.baselines.shape[0], self.channels.size), dtype=NP.complex_)
                 memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 8.0 * 2 # bytes, 8 bytes per float, factor 2 is because the phase involves complex values
 
-            # memory_available = OS.popen("free -b").readlines()[2].split()[3]
-            memory_available = psutil.phymem_usage().available
+            # memory_available = psutil.phymem_usage().available
+            memory_available = psutil.virtual_memory().available
             if float(memory_available) > memory_required:
                 if memsave:
                     phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float32) *  (self.geometric_delays[-1][:,:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64)

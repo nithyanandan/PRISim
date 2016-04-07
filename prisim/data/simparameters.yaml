@@ -478,13 +478,13 @@ processing:
                                 # null means process all chunks.
                                 # Should be given as a list
 
-    n_freq_chunks   : 1
+    n_freq_chunks   : 2
                                 # Upper limit on number of frequency
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
                                 # processing
 
-    freq_chunk_size : 256
+    freq_chunk_size : 128
                                 # Frequency chunk size (in number of
                                 # channels). Will be used
                                 # in a single process during parallel

@@ -1,3 +1,5 @@
+#!python
+
 from mpi4py import MPI
 import yaml
 import argparse
@@ -17,16 +19,16 @@ import datetime as DT
 import time 
 import progressbar as PGB
 import healpy as HP
-import my_MPI_modules as my_MPI
-import geometry as GEOM
-import interferometry as RI
-import catalog as SM
-import constants as CNST
-import my_DSP_modules as DSP 
-import my_operations as OPS
-import primary_beams as PB
-import baseline_delay_horizon as DLY
-import lookup_operations as LKP
+from astroutils import MPI_modules as my_MPI
+from astroutils import geometry as GEOM
+from astroutils import catalog as SM
+from astroutils import constants as CNST
+from astroutils import DSP_modules as DSP 
+from astroutils import lookup_operations as LKP
+from astroutils import mathops as OPS
+from prisim import interferometry as RI
+from prisim import primary_beams as PB
+from prisim import baseline_delay_horizon as DLY
 import ipdb as PDB
 
 ## Set MPI parameters

@@ -1,0 +1,5 @@
+__version__='0.1.0'
+__description__='Precision Radio Interferometry Simulator'
+__author__='Nithyanandan Thyagarajan'
+__authoremail__='nithyanandan.t@gmail.com'
+__url__='http://github.com/nithyanandan/prisim'

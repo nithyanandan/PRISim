@@ -1,0 +1,3 @@
+include *.txt prisim/data/*.yaml
+recursive-include docs examples data scripts *.txt *.py *.yaml
+prune examples/sample?/build

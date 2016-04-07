@@ -1,3 +1,33 @@
+From 8fd5179 (pkg):
+==================
+
+(*) Set up a minimal installation package with dependency on package
+AstroUtils
+(*) Restructure to make it compatible with setup.py installation
+(*) Rename interferometer_data_simulation.yaml.mpi.py to run_prisim.py
+and move it scripts/ folder
+(*) Move modules interfermetry.py, primary_beams.py,
+delay_spectrum.py, and baseline_delay_horizon.py to prisim/ folder
+(*) Adjust imports in modules interfermetry.py, primary_beams.py,
+delay_spectrum.py, baseline_delay_horizon.py and the script
+run_primsim.py to import appropriate modules from the AstroUtils and
+PRISim modules
+(*) This package has been verified to install correctly
+(*) Script run_prisim was executed and verified to function as
+expected
+
+In interferometry.py,
+
+(*) Change call to deprecated phymem_usage() in psutil module to
+virtual_memory()
+
+In delay_spectrum.py,
+
+(*) Comment out import of aipy module
+(*) Comment out deprecated global function _gentle_clean()
+(*) Comment out deprecated member function clean() of class
+DelaySpectrum that called the deprecated global function _gentle_clean()
+
 From d106e08 (master), 14b0c3b (synthesis):
 ==========================================
 
