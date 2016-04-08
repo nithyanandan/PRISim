@@ -167,20 +167,24 @@ beam    :
                                 # analytically from antenna aperture
                                 # specifications
 
-    file            : # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_healpix.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_195_137o5_hp_nside128full.fits'
-                      '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl04/X4Y2H_4900.hmap'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_hp_nside128full.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/XRFBg_195_137o5_hp_nside128full.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/analytic/14.0m_dish_Airy_no_ground_nside_256_derr_0.000ns_gerr_0.00dB_nrand_1_128x781.2_kHz_150.0_MHz.fits'
+    file            : 'HERA_HFSS_X4Y2H_4900.hmap'
 
-                                # Full pathname to the FITS file
-                                # containing the external antenna
-                                # beam. Used only if use_external is
-                                # set to true
+                                # FITS file containing the external
+                                # antenna beam. Used only if
+                                # use_external is set to true.
+                                # Specify only filename if filepathtype
+                                # is set to 'default', otherwise specify
+                                # full path to the file. A format
+                                # specification for the file contents is
+                                # under development
+
+    filepathtype    : 'default'
+                                # If set to 'default', only filename
+                                # should be specified in file and it
+                                # will be searched in the default beams
+                                # folder prisim/data/beams/
+                                # If set to 'custom' then the full path
+                                # to the file must be specified
 
     identifier      : 'HERA-CST'
                                 # string to identify source of beam
@@ -642,3 +646,15 @@ save_formats :
 
 plots    : false
                                 # If true, create relevant plots
+
+########## Diagnosis parameters ###########
+
+diagnosis   :
+
+    wait_after_run  : true
+                                # If true, keep python shell open
+                                # after completing the run using
+                                # set_trace() of python debugger.
+                                # If false, close python shell
+                                # and return to command prompt
+                                # after successful completion

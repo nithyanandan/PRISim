@@ -1,3 +1,27 @@
+From 90b4304 (paths):
+====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Update commented information on specifying external beam file
+under group named beam
+(*) Add diagnostic parameter option 'wait_after_run' under group
+'diagnosis'
+
+In scripts/run_prisim.py,
+
+(*) Add option to keep python shell open or close after successful
+completion based on the diagnostic parameter 'wait_after_run'
+
+In MANIFEST.in,
+
+(*) Include *.fits files under prisim/data/beams/
+
+In setup.py,
+
+(*) Include *.fits files under prisim/data/beams/ also under package
+data
+
 From d28aaaa (paths):
 ====================
 

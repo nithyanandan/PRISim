@@ -102,6 +102,8 @@ beam_info = parms['beam']
 use_external_beam = beam_info['use_external']
 if use_external_beam:
     external_beam_file = beam_info['file']
+    if beam_info['filepathtype'] == 'default':
+        external_beam_file = prisim_path+'data/beams/'+external_beam_file
     beam_pol = beam_info['pol']
     beam_id = beam_info['identifier']
     select_beam_freq = beam_info['select_freq']
@@ -163,6 +165,7 @@ mpi_eqvol = parms['pp']['eqvol']
 save_formats = parms['save_formats']
 save_to_npz = save_formats['npz']
 plots = parms['plots']
+diagnosis_parms = parms['diagnosis']
 
 if project not in ['project_MWA', 'project_global_EoR', 'project_HERA', 'project_drift_scan', 'project_beams', 'project_LSTbin']:
     raise ValueError('Invalid project specified')
@@ -1889,4 +1892,5 @@ if rank == 0:
         skymod.save(consolidated_outfile+'.skymodel.txt', fileformat='ascii')
             
 print 'Process {0} has completed.'.format(rank)
-PDB.set_trace()
+if diagnosis_parms['wait_after_run']:
+    PDB.set_trace()
