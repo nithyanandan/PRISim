@@ -1,5 +1,29 @@
-From 90b4304 (paths):
-====================
+From a8d950f (package):
+======================
+
+(*) All data files under and including the prisim/data/ folder
+were erased and their histories were rewritten, specifically
+eb7a9a4 (now 3e549f9), d28aaaa (now 2bdd6ce), and 90b4304
+(now 0d8759f).
+(*) Add folder data/ under prisim/
+(*) Add folders beams/, bandpass/, catalogs/, array_layouts/ and
+phasedarray_layouts/ under prisim/data/
+(*) Add few text files in the subfolders of prisim/data/
+
+In MANIFEST.in,
+
+(*) Adjust parameters to reflect changes to data folder
+
+In setup.py,
+
+(*) Adjust parameters to reflect changes to data folder
+
+In changelog_interferometry.txt,
+
+(*) Record the changed histories
+
+From 90b4304 (package) - now 0d8759f:
+====================================
 
 In prisim/examples/simparms/defaultparms.yaml,
 
@@ -22,8 +46,8 @@ In setup.py,
 (*) Include *.fits files under prisim/data/beams/ also under package
 data
 
-From d28aaaa (paths):
-====================
+From d28aaaa (package) - now 2bdd6ce:
+====================================
 
 (*) Add examples/ folder under prisim/
 (*) Remove examples/ folder under prisim/simparms/
@@ -48,8 +72,8 @@ In scripts/run_prisim.py,
 
 (*) Modify location of default input parameters file
 
-From eb7a9a4 (pkg):
-==================
+From eb7a9a4 (pkg) - now 3e549f9:
+================================
 
 In simparms/defaultparms.yaml,
 
