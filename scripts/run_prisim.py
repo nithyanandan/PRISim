@@ -152,12 +152,20 @@ spindex_seed = parms['fgparm']['spindex_seed']
 use_lidz = parms['fgparm']['lidz']
 use_21cmfast = parms['fgparm']['21cmfast']
 global_HI_parms = parms['fgparm']['global_EoR_parms']
+catalog_filepathtype = parms['catalog']['filepathtype']
 DSM_file_prefix = parms['catalog']['DSM_file_prefix']
 SUMSS_file = parms['catalog']['SUMSS_file']
 NVSS_file = parms['catalog']['NVSS_file']
 MWACS_file = parms['catalog']['MWACS_file']
 GLEAM_file = parms['catalog']['GLEAM_file']
-PS_file = parms['catalog']['PS_file']
+custom_catalog_file = parms['catalog']['custom_file']
+if catalog_filepathtype == 'default':
+    DSM_file_prefix = prisim_path + 'data/catalogs/' + DSM_file_prefix
+    SUMSS_file = prisim_path + 'data/catalogs/' + SUMSS_file
+    NVSS_file = prisim_path + 'data/catalogs/' + NVSS_file
+    MWACS_file = prisim_path + 'data/catalogs/' + MWACS_file
+    GLEAM_file = prisim_path + 'data/catalogs/' + GLEAM_file
+    custom_catalog_file = prisim_path + 'data/catalogs/' + custom_catalog_file
 pc = parms['phasing']['center']
 pc_coords = parms['phasing']['coords']
 mpi_key = parms['pp']['key']
@@ -1401,7 +1409,7 @@ elif use_GLEAM:
     skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
 
 elif use_PS:
-    catdata = ascii.read(PS_file, comment='#', header_start=0, data_start=1)
+    catdata = ascii.read(custom_catalog_file, comment='#', header_start=0, data_start=1)
     ra_deg = catdata['RA'].data
     dec_deg = catdata['DEC'].data
     fint = catdata['F_INT'].data

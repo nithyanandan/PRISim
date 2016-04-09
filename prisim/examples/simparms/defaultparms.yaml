@@ -467,23 +467,39 @@ fgparm   :
 
 catalog  :
 
-    DSM_file_prefix : '/data3/t_nithyanandan/foregrounds/gsmdata'
-                               # Diffuse Sky Model map file name prefix
-                 
+    filepathtype    : 'default'
+                                # Type of file path. Can be set to
+                                # 'default' or 'custom'. If set to
+                                # 'default', only catalog filename
+                                # must be specified and the catalog
+                                # file will be searched in the default
+                                # package data folder
+                                # prisim/data/catalogs. If set to
+                                # 'custom', the full path to the
+                                # catalog file must be specified
 
-    SUMSS_file      : '/data3/t_nithyanandan/foregrounds/sumsscat.Mar-11-2008.txt'
+    DSM_file_prefix : 'gsmdata'
+                      # '/path/to/gsmdata'
+                                # Diffuse Sky Model map file name prefix
+
+    SUMSS_file      : 'sumsscat.Mar-11-2008.txt'
+                      # '/path/to/SUMSScatalogFile.txt'
                                 # SUMSS catalog file
 
-    NVSS_file       : '/data3/t_nithyanandan/foregrounds/NVSS_catalog.fits'
+    NVSS_file       : 'NVSS_catalog.fits'
+                      # '/path/to/NVSScatalogFile.fits'
                                 # NVSS catalog file
 
-    MWACS_file      : '/data3/t_nithyanandan/foregrounds/mwacs_b1_131016.csv'
+    MWACS_file      : 'mwacs_b1_131016.csv'
+                      # '/path/to/MWACScatalogFile.csv'
                                 # MWACS catalog file
 
-    GLEAM_file      : '/data3/t_nithyanandan/foregrounds/mwacs_b1_131016.csv'
+    GLEAM_file      : 'GLEAMIDR3.fits'
+                      # '/path/to/GLEAMcatalogFile.fits'
                                 # GLEAM catalog file
 
-    PS_file         : '/data3/t_nithyanandan/foregrounds/PS_catalog.txt'
+    custom_file         : 'custom_catalog.txt'
+                      # '/path/to/custom_catalog.txt'
                                 # User defined point sources catalog
                                 # file
 

@@ -1,3 +1,18 @@
+From b2c3e8e (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Allow specification of default or custom paths for catalogs
+
+In scripts/run_prisim.py,
+
+(*) Allow specification of default or custom paths for catalogs
+
+In setup.py,
+
+(*) Minor changes
+
 From a8d950f (package):
 ======================
 
