@@ -8,11 +8,10 @@ directory:
 
 ########## Project information #########
 
-project  : project_HERA
-                                # Accepted values are project_MWA,
-                                # project_global_EoR, project_HERA, 
-                                # project_drift_scan, project_beams,
-                                # project_LSTbin
+project  : 'prisim_test'
+                                # Directory for the project under
+                                # rootdir. Will be created if it
+                                # does not exist
 
 ########## Telescope information ##########
 

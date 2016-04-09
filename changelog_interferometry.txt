@@ -1,3 +1,16 @@
+From 8cf0770 (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Edit description of project directory parameter
+
+In scripts/run_prisim.py,
+
+(*) Import modules os, errno, astropy.time
+(*) Save data into date-time folders under the project folder
+(*) Create date-time folder if it does not exist already
+
 From 362299e (package):
 ======================
 
