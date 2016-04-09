@@ -1,3 +1,12 @@
+From 8b2a3e7 (package):
+======================
+
+In scripts/run_prisim.py,
+
+(*) Add more organization to folder structure for output products -
+'sim', 'parms', 'roi' and 'skymodel' for simulated data, simulation
+parameters, regions of interest, and sky model respectively.
+
 From 52edf66 (package):
 ======================
 
