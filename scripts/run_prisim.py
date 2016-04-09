@@ -664,13 +664,13 @@ use_SUMSS = False
 use_GLEAM = False
 use_USM = False
 use_MSS = False
-use_PS = False
+use_custom = False
 use_NVSS = False
 use_HI_monopole = False
 use_HI_cube = False
 use_HI_fluctuations = False
 
-if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'ps', 'point', 'usm', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations']:
+if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations']:
     raise ValueError('Invalid foreground model string specified.')
 
 if fg_str == 'asm':
@@ -683,8 +683,8 @@ elif fg_str == 'sumss':
     use_SUMSS = True
 elif fg_str == 'gleam':
     use_GLEAM = True
-elif fg_str in ['point', 'PS']:
-    use_PS = True
+elif fg_str == 'custom':
+    use_custom = True
 elif fg_str == 'nvss':
     use_NVSS = True
 elif fg_str == 'usm':
@@ -1408,7 +1408,7 @@ elif use_GLEAM:
 
     skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
 
-elif use_PS:
+elif use_custom:
     catdata = ascii.read(custom_catalog_file, comment='#', header_start=0, data_start=1)
     ra_deg = catdata['RA'].data
     dec_deg = catdata['DEC'].data
@@ -1417,9 +1417,9 @@ elif use_PS:
     majax = catdata['MAJAX'].data
     minax = catdata['MINAX'].data
     pa = catdata['PA'].data
-    freq_PS = 0.185 # in GHz
-    freq_catalog = freq_PS * 1e9 + NP.zeros(fint.size)
-    catlabel = NP.repeat('PS', fint.size)
+    freq_custom = 0.185 # in GHz
+    freq_catalog = freq_custom * 1e9 + NP.zeros(fint.size)
+    catlabel = NP.repeat('custom', fint.size)
 
     spec_parms = {}
     # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
@@ -1433,17 +1433,6 @@ elif use_PS:
     flux_unit = 'Jy'
 
     skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
-
-# elif use_PS:
-#     n_src = 1
-#     fpeak = 1000.0*NP.ones(n_src)
-#     spindex = NP.ones(n_src) * spindex
-#     ra_deg = NP.asarray(pointings_radec[0,0])
-#     dec_deg = NP.asarray(pointings_radec[0,1])
-#     fmajax = NP.ones(n_src)
-#     fminax = fmajax
-#     fpa = NP.zeros(n_src)
-#     ctlgobj = SM.Catalog('PS', freq_catalog*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fpeak, spectral_index=spindex, src_shape=NP.hstack((fmajax.reshape(-1,1),fminax.reshape(-1,1),fpa.reshape(-1,1))), src_shape_units=['arcmin','arcmin','degree'])
 
 ## Set up the observing run
 

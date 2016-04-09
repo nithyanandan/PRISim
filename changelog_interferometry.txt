@@ -1,3 +1,16 @@
+From b6178a9 (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Rename user-defined PS catalog parameters as custom catalog
+parameters
+
+In scripts/run_prisim.py,
+
+(*) Rename user-defined PS catalog parameters as custom catalog
+parameters
+
 From b2c3e8e (package):
 ======================
 

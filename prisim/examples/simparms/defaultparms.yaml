@@ -404,15 +404,15 @@ snapshot :                      # Parameters below are mutually
 
 fgparm   :
 
-    model           : 'csm'
+    model           : 'custom'
                                 # Foreground model. Accepted values
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both
                                 # point sources and diffuse emission),
                                 # 'sumss' (SUMSS catalog), nvss (NVSS
                                 # catalog), 'mss' (Molonglo Sky Survey),
-                                # 'gleam' (GLEAM catalog), 'point' (user-
-                                # defined point sources), 'usm' (uniform
+                                # 'gleam' (GLEAM catalog), 'custom' (user-
+                                # defined catalog), 'usm' (uniform
                                 # sky model), 'mwacs' (MWACS catalog),
                                 # 'HI_monopole' (global EoR), HI_cube
                                 # (HI cube from external simulations), 
@@ -500,8 +500,9 @@ catalog  :
 
     custom_file         : 'custom_catalog.txt'
                       # '/path/to/custom_catalog.txt'
-                                # User defined point sources catalog
-                                # file
+                                # User defined catalog. See
+                                # prisim/data/catalogs/custom_catalog.txt
+                                # for file format
 
 ########## Processing setup ##########
 
