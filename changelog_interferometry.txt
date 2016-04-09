@@ -1,3 +1,14 @@
+From 52edf66 (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add parameter to clean up intermediate files
+
+In scripts/run_prisim.py,
+
+(*) Add option to clean up intermediate files
+
 From 8cf0770 (package):
 ======================
 

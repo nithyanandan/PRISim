@@ -140,6 +140,7 @@ bandpass_correct = parms['processing']['bp_correct']
 noise_bandpass_correct = parms['processing']['noise_bp_correct']
 do_delay_transform = parms['processing']['delay_transform']
 memsave = parms['processing']['memsave']
+cleanup = parms['processing']['cleanup']
 flag_chan = NP.asarray(parms['flags']['flag_chan']).reshape(-1)
 bp_flag_repeat = parms['flags']['bp_flag_repeat']
 n_edge_flag = NP.asarray(parms['flags']['n_edge_flag']).reshape(-1)
@@ -1908,9 +1909,13 @@ if rank == 0:
                 if i == 0:
                     simvis = RI.InterferometerArray(None, None, None, init_file=blchunk_infile+'.fits')    
                 else:
-                    simvis_next = RI.InterferometerArray(None, None, None, init_file=blchunk_infile+'.fits')    
+                    simvis_next = RI.InterferometerArray(None, None, None, init_file=blchunk_infile+'.fits')
                     simvis.concatenate(simvis_next, axis=0)
     
+                if cleanup:
+                    if os.path.isfile(blchunk_infile+'.fits'):
+                        os.remove(blchunk_infile+'.fits')
+                    
                 progress.update(i+1)
             progress.finish()
 
@@ -1929,6 +1934,10 @@ if rank == 0:
                     simvis_next = RI.InterferometerArray(None, None, None, init_file=freqchunk_infile+'.fits')    
                     simvis.concatenate(simvis_next, axis=1)
     
+                if cleanup:
+                    if os.path.isfile(freqchunk_infile+'.fits'):
+                        os.remove(freqchunk_infile+'.fits')
+                    
                 progress.update(i+1)
             progress.finish()
 

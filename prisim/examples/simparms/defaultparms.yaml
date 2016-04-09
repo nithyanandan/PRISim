@@ -600,6 +600,11 @@ processing:
                                 # to true use single precision, if
                                 # false, use double precision
 
+    cleanup         : true
+                                # if set to true, clean up
+                                # intermediate files. If False, no
+                                # clean up occurs
+
 ########## Parallel processing setup #########
 
 pp       :
