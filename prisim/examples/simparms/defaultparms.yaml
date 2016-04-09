@@ -404,7 +404,7 @@ snapshot :                      # Parameters below are mutually
 
 fgparm   :
 
-    model           : 'custom'
+    model           : 'csm'
                                 # Foreground model. Accepted values
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both

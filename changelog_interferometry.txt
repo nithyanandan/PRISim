@@ -1,3 +1,10 @@
+From 362299e (package):
+======================
+
+In scripts/run_prisim.py,
+
+(*) Add ability to simulate GLEAM catalog
+
 From b6178a9 (package):
 ======================
 

@@ -1315,10 +1315,8 @@ elif use_CSM:
 
     spec_type = 'func'
     spec_parms = {}
-    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
     spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
     spec_parms['power-law-index'] = spindex
-    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
     spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
     spec_parms['flux-scale'] = fluxes
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
@@ -1388,18 +1386,47 @@ elif use_SUMSS:
 elif use_MSS:
     pass
 elif use_GLEAM:
-    catdata = ascii.read(GLEAM_file, data_start=1, delimiter=',')
-    dec_deg = catdata['DEJ2000']
-    ra_deg = catdata['RAJ2000']
-    fpeak = catdata['S150_fit']
-    ferr = catdata['e_S150_fit']
-    spindex = catdata['Sp+Index']
+    freq_GLEAM = 0.200  # in GHz
+    hdulist = fits.open(GLEAM_file)
+    ra_deg_GLEAM = hdulist[1].data['RAJ2000']
+    dec_deg_GLEAM = hdulist[1].data['DECJ2000']
+    gleam_fint = hdulist[1].data['int_flux_deep']
+    gleam_majax = hdulist[1].data['a_deep']
+    gleam_minax = hdulist[1].data['b_deep']
+    gleam_pa = hdulist[1].data['pa_deep']
+    gleam_psf_majax = hdulist[1].data['psf_a_deep']
+    gleam_psf_minax = hdulist[1].data['psf_b_deep']
+    hdulist.close()
 
+    if spindex_seed is None:
+        spindex_GLEAM = spindex + spindex_rms * NP.random.randn(gleam_fint.size)
+    else:
+        NP.random.seed(2*spindex_seed)
+        spindex_GLEAM = spindex + spindex_rms * NP.random.randn(gleam_fint.size)
+
+    bright_source_ind = gleam_fint >= 10.0 * (freq_GLEAM*1e9/freq)**spindex_GLEAM
+    PS_ind = gleam_majax * gleam_minax <= 1.1 * gleam_psf_majax * gleam_psf_minax
+    valid_ind = NP.logical_and(bright_source_ind, PS_ind)
+    ra_deg_GLEAM = ra_deg_GLEAM[valid_ind]
+    dec_deg_GLEAM = dec_deg_GLEAM[valid_ind]
+    gleam_fint = gleam_fint[valid_ind]
+    spindex_GLEAM = spindex_GLEAM[valid_ind]
+    gleam_majax = gleam_majax[valid_ind]
+    gleam_minax = gleam_minax[valid_ind]
+    gleam_pa = gleam_pa[valid_ind]
+    fluxes = gleam_fint + 0.0
+    catlabel = NP.repeat('GLEAM', gleam_fint.size)
+    ra_deg = ra_deg_GLEAM + 0.0
+    dec_deg = dec_deg_GLEAM + 0.0
+    freq_catalog = freq_GLEAM*1e9 + NP.zeros(gleam_fint.size)
+    majax = gleam_majax / 3.6e3
+    minax = gleam_minax / 3.6e3
+    spindex = spindex_GLEAM + 0.0
+
+    spec_type = 'func'
     spec_parms = {}
-    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
     spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
     spec_parms['power-law-index'] = spindex
-    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
     spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
     spec_parms['flux-scale'] = fluxes
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
