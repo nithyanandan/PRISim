@@ -1,17 +1,24 @@
-########## Directory information #########
+########## Directory Structure information #########
 
-directory:
+dirstruct:
                                 # Directory information
 
-    rootdir         : '/data3/t_nithyanandan/'
+    rootdir     : '/data3/t_nithyanandan/'
                                 # Base directory
 
-########## Project information #########
-
-project  : 'prisim_test'
+    project     : 'prisim_test'
                                 # Directory for the project under
                                 # rootdir. Will be created if it
                                 # does not exist
+
+    simid       : null
+                                # Simulation ID type. Creates a
+                                # folder to store results of
+                                # simulation. Accepted values
+                                # are null (current GMT
+                                # at the start of simulation),
+                                # or any string representing custom
+                                # (user defined) ID
 
 ########## Telescope information ##########
 

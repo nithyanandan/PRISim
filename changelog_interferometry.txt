@@ -1,3 +1,27 @@
+From c633fd5 (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Reorganize directory structure parameters
+(*) Add simulation ID parameter 'simid' for simulation outputs to
+go under default folders or under user-specified folders
+
+In scripts/run_prisim.py,
+
+(*) Modify folder structure of simulation output:
+rootdir/project_dir/simid/simdata
+rootdir/project_dir/simid/roi
+rootdir/project_dir/simid/metainfo
+rootdir/project_dir/simid/skymodel
+(*) Files under rootdir/project_dir/simid/simdata:
+simvis.fits and simvis.npz (if npz save parameter is set)
+(*) Files under rootdir/project_dir/simid/roi: roiinfo.fits
+(*) Files under rootdir/project_dir/simid/metainfo: simparms.yaml
+(*) Files under rootdir/project_dir/simid/skymodel: skymodel.txt
+(*) Comment out earlier filename strings that have parameters built
+into them
+
 From 8b2a3e7 (package):
 ======================
 
