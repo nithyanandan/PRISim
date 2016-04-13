@@ -188,10 +188,15 @@ except OSError as exception:
     else:
         raise
 
-if simid is None:
-    simid = time.strftime('%Y-%m-%d-%H-%M-%S', time.gmtime())
-elif not isinstance(simid, str):
-    raise TypeError('simid must be a string')
+if rank == 0:
+    if simid is None:
+        simid = time.strftime('%Y-%m-%d-%H-%M-%S', time.gmtime())
+    elif not isinstance(simid, str):
+        raise TypeError('simid must be a string')
+else:
+    simid = None
+
+simid = comm.bcast(simid, root=0) # Broadcast simulation ID
 
 simid = simid + '/'
 try:

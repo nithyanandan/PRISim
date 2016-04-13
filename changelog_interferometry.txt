@@ -1,3 +1,12 @@
+From eb03329 (package):
+======================
+
+In scripts/run_prisim.py,
+
+(*) Generate simulation ID in one process and broadcast to all others
+in order to avoid race conditions and creation of multiple IDs and
+directories by different processes for the same simulation 
+
 From 003a9f3 (dirstruct):
 ========================
 
