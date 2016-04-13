@@ -1,6 +1,6 @@
 #!python
 
-import os, errno
+import os, pwd, errno
 from mpi4py import MPI
 import yaml
 import argparse
@@ -1931,10 +1931,14 @@ else: # MPI based on baseline multiplexing
         pte_str = str(DT.datetime.now())                
  
 if rank == 0:
-    metafile = rootdir+project_dir+simid+meta_dir+'simparms.yaml'
+    parmsfile = rootdir+project_dir+simid+meta_dir+'simparms.yaml'
+    with open(parmsfile, 'w') as pfile:
+        yaml.dump(parms, pfile, default_flow_style=False)
 
+    minfo = {'user': pwd.getpwuid(os.getuid())[0], 'git#': prisim.__githash__, 'PRISim': prisim.__version__}
+    metafile = rootdir+project_dir+simid+meta_dir+'meta.yaml'
     with open(metafile, 'w') as mfile:
-        yaml.dump(parms, mfile, default_flow_style=False)
+        yaml.dump(minfo, mfile, default_flow_style=False)
 
 process_complete = True
 all_process_complete = comm.gather(process_complete, root=0)

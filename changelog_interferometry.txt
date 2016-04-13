@@ -1,3 +1,12 @@
+From 003a9f3 (dirstruct):
+========================
+
+In scripts/sun_prisim.py,
+
+(*) Write meta info such as git#, user, and PRISim version in
+meta.yaml under metainfo folder in the output directory
+structure
+
 From 4eb80fc (dirstruct):
 ========================
 
