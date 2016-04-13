@@ -1,3 +1,18 @@
+From 4eb80fc (dirstruct):
+========================
+
+In setup.py,
+
+(*) Find hash tag of current git commit (if any) and
+create/overwrite a githash file named githash.txt on the fly
+(*) githash.txt will not be part of the git repo because it keeps
+lagging one commit behind
+(*) Install githash.txt under package data
+
+In prisim/__init__.py,
+
+(*) Open githash.txt file and initialize attribute __githash__
+
 From 996f965 (dirstruct):
 ========================
 

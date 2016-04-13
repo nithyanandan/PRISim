@@ -1,7 +1,23 @@
-import setuptools, re, glob
+import setuptools, re, glob, os
 from setuptools import setup, find_packages
+from subprocess import Popen, PIPE
 
-metafile = open('./prisim/__init__.py').read()
+githash = 'unknown'
+if os.path.isdir(os.path.dirname(os.path.abspath(__file__))+'/.git'):
+    try:
+        gitproc = Popen(['git', 'rev-parse', 'HEAD'], stdout = PIPE)
+        githash = gitproc.communicate()[0]
+        if gitproc.returncode != 0:
+            print "unable to run git, assuming githash to be unknown"
+            githash = 'unknown'
+    except EnvironmentError:
+        print "unable to run git, assuming githash to be unknown"
+githash = githash.replace('\n', '')
+
+with open(os.path.dirname(os.path.abspath(__file__))+'/prisim/githash.txt', 'w+') as githash_file:
+    githash_file.write(githash)
+
+metafile = open(os.path.dirname(os.path.abspath(__file__))+'/prisim/__init__.py').read()
 metadata = dict(re.findall("__([a-z]+)__\s*=\s*'([^']+)'", metafile))
 
 setup(name='PRISim',
@@ -20,7 +36,7 @@ setup(name='PRISim',
                  'Topic :: Scientific/Engineering :: Astronomy',
                  'Topic :: Utilities'],
     packages=find_packages(),
-    package_data={'prisim': ['examples/simparms/*.yaml',
+    package_data={'prisim': ['*.txt', 'examples/simparms/*.yaml',
                              'examples/schedulers/*.txt',
                              'data/catalogs/*.txt', 'data/catalogs/*.csv',
                              'data/catalogs/*.fits', 'data/beams/*.hmap',
@@ -40,4 +56,3 @@ setup(name='PRISim',
                     'scipy>=0.15.1'],
     tests_require=['pytest'],
     zip_safe=False)
-
