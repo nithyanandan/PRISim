@@ -1,3 +1,25 @@
+From e9be3eb (search-db):
+========================
+
+(*) Add prisim/examples/dbparms/defaultdbparms.yaml and
+scripts/prisim_ls.py to git repo
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add parameters in YAML format to base the database search on
+(*) In this commit, these are telescope parameters 
+
+In scripts/prisim_ls.py,
+
+(*) This is a module to select the simulation runs that contain the
+selection criteria specified in
+prisim/examples/dbparms/defaultdbparms.yaml
+(*) First working example created
+
+In setup.py,
+
+(*) Add 'examples/dbparms/*.yaml' under package_data
+
 From eb03329 (package):
 ======================
 

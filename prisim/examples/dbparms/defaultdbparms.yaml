@@ -1,0 +1,51 @@
+########## Directory Structure information #########
+
+dirstruct:
+                                # Directory information
+
+    rootdir     : '/data3/t_nithyanandan/'
+                                # Base directory
+
+    project     : 'prisim_test'
+                                # Directory for the project under
+                                # rootdir. Will be created if it
+                                # does not exist. If set to null,
+                                # all projects under the specified
+                                # root directory will be searched
+
+########## Parameter ranges for inclusion #########
+
+telescope:
+
+    label_prefix    : null
+
+    id              : ['custom']
+                                # Accepts 'mwa', 'vla', 'gmrt',
+                                # 'hera', 'mwa_dipole', 'custom',
+                                # 'paper_dipole', 'mwa_tools'
+
+    latitude        : [-30.7224, -30.7224]
+                                # [min, max] latitude range
+                                # Latitude in degrees
+                                # -26.701 for MWA,
+                                # -30.7224 for HERA, PAPER
+                                # 34.079 for VLA,
+                                # 19.0965 for GMRT
+
+    longitude       : [+21.4278, +21.4278]
+                                # [min, max] longitude range
+                                # Longitude of observatory (in degrees)
+                                # Default (null) implies 0.0 degrees
+                                # corresponding to GMT.
+                                # -107.6184 for VLA, +116.670815 for MWA
+                                # +21.4278 for PAPER and HERA,
+                                # +74.0497 for GMRT
+
+    A_eff           : [154, 154]
+                                # [min, max] range of effective area of
+                                # antenna element in m^2
+
+    Tsys            : [220.0, 220.0]
+                                # [min, max] range in system temperature
+                                # (in K)
+
