@@ -65,6 +65,20 @@ def searchPRISimDB(parms):
                 system_temperatures = NP.asarray([parm['telescope']['Tsys'] for parm in parms_list])
                 select_ind = NP.logical_and(select_ind, NP.logical_and(system_temperatures >= reduced_parms['telescope']['Tsys'][0], system_temperatures <= reduced_parms['telescope']['Tsys'][1]))
 
+        if ikey == 'array':
+            if 'file' in ival:
+                layout_files = NP.asarray([parm['array']['file'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([arrfile in reduced_parms['array']['file'] for arrfile in layout_files]))
+            if 'layout' in ival:
+                layouts = NP.asarray([parm['array']['layout'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([arrlayout in reduced_parms['array']['layout'] for arrlayout in layouts]))
+            if 'minR' in ival:
+                minRs = NP.asarray([parm['array']['minR'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.logical_and(minRs >= reduced_parms['array']['minR'][0], latitudes <= reduced_parms['array']['minR'][1]))
+            if 'maxR' in ival:
+                maxRs = NP.asarray([parm['array']['maxR'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.logical_and(maxRs >= reduced_parms['array']['maxR'][0], maxRs <= reduced_parms['array']['maxR'][1]))
+
     select_ind, = NP.where(select_ind)
     outkeys = [metadata_list[ind].keys()[0] for ind in select_ind]
     for okey in outkeys:

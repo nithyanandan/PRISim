@@ -1,3 +1,14 @@
+From d0b3a91 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) In this commit, these are array layout parameters 
+
+In scripts/prisim_ls.py,
+
+(*) Set up database search based on array layout parameters
+
 From e9be3eb (search-db):
 ========================
 
