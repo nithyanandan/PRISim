@@ -81,3 +81,27 @@ array   :                       # Parameters 'file' and 'layout'
                                 # list containing range of maximum
                                 # radius of circular ring.
 
+########## Baseline Selection #########
+
+baseline :                      # Parameters specifying baseline
+                                # selection criteria
+
+    min             : null
+                                # Minimum baseline in distance
+                                # units (m). Default = 0 (null)
+
+    max             : null
+                                # Maximum baseline in distance
+                                # units (m). Default = max (null)
+
+    direction       : null
+                                # Default = null (all directions).
+                                # Other accepted values are 'E' (east)
+                                # 'SE' (south-east), 'NE' (north-east),
+                                # and 'N' (north). Multiple values from
+                                # this accepted list can be specified
+                                # as a list of strings.
+                                # e.g., ['N', 'E'], ['NE', 'SE', 'E'],
+                                # ['SE', 'E', 'NE', 'N'] which is
+                                # equivalent to null, etc.
+

@@ -1,3 +1,15 @@
+From e15f1f9 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add baseline selection parameters 
+
+In scripts/prisim_ls.py,
+
+(*) Set up database search based on baseline parameters
+(*) Convert None to NaN by typecasting to NP.float
+
 From d0b3a91 (search-db):
 ========================
 

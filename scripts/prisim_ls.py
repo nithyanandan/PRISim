@@ -4,6 +4,7 @@ import os, glob, sys
 import yaml
 import argparse
 import numpy as NP
+import numpy.ma as ma
 import astroutils.nonmathops as NMO
 import prisim
 
@@ -53,16 +54,20 @@ def searchPRISimDB(parms):
                 telescope_ids = NP.asarray([parm['telescope']['id'] for parm in parms_list])
                 select_ind = NP.logical_and(select_ind, NP.asarray([tscope in reduced_parms['telescope']['id'] for tscope in telescope_ids]))
             if 'latitude' in ival:
-                latitudes = NP.asarray([parm['telescope']['latitude'] for parm in parms_list])
+                latitudes = NP.asarray([parm['telescope']['latitude'] for parm in parms_list], dtype=NP.float)
+                latitudes[NP.equal(latitudes, None)] = NP.nan
                 select_ind = NP.logical_and(select_ind, NP.logical_and(latitudes >= reduced_parms['telescope']['latitude'][0], latitudes <= reduced_parms['telescope']['latitude'][1]))
             if 'longitude' in ival:
-                longitudes = NP.asarray([parm['telescope']['longitude'] for parm in parms_list])
+                longitudes = NP.asarray([parm['telescope']['longitude'] for parm in parms_list], dtype=NP.float)
+                longitudes[NP.equal(longitudes, None)] = NP.nan
                 select_ind = NP.logical_and(select_ind, NP.logical_and(longitudes >= reduced_parms['telescope']['longitude'][0], longitudes <= reduced_parms['telescope']['longitude'][1]))
             if 'A_eff' in ival:
-                effective_areas = NP.asarray([parm['telescope']['A_eff'] for parm in parms_list])
+                effective_areas = NP.asarray([parm['telescope']['A_eff'] for parm in parms_list], dtype=NP.float)
+                effective_areas[NP.equal(effective_areas, None)] = NP.nan
                 select_ind = NP.logical_and(select_ind, NP.logical_and(effective_areas >= reduced_parms['telescope']['A_eff'][0], effective_areas <= reduced_parms['telescope']['A_eff'][1]))
             if 'Tsys' in ival:
-                system_temperatures = NP.asarray([parm['telescope']['Tsys'] for parm in parms_list])
+                system_temperatures = NP.asarray([parm['telescope']['Tsys'] for parm in parms_list], dtype=NP.float)
+                system_temperatures[NP.equal(system_temperatures, None)] = NP.nan
                 select_ind = NP.logical_and(select_ind, NP.logical_and(system_temperatures >= reduced_parms['telescope']['Tsys'][0], system_temperatures <= reduced_parms['telescope']['Tsys'][1]))
 
         if ikey == 'array':
@@ -73,12 +78,27 @@ def searchPRISimDB(parms):
                 layouts = NP.asarray([parm['array']['layout'] for parm in parms_list])
                 select_ind = NP.logical_and(select_ind, NP.asarray([arrlayout in reduced_parms['array']['layout'] for arrlayout in layouts]))
             if 'minR' in ival:
-                minRs = NP.asarray([parm['array']['minR'] for parm in parms_list])
+                minRs = NP.asarray([parm['array']['minR'] for parm in parms_list], dtype=NP.float)
+                minRs[NP.equal(minRs, None)] = NP.nan
                 select_ind = NP.logical_and(select_ind, NP.logical_and(minRs >= reduced_parms['array']['minR'][0], latitudes <= reduced_parms['array']['minR'][1]))
             if 'maxR' in ival:
-                maxRs = NP.asarray([parm['array']['maxR'] for parm in parms_list])
+                maxRs = NP.asarray([parm['array']['maxR'] for parm in parms_list], dtype=NP.float)
+                maxRs[NP.equal(maxRs, None)] = NP.nan
                 select_ind = NP.logical_and(select_ind, NP.logical_and(maxRs >= reduced_parms['array']['maxR'][0], maxRs <= reduced_parms['array']['maxR'][1]))
 
+        if ikey == 'baseline':
+            if 'direction' in ival:
+                directions = NP.asarray([parm['baseline']['direction'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([direction in reduced_parms['baseline']['direction'] for direction in directions]))
+            if 'min' in ival:
+                mins = NP.asarray([parm['baseline']['min'] for parm in parms_list], dtype=NP.float)
+                mins[NP.equal(mins, None)] = NP.nan
+                select_ind = NP.logical_and(select_ind, NP.logical_and(mins >= reduced_parms['baseline']['min'][0], mins <= reduced_parms['baseline']['min'][1]))
+            if 'max' in ival:
+                maxs = NP.asarray([parm['baseline']['max'] for parm in parms_list], dtype=NP.float)
+                maxs[NP.equal(maxs, None)] = NP.nan
+                select_ind = NP.logical_and(select_ind, NP.logical_and(maxs >= reduced_parms['baseline']['max'][0], maxs <= reduced_parms['baseline']['max'][1]))
+                
     select_ind, = NP.where(select_ind)
     outkeys = [metadata_list[ind].keys()[0] for ind in select_ind]
     for okey in outkeys:
