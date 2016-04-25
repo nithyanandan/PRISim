@@ -364,7 +364,7 @@ else:
         raise ValueError('Invalid array layout specified')
 
     if array_layout == 'MWA-128T':
-        ant_info = NP.loadtxt(rootdir+'project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', skiprows=6, comments='#', usecols=(0,1,2,3))
+        ant_info = NP.loadtxt(prisim_path+'data/array_layouts/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', skiprows=6, comments='#', usecols=(0,1,2,3))
         ant_id = ant_info[:,0].astype(int).astype(str)
         ant_locs = ant_info[:,1:]
     elif array_layout == 'HERA-7':

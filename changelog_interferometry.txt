@@ -1,3 +1,11 @@
+From e9be3eb (package):
+======================
+
+In scripts/run_prisim.py,
+
+(*) Change hardcoded location of array layout file for MWA-128T to a
+default location in the package data directory
+
 From eb03329 (package):
 ======================
 
