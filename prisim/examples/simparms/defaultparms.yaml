@@ -146,9 +146,18 @@ antenna  :
 
 phasedarray:
 
-    file            : '/data3/t_nithyanandan/project_MWA/MWA_tile_dipole_locations.txt'
+    file            : 'MWA_tile_dipole_locations.txt'
                                 # File containing phased array elements
                                 # locations
+
+    filepathtype    : 'default'
+                                # If set to 'default', only filename
+                                # should be specified in file and it
+                                # will be searched in the default 
+                                # phasedarray_layouts folder
+                                # prisim/data/phasedarray_layouts
+                                # If set to 'custom' then the full path
+                                # to the file must be specified
 
     delayerr        : 0.0
                                 # Delay error rms (in ns). null means
@@ -352,7 +361,7 @@ pointing :                      # If pointing file is specified to be
                                 # Declination of sky position to track
                                 # (degrees)
 
-        ha          : -30.0
+        ha          : 0.0
                                 # Hour angle (degrees) at start of
                                 # observation. 
 
@@ -370,7 +379,7 @@ phasing :                       # Phase center parameters
                                 # if coordinate system is set to
                                 # 'dircos'
 
-    coords          : altaz
+    coords          : 'altaz'
                                 # Coordinate system for specifying
                                 # phase center. Accepted values are
                                 # 'altaz', 'hadec', 'radec', and

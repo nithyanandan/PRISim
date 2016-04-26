@@ -82,6 +82,8 @@ element_orientation = parms['antenna']['orientation']
 ground_plane = parms['antenna']['ground_plane']
 phased_array = parms['antenna']['phased_array']
 phased_elements_file = parms['phasedarray']['file']
+if parms['phasedarray']['filepathtype'] == 'default':
+    phased_elements_file = prisim_path+'data/phasedarray_layouts/'+phased_elements_file
 delayerr = parms['phasedarray']['delayerr']
 gainerr = parms['phasedarray']['gainerr']
 nrand = parms['phasedarray']['nrand']

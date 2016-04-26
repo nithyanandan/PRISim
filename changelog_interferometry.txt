@@ -1,3 +1,15 @@
+From 0444f79 (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add default/custom path specification for phased array layout file
+
+In scripts/run_prisim.py,
+
+(*) Account for default/custom path specification for phased array
+layout file
+
 From e9be3eb (package):
 ======================
 
