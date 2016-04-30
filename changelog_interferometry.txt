@@ -1,3 +1,16 @@
+From 851e1fd (Tsys):
+===================
+
+In prisim/interferometry.py,
+
+(*) Concatenate attribute Tsysinfo in concatenate() member function
+of class InterferometerArray
+(*) Remove some commented lines
+
+In scripts/run_prisim.py,
+
+(*) Remove some commented lines
+
 From 02cbecc (package):
 ======================
 

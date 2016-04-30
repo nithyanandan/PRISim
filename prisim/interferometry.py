@@ -2198,9 +2198,6 @@ class InterferometerArray(object):
 
         self.Tsys = NP.zeros((self.baselines.shape[0],self.channels.size))
         self.Tsysinfo = []
-        # self.Tsysinfo = {'Trx': 0.0, 'Tant': {'f0': NP.mean(self.channels), 'spindex': 0.0, 'T0': 0.0}, 'Tnet': None}
-        # self.Tsys = self.Tsysinfo['Trx'] + self.Tsysinfo['Tant']['T0'] * (self.channels/self.Tsysinfo['Tant']['f0']) ** self.Tsysinfo['Tant']['spindex']
-        # self.Tsys = self.Tsys.reshape(1,-1) + NP.zeros(self.baselines.shape[0]).reshape(-1,1) # nbl x nchan
 
         self.flux_unit = 'JY'
         self.timestamp = []
@@ -2331,17 +2328,6 @@ class InterferometerArray(object):
                                 identical for all interferometers. If a 2D array 
                                 is provided, it should be of size 
                                 n_baselines x nchan. Tsys = Tnet
-
-        Tsys         [scalar, list, tuple or numpy array] System temperature(s)
-                     associated with the interferometers for the specified
-                     timestamp of observation. If a scalar value is provided, it 
-                     will be assumed to be identical for all interferometers and
-                     all frequencies. If a vector is provided whose length is
-                     equal to the number of interferoemters, it will be assumed 
-                     identical for all frequencies. If a vector is provided whose
-                     length is equal to the number of frequency channels, it will
-                     be assumed identical for all interferometers. If a 2D array
-                     is provided, it should be of size n_baselines x nchan
 
         bandpass     [numpy array] Bandpass weights associated with the 
                      interferometers for the specified timestamp of observation
@@ -2604,8 +2590,6 @@ class InterferometerArray(object):
             skypos_altaz_roi = skypos_altaz[m2,:]
             coords_str = 'altaz'
 
-            # fluxes = skymodel.flux_density[m2].reshape(-1,1) * (self.channels.reshape(1,-1)/skymodel.frequency[m2].reshape(-1,1))**skymodel.spectral_index[m2].reshape(-1,1) # numpy array broadcasting
-            
             skymodel_subset = skymodel.subset(indices=m2)
             fluxes = skymodel_subset.generate_spectrum()
 
@@ -3608,6 +3592,10 @@ class InterferometerArray(object):
         self.bp = NP.concatenate(tuple([elem.bp for elem in loo]), axis=axis)
         self.bp_wts = NP.concatenate(tuple([elem.bp_wts for elem in loo]), axis=axis)
         self.Tsys = NP.concatenate(tuple([elem.Tsys for elem in loo]), axis=axis)
+        if not self.Tsysinfo:
+            for elem in loo:
+                if elem.Tsysinfo:
+                    self.Tsysinfo = elem.Tsysinfo
         if axis != 1:
             if self.skyvis_lag is not None:
                 self.skyvis_lag = NP.concatenate(tuple([elem.skyvis_lag for elem in loo]), axis=axis)
@@ -3633,7 +3621,7 @@ class InterferometerArray(object):
             self.eff_Q = NP.hstack(tuple([elem.eff_Q for elem in loo]))
             # self.delay_transform()
         elif axis == 2: # time axis
-            self.timestamp = [timestamp for elem in loo for timestamp in elem.timestamp]
+            # self.timestamp = [timestamp for elem in loo for timestamp in elem.timestamp]
             self.t_acc = [t_acc for elem in loo for t_acc in elem.t_acc]
             self.n_acc = len(self.t_acc)
             self.t_obs = sum(self.t_acc)
@@ -3641,7 +3629,7 @@ class InterferometerArray(object):
             self.phase_center = NP.vstack(tuple([elem.phase_center for elem in loo]))
             self.lst = [lst for elem in loo for lst in elem.lst]
             self.timestamp = [timestamp for elem in loo for timestamp in elem.timestamp]
-            # self.obs_catalog_indices = [elem.obs_catalog_indices for elem in loo]
+            self.Tsysinfo = [Tsysinfo for elem in loo for Tsysinfo in elem.Tsysinfo]
 
     #############################################################################
 
