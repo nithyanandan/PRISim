@@ -1,3 +1,13 @@
+From f93dd3f (Tsys):
+===================
+
+In prisim/interferometry.py,
+
+(*) Write attribute Tsysinfo to fits file in save() member function
+of class InterferometerArray
+(*) Minor change in docstring of __init__() member function of class
+InterferometerArray
+
 From 851e1fd (Tsys):
 ===================
 

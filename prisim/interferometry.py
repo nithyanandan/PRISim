@@ -1878,8 +1878,9 @@ class InterferometerArray(object):
         eff_Q, A_eff, pointing_coords, baseline_coords, baseline_lengths, 
         channels, bp, bp_wts, freq_resolution, lags, lst, obs_catalog_indices, 
         pointing_center, skyvis_freq, skyvis_lag, timestamp, t_acc, Tsys, 
-        vis_freq, vis_lag, t_obs, n_acc, vis_noise_freq, vis_noise_lag, 
-        vis_rms_freq, geometric_delays, projected_baselines, simparms_file
+        Tsysinfo, vis_freq, vis_lag, t_obs, n_acc, vis_noise_freq, 
+        vis_noise_lag, vis_rms_freq, geometric_delays, projected_baselines, 
+        simparms_file
 
         Read docstring of class InterferometerArray for details on these
         attributes.
@@ -3790,6 +3791,17 @@ class InterferometerArray(object):
         hdulist += [tbhdu]
         if verbose:
             print '\tCreated extension table containing timestamps.'
+
+        if self.Tsysinfo:
+            cols = []
+            cols += [fits.Column(name='Trx', format='D', array=NP.asarray([elem['Trx'] for elem in self.Tsysinfo], dtype=NP.float))]
+            cols += [fits.Column(name='Tant0', format='D', array=NP.asarray([elem['Tant']['T0'] for elem in self.Tsysinfo], dtype=NP.float))]
+            cols += [fits.Column(name='f0', format='D', array=NP.asarray([elem['Tant']['f0'] for elem in self.Tsysinfo], dtype=NP.float))]
+            cols += [fits.Column(name='spindex', format='D', array=NP.asarray([elem['Tant']['spindex'] for elem in self.Tsysinfo], dtype=NP.float))]
+            columns = _astropy_columns(cols, tabtype=tabtype)
+            tbhdu = fits.new_table(columns)
+            tbhdu.header.set('EXTNAME', 'TSYSINFO')
+            hdulist += [tbhdu]
 
         hdulist += [fits.ImageHDU(self.Tsys, name='Tsys')]
         if verbose:
