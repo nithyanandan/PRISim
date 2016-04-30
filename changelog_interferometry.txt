@@ -1,3 +1,11 @@
+From aadc8db (Tsys):
+===================
+
+In prisim/interferometry.py,
+
+(*) Initialize attribute Tsysinfo from saved fits file in __init__()
+member function of class InterferometerArray
+
 From f93dd3f (Tsys):
 ===================
 

@@ -2011,6 +2011,9 @@ class InterferometerArray(object):
                 raise KeyError('Extension named "TIMESTAMPS" not found in init_file.')
 
             self.Tsysinfo = []
+            if 'TSYSINFO' in extnames:
+                self.Tsysinfo = [{'Trx': elem['Trx'], 'Tant': {'T0': elem['Tant0'], 'f0': elem['f0'], 'spindex': elem['spindex']}, 'Tnet': None} for elem in hdulist['TSYSINFO'].data]
+
             if 'TSYS' in extnames:
                 self.Tsys = hdulist['Tsys'].data
             else:
