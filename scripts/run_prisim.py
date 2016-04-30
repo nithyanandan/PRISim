@@ -64,7 +64,12 @@ project = parms['dirstruct']['project']
 simid = parms['dirstruct']['simid']
 telescope_id = parms['telescope']['id']
 label_prefix = parms['telescope']['label_prefix']
-Tsys = parms['telescope']['Tsys']
+Trx = parms['telescope']['Trx']
+Tant_freqref = parms['telescope']['Tant_freqref']
+Tant_ref = parms['telescope']['Tant_ref']
+Tant_spindex = parms['telescope']['Tant_spindex']
+Tsysinfo = {'Trx': Trx, 'Tant':{'f0': Tant_freqref, 'spindex': Tant_spindex, 'T0': Tant_ref}, 'Tnet': None}
+# Tsys = parms['telescope']['Tsys']
 A_eff = parms['telescope']['A_eff']
 latitude = parms['telescope']['latitude']
 longitude = parms['telescope']['longitude']
@@ -438,11 +443,6 @@ if beam_switch and (obs_mode == 'dns'):
 if (snapshots_range is not None) and ((obs_mode == 'dns') or (obs_mode == 'lstbin')):
     snapshot_type_str = 'snaps_{0[0]:0d}-{0[1]:0d}_'.format(snapshots_range)
 
-# if (pointing_file is None) and (pointing_info is None):
-#     raise ValueError('One and only one of pointing file and initial pointing must be specified')
-# elif (pointing_file is not None) and (pointing_info is not None):
-#     raise ValueError('One and only one of pointing file and initial pointing must be specified')
-
 duration_str = ''
 if pointing_file is not None:
     pointing_init = None
@@ -642,51 +642,6 @@ pointings_radec = NP.fmod(pointings_radec, 360.0)
 pointings_hadec = NP.fmod(pointings_hadec, 360.0)
 pointings_altaz = NP.fmod(pointings_altaz, 360.0)
 lst = NP.fmod(lst, 360.0)
-
-# elif pointing_info is not None:
-#     pointing_info = NP.asarray(pointing_info)
-#     pointing_init = NP.asarray(pointing_info[1:])
-#     lst_init = pointing_info[0]
-#     pointing_file = None
-#     if t_acc is None:
-#         raise NameError('t_acc must be provided for an automated observing run')
-
-#     if (n_acc is None) and (t_obs is None):
-#         raise NameError('n_acc or t_obs must be provided for an automated observing run')
-#     elif (n_acc is not None) and (t_obs is not None):
-#         raise ValueError('Only one of n_acc or t_obs must be provided for an automated observing run')
-#     elif n_acc is None:
-#         n_acc = int(t_obs/t_acc)
-#     else:
-#         t_obs = n_acc * t_acc
-#     t_acc = t_acc + NP.zeros(n_acc)
-#     lst = (lst_init + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 # in degrees
-#     if obs_mode is None:
-#         obs_mode = 'track'
-
-#     if obs_mode == 'track':
-#         pointings_radec = NP.repeat(NP.asarray(pointing_init).reshape(-1,2), n_acc, axis=0)
-#     else:
-#         ha_init = lst_init * 15.0 - pointing_init[0]
-#         pointings_radec = NP.hstack((NP.asarray(lst-ha_init).reshape(-1,1), pointing_init[1]+NP.zeros(n_acc).reshape(-1,1)))
-
-#     pointings_hadec = NP.hstack(((lst-pointings_radec[:,0]).reshape(-1,1), pointings_radec[:,1].reshape(-1,1)))
-#     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
-#     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
-
-#     pointings_radec_orig = NP.copy(pointings_radec)
-#     pointings_hadec_orig = NP.copy(pointings_hadec)
-#     pointings_altaz_orig = NP.copy(pointings_altaz)
-#     pointings_dircos_orig = NP.copy(pointings_dircos)
-
-#     lst_wrapped = lst + 0.0
-#     lst_wrapped[lst_wrapped > 180.0] = lst_wrapped[lst_wrapped > 180.0] - 360.0
-#     if lst_wrapped.size > 1:
-#         lst_edges = NP.concatenate((lst_wrapped, [lst_wrapped[-1]+lst_wrapped[-1]-lst_wrapped[-2]]))
-#     else:
-#         lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_acc/3.6e3*15))
-
-#     duration_str = '_{0:0d}x{1:.1f}s'.format(n_acc, t_acc[0])
 
 use_GSM = False
 use_DSM = False
@@ -1569,7 +1524,8 @@ if mpi_on_src: # MPI based on source multiplexing
             ts = time.time()
             if j == 0:
                 ts0 = ts
-            ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+            ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+            # ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
             te = time.time()
             # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
             progress.update(j+1)
@@ -1706,7 +1662,8 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 if j == 0:
                     ts0 = ts
               
-                ia.observe(timestamp, Tsys*noise_bpcorr[chans_chunk_indices], bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)                    
+                ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+                # ia.observe(timestamp, Tsys*noise_bpcorr[chans_chunk_indices], bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
                 te = time.time()
                 # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                 progress.update(j+1)
@@ -1761,7 +1718,8 @@ else: # MPI based on baseline multiplexing
                     ts = time.time()
                     if j == 0:
                         ts0 = ts
-                    ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+                    # ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
                     te = time.time()
                     # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                     progress.update(j+1)
@@ -1920,8 +1878,8 @@ else: # MPI based on baseline multiplexing
                     if j == 0:
                         ts0 = ts
                   
-                    # ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_info={'ind': roi.info['ind'][j], 'pbeam': roi.info['pbeam'][j]}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
-                    ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)                    
+                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+                    # ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
                     te = time.time()
                     # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                     progress.update(j+1)

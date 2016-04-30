@@ -1738,6 +1738,41 @@ class InterferometerArray(object):
                 end of the simulation, it will be a numpy array of size 
                 n_baselines x nchan x n_snaps.
 
+    Tsysinfo    [list of dictionaries] Contains a list of system temperature 
+                information for each timestamp of observation. Each dictionary 
+                element in the list following keys and values:
+                'Trx'      [scalar] Recevier temperature (in K) that is 
+                           applicable to all frequencies and baselines
+                'Tant'     [dictionary] contains antenna temperature info
+                           from which the antenna temperature is estimated. 
+                           Used only if the key 'Tnet' is absent or set to 
+                           None. It has the following keys and values:
+                           'f0'      [scalar] Reference frequency (in Hz) 
+                                     from which antenna temperature will 
+                                     be estimated (see formula below)
+                           'T0'      [scalar] Antenna temperature (in K) at
+                                     the reference frequency specified in 
+                                     key 'f0'. See formula below.
+                           'spindex' [scalar] Antenna temperature spectral
+                                     index. See formula below.
+
+                           Tsys = Trx + Tant['T0'] * (f/Tant['f0'])**spindex
+
+                'Tnet'     [numpy array] Pre-computed Tsys (in K) 
+                           information that will be used directly to set the
+                           Tsys. If specified, the information under keys 
+                           'Trx' and 'Tant' will be ignored. If a scalar 
+                           value is provided, it will be assumed to be 
+                           identical for all interferometers and all 
+                           frequencies. If a vector is provided whose length 
+                           is equal to the number of interferoemters, it 
+                           will be assumed identical for all frequencies. If 
+                           a vector is provided whose length is equal to the 
+                           number of frequency channels, it will be assumed 
+                           identical for all interferometers. If a 2D array 
+                           is provided, it should be of size 
+                           n_baselines x nchan. Tsys = Tnet
+
     vis_freq    [numpy array] The simulated complex visibility (in Jy or K) 
                 observed by each of the interferometers along frequency axis for 
                 each timestamp of observation per frequency channel. It is the
@@ -1974,6 +2009,7 @@ class InterferometerArray(object):
             else:
                 raise KeyError('Extension named "TIMESTAMPS" not found in init_file.')
 
+            self.Tsysinfo = []
             if 'TSYS' in extnames:
                 self.Tsys = hdulist['Tsys'].data
             else:
@@ -2161,6 +2197,11 @@ class InterferometerArray(object):
         self.lag_kernel = DSP.FT1D(self.bp*self.bp_wts, ax=1, inverse=True, use_real=False, shift=True)
 
         self.Tsys = NP.zeros((self.baselines.shape[0],self.channels.size))
+        self.Tsysinfo = []
+        # self.Tsysinfo = {'Trx': 0.0, 'Tant': {'f0': NP.mean(self.channels), 'spindex': 0.0, 'T0': 0.0}, 'Tnet': None}
+        # self.Tsys = self.Tsysinfo['Trx'] + self.Tsysinfo['Tant']['T0'] * (self.channels/self.Tsysinfo['Tant']['f0']) ** self.Tsysinfo['Tant']['spindex']
+        # self.Tsys = self.Tsys.reshape(1,-1) + NP.zeros(self.baselines.shape[0]).reshape(-1,1) # nbl x nchan
+
         self.flux_unit = 'JY'
         self.timestamp = []
         self.t_acc = []
@@ -2238,9 +2279,10 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def observe(self, timestamp, Tsys, bandpass, pointing_center, skymodel,
-                t_acc, pb_info=None, brightness_units=None, roi_info=None, 
-                roi_radius=None, roi_center=None, lst=None, memsave=False):
+    def observe(self, timestamp, Tsysinfo, bandpass, pointing_center, skymodel,
+                t_acc, pb_info=None, brightness_units=None, bpcorrect=None,
+                roi_info=None, roi_radius=None, roi_center=None, lst=None,
+                memsave=False):
 
         """
         -------------------------------------------------------------------------
@@ -2254,6 +2296,41 @@ class InterferometerArray(object):
         
         timestamp    [scalar] Timestamp associated with each integration in the
                      observation
+
+        Tsysinfo     [dictionary] Contains system temperature information for 
+                     specified timestamp of observation. It contains the 
+                     following keys and values:
+                     'Trx'      [scalar] Recevier temperature (in K) that is 
+                                applicable to all frequencies and baselines
+                     'Tant'     [dictionary] contains antenna temperature info
+                                from which the antenna temperature is estimated. 
+                                Used only if the key 'Tnet' is absent or set to 
+                                None. It has the following keys and values:
+                                'f0'      [scalar] Reference frequency (in Hz) 
+                                          from which antenna temperature will 
+                                          be estimated (see formula below)
+                                'T0'      [scalar] Antenna temperature (in K) at
+                                          the reference frequency specified in 
+                                          key 'f0'. See formula below.
+                                'spindex' [scalar] Antenna temperature spectral
+                                          index. See formula below.
+
+                                Tsys = Trx + Tant['T0'] * (f/Tant['f0'])**spindex
+
+                     'Tnet'     [numpy array] Pre-computed Tsys (in K) 
+                                information that will be used directly to set the
+                                Tsys. If specified, the information under keys 
+                                'Trx' and 'Tant' will be ignored. If a scalar 
+                                value is provided, it will be assumed to be 
+                                identical for all interferometers and all 
+                                frequencies. If a vector is provided whose length 
+                                is equal to the number of interferoemters, it 
+                                will be assumed identical for all frequencies. If 
+                                a vector is provided whose length is equal to the 
+                                number of frequency channels, it will be assumed 
+                                identical for all interferometers. If a 2D array 
+                                is provided, it should be of size 
+                                n_baselines x nchan. Tsys = Tnet
 
         Tsys         [scalar, list, tuple or numpy array] System temperature(s)
                      associated with the interferometers for the specified
@@ -2336,6 +2413,35 @@ class InterferometerArray(object):
 
         self.bp_wts = NP.ones_like(self.bp) # All additional bandpass shaping weights are set to unity.
 
+        if isinstance(Tsysinfo, dict):
+            set_Tsys = False
+            if 'Tnet' in Tsysinfo:
+                if Tsysinfo['Tnet'] is not None:
+                    Tsys = Tsysinfo['Tnet']
+                    set_Tsys = True
+            if not set_Tsys:
+                try:
+                    Tsys = Tsysinfo['Trx'] + Tsysinfo['Tant']['T0'] * (self.channels/Tsysinfo['Tant']['f0']) ** Tsysinfo['Tant']['spindex']
+                except KeyError:
+                    raise KeyError('One or more keys not found in input Tsysinfo')
+                Tsys = Tsys.reshape(1,-1) + NP.zeros(self.baselines.shape[0]).reshape(-1,1) # nbl x nchan
+        else:
+            raise TypeError('Input Tsysinfo must be a dictionary')
+
+        self.Tsysinfo += [Tsysinfo]
+        if bpcorrect is not None:
+            if not isinstance(bpcorrect, NP.ndarray):
+                raise TypeError('Input specifying bandpass correction must be a numpy array')
+            if bpcorrect.size == self.channels.size:
+                bpcorrect = bpcorrect.reshape(1,-1)
+            elif bpcorrect.size == self.baselines.shape[0]:
+                bpcorrect = bpcorrect.reshape(-1,1)
+            elif bpcorrect.size == self.baselines.shape[0] * self.channels.size:
+                bpcorrect = bpcorrect.reshape(-1,self.channels.size)
+            else:
+                raise ValueError('Input bpcorrect has dimensions incompatible with the number of baselines and frequencies')
+            Tsys = Tsys * bpcorrect
+
         if isinstance(Tsys, (int,float)):
             if Tsys < 0.0:
                 raise ValueError('Tsys found to be negative.')
@@ -2350,19 +2456,19 @@ class InterferometerArray(object):
                 raise ValueError('Tsys should be non-negative.')
 
             if Tsys.size == self.baselines.shape[0]:
-                if len(self.Tsys.shape) == 2:
+                if self.Tsys.ndim == 2:
                     self.Tsys = NP.expand_dims(NP.repeat(Tsys.reshape(-1,1), self.channels.size, axis=1), axis=2)
-                elif len(self.Tsys.shape) == 3:
+                elif self.Tsys.ndim == 3:
                     self.Tsys = NP.dstack((self.Tsys, NP.expand_dims(NP.repeat(Tsys.reshape(-1,1), self.channels.size, axis=1), axis=2)))
             elif Tsys.size == self.channels.size:
-                if len(self.Tsys.shape) == 2:
+                if self.Tsys.ndim == 2:
                     self.Tsys = NP.expand_dims(NP.repeat(Tsys.reshape(1,-1), self.baselines.shape[0], axis=0), axis=2)
-                elif len(self.Tsys.shape) == 3:
+                elif self.Tsys.ndim == 3:
                     self.Tsys = NP.dstack((self.Tsys, NP.expand_dims(NP.repeat(Tsys.reshape(1,-1), self.baselines.shape[0], axis=0), axis=2)))
             elif Tsys.size == self.baselines.shape[0]*self.channels.size:
-                if len(self.Tsys.shape) == 2:
+                if self.Tsys.ndim == 2:
                     self.Tsys = NP.expand_dims(Tsys.reshape(-1,self.channels.size), axis=2)
-                elif len(self.Tsys.shape) == 3:
+                elif self.Tsys.ndim == 3:
                     self.Tsys = NP.dstack((self.Tsys, NP.expand_dims(Tsys.reshape(-1,self.channels.size), axis=2)))
             else:
                 raise ValueError('Specified Tsys has incompatible dimensions with the number of baselines and/or number of frequency channels.')

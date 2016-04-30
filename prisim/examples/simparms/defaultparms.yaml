@@ -50,6 +50,22 @@ telescope:
                                 # Effective area of antenna element
                                 # in m^2
 
+    Trx             : 50.0
+                                # Receiver temperature (in K)
+
+    Tant_freqref    : 150000000.0
+                                # Reference frequency (in Hz) for
+                                # antenna temperature
+
+    Tant_spindex    : -2.55
+                                # Spectral index for antenna
+                                # temperature
+
+    Tant_ref        : 200.0
+                                # Antenna temperature at reference
+                                # frequency
+                                # Tsys = Trx + Tant * (f/f0)^alpha
+
     Tsys            : 220.0
                                 # System temperature (in K)
 

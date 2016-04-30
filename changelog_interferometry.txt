@@ -1,3 +1,32 @@
+From 02cbecc (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Modify Tsys info to be specified as receiver and antenna
+temperature parameters
+
+In prisim/interferometry.py,
+
+(*) Initialize Tsys information under attribute Tsysinfo of class
+InterferometerArray. Update docstring of __init__() member function
+and of the class InterferometerArray accordingly
+(*) Pass Tsysinfo to observe() member function of class
+InterferometerArray from which the Tsys array is constructed. Update
+attribute Tsysinfo by appending with every call to observe(). Update
+docstring accordingly
+(*) Add input parameter bpcorrect to member function observe() of
+class InterferometerArray
+
+In scripts/run_prisim.py,
+
+(*) Construct Tsysinfo from given Trx and Tant information in the
+parameters file.
+(*) Pass Tsysinfo instead of Tsys in call to observe() member function
+of class InterferometerArray to be compatible with changes made to the
+class and its member functions
+(*) Comment all earlier calls to the old observe() member function
+
 From 0444f79 (package):
 ======================
 
