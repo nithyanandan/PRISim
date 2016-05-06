@@ -1,3 +1,9 @@
+From 8fd5179 (master):
+=====================
+
+(*) Make changes in axes labels in figure '4a' of
+main/HERA_foreground_simulations_figures.py
+
 From d106e08 (master), 14b0c3b (synthesis):
 ==========================================
 

@@ -2275,15 +2275,14 @@ if '4a' in plots:
     # subband_delay_response_1 = DSP.FT1D(subband_freq_wts_1, ax=-1, inverse=True, use_real=False, shift=True) * fgds_achrmbeam1.f.size * fgds_achrmbeam1.df
 
     lags = DSP.spectral_axis(fgds_achrmbeam.f.size, delx=fgds_achrmbeam.df, shift=True)
-    PDB.set_trace()
     fig, axs = PLT.subplots(nrows=2, figsize=(3.5,7))
     axs[0].plot(fgds_achrmbeam1.f/1e6, fullband_freq_wts_1, ls='-', lw=2, color='gray', label='BH')
     axs[0].plot(fgds_achrmbeam.f/1e6, fullband_freq_wts, ls='-', lw=2, color='black', label=r'BH '+r'$\ast$'+' BH')
     axs[0].set_xlim(100,200)
     axs[0].set_ylim(5e-9, 1.1)
     axs[0].set_yscale('log')
-    axs[0].set_xlabel('f [MHz]', fontsize=12, weight='medium')
-    axs[0].set_ylabel('W(f) [MHz]', fontsize=12, weight='medium')
+    axs[0].set_xlabel(r'$f$'+' [MHz]', fontsize=12, weight='medium')
+    axs[0].set_ylabel(r'$W(f)$', fontsize=12, weight='medium')
     lgnd0 = axs[0].legend(frameon=True, fontsize=8, loc='center', bbox_to_anchor=(0.5,0.5))
 
     axs[1].plot(1e9 * lags, NP.abs(fullband_delay_response_1)**2, ls='-', lw=2, color='gray', label='BH')
