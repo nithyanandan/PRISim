@@ -1287,8 +1287,14 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
             raise TypeError('east2ax1 must be a scalar value.')
         else:
             if skycoords == 'altaz':
-                skypos_dircos_rotated = GEOM.altaz2dircos(NP.hstack((skypos[:,0].reshape(-1,1),NP.asarray(skypos[:,1]-east2ax1).reshape(-1,1))), units='degrees')
-                pointing_center_dircos_rotated = GEOM.altaz2dircos([pointing_center[0], pointing_center[1]-east2ax1], units='degrees')
+                # skypos_dircos_rotated = GEOM.altaz2dircos(NP.hstack((skypos[:,0].reshape(-1,1),NP.asarray(skypos[:,1]-east2ax1).reshape(-1,1))), units='degrees')
+                # pointing_center_dircos_rotated = GEOM.altaz2dircos([pointing_center[0], pointing_center[1]-east2ax1], units='degrees')
+
+                # Rotate in Az. Remember Az is measured clockwise from North
+                # whereas east2ax1 is measured anti-clockwise from East.
+                # Therefore, newAz = Az + East2ax1 wrt to principal axis
+                skypos_dircos_rotated = GEOM.altaz2dircos(NP.hstack((skypos[:,0].reshape(-1,1),NP.asarray(skypos[:,1]+east2ax1).reshape(-1,1))), units='degrees')
+                pointing_center_dircos_rotated = GEOM.altaz2dircos([pointing_center[0], pointing_center[1]+east2ax1], units='degrees')
             else:
                 angle = NP.radians(east2ax1)
                 rotation_matrix = NP.asarray([[NP.cos(angle), NP.sin(angle), 0.0],
