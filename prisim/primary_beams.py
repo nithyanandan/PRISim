@@ -256,7 +256,8 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                                           dipole_orientation=orientation,
                                           skycoords=skyunits, wavelength=FCNST.c/frequency, 
                                           short_dipole_approx=short_dipole_approx,
-                                          half_wave_dipole_approx=half_wave_dipole_approx)
+                                          half_wave_dipole_approx=half_wave_dipole_approx,
+                                          power=False)
                 ep = ep[:,:,NP.newaxis]  # add an axis to be compatible with random ralizations
                 if pointing_info is None: # Use analytical formula
                     if skyunits == 'altaz':
@@ -269,7 +270,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                     irap = isotropic_radiators_array_field_pattern(4, 4, 1.1, 1.1, skypos,
                                                                    FCNST.c/frequency, east2ax1=east2ax1,
                                                                    pointing_center=pointing_center,
-                                                                   skycoords=skyunits)
+                                                                   skycoords=skyunits, power=False)
                     irap = irap[:,:,NP.newaxis]  # add an axis to be compatible with random ralizations
 
                 else: # Call the beamformer
@@ -298,7 +299,8 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                     irap = array_field_pattern(element_locs, skypos, 
                                                skycoords=skyunits,
                                                pointing_info=pinfo,
-                                               wavelength=FCNST.c/frequency)
+                                               wavelength=FCNST.c/frequency,
+                                               power=False)
                     nrand = irap.shape[-1]
                 pb = NP.mean(NP.abs(ep * irap)**2, axis=2) # Power pattern is square of the field pattern
             else:
@@ -326,7 +328,8 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                                           dipole_orientation=orientation,
                                           skycoords=skyunits, wavelength=FCNST.c/frequency, 
                                           short_dipole_approx=short_dipole_approx,
-                                          half_wave_dipole_approx=half_wave_dipole_approx)
+                                          half_wave_dipole_approx=half_wave_dipole_approx,
+                                          power=False)
                 pb = NP.abs(ep)**2 # Power pattern is square of the field pattern
             else:
                 raise ValueError('skyunits must be in Alt-Az or direction cosine coordinates for MWA dipole.')
@@ -344,7 +347,8 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                                       dipole_orientation=telescope['orientation'],
                                       skycoords=skyunits, wavelength=FCNST.c/frequency, 
                                       short_dipole_approx=short_dipole_approx,
-                                      half_wave_dipole_approx=half_wave_dipole_approx)
+                                      half_wave_dipole_approx=half_wave_dipole_approx,
+                                      power=False)
             ep = ep[:,:,NP.newaxis]   # add an axis to be compatible with random ralizations
         elif telescope['shape'] == 'dish':
             ep = airy_disk_pattern(telescope['size'], skypos, frequency, skyunits=skyunits,
@@ -380,7 +384,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                     pinfo['nrand'] = pointing_info['nrand']
                 irap = array_field_pattern(element_locs, skypos, skycoords=skyunits,
                                            pointing_info=pinfo,
-                                           wavelength=FCNST.c/frequency)
+                                           wavelength=FCNST.c/frequency, power=False)
                 nrand = irap.shape[-1]
         else:
             nrand = 1
@@ -398,7 +402,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
         
                     gp = ground_plane_field_pattern(telescope['groundplane'], skypos, skycoords=skyunits,
                                                     wavelength=FCNST.c/frequency, angle_units='degrees', 
-                                                    modifier=modifier)
+                                                    modifier=modifier, power=False)
             else:
                 modifier = None
                 if 'ground_modify' in telescope:
@@ -406,7 +410,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
         
                 gp = ground_plane_field_pattern(telescope['groundplane'], skypos, skycoords=skyunits,
                                                 wavelength=FCNST.c/frequency, angle_units='degrees', 
-                                                modifier=modifier)
+                                                modifier=modifier, power=False)
                 
         pb *= gp**2
 
@@ -661,7 +665,7 @@ def GMRT_primary_beam(skypos, frequency, skyunits='degrees'):
 #################################################################################
 
 def ground_plane_field_pattern(height, skypos, skycoords=None, wavelength=1.0,
-                               angle_units=None, modifier=None):
+                               angle_units=None, modifier=None, power=True):
 
     """
     -----------------------------------------------------------------------------
@@ -706,11 +710,15 @@ def ground_plane_field_pattern(height, skypos, skycoords=None, wavelength=1.0,
                                scaled values to. If not set, there is no upper
                                limit
 
+    power            [boolean] If set to True (default), compute power pattern,
+                     otherwise compute field pattern.
+
     Output:
 
-    Ground plane electric field pattern, a numpy array with number of rows equal 
-    to the number of sky positions (which is equal to the number of rows in 
-    skypos) and number of columns equal to number of wavelengths specified. 
+    Ground plane electric field or power pattern, a numpy array with number of 
+    rows equal to the number of sky positions (which is equal to the number of 
+    rows in skypos) and number of columns equal to number of wavelengths 
+    specified. 
     -----------------------------------------------------------------------------
     """
 
@@ -812,13 +820,17 @@ def ground_plane_field_pattern(height, skypos, skycoords=None, wavelength=1.0,
     max_pattern = 2 * NP.sin(k.reshape(1,-1) * height * NP.sin(NP.pi/2).reshape(-1,1)) # array broadcasting
     ground_pattern = ground_pattern / max_pattern
 
-    return ground_pattern
+    if power:
+        return NP.abs(ground_pattern)**2
+    else:
+        return ground_pattern
 
 #################################################################################
 
 def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None, 
                          dipole_orientation=None, wavelength=1.0, angle_units=None, 
-                         short_dipole_approx=False, half_wave_dipole_approx=True):
+                         short_dipole_approx=False, half_wave_dipole_approx=True,
+                         power=True):
 
     """
     -----------------------------------------------------------------------------
@@ -884,11 +896,14 @@ def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None,
                      short_dipole_approx and half_wave_dipole_approx cannot be set 
                      to True at the same time
 
+    power            [boolean] If set to True (default), compute power pattern,
+                     otherwise compute field pattern.
+
     Output:
 
-    Dipole Electric field pattern, a numpy array with number of rows equal to the
-    number of sky positions (which is equal to the number of rows in skypos) and
-    number of columns equal to number of wavelengths specified. 
+    Dipole Electric field or power pattern, a numpy array with number of rows 
+    equal to the number of sky positions (which is equal to the number of rows 
+    in skypos) and number of columns equal to number of wavelengths specified. 
     -----------------------------------------------------------------------------
     """
 
@@ -1069,14 +1084,17 @@ def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None,
         if n_zero_angles > 0:
             field_pattern[zero_angles_ind.ravel(),:] = k*h * NP.sin(k*h * NP.cos(angles[zero_angles_ind])) * NP.tan(angles[zero_angles_ind]) # Correct expression from L' Hospital rule
     
-    return field_pattern / max_pattern
+    if power:
+        return NP.abs(field_pattern / max_pattern)**2
+    else:
+        return field_pattern / max_pattern
 
 #################################################################################
 
 def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
                                             skypos=None, wavelength=1.0,
                                             east2ax1=None, skycoords='altaz',
-                                            pointing_center=None):
+                                            pointing_center=None, power=True):
 
     """
     -----------------------------------------------------------------------------
@@ -1124,10 +1142,13 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
                   3-element vector if skycoords='dircos'. Only used with phased 
                   array primary beams or dishes excluding those of VLA and GMRT.
 
+    power         [boolean] If set to True (default), compute power pattern,
+                  otherwise compute field pattern.
+
     Output:
 
-    Array Electric field pattern, number of rows equal to the number of sky 
-    positions (which is equal to the number of rows in skypos), and number of 
+    Array Electric field or power pattern, number of rows equal to the number of 
+    sky positions (which is equal to the number of rows in skypos), and number of 
     columns equal to the number of wavelengths. The array pattern is the product 
     of the array patterns along each axis.
     -----------------------------------------------------------------------------
@@ -1301,12 +1322,14 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
     term2[zero_psi] = term2_zero_psi.ravel()
 
     pb =  term1 * term2
+    if power:
+        pb = NP.abs(pb)**2
     return pb
 
 #################################################################################
 
 def array_field_pattern(antpos, skypos, skycoords='altaz', pointing_info=None, 
-                        wavelength=1.0):
+                        wavelength=1.0, power=True):
 
     """
     -----------------------------------------------------------------------------
@@ -1391,10 +1414,13 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', pointing_info=None,
                dipole pattern is to be estimated. Must be in the same units as 
                element positions in antpos.
                                
+    power      [boolean] If set to True (default), compute power pattern,
+               otherwise compute field pattern.
+
     Output:
 
-    Returns a complex electric field pattern as a MxN numpy array, M=number of 
-    sky positions, N=number of wavelengths.
+    Returns a complex electric field or power pattern as a MxN numpy array, 
+    M=number of sky positions, N=number of wavelengths.
     -----------------------------------------------------------------------------
     """
 
@@ -1572,6 +1598,8 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', pointing_info=None,
 
     # return field_pattern
 
+    if power:
+        retvalue = NP.abs(retvalue)**2
     return retvalue
                 
 #################################################################################

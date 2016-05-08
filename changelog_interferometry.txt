@@ -1,3 +1,11 @@
+From 43140a0 (package):
+======================
+
+In prisim/primary_beams.py,
+
+(*) Add input keyword power to functions to return power patterns if
+set to True. Update docstrings accordingly
+
 From aadc8db (Tsys):
 ===================
 
