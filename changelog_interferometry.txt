@@ -1,3 +1,13 @@
+From 1d08cad (package):
+======================
+
+In prisim/primary_beams.py,
+
+(*) Add functions uniform_rectangular_aperture() and
+uniform_square_aperture() along with docstrings to compuate electric
+field or power patterns of uniformly illuminated rectangular and
+square apertures
+
 From c273be2 (package):
 ======================
 

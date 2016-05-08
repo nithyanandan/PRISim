@@ -1610,3 +1610,289 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', pointing_info=None,
                 
 #################################################################################
 
+def uniform_rectangular_aperture(sides, skypos, frequency, skyunits='altaz', 
+                                 east2ax1=None, pointing_center=None, 
+                                 power=True):
+
+    """
+    -----------------------------------------------------------------------------
+    Compute the electric field or power pattern at the specified sky positions 
+    due to a uniformly illuminated rectangular aperture
+
+    Inputs:
+
+    sides       [scalar, list or numpy array]  Sides of the rectangle (in m). If
+                scalar, it will be assumed to be identical for both sides which
+                is a square. If a list or numpy array, it must have two 
+                elements
+
+    skypos      [list or numpy vector] Sky positions at which the power pattern 
+                is to be estimated. Size is M x N where M is the number of 
+                locations, N = 2 (if skyunits = altaz denoting Alt-Az 
+                coordinates), or N = 3 (if skyunits = dircos denoting direction 
+                cosine coordinates). If skyunits = altaz, then altitude and 
+                azimuth must be in degrees
+
+    frequency   [list or numpy vector] frequencies (in GHz) at which the power 
+                pattern is to be estimated. Frequencies differing by too much
+                and extending over the usual bands cannot be given. 
+
+    Keyword Inputs:
+
+    skyunits    [string] string specifying the coordinate system of the sky 
+                positions. Accepted values are 'altaz', and 'dircos'.
+                Default = 'altaz'. If 'dircos', the direction cosines are 
+                aligned with the local East, North, and Up. If 'altaz', then 
+                altitude and azimuth must be in degrees.
+
+    east2ax1    [scalar] Angle (in degrees) the primary axis of the array makes 
+                with the local East (positive anti-clockwise). 
+                  
+    pointing_center  
+                [list or numpy array] coordinates of pointing center (in the same
+                coordinate system as that of sky coordinates specified by
+                skycoords). 2-element vector if skycoords='altaz'. 2- or 
+                3-element vector if skycoords='dircos'. 
+
+    power       [boolean] If set to True (default), compute power pattern, 
+                otherwise compute field pattern 
+
+    Output:
+
+    Electric field pattern or power pattern, number of rows equal to the number 
+    of sky positions (which is equal to the number of rows in skypos), and 
+    number of columns equal to the number of wavelengths. 
+    -----------------------------------------------------------------------------
+    """
+
+    try:
+        sides, skypos, frequency
+    except NameError:
+        raise NameError('Rectangular antenna sides, skypos, frequency must be specified')
+
+    if isinstance(sides, (int,float)):
+        sides = NP.asarray([sides]*2, dtype=NP.float)
+    elif isinstance(sides, list):
+        sides = NP.asarray(sides).astype(NP.float)
+    elif not isinstance(sides, NP.ndarray):
+        raise TypeError('Antenna sides must be a scalar, list or numpy array')
+    
+    sides = sides.astype(NP.float)
+    if sides.size == 1:
+        sides = sides.ravel() + NP.zeros(2)
+    elif sides.size == 2:
+        sides = sides.ravel()
+        sides= sides.astype(NP.float)
+    else:
+        raise ValueError('Antenna sides must not have more than 2 elements')
+
+    if NP.any(sides < 0.0):
+        raise ValueError('Antenna sides must not be negative')
+
+    if isinstance(frequency, list):
+        frequency = NP.asarray(frequency)
+    elif isinstance(frequency, (int, float)):
+        frequency = NP.asarray(frequency).reshape(-1)
+    elif not isinstance(frequency, NP.ndarray):
+        raise TypeError('Frequency should be a scalar, list or numpy array.')
+ 
+    if NP.any(frequency <= 0.0):
+        raise ValueError('Frequency(s) should be positive.')
+
+    if not isinstance(east2ax1, (int,float)):
+        raise TypeError('east2ax1 must be a scalar.')
+
+    if not isinstance(skypos, NP.ndarray):
+        raise TypeError('skypos must be a Numpy array.')
+
+    frequency = NP.asarray(frequency).ravel()
+    wavelength = FCNST.c / frequency
+
+    if skycoords is not None:
+        if (skycoords != 'altaz') and (skycoords != 'dircos'):
+            raise ValueError('skycoords must be "altaz" or "dircos" or None (default).')
+        elif skycoords == 'altaz':
+            if skypos.ndim < 2:
+                if skypos.size == 2:
+                    skypos = NP.asarray(skypos).reshape(1,2)
+                else:
+                    raise ValueError('skypos must be a Nx2 Numpy array.')
+            elif skypos.ndim > 2:
+                raise ValueError('skypos must be a Nx2 Numpy array.')
+            else:
+                if skypos.shape[1] != 2:
+                    raise ValueError('skypos must be a Nx2 Numpy array.')
+                elif NP.any(skypos[:,0] < 0.0) or NP.any(skypos[:,0] > 90.0):
+                    raise ValueError('Altitudes in skypos have to be positive and <= 90 degrees')
+        else:
+            if skypos.ndim < 2:
+                if (skypos.size == 2) or (skypos.size == 3):
+                    skypos = NP.asarray(skypos).reshape(1,-1)
+                else:
+                    raise ValueError('skypos must be a Nx2 Nx3 Numpy array.')
+            elif skypos.ndim > 2:
+                raise ValueError('skypos must be a Nx2 or Nx3 Numpy array.')
+            else:
+                if (skypos.shape[1] < 2) or (skypos.shape[1] > 3):
+                    raise ValueError('skypos must be a Nx2 or Nx3 Numpy array.')
+                elif skypos.shape[1] == 2:
+                    if NP.any(NP.sum(skypos**2, axis=1) > 1.0):
+                        raise ValueError('skypos in direction cosine coordinates are invalid.')
+                
+                    skypos = NP.hstack((skypos, NP.sqrt(1.0-NP.sum(skypos**2, axis=1)).reshape(-1,1)))
+                else:
+                    eps = 1.0e-10
+                    if NP.any(NP.abs(NP.sum(skypos**2, axis=1) - 1.0) > eps) or NP.any(skypos[:,2] < 0.0):
+                        if verbose:
+                            print '\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                        skypos[:,2] = NP.sqrt(1.0 - NP.sum(skypos[:2]**2, axis=1))
+    else:
+        raise ValueError('skycoords has not been set.')
+    
+    if pointing_center is None:
+        if skycoords == 'altaz':
+            pointing_center = NP.asarray([90.0, 0.0]) # Zenith in Alt-Az coordinates
+        else:
+            pointing_center = NP.asarray([0.0, 0.0, 1.0]) # Zenith in direction-cosine coordinates
+    else:
+        if not isinstance(pointing_center, (list, NP.ndarray)):
+            raise TypeError('pointing_center must be a list or numpy array')
+        
+        pointing_center = NP.asarray(pointing_center)
+        if (skycoords != 'altaz') and (skycoords != 'dircos'):
+            raise ValueError('skycoords must be "altaz" or "dircos" or None (default).')
+        elif skycoords == 'altaz':
+            if pointing_center.size != 2:
+                raise ValueError('pointing_center must be a 2-element vector in Alt-Az coordinates.')
+            else:
+                pointing_center = pointing_center.ravel()
+
+            if NP.any(pointing_center[0] < 0.0) or NP.any(pointing_center[0] > 90.0):
+                raise ValueError('Altitudes in pointing_center have to be positive and <= 90 degrees')
+        else:
+            if (pointing_center.size < 2) or (pointing_center.size > 3):
+                raise ValueError('pointing_center must be a 2- or 3-element vector in direction cosine coordinates')
+            else:
+                pointing_center = pointing_center.ravel()
+
+            if pointing_center.size == 2:
+                if NP.sum(pointing_center**2) > 1.0:
+                    raise ValueError('pointing_center in direction cosine coordinates are invalid.')
+                
+                pointing_center = NP.hstack((pointing_center, NP.sqrt(1.0-NP.sum(pointing_center**2))))
+            else:
+                eps = 1.0e-10
+                if (NP.abs(NP.sum(pointing_center**2) - 1.0) > eps) or (pointing_center[2] < 0.0):
+                    if verbose:
+                        print '\tWarning: pointing_center in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                    pointing_center[2] = NP.sqrt(1.0 - NP.sum(pointing_center[:2]**2))
+
+    if east2ax1 is not None:
+        if not isinstance(east2ax1, (int, float)):
+            raise TypeError('east2ax1 must be a scalar value.')
+        else:
+            if skycoords == 'altaz':
+                # skypos_dircos_rotated = GEOM.altaz2dircos(NP.hstack((skypos[:,0].reshape(-1,1),NP.asarray(skypos[:,1]-east2ax1).reshape(-1,1))), units='degrees')
+                # pointing_center_dircos_rotated = GEOM.altaz2dircos([pointing_center[0], pointing_center[1]-east2ax1], units='degrees')
+
+                # Rotate in Az. Remember Az is measured clockwise from North
+                # whereas east2ax1 is measured anti-clockwise from East.
+                # Therefore, newAz = Az + East2ax1 wrt to principal axis
+                skypos_dircos_rotated = GEOM.altaz2dircos(NP.hstack((skypos[:,0].reshape(-1,1),NP.asarray(skypos[:,1]+east2ax1).reshape(-1,1))), units='degrees')
+                pointing_center_dircos_rotated = GEOM.altaz2dircos([pointing_center[0], pointing_center[1]+east2ax1], units='degrees')
+            else:
+                angle = NP.radians(east2ax1)
+                rotation_matrix = NP.asarray([[NP.cos(angle), NP.sin(angle), 0.0],
+                                              [-NP.sin(angle), NP.cos(angle),  0.0],
+                                              [0.0,            0.0,           1.0]])
+                skypos_dircos_rotated = NP.dot(skypos, rotation_matrix.T)
+                pointing_center_dircos_rotated = NP.dot(pointing_center, rotation_matrix.T)
+
+            skypos_dircos_relative = skypos_dircos_rotated - NP.repeat(pointing_center_dircos_rotated.reshape(1,-1), skypos.shape[0], axis=0)
+    else:
+        if skycoords == 'altaz':
+            skypos_dircos = GEOM.altaz2dircos(skypos, units='degrees')
+            pointing_center_dircos = GEOM.altaz2dircos([pointing_center[0], pointing_center[1]-east2ax1], units='degrees')
+        else:
+            skypos_dircos_rotated = skypos
+        skypos_dircos_relative = skypos_dircos - NP.repeat(pointing_center_dircos, skypos.shape[0], axis=0)
+
+    arg1 = sides[0] * skypos_dircos_relative[:,0].reshape(-1,1) / wavelength.reshape(1,-1)
+    arg2 = sides[1] * skypos_dircos_relative[:,1].reshape(-1,1) / wavelength.reshape(1,-1)
+    ab = NP.sinc(arg1) * NP.sinc(arg2)
+    if power:
+        ab = NP.abs(ab)**2
+
+    return ab
+    
+################################################################################
+
+def uniform_square_aperture(side, skypos, frequency, skyunits='altaz', 
+                            east2ax1=None, pointing_center=None, 
+                            power=True):
+
+    """
+    -----------------------------------------------------------------------------
+    Compute the electric field or power pattern at the specified sky positions 
+    due to a uniformly illuminated square aperture
+
+    Inputs:
+
+    side        [scalar] Sides of the square (in m)
+
+    skypos      [list or numpy vector] Sky positions at which the power pattern 
+                is to be estimated. Size is M x N where M is the number of 
+                locations, N = 2 (if skyunits = altaz denoting Alt-Az 
+                coordinates), or N = 3 (if skyunits = dircos denoting direction 
+                cosine coordinates). If skyunits = altaz, then altitude and 
+                azimuth must be in degrees
+
+    frequency   [list or numpy vector] frequencies (in GHz) at which the power 
+                pattern is to be estimated. Frequencies differing by too much
+                and extending over the usual bands cannot be given. 
+
+    Keyword Inputs:
+
+    skyunits    [string] string specifying the coordinate system of the sky 
+                positions. Accepted values are 'altaz', and 'dircos'.
+                Default = 'altaz'. If 'dircos', the direction cosines are 
+                aligned with the local East, North, and Up. If 'altaz', then 
+                altitude and azimuth must be in degrees.
+
+    east2ax1    [scalar] Angle (in degrees) the primary axis of the array makes 
+                with the local East (positive anti-clockwise). 
+                  
+    pointing_center  
+                [list or numpy array] coordinates of pointing center (in the same
+                coordinate system as that of sky coordinates specified by
+                skycoords). 2-element vector if skycoords='altaz'. 2- or 
+                3-element vector if skycoords='dircos'. 
+
+    power       [boolean] If set to True (default), compute power pattern, 
+                otherwise compute field pattern
+
+    Output:
+
+    Electric field pattern or power pattern, number of rows equal to the number 
+    of sky positions (which is equal to the number of rows in skypos), and number 
+    of columns equal to the number of wavelengths. 
+    -----------------------------------------------------------------------------
+    """
+
+    try:
+        side, skypos, frequency
+    except NameError:
+        raise NameError('Square antenna side, skypos, frequency must be specified')
+
+    if not isinstance(sides, (int,float)):
+        raise TypeError('Antenna sides must be a scalar')
+    sides = NP.asarray([side]*2, dtype=NP.float)
+
+    ab = uniform_rectangular_aperture(sides, skypos, frequency,
+                                      skyunits=skyunits, 
+                                      east2ax1=east2ax1,
+                                      pointing_center=pointing_center, 
+                                      power=power)
+    return ab
+    
+################################################################################
