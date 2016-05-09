@@ -1,3 +1,12 @@
+From 20e24ec (package):
+======================
+
+In prisim/primary_beams.py,
+
+(*) Include calls to uniform_rectangular_aperture() and
+uniform_square_aperture() in wrapper function primary_beam_generator()
+(*) Minor updates to docstrings of function primary_beam_generator()
+
 From 1d08cad (package):
 ======================
 

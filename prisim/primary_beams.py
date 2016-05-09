@@ -38,17 +38,20 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                               telescope details for known telescopes. Accepted 
                               values are 'mwa', 'vla', 'gmrt', and 'hera'.
                 'shape'       [string] Shape of antenna element. Accepted values
-                              are 'dipole', 'delta', and 'dish'. Will be ignored 
-                              if key 'id' is set. 'delta' denotes a delta
-                              function for the antenna element which has an
-                              isotropic radiation pattern. 'delta' is the default
-                              when keys 'id' and 'shape' are not set.
-                'size'        [scalar] Diameter of the telescope dish (in meters) 
-                              if the key 'shape' is set to 'dish' or length of 
-                              the dipole if key 'shape' is set to 'dipole'. Will 
-                              be ignored if key 'shape' is set to 'delta'. Will 
-                              be ignored if key 'id' is set and a preset value 
-                              used for the diameter or dipole.
+                              are 'dipole', 'delta', 'dish', 'rect' and 'square'. 
+                              Will be ignored if key 'id' is set. 'delta' denotes 
+                              a delta function for the antenna element which has 
+                              an isotropic radiation pattern. 'delta' is the 
+                              default when keys 'id' and 'shape' are not set.
+                'size'        [scalar or 2-element list/numpy array] Diameter of 
+                              the telescope dish (in meters) if the key 'shape' 
+                              is set to 'dish', side of the square aperture (in 
+                              meters) if the key 'shape' is set to 'square', 
+                              2-element sides if key 'shape' is set to 'rect', 
+                              or length of the dipole if key 'shape' is set to 
+                              'dipole'. Will be ignored if key 'shape' is set to 
+                              'delta'. Will be ignored if key 'id' is set and a 
+                              preset value used for the diameter or dipole.
                 'orientation' [list or numpy array] If key 'shape' is set to 
                               dipole, it refers to the orientation of the dipole 
                               element unit vector whose magnitude is specified by 
@@ -116,16 +119,16 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 Default = 'degrees'. If 'dircos', the direction cosines are 
                 aligned with the local East, North, and Up
 
-    east2ax1    [scalar] Angle (in degrees) the primary axis of the array makes 
-                with the local East (positive anti-clockwise). 
+    east2ax1    [scalar] Angle (in degrees) the primary axis of the aperture 
+                makes with the local East (positive anti-clockwise). 
 
     pointing_info 
               [dictionary] A dictionary consisting of information relating to 
-              pointing center. The pointing center can be specified either via
-              element delay compensation or by directly specifying the pointing
-              center in a certain coordinate system. Default = None (pointing 
-              centered at zenith). This dictionary consists of the following tags 
-              and values:
+              pointing center in case of a phased array. The pointing center 
+              can be specified either via element delay compensation or by 
+              directly specifying the pointing center in a certain coordinate 
+              system. Default = None (pointing centered at zenith). This 
+              dictionary consists of the following tags and values:
               'gains'           [numpy array] Complex element gains. Must be of 
                                 size equal to the number of elements as 
                                 specified by the number of rows in antpos. If 
@@ -173,9 +176,10 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 coordinate system as that of sky coordinates specified by
                 skyunits). 2-element vector if skyunits='altaz'. 2- or 3-element
                 vector if skyunits='dircos'. Only used with phased array primary
-                beams or dishes excluding VLA and GMRT. For all telescopes except
-                MWA, pointing_center is used in place of pointing_info. For MWA,
-                this is used if pointing_info is not provided.
+                beams, dishes excluding VLA and GMRT, or uniform rectangular or 
+                square apertures. For all telescopes except MWA, pointing_center 
+                is used in place of pointing_info. For MWA, this is used if 
+                pointing_info is not provided.
 
     short_dipole_approx
                 [boolean] if True, indicates short dipole approximation
@@ -355,6 +359,10 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                                    peak=1.0, pointing_center=pointing_center, 
                                    gaussian=False, power=False, small_angle_tol=1e-10)
             ep = ep[:,:,NP.newaxis]   # add an axis to be compatible with random ralizations
+        elif telescope['shape'] == 'rect':
+            ep = uniform_rectangular_aperture(telescope['size'], skypos, frequency, skyunits=skyunits, east2ax1=east2ax1, pointing_center=pointing_center, power=False)
+        elif telescope['shape'] == 'square':
+            ep = uniform_square_aperture(telescope['size'], skypos, frequency, skyunits=skyunits, east2ax1=east2ax1, pointing_center=pointing_center, power=False)
         else:
             raise ValueError('Value in key "shape" of telescope dictionary invalid.')
 
