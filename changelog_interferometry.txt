@@ -1,3 +1,8 @@
+From 79ee65b (package) + e482878 (search-db):
+============================================
+
+(*) Merge branch search-db onto branch package
+
 From 20e24ec (package):
 ======================
 
@@ -114,6 +119,51 @@ In scripts/run_prisim.py,
 
 (*) Change hardcoded location of array layout file for MWA-128T to a
 default location in the package data directory
+
+From e15f1f9 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add baseline selection parameters 
+
+In scripts/prisim_ls.py,
+
+(*) Set up database search based on baseline parameters
+(*) Convert None to NaN by typecasting to NP.float
+
+From d0b3a91 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) In this commit, these are array layout parameters 
+
+In scripts/prisim_ls.py,
+
+(*) Set up database search based on array layout parameters
+
+From e9be3eb (search-db):
+========================
+
+(*) Add prisim/examples/dbparms/defaultdbparms.yaml and
+scripts/prisim_ls.py to git repo
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add parameters in YAML format to base the database search on
+(*) In this commit, these are telescope parameters 
+
+In scripts/prisim_ls.py,
+
+(*) This is a module to select the simulation runs that contain the
+selection criteria specified in
+prisim/examples/dbparms/defaultdbparms.yaml
+(*) First working example created
+
+In setup.py,
+
+(*) Add 'examples/dbparms/*.yaml' under package_data
 
 From eb03329 (package):
 ======================
