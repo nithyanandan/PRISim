@@ -1,3 +1,11 @@
+From e26e753 (package):
+======================
+
+In prisim/run_prisim.py,
+
+(*) Update initialization of sky model based on updates in class
+SkyModel in the AstroUtils package
+
 From 79ee65b (package) + e482878 (search-db):
 ============================================
 
