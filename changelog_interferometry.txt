@@ -1,3 +1,11 @@
+From d9ad45d (search-db):
+========================
+
+In prisim/prisim_ls.py,
+
+(*) Adjust code to account for simulation runs that are missing
+meta data
+
 From e26e753 (package):
 ======================
 

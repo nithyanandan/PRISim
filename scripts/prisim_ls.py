@@ -34,18 +34,20 @@ def searchPRISimDB(parms):
     metadata_list = []
     for proj in projects:
         for simrun in os.listdir(rootdir+proj):
-            with open(rootdir+proj+'/'+simrun+'/metainfo/simparms.yaml', 'r') as parmsfile:
-                simparms_list += [{rootdir+proj+'/'+simrun+'/': yaml.safe_load(parmsfile)}]
-            with open(rootdir+proj+'/'+simrun+'/metainfo/meta.yaml', 'r') as metafile:
-                metadata_list += [{rootdir+proj+'/'+simrun+'/': yaml.safe_load(metafile)}]
+            try:
+                with open(rootdir+proj+'/'+simrun+'/metainfo/simparms.yaml', 'r') as parmsfile:
+                    simparms_list += [{rootdir+proj+'/'+simrun+'/': yaml.safe_load(parmsfile)}]
+                with open(rootdir+proj+'/'+simrun+'/metainfo/meta.yaml', 'r') as metafile:
+                    metadata_list += [{rootdir+proj+'/'+simrun+'/': yaml.safe_load(metafile)}]
+            except IOError:
+                pass
     
     parms_list = []
-    for simind, simrun in enumerate(os.listdir(rootdir+proj)):
-        parm = simparms_list[simind].copy()
-        simrunkey = rootdir+proj+'/'+simrun+'/'
+    for simind, parm in enumerate(simparms_list):
+        simrunkey = parm.keys()[0]
         parm[simrunkey].update(metadata_list[simind][simrunkey])
         parms_list += [parm[simrunkey]]
-
+            
     reduced_parms = NMO.recursive_find_notNone_in_dict(parms)
     select_ind = NP.asarray([True] * len(parms_list))
     for ikey, ival in reduced_parms.iteritems():
