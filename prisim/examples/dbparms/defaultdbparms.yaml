@@ -233,3 +233,36 @@ beam    :
                                 # 'fft'. If set to null, this parameter
                                 # is not searched for in the DB.
 
+########## Bandpass setup ##########
+
+bandpass :
+
+    freq            : [150000000.0, 150000000.0]
+                                # [min, max] range of Center frequency
+                                # (in Hz)to search the DB for. If set
+                                # to null, this parameter is not searched
+                                # for
+
+    freq_resolution : [390625.0, 781250.0]
+                                # [min, max] range of Frequency resolution
+                                # (in Hz) to search for. If set to null,
+                                # this parameter is not searched for
+
+    nchan           : [256, 256]
+                                # [min, max] range of number of channels
+                                # to search the DB for. If set to null,
+                                # this parameter will not be searched for
+
+    pfb_method      : null 
+                                # PFB method to be be searched for. Default
+                                # (null) means this parameter is not searched
+                                # for. Other accepted values are 'theoretical'
+                                # and 'empirical'
+
+    pfb_file        : ['MWA_pfb_512x8.fits']
+                                # List of files to search for which hold
+                                # PFB coefficients. If set to null, this
+                                # parameter is not searched for. The
+                                # file paths could be relative or absolute
+                                # depending on how they were originally set
+

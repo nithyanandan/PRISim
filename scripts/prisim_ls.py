@@ -173,6 +173,26 @@ def searchPRISimDB(parms):
                 beam_spec_interps = NP.asarray([parm[ikey]['spec_interp'] for parm in parms_list])
                 select_ind = NP.logical_and(select_ind, NP.asarray([bmspecinterp in reduced_parms[ikey]['spec_interp'] for bmspecinterp in beam_spec_interps], dtype=NP.bool))
 
+        if ikey == 'bandpass':
+            if 'freq' in ival:
+                freqs = NP.asarray([parm[ikey]['freq'] for parm in parms_list], dtype=NP.float)
+                freqs[NP.equal(freqs, None)] = NP.nan
+                select_ind = NP.logical_and(select_ind, NP.logical_and(freqs >= reduced_parms[ikey]['freq'][0], freqs <= reduced_parms[ikey]['freq'][1]))
+            if 'freq_resolution' in ival:
+                freq_resolutions = NP.asarray([parm[ikey]['freq_resolution'] for parm in parms_list], dtype=NP.float)
+                freq_resolutions[NP.equal(freq_resolutions, None)] = NP.nan
+                select_ind = NP.logical_and(select_ind, NP.logical_and(freq_resolutions >= reduced_parms[ikey]['freq_resolution'][0], freq_resolutions <= reduced_parms[ikey]['freq_resolution'][1]))
+            if 'nchan' in ival:
+                nchans = NP.asarray([parm[ikey]['nchan'] for parm in parms_list], dtype=NP.float)
+                nchans[NP.equal(nchans, None)] = NP.nan
+                select_ind = NP.logical_and(select_ind, NP.logical_and(nchans >= reduced_parms[ikey]['nchan'][0], nchans <= reduced_parms[ikey]['nchan'][1]))
+            if 'pfb_method' in ival:
+                pfbmethods = NP.asarray([parm[ikey]['pfb_method'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([pfbmethod in reduced_parms[ikey]['pfb_method'] for pfbmethod in pfbmethods], dtype=NP.bool))
+            if 'pfb_file' in ival:
+                pfb_files = NP.asarray([parm[ikey]['pfb_file'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([pfb_file in reduced_parms[ikey]['pfb_file'] for pfb_file in pfb_files], dtype=NP.bool))
+                
     select_ind, = NP.where(select_ind)
     outkeys = [metadata_list[ind].keys()[0] for ind in select_ind]
     for okey in outkeys:

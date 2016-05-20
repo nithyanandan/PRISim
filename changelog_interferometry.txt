@@ -1,3 +1,14 @@
+From 331beb9 (search-db):
+========================
+
+In prisim/examples/defaultdbparms.yaml,
+
+(*) Add parameters to search bandpass info
+
+In prisim/prisim_ls.py,
+
+(*) Search for bandpass parameters
+
 From 14cb293 (search-db):
 ========================
 
