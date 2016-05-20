@@ -131,7 +131,24 @@ def searchPRISimDB(parms):
                 ground_planes = NP.asarray([parm[ikey]['ground_plane'] for parm in parms_list], dtype=NP.float)
                 ground_planes[NP.equal(ground_planes, None)] = NP.nan
                 select_ind = NP.logical_and(select_ind, NP.logical_and(ground_planes >= reduced_parms[ikey]['ground_plane'][0], ground_planes <= reduced_parms[ikey]['ground_plane'][1]))
-            
+
+        if ikey == 'phasedarray':
+            if 'shape' in ival:
+                phsdarray_files = NP.asarray([parm[ikey]['file'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([phsd_array in reduced_parms[ikey]['file'] for phsdarray_file in phsdarray_file]))
+            if 'delayerr' in ival:
+                delayerrs = NP.asarray([parm[ikey]['delayerr'] for parm in parms_list], dtype=NP.float)
+                delayerrs[NP.equal(delayerrs, None)] = NP.nan
+                select_ind = NP.logical_and(select_ind, NP.logical_and(delayerrs >= reduced_parms[ikey]['delayerr'][0], delayerrs <= reduced_parms[ikey]['delayerr'][1]))
+            if 'gainerr' in ival:
+                gainerrs = NP.asarray([parm[ikey]['gainerr'] for parm in parms_list], dtype=NP.float)
+                gainerrs[NP.equal(gainerrs, None)] = NP.nan
+                select_ind = NP.logical_and(select_ind, NP.logical_and(gainerrs >= reduced_parms[ikey]['gainerr'][0], gainerrs <= reduced_parms[ikey]['gainerr'][1]))
+            if 'nrand' in ival:
+                nrands = NP.asarray([parm[ikey]['nrand'] for parm in parms_list], dtype=NP.float)
+                nrands[NP.equal(nrands, None)] = NP.nan
+                select_ind = NP.logical_and(select_ind, NP.logical_and(nrands >= reduced_parms[ikey]['nrand'][0], nrands <= reduced_parms[ikey]['nrand'][1]))
+                
     select_ind, = NP.where(select_ind)
     outkeys = [metadata_list[ind].keys()[0] for ind in select_ind]
     for okey in outkeys:

@@ -161,3 +161,27 @@ antenna  :
                                 # [min, max] to search for a range of
                                 # ground_plane values
 
+########## Phased array parameters #########
+
+phasedarray:
+
+    file            : ['MWA_tile_dipole_locations.txt']
+                                # List of files containing phased array 
+                                # elements locations to be searched for
+
+    delayerr        : [0.0, 0.0]
+                                # [min, max] of delay error rms (in ns). 
+                                # null means delayerr parameter is not
+                                # searched for
+
+    gainerr         : [0.0, 0,0]
+                                # [min, max] of gain error rms in dB. 
+                                # null means gainerr parameter is not
+                                # searched for
+
+    nrand           : [1, 1]
+                                # [min, max] of Number of random 
+                                # realizations used to average gain/delay
+                                # errors. null means this parameter is
+                                # not searched for
+
