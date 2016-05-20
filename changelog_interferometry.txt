@@ -1,3 +1,15 @@
+From d7afaeb (search-db):
+========================
+
+In prisim/examples/defaultdbparms.yaml,
+
+(*) Add parameters to search Trx, Tant, Tsys and antenna element
+info
+
+In prisim/prisim_ls.py,
+
+(*) Search for Trx, Tant, Tsys, and antenna element parameters
+
 From d9ad45d (search-db):
 ========================
 

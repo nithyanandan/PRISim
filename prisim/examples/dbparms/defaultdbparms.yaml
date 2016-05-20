@@ -46,9 +46,22 @@ telescope:
                                 # [min, max] range of effective area of
                                 # antenna element in m^2
 
-    Tsys            : [220.0, 220.0]
-                                # [min, max] range in system temperature
-                                # (in K)
+    Trx            : [50.0, 60.0]
+                                # [min, max] range in receiver 
+                                # temperature (in K)
+
+    Tant_ref       : [200.0, 220.0]
+                                # [min, max] range in antenna 
+                                # temperature (in K) at reference
+                                # frequency
+
+    Tant_freqref   : [150000000.0, 160000000.0]
+                                # [min, max] range in Tant reference
+                                # frequency (in Hz)
+
+    Tsys           : [220.0, 220.0]
+                                # [min, max] range in system 
+                                # temperature (in K)
 
 ########## Antenna layout #########
 
@@ -88,11 +101,17 @@ baseline :                      # Parameters specifying baseline
 
     min             : null
                                 # Minimum baseline in distance
-                                # units (m). Default = 0 (null)
+                                # units (m). Default = 0 (null).
+                                # Must be specified as a 2-element
+                                # list to select a range between min
+                                # and max
 
     max             : null
                                 # Maximum baseline in distance
                                 # units (m). Default = max (null)
+                                # Must be specified as a 2-element
+                                # list to select a range between min
+                                # and max
 
     direction       : null
                                 # Default = null (all directions).
@@ -104,4 +123,41 @@ baseline :                      # Parameters specifying baseline
                                 # e.g., ['N', 'E'], ['NE', 'SE', 'E'],
                                 # ['SE', 'E', 'NE', 'N'] which is
                                 # equivalent to null, etc.
+
+########## Antenna Element information #########                      
+
+antenna  :
+
+    shape           : ['dish']
+                                # List containing Shape(s) of antenna 
+                                # elements to search for.
+                                # Accepted values are 'dish', 'dipole',
+                                # and 'delta' or null (defaults to
+                                # 'delta')
+
+    size            : [0.7, 14.0]
+                                # [min, max] range of size of antenna 
+                                # element (in m) diameter for dish, 
+                                # linear size for dipole
+                    
+    ocoords         : ['altaz']
+                                # Coordinate system describing the
+                                # orientation of antenna element. Must
+                                # be specified as a list and mutliple
+                                # values can be searched for.
+                                # Accepted values are 'altaz', 'dircos'
+                    
+    phased_array    : null
+                                # phased array setting if true or false
+                                # can be searched for. Default=null 
+                                # means both True and False values will 
+                                # be included in the search. 
+                    
+    ground_plane    : null
+                                # Ground plane height (in m). Default
+                                # (null) means ground plane values are
+                                # not searched for. Otherwise must be
+                                # specified as a list in the form
+                                # [min, max] to search for a range of
+                                # ground_plane values
 

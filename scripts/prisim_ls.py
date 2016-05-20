@@ -53,54 +53,85 @@ def searchPRISimDB(parms):
     for ikey, ival in reduced_parms.iteritems():
         if ikey == 'telescope':
             if 'id' in ival:
-                telescope_ids = NP.asarray([parm['telescope']['id'] for parm in parms_list])
-                select_ind = NP.logical_and(select_ind, NP.asarray([tscope in reduced_parms['telescope']['id'] for tscope in telescope_ids]))
+                telescope_ids = NP.asarray([parm[ikey]['id'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([tscope in reduced_parms[ikey]['id'] for tscope in telescope_ids]))
             if 'latitude' in ival:
-                latitudes = NP.asarray([parm['telescope']['latitude'] for parm in parms_list], dtype=NP.float)
+                latitudes = NP.asarray([parm[ikey]['latitude'] for parm in parms_list], dtype=NP.float)
                 latitudes[NP.equal(latitudes, None)] = NP.nan
-                select_ind = NP.logical_and(select_ind, NP.logical_and(latitudes >= reduced_parms['telescope']['latitude'][0], latitudes <= reduced_parms['telescope']['latitude'][1]))
+                select_ind = NP.logical_and(select_ind, NP.logical_and(latitudes >= reduced_parms[ikey]['latitude'][0], latitudes <= reduced_parms[ikey]['latitude'][1]))
             if 'longitude' in ival:
-                longitudes = NP.asarray([parm['telescope']['longitude'] for parm in parms_list], dtype=NP.float)
+                longitudes = NP.asarray([parm[ikey]['longitude'] for parm in parms_list], dtype=NP.float)
                 longitudes[NP.equal(longitudes, None)] = NP.nan
-                select_ind = NP.logical_and(select_ind, NP.logical_and(longitudes >= reduced_parms['telescope']['longitude'][0], longitudes <= reduced_parms['telescope']['longitude'][1]))
+                select_ind = NP.logical_and(select_ind, NP.logical_and(longitudes >= reduced_parms[ikey]['longitude'][0], longitudes <= reduced_parms[ikey]['longitude'][1]))
             if 'A_eff' in ival:
-                effective_areas = NP.asarray([parm['telescope']['A_eff'] for parm in parms_list], dtype=NP.float)
+                effective_areas = NP.asarray([parm[ikey]['A_eff'] for parm in parms_list], dtype=NP.float)
                 effective_areas[NP.equal(effective_areas, None)] = NP.nan
-                select_ind = NP.logical_and(select_ind, NP.logical_and(effective_areas >= reduced_parms['telescope']['A_eff'][0], effective_areas <= reduced_parms['telescope']['A_eff'][1]))
+                select_ind = NP.logical_and(select_ind, NP.logical_and(effective_areas >= reduced_parms[ikey]['A_eff'][0], effective_areas <= reduced_parms[ikey]['A_eff'][1]))
             if 'Tsys' in ival:
-                system_temperatures = NP.asarray([parm['telescope']['Tsys'] for parm in parms_list], dtype=NP.float)
+                system_temperatures = NP.asarray([parm[ikey]['Tsys'] for parm in parms_list], dtype=NP.float)
                 system_temperatures[NP.equal(system_temperatures, None)] = NP.nan
-                select_ind = NP.logical_and(select_ind, NP.logical_and(system_temperatures >= reduced_parms['telescope']['Tsys'][0], system_temperatures <= reduced_parms['telescope']['Tsys'][1]))
+                select_ind = NP.logical_and(select_ind, NP.logical_and(system_temperatures >= reduced_parms[ikey]['Tsys'][0], system_temperatures <= reduced_parms[ikey]['Tsys'][1]))
+            if 'Trx' in ival:
+                rcvr_temperatures = NP.asarray([parm[ikey]['Trx'] for parm in parms_list], dtype=NP.float)
+                rcvr_temperatures[NP.equal(rcvr_temperatures, None)] = NP.nan
+                select_ind = NP.logical_and(select_ind, NP.logical_and(rcvr_temperatures >= reduced_parms[ikey]['Trx'][0], rcvr_temperatures <= reduced_parms[ikey]['Trx'][1]))
+            if 'Tant_ref' in ival:
+                ant_temperatures = NP.asarray([parm[ikey]['Tant_ref'] for parm in parms_list], dtype=NP.float)
+                ant_temperatures[NP.equal(ant_temperatures, None)] = NP.nan
+                select_ind = NP.logical_and(select_ind, NP.logical_and(ant_temperatures >= reduced_parms[ikey]['Tant_ref'][0], ant_temperatures <= reduced_parms[ikey]['Tant_ref'][1]))
+            if 'Tant_freqref' in ival:
+                ant_freqref = NP.asarray([parm[ikey]['Tant_freqref'] for parm in parms_list], dtype=NP.float)
+                ant_freqref[NP.equal(ant_freqref, None)] = NP.nan
+                select_ind = NP.logical_and(select_ind, NP.logical_and(ant_freqref >= reduced_parms[ikey]['Tant_freqref'][0], ant_freqref <= reduced_parms[ikey]['Tant_freqref'][1]))
 
         if ikey == 'array':
             if 'file' in ival:
-                layout_files = NP.asarray([parm['array']['file'] for parm in parms_list])
-                select_ind = NP.logical_and(select_ind, NP.asarray([arrfile in reduced_parms['array']['file'] for arrfile in layout_files]))
+                layout_files = NP.asarray([parm[ikey]['file'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([arrfile in reduced_parms[ikey]['file'] for arrfile in layout_files]))
             if 'layout' in ival:
-                layouts = NP.asarray([parm['array']['layout'] for parm in parms_list])
-                select_ind = NP.logical_and(select_ind, NP.asarray([arrlayout in reduced_parms['array']['layout'] for arrlayout in layouts]))
+                layouts = NP.asarray([parm[ikey]['layout'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([arrlayout in reduced_parms[ikey]['layout'] for arrlayout in layouts]))
             if 'minR' in ival:
-                minRs = NP.asarray([parm['array']['minR'] for parm in parms_list], dtype=NP.float)
+                minRs = NP.asarray([parm[ikey]['minR'] for parm in parms_list], dtype=NP.float)
                 minRs[NP.equal(minRs, None)] = NP.nan
-                select_ind = NP.logical_and(select_ind, NP.logical_and(minRs >= reduced_parms['array']['minR'][0], latitudes <= reduced_parms['array']['minR'][1]))
+                select_ind = NP.logical_and(select_ind, NP.logical_and(minRs >= reduced_parms[ikey]['minR'][0], latitudes <= reduced_parms[ikey]['minR'][1]))
             if 'maxR' in ival:
-                maxRs = NP.asarray([parm['array']['maxR'] for parm in parms_list], dtype=NP.float)
+                maxRs = NP.asarray([parm[ikey]['maxR'] for parm in parms_list], dtype=NP.float)
                 maxRs[NP.equal(maxRs, None)] = NP.nan
-                select_ind = NP.logical_and(select_ind, NP.logical_and(maxRs >= reduced_parms['array']['maxR'][0], maxRs <= reduced_parms['array']['maxR'][1]))
+                select_ind = NP.logical_and(select_ind, NP.logical_and(maxRs >= reduced_parms[ikey]['maxR'][0], maxRs <= reduced_parms[ikey]['maxR'][1]))
 
         if ikey == 'baseline':
             if 'direction' in ival:
-                directions = NP.asarray([parm['baseline']['direction'] for parm in parms_list])
-                select_ind = NP.logical_and(select_ind, NP.asarray([direction in reduced_parms['baseline']['direction'] for direction in directions]))
+                directions = NP.asarray([parm[ikey]['direction'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([direction in reduced_parms[ikey]['direction'] for direction in directions]))
             if 'min' in ival:
-                mins = NP.asarray([parm['baseline']['min'] for parm in parms_list], dtype=NP.float)
+                mins = NP.asarray([parm[ikey]['min'] for parm in parms_list], dtype=NP.float)
                 mins[NP.equal(mins, None)] = NP.nan
-                select_ind = NP.logical_and(select_ind, NP.logical_and(mins >= reduced_parms['baseline']['min'][0], mins <= reduced_parms['baseline']['min'][1]))
+                select_ind = NP.logical_and(select_ind, NP.logical_and(mins >= reduced_parms[ikey]['min'][0], mins <= reduced_parms[ikey]['min'][1]))
             if 'max' in ival:
-                maxs = NP.asarray([parm['baseline']['max'] for parm in parms_list], dtype=NP.float)
+                maxs = NP.asarray([parm[ikey]['max'] for parm in parms_list], dtype=NP.float)
                 maxs[NP.equal(maxs, None)] = NP.nan
-                select_ind = NP.logical_and(select_ind, NP.logical_and(maxs >= reduced_parms['baseline']['max'][0], maxs <= reduced_parms['baseline']['max'][1]))
-                
+                select_ind = NP.logical_and(select_ind, NP.logical_and(maxs >= reduced_parms[ikey]['max'][0], maxs <= reduced_parms[ikey]['max'][1]))
+
+        if ikey == 'antenna':
+            if 'shape' in ival:
+                ant_shapes = NP.asarray([parm[ikey]['shape'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([antshape in reduced_parms[ikey]['shape'] for antshape in ant_shapes]))
+            if 'size' in ival:
+                ant_sizes = NP.asarray([parm[ikey]['size'] for parm in parms_list], dtype=NP.float)
+                ant_sizes[NP.equal(ant_sizes, None)] = NP.nan
+                select_ind = NP.logical_and(select_ind, NP.logical_and(ant_sizes >= reduced_parms[ikey]['size'][0], ant_sizes <= reduced_parms[ikey]['size'][1]))
+            if 'ocoords' in ival:
+                ant_ocoords = NP.asarray([parm[ikey]['ocoords'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([ant_ocoord in reduced_parms[ikey]['ocoords'] for ant_ocoord in ant_ocoords]))
+            if 'phased_array' in ival:
+                is_phased_arrays = NP.asarray([parm[ikey]['phased_array'] for parm in parms_list], dtype=NP.bool)
+                select_ind = NP.logical_and(select_ind, NP.equal(is_phased_arrays, reduced_parms[ikey]['phased_array']))
+            if 'ground_plane' in ival:
+                ground_planes = NP.asarray([parm[ikey]['ground_plane'] for parm in parms_list], dtype=NP.float)
+                ground_planes[NP.equal(ground_planes, None)] = NP.nan
+                select_ind = NP.logical_and(select_ind, NP.logical_and(ground_planes >= reduced_parms[ikey]['ground_plane'][0], ground_planes <= reduced_parms[ikey]['ground_plane'][1]))
+            
     select_ind, = NP.where(select_ind)
     outkeys = [metadata_list[ind].keys()[0] for ind in select_ind]
     for okey in outkeys:
