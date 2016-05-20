@@ -1,3 +1,8 @@
+From a7fe080 (search-db):
+========================
+
+(*) In scripts/ folder, rename prisim_ls.py to prisim_grep.py
+
 From 331beb9 (search-db):
 ========================
 
