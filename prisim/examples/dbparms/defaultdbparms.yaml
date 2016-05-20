@@ -185,3 +185,51 @@ phasedarray:
                                 # errors. null means this parameter is
                                 # not searched for
 
+########## Beam specifications #########
+
+beam    :
+
+    use_external    : false
+                                # Search DB if external beam was used.
+                                # If set to null (default), this
+                                # parameter is not searched for. Accepted
+                                # values are null, true and false
+
+    file            : ['HERA_HFSS_X4Y2H_4900.hmap']
+
+                                # List of FITS files containing the 
+                                # external antenna beam to be searched for
+
+    identifier      : ['HERA-CST']
+                                # search for beam identifiers specified in
+                                # this list of strings.
+                                # Any string. e.g. RB=Rich Bradley,
+                                # AN=Abraham Neben
+                                # DD=Dave DeBoer, or 'HERA-CST'
+
+    pol             : ['X']
+                                # List of beam polarizations to be
+                                # searched for. Accepted values
+                                # are 'X' and 'Y'
+
+    chromatic       : true
+                                # search DB if chromatic beam was used.
+                                # If set to null (default), this parameter 
+                                # is not searched for in the DB. Accepted
+                                # values are null, true and false
+
+    select_freq     : [150000000.0, 150000000.0]
+                                # [min, max] range of frequency (Hz)
+                                # to search in DB as the pivot frequency
+                                # in case of achromatic beam. If set to
+                                # null (default), this parameter is not
+                                # searched for.
+
+    spec_interp     : ['cubic']
+                                # list of spectral interpolation methods
+                                # for external beam. Must be list of
+                                # strings. Accepted string values are
+                                # 'linear', 'bilinear', 'cubic',
+                                # 'fft'. If set to null, this parameter
+                                # is not searched for in the DB.
+

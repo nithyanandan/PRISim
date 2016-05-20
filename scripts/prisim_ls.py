@@ -54,7 +54,7 @@ def searchPRISimDB(parms):
         if ikey == 'telescope':
             if 'id' in ival:
                 telescope_ids = NP.asarray([parm[ikey]['id'] for parm in parms_list])
-                select_ind = NP.logical_and(select_ind, NP.asarray([tscope in reduced_parms[ikey]['id'] for tscope in telescope_ids]))
+                select_ind = NP.logical_and(select_ind, NP.asarray([tscope in reduced_parms[ikey]['id'] for tscope in telescope_ids], dtype=NP.bool))
             if 'latitude' in ival:
                 latitudes = NP.asarray([parm[ikey]['latitude'] for parm in parms_list], dtype=NP.float)
                 latitudes[NP.equal(latitudes, None)] = NP.nan
@@ -87,10 +87,10 @@ def searchPRISimDB(parms):
         if ikey == 'array':
             if 'file' in ival:
                 layout_files = NP.asarray([parm[ikey]['file'] for parm in parms_list])
-                select_ind = NP.logical_and(select_ind, NP.asarray([arrfile in reduced_parms[ikey]['file'] for arrfile in layout_files]))
+                select_ind = NP.logical_and(select_ind, NP.asarray([arrfile in reduced_parms[ikey]['file'] for arrfile in layout_files], dtype=NP.bool))
             if 'layout' in ival:
                 layouts = NP.asarray([parm[ikey]['layout'] for parm in parms_list])
-                select_ind = NP.logical_and(select_ind, NP.asarray([arrlayout in reduced_parms[ikey]['layout'] for arrlayout in layouts]))
+                select_ind = NP.logical_and(select_ind, NP.asarray([arrlayout in reduced_parms[ikey]['layout'] for arrlayout in layouts], dtype=NP.bool))
             if 'minR' in ival:
                 minRs = NP.asarray([parm[ikey]['minR'] for parm in parms_list], dtype=NP.float)
                 minRs[NP.equal(minRs, None)] = NP.nan
@@ -103,7 +103,7 @@ def searchPRISimDB(parms):
         if ikey == 'baseline':
             if 'direction' in ival:
                 directions = NP.asarray([parm[ikey]['direction'] for parm in parms_list])
-                select_ind = NP.logical_and(select_ind, NP.asarray([direction in reduced_parms[ikey]['direction'] for direction in directions]))
+                select_ind = NP.logical_and(select_ind, NP.asarray([direction in reduced_parms[ikey]['direction'] for direction in directions], dtype=NP.bool))
             if 'min' in ival:
                 mins = NP.asarray([parm[ikey]['min'] for parm in parms_list], dtype=NP.float)
                 mins[NP.equal(mins, None)] = NP.nan
@@ -116,14 +116,14 @@ def searchPRISimDB(parms):
         if ikey == 'antenna':
             if 'shape' in ival:
                 ant_shapes = NP.asarray([parm[ikey]['shape'] for parm in parms_list])
-                select_ind = NP.logical_and(select_ind, NP.asarray([antshape in reduced_parms[ikey]['shape'] for antshape in ant_shapes]))
+                select_ind = NP.logical_and(select_ind, NP.asarray([antshape in reduced_parms[ikey]['shape'] for antshape in ant_shapes], dtype=NP.bool))
             if 'size' in ival:
                 ant_sizes = NP.asarray([parm[ikey]['size'] for parm in parms_list], dtype=NP.float)
                 ant_sizes[NP.equal(ant_sizes, None)] = NP.nan
                 select_ind = NP.logical_and(select_ind, NP.logical_and(ant_sizes >= reduced_parms[ikey]['size'][0], ant_sizes <= reduced_parms[ikey]['size'][1]))
             if 'ocoords' in ival:
                 ant_ocoords = NP.asarray([parm[ikey]['ocoords'] for parm in parms_list])
-                select_ind = NP.logical_and(select_ind, NP.asarray([ant_ocoord in reduced_parms[ikey]['ocoords'] for ant_ocoord in ant_ocoords]))
+                select_ind = NP.logical_and(select_ind, NP.asarray([ant_ocoord in reduced_parms[ikey]['ocoords'] for ant_ocoord in ant_ocoords], dtype=NP.bool))
             if 'phased_array' in ival:
                 is_phased_arrays = NP.asarray([parm[ikey]['phased_array'] for parm in parms_list], dtype=NP.bool)
                 select_ind = NP.logical_and(select_ind, NP.equal(is_phased_arrays, reduced_parms[ikey]['phased_array']))
@@ -133,9 +133,9 @@ def searchPRISimDB(parms):
                 select_ind = NP.logical_and(select_ind, NP.logical_and(ground_planes >= reduced_parms[ikey]['ground_plane'][0], ground_planes <= reduced_parms[ikey]['ground_plane'][1]))
 
         if ikey == 'phasedarray':
-            if 'shape' in ival:
+            if 'file' in ival:
                 phsdarray_files = NP.asarray([parm[ikey]['file'] for parm in parms_list])
-                select_ind = NP.logical_and(select_ind, NP.asarray([phsd_array in reduced_parms[ikey]['file'] for phsdarray_file in phsdarray_file]))
+                select_ind = NP.logical_and(select_ind, NP.asarray([phsdarray_file in reduced_parms[ikey]['file'] for phsdarray_file in phsdarray_files], dtype=NP.bool))
             if 'delayerr' in ival:
                 delayerrs = NP.asarray([parm[ikey]['delayerr'] for parm in parms_list], dtype=NP.float)
                 delayerrs[NP.equal(delayerrs, None)] = NP.nan
@@ -149,6 +149,30 @@ def searchPRISimDB(parms):
                 nrands[NP.equal(nrands, None)] = NP.nan
                 select_ind = NP.logical_and(select_ind, NP.logical_and(nrands >= reduced_parms[ikey]['nrand'][0], nrands <= reduced_parms[ikey]['nrand'][1]))
                 
+        if ikey == 'beam':
+            if 'use_external' in ival:
+                use_external_beams = NP.asarray([parm[ikey]['use_external'] for parm in parms_list], dtype=NP.bool)
+                select_ind = NP.logical_and(select_ind, NP.equal(use_external_beams, reduced_parms[ikey]['use_external']))
+            if 'file' in ival:
+                extbeam_files = NP.asarray([parm[ikey]['file'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([extbeam_file in reduced_parms[ikey]['file'] for extbeam_file in extbeam_files], dtype=NP.bool))
+            if 'identifier' in ival:
+                beam_ids = NP.asarray([parm[ikey]['identifier'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([beamid in reduced_parms[ikey]['identifier'] for beamid in beam_ids], dtype=NP.bool))
+            if 'pol' in ival:
+                beam_pols = NP.asarray([parm[ikey]['pol'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([beampol in reduced_parms[ikey]['pol'] for beampol in beam_pols], dtype=NP.bool))
+            if 'chromatic' in ival:
+                chrmbeams = NP.asarray([parm[ikey]['chromatic'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.equal(chrmbeams, reduced_parms[ikey]['chromatic']))
+            if 'select_freq' in ival:
+                achrmfreqs = NP.asarray([parm[ikey]['select_freq'] for parm in parms_list], dtype=NP.float)
+                achrmfreqs[NP.equal(achrmfreqs, None)] = NP.nan
+                select_ind = NP.logical_and(select_ind, NP.logical_and(achrmfreqs >= reduced_parms[ikey]['select_freq'][0], achrmfreqs <= reduced_parms[ikey]['select_freq'][1]))
+            if 'spec_interp' in ival:
+                beam_spec_interps = NP.asarray([parm[ikey]['spec_interp'] for parm in parms_list])
+                select_ind = NP.logical_and(select_ind, NP.asarray([bmspecinterp in reduced_parms[ikey]['spec_interp'] for bmspecinterp in beam_spec_interps], dtype=NP.bool))
+
     select_ind, = NP.where(select_ind)
     outkeys = [metadata_list[ind].keys()[0] for ind in select_ind]
     for okey in outkeys:

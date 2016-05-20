@@ -1,3 +1,14 @@
+From 14cb293 (search-db):
+========================
+
+In prisim/examples/defaultdbparms.yaml,
+
+(*) Add parameters to search beam info
+
+In prisim/prisim_ls.py,
+
+(*) Search for beam parameters
+
 From 0ffb367 (search-db):
 ========================
 
