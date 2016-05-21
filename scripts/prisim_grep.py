@@ -10,6 +10,53 @@ import prisim
 
 prisim_path = prisim.__path__[0]+'/'
 
+def findType(refval):
+    valtype = ''
+    if isinstance(refval, bool):
+        valtype = 'bool'
+    elif isinstance(refval, str):
+        valtype = 'str'
+    elif isinstance(refval, (int, float)):
+        valtype = 'num'
+    elif isinstance(refval, list):
+        if isinstance(refval[0], str):
+            valtype = 'str'
+        elif isinstance(refval[0], (int,float)):
+            valtype = 'num'
+        else:
+            raise TypeError('refval must be a list containing strings or scalar numbers')
+    else:
+        raise TypeError('refval must be a boolean, string, scalar, list of strings or list of numbers')
+    return valtype
+
+def grepBoolean(vals, refval):
+    select_ind = NP.equal(vals, refval)
+    return select_ind
+
+def grepString(vals, refval):
+    select_ind = NP.asarray([val in refval for val in vals], dtype=NP.bool)
+    return select_ind
+
+def grepScalarRange(vals, refval):
+    select_ind = NP.logical_and(vals >= refval[0], vals <= refval[1])
+    return select_ind
+
+def grepValue(vals, refval):
+    valtype = findType(refval)
+    if valtype == 'bool':
+        vals = NP.asarray(vals, dtype=NP.bool)
+        select_ind = grepBoolean(vals, refval)
+    elif valtype == 'str':
+        vals = NP.asarray(vals)
+        select_ind = grepString(vals, refval)
+    elif valtype == 'num':
+        vals = NP.asarray(vals, dtype=NP.float)
+        vals[NP.equal(vals, None)] = NP.nan
+        select_ind = grepScalarRange(vals, refval)
+    else:
+        raise TypeError('Unknown type found. Requires debugging')
+    return select_ind
+
 def searchPRISimDB(parms):
 
     rootdir = parms['dirstruct']['rootdir']

@@ -1,3 +1,17 @@
+From 73e7838 (search-db):
+========================
+
+In scripts/prisim_grep.py,
+
+(*) Add function findType() to determine value type
+(*) Add functions grepBoolean(), grepScalarRange(), grepString() and
+grepValue() to search and select indices
+
+In changelog_interferometry.py,
+
+(*) Edit to indicate changes to prisim_ls.py happened under scripts
+folder and not prisim folder
+
 From a7fe080 (search-db):
 ========================
 
@@ -10,7 +24,7 @@ In prisim/examples/defaultdbparms.yaml,
 
 (*) Add parameters to search bandpass info
 
-In prisim/prisim_ls.py,
+In scripts/prisim_ls.py,
 
 (*) Search for bandpass parameters
 
@@ -21,7 +35,7 @@ In prisim/examples/defaultdbparms.yaml,
 
 (*) Add parameters to search beam info
 
-In prisim/prisim_ls.py,
+In scripts/prisim_ls.py,
 
 (*) Search for beam parameters
 
@@ -32,7 +46,7 @@ In prisim/examples/defaultdbparms.yaml,
 
 (*) Add parameters to search phased array info
 
-In prisim/prisim_ls.py,
+In scripts/prisim_ls.py,
 
 (*) Search for phased array parameters
 
@@ -44,14 +58,14 @@ In prisim/examples/defaultdbparms.yaml,
 (*) Add parameters to search Trx, Tant, Tsys and antenna element
 info
 
-In prisim/prisim_ls.py,
+In scripts/prisim_ls.py,
 
 (*) Search for Trx, Tant, Tsys, and antenna element parameters
 
 From d9ad45d (search-db):
 ========================
 
-In prisim/prisim_ls.py,
+In scripts/prisim_ls.py,
 
 (*) Adjust code to account for simulation runs that are missing
 meta data
@@ -59,7 +73,7 @@ meta data
 From e26e753 (package):
 ======================
 
-In prisim/run_prisim.py,
+In scripts/run_prisim.py,
 
 (*) Update initialization of sky model based on updates in class
 SkyModel in the AstroUtils package
