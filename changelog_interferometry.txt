@@ -1,3 +1,12 @@
+From 2655d0a (search-db):
+========================
+
+In scripts/prisim_grep.py,
+
+(*) Remove commented lines involving defunct function searchPRISimDB()
+(*) Add input keyword verbose
+(*) Remove import of unused masked array module numpy.ma
+
 From be478a9 (search-db):
 ========================
 
