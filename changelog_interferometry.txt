@@ -1,3 +1,14 @@
+From 3e7f4b4 (search-db):
+========================
+
+(*) Add scripts/prisim_ls.py to git repo
+
+In scripts/prisim_ls.py,
+
+(*) Add functionality to list all or only changing parameters in
+simulaiton runs. Add option to print output on terminal or save to an
+external file
+
 From 48e0807 (search-db):
 ========================
 
