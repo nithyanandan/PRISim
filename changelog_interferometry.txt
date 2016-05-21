@@ -1,3 +1,14 @@
+From be478a9 (search-db):
+========================
+
+In scripts/prisim_grep.py,
+
+(*) Create function grepPRISim() to search PRISim simulations for the
+parameters provided
+(*) grepPRISim() replaces the earlier function searchPRISimDB()
+(*) Comment out portions involving searchPRISimDB() which will be
+defunct in later revisions
+
 From 73e7838 (search-db):
 ========================
 
