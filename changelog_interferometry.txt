@@ -1,3 +1,10 @@
+From 48e0807 (search-db):
+========================
+
+In scripts/prisim_grep.py,
+
+(*) Add input keyword sort
+
 From 2655d0a (search-db):
 ========================
 

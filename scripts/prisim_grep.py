@@ -117,12 +117,16 @@ if __name__ == '__main__':
     input_group = parser.add_argument_group('Input parameters', 'Input specifications')
     input_group.add_argument('-i', '--infile', dest='infile', default=prisim_path+'examples/dbparms/defaultdbparms.yaml', type=file, required=False, help='File specifying input database search parameters')
     
-    parser.add_argument('-v', '--verbose', dest='verbose', action='store_true')
+    parser.add_argument('-v', '--verbose', dest='verbose', default=False, action='store_true')
+    parser.add_argument('-s', '--sort', dest='sort', default='alphabetical', type=str, required=False, choices=['date', 'alphabetical'], help='Sort results by timestamp or alphabetical order')
+
     args = vars(parser.parse_args())
     with args['infile'] as parms_file:
         parms = yaml.safe_load(parms_file)
 
     selectsims = grepPRISim(parms, verbose=args['verbose'])
+    if args['sort'] == 'alphabetical':
+        selectsims = sorted(selectsims)
     print '\nThe following simulation runs were found to contain the searched parameters:\n'
     for simrun in selectsims:
         print '\t'+simrun
