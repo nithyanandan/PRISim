@@ -307,3 +307,71 @@ obsparm  :
                                 # julian date format. If set to null, this
                                 # parameter is not searched for
                                 
+######### Pointing information #########
+
+pointing :                      # If pointing file is specified to be
+                                # non-null, other parameters like
+                                # drift_init and track_init are ignored
+
+    file            : null
+                                # List of strings specifying full paths to 
+                                # files containing pointing information to
+                                # search for. If set to null, this parameter
+                                # is not searched for
+
+    drift_init :
+                                # Applies in case of initializing pointing
+                                # information for drift scan mode
+
+        alt         : null
+                                # [min, max] range of altitude of telescope
+                                # pointing (degrees) to be searched for. If
+                                # set to null, this parameter is not searched
+                                # for
+
+        az          : null
+                                # [min, max] range of azimuth of telescope
+                                # pointing (degrees) to be searched for. If
+                                # set to null, this parameter is not searched
+                                # for
+
+        ha          : [0.0, 0.0]
+                                # [min, max] range of hour angle of telescope 
+                                # pointing (degrees) to be searched for. If set
+                                # to null ,this parameter is not searched for
+
+        dec         : [-30.7224, -30.7224]
+                                # [min, max] range of declination of telescope 
+                                # pointing (degrees) to be searched for. If set
+                                # to null, this parameter is not searched for
+
+        lst         : [0.0, 0.0]
+                                # [min, max] range of LST at start of
+                                # observation (hours) to be searched for.
+                                # If set to null, this parameter is not
+                                # searched for. The epoch is assumed to be the 
+                                # date of observation.
+
+    track_init :
+
+        ra          : [0.0, 0.0]
+                                # [min, max] range of tracked RA (degrees)
+                                # to be searched for. If set to null ,this
+                                # parameter is not searched for
+
+        dec         : [-30.7224, -30.7224]
+                                # [min, max] range of tracked declination
+                                # (degrees) to be searched for. If set
+                                # to null, this parameter is not searched for
+
+        ha          : [0.0, 0.0]
+                                # [min, max] range of tracked hour angle
+                                # (degrees) to be searched for. If set
+                                # to null ,this parameter is not searched for
+
+        epoch       : ['2000']
+                                # List of epochs to be searched for which
+                                # specify the RA of the tracked sky
+                                # position. If set to  null, this parameter
+                                # is not searched for
+

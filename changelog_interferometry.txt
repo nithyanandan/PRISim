@@ -1,3 +1,16 @@
+From 73332b2 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add pointing related search parameters
+
+In scripts/prisim_grep.py,
+
+(*) Modify function findType() to also check for dictionary data type
+(*) Modify function grepValues() to perform recursive search on
+dictionaries
+
 From 4d5bc67 (search-db):
 ========================
 

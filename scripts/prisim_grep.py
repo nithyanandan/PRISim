@@ -24,6 +24,8 @@ def findType(refval):
             valtype = 'num'
         else:
             raise TypeError('refval must be a list containing strings or scalar numbers')
+    elif isinstance(refval, dict):
+        valtype = 'dict'
     else:
         raise TypeError('refval must be a boolean, string, scalar, list of strings or list of numbers')
     return valtype
@@ -41,6 +43,7 @@ def grepScalarRange(vals, refval):
     return select_ind
 
 def grepValue(vals, refval):
+    select_ind = NP.asarray([True]*len(vals), dtype=NP.bool)
     valtype = findType(refval)
     if valtype == 'bool':
         vals = NP.asarray(vals, dtype=NP.bool)
@@ -52,6 +55,12 @@ def grepValue(vals, refval):
         vals = NP.asarray(vals, dtype=NP.float)
         vals[NP.equal(vals, None)] = NP.nan
         select_ind = grepScalarRange(vals, refval)
+    elif valtype == 'dict':
+        for upper_level_key in refval:
+            lower_level_valtype = findType(refval[upper_level_key])
+            lower_level_vals = [val[upper_level_key] for val in vals]
+            lower_level_refval = refval[upper_level_key]
+            select_ind = NP.logical_and(select_ind, grepValue(lower_level_vals, lower_level_refval)) # Recursive call to this function to walk down possible recursive dictionaries
     else:
         raise TypeError('Unknown type found. Requires debugging')
     return select_ind
