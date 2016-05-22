@@ -1,3 +1,10 @@
+From dd9a494 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add processing related search parameters
+
 From 3a87557 (search-db):
 ========================
 

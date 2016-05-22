@@ -452,3 +452,41 @@ fgparm   :
                                 # searched for. 
 
 
+########## Processing setup ##########
+
+processing:
+
+    n_bl_chunks     : null
+                                # [min, max] range on upper limit on
+                                # number of baseline chunks processed
+                                # to search for. If set to null, this
+                                # parameter is not searched for
+
+    bl_chunk_size   : null
+                                # [min, max] range on baseline chunk 
+                                # size to search for. If set to null, 
+                                # this parameter is not searched for
+
+    n_freq_chunks   : null
+                                # [min, max] range on upper limit on
+                                # number of frequency chunks processed
+                                # to search for. If set to null, this
+                                # parameter is not searched for
+
+    freq_chunk_size : null
+                                # [min, max] range on frequency chunk 
+                                # size to search for. If set to null, 
+                                # this parameter is not searched for
+
+    memsave         : false
+                                # Search DB if parameter to save
+                                # memory was set. Accepted values are
+                                # true and false. If set to null,
+                                # this parameter is not searched for
+
+    cleanup         : true
+                                # Search DB if clean up of intermediate
+                                # files was performed. Accepted values 
+                                # are true and false. If set to null,
+                                # this parameter is not searched for
+
