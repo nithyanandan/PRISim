@@ -1,3 +1,16 @@
+From 4d5bc67 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add observation related search parameters
+
+In changelog_interferometry.txt,
+
+(*) Modify to indicate previosu changes to defaultdbparms.yaml were
+under the prisim/examples/dbparms/ folder and not prisim/examples/
+folder
+
 From 3e7f4b4 (search-db):
 ========================
 
@@ -58,7 +71,7 @@ From a7fe080 (search-db):
 From 331beb9 (search-db):
 ========================
 
-In prisim/examples/defaultdbparms.yaml,
+In prisim/examples/dbparms/defaultdbparms.yaml,
 
 (*) Add parameters to search bandpass info
 
@@ -69,7 +82,7 @@ In scripts/prisim_ls.py,
 From 14cb293 (search-db):
 ========================
 
-In prisim/examples/defaultdbparms.yaml,
+In prisim/examples/dbparms/defaultdbparms.yaml,
 
 (*) Add parameters to search beam info
 
@@ -80,7 +93,7 @@ In scripts/prisim_ls.py,
 From 0ffb367 (search-db):
 ========================
 
-In prisim/examples/defaultdbparms.yaml,
+In prisim/examples/dbparms/defaultdbparms.yaml,
 
 (*) Add parameters to search phased array info
 
@@ -91,7 +104,7 @@ In scripts/prisim_ls.py,
 From d7afaeb (search-db):
 ========================
 
-In prisim/examples/defaultdbparms.yaml,
+In prisim/examples/dbparms/defaultdbparms.yaml,
 
 (*) Add parameters to search Trx, Tant, Tsys and antenna element
 info

@@ -266,3 +266,44 @@ bandpass :
                                 # file paths could be relative or absolute
                                 # depending on how they were originally set
 
+########## Observation setup ##########
+
+obsparm  :
+
+    obs_date        : ['2015/11/23']
+                                # List of strings specifying observation
+                                # start dates in yyyy/mm/dd format to
+                                # search for. If set to null, this
+                                # parameter is not searched for
+
+    obs_mode        : ['drift']
+                                # List of observing modes to search for.
+                                # Accepted values are 'drift', 'track',
+                                # 'dns', 'lstbin', and 'custom'. If set
+                                # to null, this parameter is not searched
+                                # for
+
+    t_obs           : null      
+                                # [min, max] range of duration of
+                                # observation (in seconds) to search for.
+                                # If set to null, this parameter is not
+                                # searched for
+
+    n_acc           : [2, 2]
+                                # [min, max] range of number of
+                                # accumulations to search for. If set to
+                                # null, this parameter is not searched for
+
+    t_acc           : [1080.0, 1080.0]
+                                # [min, max] range of accumulation time
+                                # (in seconds) to search for. If set to
+                                # null, this parameter is not searched for
+                                
+    timeformat      : ['JD']
+                                # List of output formats for timestamp to
+                                # search for. Accepted values are
+                                # 'DT' (default) for DateTime format
+                                # yyyy-mm-dd hh:mm:ss.s or 'JD' for
+                                # julian date format. If set to null, this
+                                # parameter is not searched for
+                                
