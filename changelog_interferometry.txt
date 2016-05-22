@@ -1,3 +1,14 @@
+From 72bdf8f (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add caution not to modify contents
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add caution not to modify contents
+
 From 88eba78 (search-db):
 ========================
 
