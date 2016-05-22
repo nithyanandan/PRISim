@@ -386,3 +386,69 @@ phasing :                       # Phase center parameters
                                 # 'radec', and 'dircos'. If set to null,
                                 # this parameter is not searched for
 
+######### Foreground model ##########
+
+fgparm   :
+
+    model           : ['csm']
+                                # List of strings specifying foreground
+                                # models to be searched for. Accepted 
+                                # values are 'csm' (NVSS+SUMSS point 
+                                # sources), 'dsm' (diffuse emission), 
+                                # 'asm' (both point sources and diffuse 
+                                # emission), 'sumss' (SUMSS catalog), 
+                                # nvss (NVSS catalog), 'mss' (Molonglo 
+                                # Sky Survey), 'gleam' (GLEAM catalog), 
+                                # 'custom' (user-defined catalog), 'usm' 
+                                # (uniform sky model), 'mwacs' (MWACS 
+                                # catalog), 'HI_monopole' (global EoR), 
+                                # HI_cube (HI cube from external 
+                                # simulations), and'HI_fluctuations' (HI 
+                                # fluctuations with the global mean signal 
+                                # removed). If set to null, this parameter 
+                                # is not searched for
+
+    epoch           : ['2000']
+                                # List of strings specifying the epoch of
+                                # the coordinates of the foreground model
+                                # or EoR signal to be searched for. If set
+                                # null, this parameter is not searched for
+
+    nside           : [256, 256]
+                                # [min, max] range of healpix nside
+                                # parameter for foreground model input
+                                # map to be searched for. Accepted values 
+                                # are valid nside values. If set to null,
+                                # this parameter is not searched for
+
+    flux_unit       : null
+                                # list of strings specifying Units of flux
+                                # or flux density. Accepted values are 'K' 
+                                # for temperature in K or 'Jy' for flux
+                                # density in Jy. If set to None, this
+                                # parameter is not searched for
+
+    spindex         : [-0.83, -0.83]
+                                # [min, max] of mean spectral indices of
+                                # point sources to search for. If set to
+                                # null, this parameter will not be
+                                # searched for
+
+    spindex_rms     : [0.0, 0.0]
+                                # [min, max] of rms in distribution of 
+                                # spectral indices to search for. If set
+                                # to null, this parameter is not searched
+                                # for
+
+    lidz            : true
+                                # Search DB if Lidz cube was used. Accepted
+                                # values are true or false. If set to null,
+                                # this parameter will not be searched for. 
+
+    21cmfast        : false
+                                # Search DB if 21CMFAST cube was used. 
+                                # Accepted values are true or false. If set 
+                                # to null, this parameter will not be
+                                # searched for. 
+
+

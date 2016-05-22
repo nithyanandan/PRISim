@@ -1,3 +1,10 @@
+From 3a87557 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add foreground model related search parameters
+
 From 41ff051 (search-db):
 ========================
 
