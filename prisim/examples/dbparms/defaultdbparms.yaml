@@ -375,3 +375,14 @@ pointing :                      # If pointing file is specified to be
                                 # position. If set to  null, this parameter
                                 # is not searched for
 
+######### Phase center information #########
+
+phasing :                       # Phase center parameters
+
+    coords          : ['altaz']
+                                # list of strings specifying coordinate
+                                # system of phase center to be searched for.
+                                # Accepted values are 'altaz', 'hadec', 
+                                # 'radec', and 'dircos'. If set to null,
+                                # this parameter is not searched for
+

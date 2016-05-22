@@ -1,3 +1,10 @@
+From 41ff051 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add phase center related search parameters
+
 From 73332b2 (search-db):
 ========================
 
