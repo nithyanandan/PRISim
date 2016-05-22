@@ -1,3 +1,10 @@
+From edd7dfe (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add output format related search parameters
+
 From 57cef79 (search-db):
 ========================
 

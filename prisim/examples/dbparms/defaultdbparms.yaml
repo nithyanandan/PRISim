@@ -519,3 +519,13 @@ pp       :
                                 # or 'queue'. If set to null, this
                                 # parameter is not searched for
 
+########## Save format ##########
+
+save_formats :
+
+    npz             : true
+                                # Search DB if simulated data was saved
+                                # in npz format (true) or not (false).
+                                # If set to null, this parameter is not
+                                # searched for
+
