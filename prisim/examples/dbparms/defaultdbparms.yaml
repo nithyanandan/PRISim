@@ -490,3 +490,32 @@ processing:
                                 # are true and false. If set to null,
                                 # this parameter is not searched for
 
+########## Parallel processing setup #########
+
+pp       :
+
+    key             : ['freq']
+                                # List of strings to search the key
+                                # based on which parallelization was
+                                # performed. Accepted values are 'bl'
+                                # (baselines), 'src' (sources) or
+                                # 'freq' (frequency). If set to null,
+                                # this parameter is not searched for
+
+    eqvol           : true
+                                # Search DB if mode of parallelization
+                                # was synchronous (true) or asynchronous
+                                # (false). if set to true, load is split 
+                                # equally between the parallel processes.
+                                # If set to false, load may be split
+                                # unevenly across processes as and when
+                                # a process becomes free. If set to null,
+                                # this parameter is not searched for
+
+    method          : ['pool']
+                                # List of strings to search the method
+                                # by which parallelization was
+                                # performed. Accepted values are 'pool'
+                                # or 'queue'. If set to null, this
+                                # parameter is not searched for
+

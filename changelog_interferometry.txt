@@ -1,3 +1,10 @@
+From 57cef79 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add parallel processing related search parameters
+
 From dd9a494 (search-db):
 ========================
 
