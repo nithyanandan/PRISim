@@ -519,6 +519,24 @@ pp       :
                                 # or 'queue'. If set to null, this
                                 # parameter is not searched for
 
+########## Frequency flagging ##########
+
+flags    :
+
+    bp_flag_repeat  : false
+                                # Search DB if channel flagging was set
+                                # to true or false to repeat or not repeat
+                                # for every coarse channel periodically. If
+                                # set to null, this parameter is not
+                                # searched for
+
+    flag_repeat_edge_channels: false
+                                # Search DB if edge channel flagging was set
+                                # to true or false to repeat or not repeat
+                                # for every coarse channel periodically. If
+                                # set to null, this parameter is not
+                                # searched for
+
 ########## Save format ##########
 
 save_formats :

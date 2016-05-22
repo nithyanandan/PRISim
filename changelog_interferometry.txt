@@ -1,3 +1,10 @@
+From 88eba78 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add frequency flagging related search parameters
+
 From edd7dfe (search-db):
 ========================
 
