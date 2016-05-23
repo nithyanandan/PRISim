@@ -56,8 +56,41 @@ input_group.add_argument('-i', '--infile', dest='infile', default=prisim_path+'e
 
 args = vars(parser.parse_args())
 
-with args['infile'] as parms_file:
-    parms = yaml.safe_load(parms_file)
+default_parms = {}
+with args['infile'] as custom_parms_file:
+    custom_parms = yaml.safe_load(custom_parms_file)
+if custom_parms['preload']['template'] is not None:
+    with open(custom_parms['preload']['template']) as default_parms_file:
+        default_parms = yaml.safe_load(default_parms_file)
+
+if not default_parms:
+    parms = custom_parms
+else:
+    parms = default_parms
+    if custom_parms['preload']['template'] is not None:
+        for key in custom_parms:
+            if key != 'preload':
+                if key in default_parms:
+                    if not isinstance(custom_parms[key], dict):
+                        parms[key] = custom_parms[key]
+                    else:
+                        for subkey in custom_parms[key]:
+                            if subkey in default_parms[key]:
+                                if not isinstance(custom_parms[key][subkey], dict):
+                                    parms[key][subkey] = custom_parms[key][subkey]
+                                else:
+                                    for subsubkey in custom_parms[key][subkey]:
+                                        if subsubkey in default_parms[key][subkey]:
+                                            if not isinstance(custom_parms[key][subkey][subsubkey], dict):
+                                                parms[key][subkey][subsubkey] = custom_parms[key][subkey][subsubkey]
+                                            else:
+                                                raise TypeError('Parsing YAML simulation parameter files with this level of nesting is not supported')
+                                        else:
+                                            raise KeyError('Invalid parameter found in custom simulation parameters file')
+                            else:
+                                raise KeyError('Invalid parameter found in custom simulation parameters file')
+                else:
+                    raise KeyError('Invalid parameter found in custom simulation parameters file')                            
 
 rootdir = parms['dirstruct']['rootdir']
 project = parms['dirstruct']['project']

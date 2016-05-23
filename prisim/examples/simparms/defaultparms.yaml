@@ -2,6 +2,24 @@
 ##### DO NOT MODIFY THIS FILE #####
 ##### MAKE A COPY OF THIS FILE AND CUSTOMIZE #####
 
+########## Parameter configuration templates for pre-loading ##########
+
+preload    :
+                                # Information on pre-loadable template
+
+    template    : null
+                                # String specifying full path to
+                                # YAML file containing simulation
+                                # parameters to pre-load. If set,
+                                # simulation parameters from that
+                                # file will be loaded as default,
+                                # and any parameters specified below
+                                # will be used to change the default
+                                # values. If set to null, no simulation
+                                # parameters will be pre-loaded. All 
+                                # the parameters must be specified 
+                                # below and those will be used
+
 ########## Directory Structure information #########
 
 dirstruct:

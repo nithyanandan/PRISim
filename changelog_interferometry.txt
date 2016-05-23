@@ -1,3 +1,15 @@
+From 36209e1 (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add parameter to specify default simulation parameters template
+
+In scripts/run_prisim.py,
+
+(*) Load default simulation parameters if specified and override with
+custom simulation parameters
+
 From 72bdf8f (package):
 ======================
 
