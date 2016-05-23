@@ -2,10 +2,8 @@ from __future__ import division
 import numpy as NP
 import multiprocessing as MP
 import itertools as IT
-import statsmodels.robust.scale as stats
 import progressbar as PGB
-import writer_module as WM
-import aipy as AP
+# import aipy as AP
 import astropy 
 from astropy.io import fits
 import astropy.cosmology as CP
@@ -13,14 +11,15 @@ import scipy.constants as FCNST
 import healpy as HP
 from distutils.version import LooseVersion
 import yaml
-import constants as CNST
-import my_DSP_modules as DSP
-import my_operations as OPS
-import baseline_delay_horizon as DLY
-import geometry as GEOM
-import interferometry as RI
+from astroutils import writer_module as WM
+from astroutils import constants as CNST
+from astroutils import DSP_modules as DSP
+from astroutils import mathops as OPS
+from astroutils import geometry as GEOM
+from astroutils import lookup_operations as LKP
 import primary_beams as PB
-import lookup_operations as LKP
+import interferometry as RI
+import baseline_delay_horizon as DLY
 
 cosmo100 = CP.FlatLambdaCDM(H0=100.0, Om0=0.27)  # Using H0 = 100 km/s/Mpc
 
@@ -67,53 +66,53 @@ def _astropy_columns(cols, tabtype='BinTableHDU'):
 
 ################################################################################
 
-def _gentle_clean(dd, _w, tol=1e-1, area=None, stop_if_div=True, maxiter=100,
-                  verbose=False, autoscale=True):
+# def _gentle_clean(dd, _w, tol=1e-1, area=None, stop_if_div=True, maxiter=100,
+#                   verbose=False, autoscale=True):
 
-    if verbose:
-        print "Performing gentle clean..."
+#     if verbose:
+#         print "Performing gentle clean..."
 
-    scale_factor = 1.0
-    if autoscale:
-        scale_factor = NP.nanmax(NP.abs(_w))
-    dd /= scale_factor
-    _w /= scale_factor
+#     scale_factor = 1.0
+#     if autoscale:
+#         scale_factor = NP.nanmax(NP.abs(_w))
+#     dd /= scale_factor
+#     _w /= scale_factor
 
-    cc, info = AP.deconv.clean(dd, _w, tol=tol, area=area, stop_if_div=False,
-                               maxiter=maxiter, verbose=verbose)
-    #dd = info['res']
+#     cc, info = AP.deconv.clean(dd, _w, tol=tol, area=area, stop_if_div=False,
+#                                maxiter=maxiter, verbose=verbose)
+#     #dd = info['res']
 
-    cc = NP.zeros_like(dd)
-    inside_res = NP.std(dd[area!=0])
-    outside_res = NP.std(dd[area==0])
-    initial_res = inside_res
-    #print inside_res,'->',
-    ncycle=0
-    if verbose:
-        print "inside_res outside_res"
-        print inside_res, outside_res
-    inside_res = 2*outside_res #just artifically bump up the inside res so the loop runs at least once
-    while(inside_res>outside_res and maxiter>0):
-        if verbose: print '.',
-        _d_cl, info = AP.deconv.clean(dd, _w, tol=tol, area=area, stop_if_div=stop_if_div, maxiter=maxiter, verbose=verbose, pos_def=True)
-        res = info['res']
-        inside_res = NP.std(res[area!=0])
-        outside_res = NP.std(res[area==0])
-        dd = info['res']
-        cc += _d_cl
-        ncycle += 1
-        if verbose: print inside_res*scale_factor, outside_res*scale_factor
-        if ncycle>1000: break
+#     cc = NP.zeros_like(dd)
+#     inside_res = NP.std(dd[area!=0])
+#     outside_res = NP.std(dd[area==0])
+#     initial_res = inside_res
+#     #print inside_res,'->',
+#     ncycle=0
+#     if verbose:
+#         print "inside_res outside_res"
+#         print inside_res, outside_res
+#     inside_res = 2*outside_res #just artifically bump up the inside res so the loop runs at least once
+#     while(inside_res>outside_res and maxiter>0):
+#         if verbose: print '.',
+#         _d_cl, info = AP.deconv.clean(dd, _w, tol=tol, area=area, stop_if_div=stop_if_div, maxiter=maxiter, verbose=verbose, pos_def=True)
+#         res = info['res']
+#         inside_res = NP.std(res[area!=0])
+#         outside_res = NP.std(res[area==0])
+#         dd = info['res']
+#         cc += _d_cl
+#         ncycle += 1
+#         if verbose: print inside_res*scale_factor, outside_res*scale_factor
+#         if ncycle>1000: break
 
-    info['ncycle'] = ncycle-1
+#     info['ncycle'] = ncycle-1
 
-    dd *= scale_factor
-    _w *= scale_factor
-    cc *= scale_factor
-    info['initial_residual'] = initial_res * scale_factor
-    info['final_residual'] = inside_res * scale_factor
+#     dd *= scale_factor
+#     _w *= scale_factor
+#     cc *= scale_factor
+#     info['initial_residual'] = initial_res * scale_factor
+#     info['final_residual'] = inside_res * scale_factor
     
-    return cc, info
+#     return cc, info
 
 #################################################################################
 
@@ -1351,132 +1350,132 @@ class DelaySpectrum(object):
 
     #############################################################################
         
-    def clean(self, pad=1.0, freq_wts=None, clean_window_buffer=1.0,
-              verbose=True):
+    # def clean(self, pad=1.0, freq_wts=None, clean_window_buffer=1.0,
+    #           verbose=True):
 
-        """
-        ------------------------------------------------------------------------
-        TO BE DEPRECATED!!! USE MEMBER FUNCTION delayClean()
+    #     """
+    #     ------------------------------------------------------------------------
+    #     TO BE DEPRECATED!!! USE MEMBER FUNCTION delayClean()
 
-        Transforms the visibilities from frequency axis onto delay (time) axis
-        using an IFFT and deconvolves the delay transform quantities along the 
-        delay axis. This is performed for noiseless sky visibilities, thermal
-        noise in visibilities, and observed visibilities. 
+    #     Transforms the visibilities from frequency axis onto delay (time) axis
+    #     using an IFFT and deconvolves the delay transform quantities along the 
+    #     delay axis. This is performed for noiseless sky visibilities, thermal
+    #     noise in visibilities, and observed visibilities. 
 
-        Inputs:
+    #     Inputs:
 
-        pad         [scalar] Non-negative scalar indicating padding fraction 
-                    relative to the number of frequency channels. For e.g., a 
-                    pad of 1.0 pads the frequency axis with zeros of the same 
-                    width as the number of channels. If a negative value is 
-                    specified, delay transform will be performed with no padding
+    #     pad         [scalar] Non-negative scalar indicating padding fraction 
+    #                 relative to the number of frequency channels. For e.g., a 
+    #                 pad of 1.0 pads the frequency axis with zeros of the same 
+    #                 width as the number of channels. If a negative value is 
+    #                 specified, delay transform will be performed with no padding
 
-        freq_wts    [numpy vector or array] window shaping to be applied before
-                    computing delay transform. It can either be a vector or size
-                    equal to the number of channels (which will be applied to all
-                    time instances for all baselines), or a nchan x n_snapshots 
-                    numpy array which will be applied to all baselines, or a 
-                    n_baselines x nchan numpy array which will be applied to all 
-                    timestamps, or a n_baselines x nchan x n_snapshots numpy 
-                    array. Default (None) will not apply windowing and only the
-                    inherent bandpass will be used.
+    #     freq_wts    [numpy vector or array] window shaping to be applied before
+    #                 computing delay transform. It can either be a vector or size
+    #                 equal to the number of channels (which will be applied to all
+    #                 time instances for all baselines), or a nchan x n_snapshots 
+    #                 numpy array which will be applied to all baselines, or a 
+    #                 n_baselines x nchan numpy array which will be applied to all 
+    #                 timestamps, or a n_baselines x nchan x n_snapshots numpy 
+    #                 array. Default (None) will not apply windowing and only the
+    #                 inherent bandpass will be used.
 
-        verbose     [boolean] If set to True (default), print diagnostic and 
-                    progress messages. If set to False, no such messages are
-                    printed.
-        ------------------------------------------------------------------------
-        """
+    #     verbose     [boolean] If set to True (default), print diagnostic and 
+    #                 progress messages. If set to False, no such messages are
+    #                 printed.
+    #     ------------------------------------------------------------------------
+    #     """
 
-        if not isinstance(pad, (int, float)):
-            raise TypeError('pad fraction must be a scalar value.')
-        if pad < 0.0:
-            pad = 0.0
-            if verbose:
-                print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+    #     if not isinstance(pad, (int, float)):
+    #         raise TypeError('pad fraction must be a scalar value.')
+    #     if pad < 0.0:
+    #         pad = 0.0
+    #         if verbose:
+    #             print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
     
-        if freq_wts is not None:
-            if freq_wts.size == self.f.size:
-                freq_wts = NP.repeat(NP.expand_dims(NP.repeat(freq_wts.reshape(1,-1), self.ia.baselines.shape[0], axis=0), axis=2), self.n_acc, axis=2)
-            elif freq_wts.size == self.f.size * self.n_acc:
-                freq_wts = NP.repeat(NP.expand_dims(freq_wts.reshape(self.f.size, -1), axis=0), self.ia.baselines.shape[0], axis=0)
-            elif freq_wts.size == self.f.size * self.ia.baselines.shape[0]:
-                freq_wts = NP.repeat(NP.expand_dims(freq_wts.reshape(-1, self.f.size), axis=2), self.n_acc, axis=2)
-            elif freq_wts.size == self.f.size * self.ia.baselines.shape[0] * self.n_acc:
-                freq_wts = freq_wts.reshape(self.ia.baselines.shape[0], self.f.size, self.n_acc)
-            else:
-                raise ValueError('window shape dimensions incompatible with number of channels and/or number of tiemstamps.')
-            self.bp_wts = freq_wts
-            if verbose:
-                print '\tFrequency window weights assigned.'
+    #     if freq_wts is not None:
+    #         if freq_wts.size == self.f.size:
+    #             freq_wts = NP.repeat(NP.expand_dims(NP.repeat(freq_wts.reshape(1,-1), self.ia.baselines.shape[0], axis=0), axis=2), self.n_acc, axis=2)
+    #         elif freq_wts.size == self.f.size * self.n_acc:
+    #             freq_wts = NP.repeat(NP.expand_dims(freq_wts.reshape(self.f.size, -1), axis=0), self.ia.baselines.shape[0], axis=0)
+    #         elif freq_wts.size == self.f.size * self.ia.baselines.shape[0]:
+    #             freq_wts = NP.repeat(NP.expand_dims(freq_wts.reshape(-1, self.f.size), axis=2), self.n_acc, axis=2)
+    #         elif freq_wts.size == self.f.size * self.ia.baselines.shape[0] * self.n_acc:
+    #             freq_wts = freq_wts.reshape(self.ia.baselines.shape[0], self.f.size, self.n_acc)
+    #         else:
+    #             raise ValueError('window shape dimensions incompatible with number of channels and/or number of tiemstamps.')
+    #         self.bp_wts = freq_wts
+    #         if verbose:
+    #             print '\tFrequency window weights assigned.'
 
-        bw = self.df * self.f.size
-        pc = self.ia.phase_center
-        pc_coords = self.ia.phase_center_coords
-        if pc_coords == 'hadec':
-            pc_altaz = GEOM.hadec2altaz(pc, self.ia.latitude, units='degrees')
-            pc_dircos = GEOM.altaz2dircos(pc_altaz, units='degrees')
-        elif pc_coords == 'altaz':
-            pc_dircos = GEOM.altaz2dircos(pc, units='degrees')
+    #     bw = self.df * self.f.size
+    #     pc = self.ia.phase_center
+    #     pc_coords = self.ia.phase_center_coords
+    #     if pc_coords == 'hadec':
+    #         pc_altaz = GEOM.hadec2altaz(pc, self.ia.latitude, units='degrees')
+    #         pc_dircos = GEOM.altaz2dircos(pc_altaz, units='degrees')
+    #     elif pc_coords == 'altaz':
+    #         pc_dircos = GEOM.altaz2dircos(pc, units='degrees')
         
-        npad = int(self.f.size * pad)
-        lags = DSP.spectral_axis(self.f.size + npad, delx=self.df, use_real=False, shift=False)
-        dlag = lags[1] - lags[0]
+    #     npad = int(self.f.size * pad)
+    #     lags = DSP.spectral_axis(self.f.size + npad, delx=self.df, use_real=False, shift=False)
+    #     dlag = lags[1] - lags[0]
     
-        clean_area = NP.zeros(self.f.size + npad, dtype=int)
-        skyvis_lag = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.ia.skyvis_freq*self.bp*self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
-        vis_lag = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.ia.vis_freq*self.bp*self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
-        lag_kernel = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.bp, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
+    #     clean_area = NP.zeros(self.f.size + npad, dtype=int)
+    #     skyvis_lag = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.ia.skyvis_freq*self.bp*self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
+    #     vis_lag = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.ia.vis_freq*self.bp*self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
+    #     lag_kernel = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.bp, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
         
-        ccomponents_noiseless = NP.zeros_like(skyvis_lag)
-        ccres_noiseless = NP.zeros_like(skyvis_lag)
+    #     ccomponents_noiseless = NP.zeros_like(skyvis_lag)
+    #     ccres_noiseless = NP.zeros_like(skyvis_lag)
     
-        ccomponents_noisy = NP.zeros_like(vis_lag)
-        ccres_noisy = NP.zeros_like(vis_lag)
+    #     ccomponents_noisy = NP.zeros_like(vis_lag)
+    #     ccres_noisy = NP.zeros_like(vis_lag)
         
-        for snap_iter in xrange(self.n_acc):
-            progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Baselines '.format(self.ia.baselines.shape[0]), PGB.ETA()], maxval=self.ia.baselines.shape[0]).start()
-            for bl_iter in xrange(self.ia.baselines.shape[0]):
-                clean_area[NP.logical_and(lags <= self.horizon_delay_limits[snap_iter,bl_iter,1]+clean_window_buffer/bw, lags >= self.horizon_delay_limits[snap_iter,bl_iter,0]-clean_window_buffer/bw)] = 1
+    #     for snap_iter in xrange(self.n_acc):
+    #         progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Baselines '.format(self.ia.baselines.shape[0]), PGB.ETA()], maxval=self.ia.baselines.shape[0]).start()
+    #         for bl_iter in xrange(self.ia.baselines.shape[0]):
+    #             clean_area[NP.logical_and(lags <= self.horizon_delay_limits[snap_iter,bl_iter,1]+clean_window_buffer/bw, lags >= self.horizon_delay_limits[snap_iter,bl_iter,0]-clean_window_buffer/bw)] = 1
     
-                cc_noiseless, info_noiseless = _gentle_clean(skyvis_lag[bl_iter,:,snap_iter], lag_kernel[bl_iter,:,snap_iter], area=clean_area, stop_if_div=False, verbose=False, autoscale=True)
-                ccomponents_noiseless[bl_iter,:,snap_iter] = cc_noiseless
-                ccres_noiseless[bl_iter,:,snap_iter] = info_noiseless['res']
+    #             cc_noiseless, info_noiseless = _gentle_clean(skyvis_lag[bl_iter,:,snap_iter], lag_kernel[bl_iter,:,snap_iter], area=clean_area, stop_if_div=False, verbose=False, autoscale=True)
+    #             ccomponents_noiseless[bl_iter,:,snap_iter] = cc_noiseless
+    #             ccres_noiseless[bl_iter,:,snap_iter] = info_noiseless['res']
     
-                cc_noisy, info_noisy = _gentle_clean(vis_lag[bl_iter,:,snap_iter], lag_kernel[bl_iter,:,snap_iter], area=clean_area, stop_if_div=False, verbose=False, autoscale=True)
-                ccomponents_noisy[bl_iter,:,snap_iter] = cc_noisy
-                ccres_noisy[bl_iter,:,snap_iter] = info_noisy['res']
+    #             cc_noisy, info_noisy = _gentle_clean(vis_lag[bl_iter,:,snap_iter], lag_kernel[bl_iter,:,snap_iter], area=clean_area, stop_if_div=False, verbose=False, autoscale=True)
+    #             ccomponents_noisy[bl_iter,:,snap_iter] = cc_noisy
+    #             ccres_noisy[bl_iter,:,snap_iter] = info_noisy['res']
     
-                progress.update(bl_iter+1)
-            progress.finish()
+    #             progress.update(bl_iter+1)
+    #         progress.finish()
     
-        deta = lags[1] - lags[0]
-        cc_skyvis = NP.fft.fft(ccomponents_noiseless, axis=1) * deta
-        cc_skyvis_res = NP.fft.fft(ccres_noiseless, axis=1) * deta
+    #     deta = lags[1] - lags[0]
+    #     cc_skyvis = NP.fft.fft(ccomponents_noiseless, axis=1) * deta
+    #     cc_skyvis_res = NP.fft.fft(ccres_noiseless, axis=1) * deta
     
-        cc_vis = NP.fft.fft(ccomponents_noisy, axis=1) * deta
-        cc_vis_res = NP.fft.fft(ccres_noisy, axis=1) * deta
+    #     cc_vis = NP.fft.fft(ccomponents_noisy, axis=1) * deta
+    #     cc_vis_res = NP.fft.fft(ccres_noisy, axis=1) * deta
     
-        self.skyvis_lag = NP.fft.fftshift(skyvis_lag, axes=1)
-        self.vis_lag = NP.fft.fftshift(vis_lag, axes=1)
-        self.lag_kernel = NP.fft.fftshift(lag_kernel, axes=1)
-        self.cc_skyvis_lag = NP.fft.fftshift(ccomponents_noiseless, axes=1)
-        self.cc_skyvis_res_lag = NP.fft.fftshift(ccres_noiseless, axes=1)
-        self.cc_vis_lag = NP.fft.fftshift(ccomponents_noisy, axes=1)
-        self.cc_vis_res_lag = NP.fft.fftshift(ccres_noisy, axes=1)
+    #     self.skyvis_lag = NP.fft.fftshift(skyvis_lag, axes=1)
+    #     self.vis_lag = NP.fft.fftshift(vis_lag, axes=1)
+    #     self.lag_kernel = NP.fft.fftshift(lag_kernel, axes=1)
+    #     self.cc_skyvis_lag = NP.fft.fftshift(ccomponents_noiseless, axes=1)
+    #     self.cc_skyvis_res_lag = NP.fft.fftshift(ccres_noiseless, axes=1)
+    #     self.cc_vis_lag = NP.fft.fftshift(ccomponents_noisy, axes=1)
+    #     self.cc_vis_res_lag = NP.fft.fftshift(ccres_noisy, axes=1)
 
-        self.cc_skyvis_net_lag = self.cc_skyvis_lag + self.cc_skyvis_res_lag
-        self.cc_vis_net_lag = self.cc_vis_lag + self.cc_vis_res_lag
-        self.lags = NP.fft.fftshift(lags)
+    #     self.cc_skyvis_net_lag = self.cc_skyvis_lag + self.cc_skyvis_res_lag
+    #     self.cc_vis_net_lag = self.cc_vis_lag + self.cc_vis_res_lag
+    #     self.lags = NP.fft.fftshift(lags)
 
-        self.cc_skyvis_freq = cc_skyvis
-        self.cc_skyvis_res_freq = cc_skyvis_res
-        self.cc_vis_freq = cc_vis
-        self.cc_vis_res_freq = cc_vis_res
+    #     self.cc_skyvis_freq = cc_skyvis
+    #     self.cc_skyvis_res_freq = cc_skyvis_res
+    #     self.cc_vis_freq = cc_vis
+    #     self.cc_vis_res_freq = cc_vis_res
 
-        self.cc_skyvis_net_freq = cc_skyvis + cc_skyvis_res
-        self.cc_vis_net_freq = cc_vis + cc_vis_res
+    #     self.cc_skyvis_net_freq = cc_skyvis + cc_skyvis_res
+    #     self.cc_vis_net_freq = cc_vis + cc_vis_res
 
-        self.clean_window_buffer = clean_window_buffer
+    #     self.clean_window_buffer = clean_window_buffer
         
     #############################################################################
         

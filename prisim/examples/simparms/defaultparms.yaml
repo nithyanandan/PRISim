@@ -1,18 +1,46 @@
-########## Directory information #########
+##### IMPORTANT INFORMATION #####
+##### DO NOT MODIFY THIS FILE #####
+##### MAKE A COPY OF THIS FILE AND CUSTOMIZE #####
 
-directory:
+########## Parameter configuration templates for pre-loading ##########
+
+preload    :
+                                # Information on pre-loadable template
+
+    template    : null
+                                # String specifying full path to
+                                # YAML file containing simulation
+                                # parameters to pre-load. If set,
+                                # simulation parameters from that
+                                # file will be loaded as default,
+                                # and any parameters specified below
+                                # will be used to change the default
+                                # values. If set to null, no simulation
+                                # parameters will be pre-loaded. All 
+                                # the parameters must be specified 
+                                # below and those will be used
+
+########## Directory Structure information #########
+
+dirstruct:
                                 # Directory information
 
-    rootdir         : '/data3/t_nithyanandan/'
+    rootdir     : '/data3/t_nithyanandan/'
                                 # Base directory
 
-########## Project information #########
+    project     : 'prisim_test'
+                                # Directory for the project under
+                                # rootdir. Will be created if it
+                                # does not exist
 
-project  : project_HERA
-                                # Accepted values are project_MWA,
-                                # project_global_EoR, project_HERA, 
-                                # project_drift_scan, project_beams,
-                                # project_LSTbin
+    simid       : null
+                                # Simulation ID type. Creates a
+                                # folder to store results of
+                                # simulation. Accepted values
+                                # are null (current GMT
+                                # at the start of simulation),
+                                # or any string representing custom
+                                # (user defined) ID
 
 ########## Telescope information ##########
 
@@ -44,19 +72,24 @@ telescope:
                                 # Effective area of antenna element
                                 # in m^2
 
+    Trx             : 50.0
+                                # Receiver temperature (in K)
+
+    Tant_freqref    : 150000000.0
+                                # Reference frequency (in Hz) for
+                                # antenna temperature
+
+    Tant_spindex    : -2.55
+                                # Spectral index for antenna
+                                # temperature
+
+    Tant_ref        : 200.0
+                                # Antenna temperature at reference
+                                # frequency
+                                # Tsys = Trx + Tant * (f/f0)^alpha
+
     Tsys            : 220.0
                                 # System temperature (in K)
-
-    pfb_method      : null 
-                                # PFB method to be used. Default (null)
-                                # means no use of PFB. Other accepted
-                                # values are 'theoretical' and
-                                # 'empirical'
-
-    pfb_file        : '/data3/t_nithyanandan/project_MWA/foregrounds/PFB/Prabu/test_pfb_512x8.fits'
-                                # File containing PFB coefficients.
-                                # Applicable only is pfb_method is
-                                # set to non-null value
 
 ########## Antenna layout #########
 
@@ -151,9 +184,18 @@ antenna  :
 
 phasedarray:
 
-    file            : '/data3/t_nithyanandan/project_MWA/MWA_tile_dipole_locations.txt'
+    file            : 'MWA_tile_dipole_locations.txt'
                                 # File containing phased array elements
                                 # locations
+
+    filepathtype    : 'default'
+                                # If set to 'default', only filename
+                                # should be specified in file and it
+                                # will be searched in the default 
+                                # phasedarray_layouts folder
+                                # prisim/data/phasedarray_layouts
+                                # If set to 'custom' then the full path
+                                # to the file must be specified
 
     delayerr        : 0.0
                                 # Delay error rms (in ns). null means
@@ -178,20 +220,24 @@ beam    :
                                 # analytically from antenna aperture
                                 # specifications
 
-    file            : # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_healpix.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_A_17_197_137o5_healpix.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/CST/HERA_DISH_paper_feed_cyl36_healpix.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18L_P1_hp_nside128.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_DeBoer_beam_195_137o5_hp_nside128full.fits'
-                      '/data3/t_nithyanandan/project_HERA/power_patterns/CST/mdl04/X4Y2H_4900.hmap'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/Abraham_Rich_beam_1375_18H_P1_hp_nside128full.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/Abraham/XRFBg_195_137o5_hp_nside128full.fits'
-                      # '/data3/t_nithyanandan/project_HERA/power_patterns/analytic/14.0m_dish_Airy_no_ground_nside_256_derr_0.000ns_gerr_0.00dB_nrand_1_128x781.2_kHz_150.0_MHz.fits'
+    file            : 'HERA_HFSS_X4Y2H_4900.hmap'
 
-                                # Full pathname to the FITS file
-                                # containing the external antenna
-                                # beam. Used only if use_external is
-                                # set to true
+                                # FITS file containing the external
+                                # antenna beam. Used only if
+                                # use_external is set to true.
+                                # Specify only filename if filepathtype
+                                # is set to 'default', otherwise specify
+                                # full path to the file. A format
+                                # specification for the file contents is
+                                # under development
+
+    filepathtype    : 'default'
+                                # If set to 'default', only filename
+                                # should be specified in file and it
+                                # will be searched in the default beams
+                                # folder prisim/data/beams/
+                                # If set to 'custom' then the full path
+                                # to the file must be specified
 
     identifier      : 'HERA-CST'
                                 # string to identify source of beam
@@ -224,9 +270,9 @@ beam    :
                                 # Applies only if chromatic is set to
                                 # True
 
-########## Observation setup ##########
+########## Bandpass setup ##########
 
-obsparm  :
+bandpass :
 
     freq            : 150000000.0
                                 # Center frequency (in Hz)
@@ -239,6 +285,40 @@ obsparm  :
     nchan           : 256
                                 # Number of channels
                                 # 704 for Adam Lidz's cube
+
+    pfb_method      : null 
+                                # PFB method to be used. Default (null)
+                                # means no use of PFB. Other accepted
+                                # values are 'theoretical' and
+                                # 'empirical'
+
+    pfb_filepath    : 'default'
+                                # Can be set to 'default' or 'custom'.
+                                # If set to 'relative' the pfb_file is
+                                # located in the PRIRim package
+                                # data/bandpass directory. If set to
+                                # 'custom' then the full path is
+                                # specified in pfb_file
+
+    pfb_file        :           # File containing PFB coefficients.
+                                # Applicable only is pfb_method is
+                                # set to non-null value. If pfb_filepath
+                                # is set to 'default' specify only the
+                                # filename and it will be located in the
+                                # default folder under the PRISim package,
+                                # namely, data/bandpass but if pfb_filepath
+                                # is set to 'custom' then the full path
+                                # must be specified
+
+                      'MWA_pfb_512x8.fits'
+                                # Just filename assuming default relative
+                                # path
+                      # '/path/to/PFBfile'
+                                # Full path to filename
+
+########## Observation setup ##########
+
+obsparm  :
 
     obs_date        : '2015/11/23'
                                 # Observation start date yyyy/mm/dd
@@ -275,11 +355,13 @@ pointing :                      # If pointing file is specified to be
                                 # drift_init and track_init are ignored
 
     file            : null
-                                # File containing pointing information
-                                # Only one of 'file' or 'initial' must
-                                # be specified
-                                # for example,
-                                # '/data3/MWA/lstbin_RA0/EoR0_high_sem1_1_obsinfo.txt'
+                                # Full path to file containing pointing
+                                # information. Only one of 'file' or
+                                # 'initial' must be specified.
+                                # for MWA format, see example in
+                                # 'examples/scheduler/MWA_Aug23_obs_scheduler.txt'
+                                # Formats for other telescopes under
+                                # development
 
     drift_init :
                                 # Applies in case of initializing pointing
@@ -317,7 +399,7 @@ pointing :                      # If pointing file is specified to be
                                 # Declination of sky position to track
                                 # (degrees)
 
-        ha          : -30.0
+        ha          : 0.0
                                 # Hour angle (degrees) at start of
                                 # observation. 
 
@@ -335,7 +417,7 @@ phasing :                       # Phase center parameters
                                 # if coordinate system is set to
                                 # 'dircos'
 
-    coords          : altaz
+    coords          : 'altaz'
                                 # Coordinate system for specifying
                                 # phase center. Accepted values are
                                 # 'altaz', 'hadec', 'radec', and
@@ -382,8 +464,8 @@ fgparm   :
                                 # point sources and diffuse emission),
                                 # 'sumss' (SUMSS catalog), nvss (NVSS
                                 # catalog), 'mss' (Molonglo Sky Survey),
-                                # 'gleam' (GLEAM catalog), 'point' (user-
-                                # defined point sources), 'usm' (uniform
+                                # 'gleam' (GLEAM catalog), 'custom' (user-
+                                # defined catalog), 'usm' (uniform
                                 # sky model), 'mwacs' (MWACS catalog),
                                 # 'HI_monopole' (global EoR), HI_cube
                                 # (HI cube from external simulations), 
@@ -438,25 +520,42 @@ fgparm   :
 
 catalog  :
 
-    DSM_file_prefix : '/data3/t_nithyanandan/foregrounds/gsmdata'
-                               # Diffuse Sky Model map file name prefix
-                 
+    filepathtype    : 'default'
+                                # Type of file path. Can be set to
+                                # 'default' or 'custom'. If set to
+                                # 'default', only catalog filename
+                                # must be specified and the catalog
+                                # file will be searched in the default
+                                # package data folder
+                                # prisim/data/catalogs. If set to
+                                # 'custom', the full path to the
+                                # catalog file must be specified
 
-    SUMSS_file      : '/data3/t_nithyanandan/foregrounds/sumsscat.Mar-11-2008.txt'
+    DSM_file_prefix : 'gsmdata'
+                      # '/path/to/gsmdata'
+                                # Diffuse Sky Model map file name prefix
+
+    SUMSS_file      : 'sumsscat.Mar-11-2008.txt'
+                      # '/path/to/SUMSScatalogFile.txt'
                                 # SUMSS catalog file
 
-    NVSS_file       : '/data3/t_nithyanandan/foregrounds/NVSS_catalog.fits'
+    NVSS_file       : 'NVSS_catalog.fits'
+                      # '/path/to/NVSScatalogFile.fits'
                                 # NVSS catalog file
 
-    MWACS_file      : '/data3/t_nithyanandan/foregrounds/mwacs_b1_131016.csv'
+    MWACS_file      : 'mwacs_b1_131016.csv'
+                      # '/path/to/MWACScatalogFile.csv'
                                 # MWACS catalog file
 
-    GLEAM_file      : '/data3/t_nithyanandan/foregrounds/mwacs_b1_131016.csv'
+    GLEAM_file      : 'GLEAMIDR3.fits'
+                      # '/path/to/GLEAMcatalogFile.fits'
                                 # GLEAM catalog file
 
-    PS_file         : '/data3/t_nithyanandan/foregrounds/PS_catalog.txt'
-                                # User defined point sources catalog
-                                # file
+    custom_file         : 'custom_catalog.txt'
+                      # '/path/to/custom_catalog.txt'
+                                # User defined catalog. See
+                                # prisim/data/catalogs/custom_catalog.txt
+                                # for file format
 
 ########## Processing setup ##########
 
@@ -478,13 +577,13 @@ processing:
                                 # null means process all chunks.
                                 # Should be given as a list
 
-    n_freq_chunks   : 1
+    n_freq_chunks   : 2
                                 # Upper limit on number of frequency
                                 # chunks to be processed. Will be
                                 # used to split data for parallel
                                 # processing
 
-    freq_chunk_size : 256
+    freq_chunk_size : 128
                                 # Frequency chunk size (in number of
                                 # channels). Will be used
                                 # in a single process during parallel
@@ -555,6 +654,11 @@ processing:
                                 # to true use single precision, if
                                 # false, use double precision
 
+    cleanup         : true
+                                # if set to true, clean up
+                                # intermediate files. If False, no
+                                # clean up occurs
+
 ########## Parallel processing setup #########
 
 pp       :
@@ -617,3 +721,15 @@ save_formats :
 
 plots    : false
                                 # If true, create relevant plots
+
+########## Diagnosis parameters ###########
+
+diagnosis   :
+
+    wait_after_run  : true
+                                # If true, keep python shell open
+                                # after completing the run using
+                                # set_trace() of python debugger.
+                                # If false, close python shell
+                                # and return to command prompt
+                                # after successful completion

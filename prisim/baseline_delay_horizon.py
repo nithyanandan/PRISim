@@ -1,6 +1,6 @@
 import numpy as NP
-import geometry as GEOM
 import scipy.constants as FCNST
+from astroutils import geometry as GEOM
 
 #################################################################################
 

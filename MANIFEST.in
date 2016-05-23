@@ -1,0 +1,9 @@
+include *.txt prisim/examples/simparms/*.yaml prisim/examples/schedulers/*.txt
+include prisim/data/catalogs/*.txt prisim/data/catalogs/*.csv
+include prisim/data/catalogs/*.fits prisim/data/beams/*.hmap
+include prisim/data/beams/*.hmap prisim/data/beams/*.txt
+include prisim/data/phasedarray_layouts/*.txt prisim/data/array_layouts/*.txt
+include prisim/data/bandpass/*.fits prisim/data/bandpass/*.txt
+recursive-include docs examples data scripts
+recursive-include *.txt *.py *.yaml *.fits *.csv *.hmap
+prune examples/sample?/build

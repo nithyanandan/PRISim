@@ -1,3 +1,6 @@
+#!python
+
+import os, pwd, errno
 from mpi4py import MPI
 import yaml
 import argparse
@@ -7,6 +10,7 @@ import ephem as EP
 from astropy.io import fits, ascii
 from astropy.coordinates import Galactic, FK5, SkyCoord
 from astropy import units
+from astropy.time import Time
 import scipy.constants as FCNST
 from scipy import interpolate
 import matplotlib.pyplot as PLT
@@ -17,16 +21,17 @@ import datetime as DT
 import time 
 import progressbar as PGB
 import healpy as HP
-import my_MPI_modules as my_MPI
-import geometry as GEOM
-import interferometry as RI
-import catalog as SM
-import constants as CNST
-import my_DSP_modules as DSP 
-import my_operations as OPS
-import primary_beams as PB
-import baseline_delay_horizon as DLY
-import lookup_operations as LKP
+from astroutils import MPI_modules as my_MPI
+from astroutils import geometry as GEOM
+from astroutils import catalog as SM
+from astroutils import constants as CNST
+from astroutils import DSP_modules as DSP 
+from astroutils import lookup_operations as LKP
+from astroutils import mathops as OPS
+import prisim
+from prisim import interferometry as RI
+from prisim import primary_beams as PB
+from prisim import baseline_delay_horizon as DLY
 import ipdb as PDB
 
 ## Set MPI parameters
@@ -40,31 +45,74 @@ name = MPI.Get_processor_name()
 
 sday = CNST.sday
 sday_correction = 1 / sday
+prisim_path = prisim.__path__[0]+'/'
 
 ## Parse input arguments
 
 parser = argparse.ArgumentParser(description='Program to simulate interferometer array data')
 
 input_group = parser.add_argument_group('Input parameters', 'Input specifications')
-input_group.add_argument('-i', '--infile', dest='infile', default='/home/t_nithyanandan/codes/mine/python/interferometry/main/simparameters.yaml', type=file, required=False, help='File specifying input parameters')
+input_group.add_argument('-i', '--infile', dest='infile', default=prisim_path+'examples/simparms/defaultparms.yaml', type=file, required=False, help='File specifying input parameters')
 
 args = vars(parser.parse_args())
 
-with args['infile'] as parms_file:
-    parms = yaml.safe_load(parms_file)
+default_parms = {}
+with args['infile'] as custom_parms_file:
+    custom_parms = yaml.safe_load(custom_parms_file)
+if custom_parms['preload']['template'] is not None:
+    with open(custom_parms['preload']['template']) as default_parms_file:
+        default_parms = yaml.safe_load(default_parms_file)
 
-rootdir = parms['directory']['rootdir']
-project = parms['project']
+if not default_parms:
+    parms = custom_parms
+else:
+    parms = default_parms
+    if custom_parms['preload']['template'] is not None:
+        for key in custom_parms:
+            if key != 'preload':
+                if key in default_parms:
+                    if not isinstance(custom_parms[key], dict):
+                        parms[key] = custom_parms[key]
+                    else:
+                        for subkey in custom_parms[key]:
+                            if subkey in default_parms[key]:
+                                if not isinstance(custom_parms[key][subkey], dict):
+                                    parms[key][subkey] = custom_parms[key][subkey]
+                                else:
+                                    for subsubkey in custom_parms[key][subkey]:
+                                        if subsubkey in default_parms[key][subkey]:
+                                            if not isinstance(custom_parms[key][subkey][subsubkey], dict):
+                                                parms[key][subkey][subsubkey] = custom_parms[key][subkey][subsubkey]
+                                            else:
+                                                raise TypeError('Parsing YAML simulation parameter files with this level of nesting is not supported')
+                                        else:
+                                            raise KeyError('Invalid parameter found in custom simulation parameters file')
+                            else:
+                                raise KeyError('Invalid parameter found in custom simulation parameters file')
+                else:
+                    raise KeyError('Invalid parameter found in custom simulation parameters file')                            
+
+rootdir = parms['dirstruct']['rootdir']
+project = parms['dirstruct']['project']
+simid = parms['dirstruct']['simid']
 telescope_id = parms['telescope']['id']
 label_prefix = parms['telescope']['label_prefix']
-Tsys = parms['telescope']['Tsys']
+Trx = parms['telescope']['Trx']
+Tant_freqref = parms['telescope']['Tant_freqref']
+Tant_ref = parms['telescope']['Tant_ref']
+Tant_spindex = parms['telescope']['Tant_spindex']
+Tsysinfo = {'Trx': Trx, 'Tant':{'f0': Tant_freqref, 'spindex': Tant_spindex, 'T0': Tant_ref}, 'Tnet': None}
+# Tsys = parms['telescope']['Tsys']
 A_eff = parms['telescope']['A_eff']
 latitude = parms['telescope']['latitude']
 longitude = parms['telescope']['longitude']
 if longitude is None:
     longitude = 0.0
-pfb_method = parms['telescope']['pfb_method']
-pfb_file = parms['telescope']['pfb_file']
+pfb_method = parms['bandpass']['pfb_method']
+pfb_filepath = parms['bandpass']['pfb_filepath']
+pfb_file = parms['bandpass']['pfb_file']
+if pfb_filepath == 'default':
+    pfb_file = prisim_path + 'data/bandpass/'+pfb_file
 element_shape = parms['antenna']['shape']
 element_size = parms['antenna']['size']
 element_ocoords = parms['antenna']['ocoords']
@@ -72,6 +120,8 @@ element_orientation = parms['antenna']['orientation']
 ground_plane = parms['antenna']['ground_plane']
 phased_array = parms['antenna']['phased_array']
 phased_elements_file = parms['phasedarray']['file']
+if parms['phasedarray']['filepathtype'] == 'default':
+    phased_elements_file = prisim_path+'data/phasedarray_layouts/'+phased_elements_file
 delayerr = parms['phasedarray']['delayerr']
 gainerr = parms['phasedarray']['gainerr']
 nrand = parms['phasedarray']['nrand']
@@ -87,14 +137,16 @@ obs_mode = parms['obsparm']['obs_mode']
 n_acc = parms['obsparm']['n_acc']
 t_acc = parms['obsparm']['t_acc']
 t_obs = parms['obsparm']['t_obs']
-freq = parms['obsparm']['freq']
-freq_resolution = parms['obsparm']['freq_resolution']
-nchan = parms['obsparm']['nchan']
+freq = parms['bandpass']['freq']
+freq_resolution = parms['bandpass']['freq_resolution']
+nchan = parms['bandpass']['nchan']
 timeformat = parms['obsparm']['timeformat']
 beam_info = parms['beam']
 use_external_beam = beam_info['use_external']
 if use_external_beam:
     external_beam_file = beam_info['file']
+    if beam_info['filepathtype'] == 'default':
+        external_beam_file = prisim_path+'data/beams/'+external_beam_file
     beam_pol = beam_info['pol']
     beam_id = beam_info['identifier']
     select_beam_freq = beam_info['select_freq']
@@ -129,6 +181,7 @@ bandpass_correct = parms['processing']['bp_correct']
 noise_bandpass_correct = parms['processing']['noise_bp_correct']
 do_delay_transform = parms['processing']['delay_transform']
 memsave = parms['processing']['memsave']
+cleanup = parms['processing']['cleanup']
 flag_chan = NP.asarray(parms['flags']['flag_chan']).reshape(-1)
 bp_flag_repeat = parms['flags']['bp_flag_repeat']
 n_edge_flag = NP.asarray(parms['flags']['n_edge_flag']).reshape(-1)
@@ -143,12 +196,20 @@ spindex_seed = parms['fgparm']['spindex_seed']
 use_lidz = parms['fgparm']['lidz']
 use_21cmfast = parms['fgparm']['21cmfast']
 global_HI_parms = parms['fgparm']['global_EoR_parms']
+catalog_filepathtype = parms['catalog']['filepathtype']
 DSM_file_prefix = parms['catalog']['DSM_file_prefix']
 SUMSS_file = parms['catalog']['SUMSS_file']
 NVSS_file = parms['catalog']['NVSS_file']
 MWACS_file = parms['catalog']['MWACS_file']
 GLEAM_file = parms['catalog']['GLEAM_file']
-PS_file = parms['catalog']['PS_file']
+custom_catalog_file = parms['catalog']['custom_file']
+if catalog_filepathtype == 'default':
+    DSM_file_prefix = prisim_path + 'data/catalogs/' + DSM_file_prefix
+    SUMSS_file = prisim_path + 'data/catalogs/' + SUMSS_file
+    NVSS_file = prisim_path + 'data/catalogs/' + NVSS_file
+    MWACS_file = prisim_path + 'data/catalogs/' + MWACS_file
+    GLEAM_file = prisim_path + 'data/catalogs/' + GLEAM_file
+    custom_catalog_file = prisim_path + 'data/catalogs/' + custom_catalog_file
 pc = parms['phasing']['center']
 pc_coords = parms['phasing']['coords']
 mpi_key = parms['pp']['key']
@@ -156,11 +217,35 @@ mpi_eqvol = parms['pp']['eqvol']
 save_formats = parms['save_formats']
 save_to_npz = save_formats['npz']
 plots = parms['plots']
+diagnosis_parms = parms['diagnosis']
 
-if project not in ['project_MWA', 'project_global_EoR', 'project_HERA', 'project_drift_scan', 'project_beams', 'project_LSTbin']:
-    raise ValueError('Invalid project specified')
+project_dir = project + '/'
+try:
+    os.makedirs(rootdir+project_dir, 0755)
+except OSError as exception:
+    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir):
+        pass
+    else:
+        raise
+
+if rank == 0:
+    if simid is None:
+        simid = time.strftime('%Y-%m-%d-%H-%M-%S', time.gmtime())
+    elif not isinstance(simid, str):
+        raise TypeError('simid must be a string')
 else:
-    project_dir = project + '/'
+    simid = None
+
+simid = comm.bcast(simid, root=0) # Broadcast simulation ID
+
+simid = simid + '/'
+try:
+    os.makedirs(rootdir+project_dir+simid, 0755)
+except OSError as exception:
+    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid):
+        pass
+    else:
+        raise
 
 if telescope_id not in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'custom', 'paper_dipole', 'mwa_tools']:
     raise ValueError('Invalid telescope specified')
@@ -319,7 +404,7 @@ else:
         raise ValueError('Invalid array layout specified')
 
     if array_layout == 'MWA-128T':
-        ant_info = NP.loadtxt(rootdir+'project_MWA/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', skiprows=6, comments='#', usecols=(0,1,2,3))
+        ant_info = NP.loadtxt(prisim_path+'data/array_layouts/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', skiprows=6, comments='#', usecols=(0,1,2,3))
         ant_id = ant_info[:,0].astype(int).astype(str)
         ant_locs = ant_info[:,1:]
     elif array_layout == 'HERA-7':
@@ -390,11 +475,6 @@ if beam_switch and (obs_mode == 'dns'):
 
 if (snapshots_range is not None) and ((obs_mode == 'dns') or (obs_mode == 'lstbin')):
     snapshot_type_str = 'snaps_{0[0]:0d}-{0[1]:0d}_'.format(snapshots_range)
-
-# if (pointing_file is None) and (pointing_info is None):
-#     raise ValueError('One and only one of pointing file and initial pointing must be specified')
-# elif (pointing_file is not None) and (pointing_info is not None):
-#     raise ValueError('One and only one of pointing file and initial pointing must be specified')
 
 duration_str = ''
 if pointing_file is not None:
@@ -495,6 +575,7 @@ if pointing_file is not None:
 elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     pointing_file = None
     timestamps = []
+    timestamps_JD = []
     if t_acc is None:
         raise NameError('t_acc must be provided for an automated observing run')
 
@@ -573,6 +654,7 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
                 # localtime = pntgobj.transit_time
         last_localtime = copy.deepcopy(localtime)
         obsrvr.date = last_localtime
+        timestamps_JD += [EP.julian_date(localtime)]
         if timeformat == 'JD':
             # timestamps += ['{0:.9f}'.format(EP.julian_date(localtime))]
             timestamps += [EP.julian_date(localtime)]
@@ -594,51 +676,6 @@ pointings_hadec = NP.fmod(pointings_hadec, 360.0)
 pointings_altaz = NP.fmod(pointings_altaz, 360.0)
 lst = NP.fmod(lst, 360.0)
 
-# elif pointing_info is not None:
-#     pointing_info = NP.asarray(pointing_info)
-#     pointing_init = NP.asarray(pointing_info[1:])
-#     lst_init = pointing_info[0]
-#     pointing_file = None
-#     if t_acc is None:
-#         raise NameError('t_acc must be provided for an automated observing run')
-
-#     if (n_acc is None) and (t_obs is None):
-#         raise NameError('n_acc or t_obs must be provided for an automated observing run')
-#     elif (n_acc is not None) and (t_obs is not None):
-#         raise ValueError('Only one of n_acc or t_obs must be provided for an automated observing run')
-#     elif n_acc is None:
-#         n_acc = int(t_obs/t_acc)
-#     else:
-#         t_obs = n_acc * t_acc
-#     t_acc = t_acc + NP.zeros(n_acc)
-#     lst = (lst_init + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 # in degrees
-#     if obs_mode is None:
-#         obs_mode = 'track'
-
-#     if obs_mode == 'track':
-#         pointings_radec = NP.repeat(NP.asarray(pointing_init).reshape(-1,2), n_acc, axis=0)
-#     else:
-#         ha_init = lst_init * 15.0 - pointing_init[0]
-#         pointings_radec = NP.hstack((NP.asarray(lst-ha_init).reshape(-1,1), pointing_init[1]+NP.zeros(n_acc).reshape(-1,1)))
-
-#     pointings_hadec = NP.hstack(((lst-pointings_radec[:,0]).reshape(-1,1), pointings_radec[:,1].reshape(-1,1)))
-#     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
-#     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
-
-#     pointings_radec_orig = NP.copy(pointings_radec)
-#     pointings_hadec_orig = NP.copy(pointings_hadec)
-#     pointings_altaz_orig = NP.copy(pointings_altaz)
-#     pointings_dircos_orig = NP.copy(pointings_dircos)
-
-#     lst_wrapped = lst + 0.0
-#     lst_wrapped[lst_wrapped > 180.0] = lst_wrapped[lst_wrapped > 180.0] - 360.0
-#     if lst_wrapped.size > 1:
-#         lst_edges = NP.concatenate((lst_wrapped, [lst_wrapped[-1]+lst_wrapped[-1]-lst_wrapped[-2]]))
-#     else:
-#         lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_acc/3.6e3*15))
-
-#     duration_str = '_{0:0d}x{1:.1f}s'.format(n_acc, t_acc[0])
-
 use_GSM = False
 use_DSM = False
 use_CSM = False
@@ -646,13 +683,13 @@ use_SUMSS = False
 use_GLEAM = False
 use_USM = False
 use_MSS = False
-use_PS = False
+use_custom = False
 use_NVSS = False
 use_HI_monopole = False
 use_HI_cube = False
 use_HI_fluctuations = False
 
-if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'ps', 'point', 'usm', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations']:
+if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations']:
     raise ValueError('Invalid foreground model string specified.')
 
 if fg_str == 'asm':
@@ -665,8 +702,8 @@ elif fg_str == 'sumss':
     use_SUMSS = True
 elif fg_str == 'gleam':
     use_GLEAM = True
-elif fg_str in ['point', 'PS']:
-    use_PS = True
+elif fg_str == 'custom':
+    use_custom = True
 elif fg_str == 'nvss':
     use_NVSS = True
 elif fg_str == 'usm':
@@ -996,8 +1033,10 @@ if use_HI_fluctuations or use_HI_cube:
     catlabel = 'HI-cube'
     spec_type = 'spectrum'
     spec_parms = {}
+    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'spectrum': fluxes_EoR}
 
-    skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), spec_type, spectrum=fluxes_EoR, spec_parms=None)
+    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), spec_type, spectrum=fluxes_EoR, spec_parms=None)
+    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 elif use_HI_monopole:
 
     theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
@@ -1019,7 +1058,10 @@ elif use_HI_monopole:
     spec_parms['z-width'] = dz_half + NP.zeros(ra_deg_EoR.size)
     flux_unit = 'Jy'
 
-    skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), spec_type, spec_parms=spec_parms)
+    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms}
+
+    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), spec_type, spec_parms=spec_parms)
+    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
     spectrum = skymod.generate_spectrum()
 
 elif use_GSM:
@@ -1139,7 +1181,10 @@ elif use_GSM:
     spec_parms['freq-width'] = NP.zeros(ra_deg.size)
     flux_unit = 'Jy'
 
-    skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+
+    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
 elif use_DSM:
     dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
@@ -1175,7 +1220,10 @@ elif use_DSM:
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
     spec_parms['freq-width'] = NP.zeros(ra_deg.size)
 
-    skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+
+    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
 elif use_USM:
     dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
@@ -1207,7 +1255,10 @@ elif use_USM:
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
     spec_parms['freq-width'] = NP.zeros(ra_deg.size)
 
-    skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes_USM.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+
+    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes_USM.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
   
 elif use_CSM:
     freq_SUMSS = 0.843 # in GHz
@@ -1297,17 +1348,18 @@ elif use_CSM:
 
     spec_type = 'func'
     spec_parms = {}
-    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
     spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
     spec_parms['power-law-index'] = spindex
-    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
     spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
     spec_parms['flux-scale'] = fluxes
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
     spec_parms['freq-width'] = NP.zeros(ra_deg.size)
     flux_unit = 'Jy'
 
-    skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+
+    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
 elif use_SUMSS:
     catalog = NP.loadtxt(SUMSS_file, usecols=(0,1,2,3,4,5,10,12,13,14,15,16))
@@ -1354,6 +1406,7 @@ elif use_SUMSS:
         NP.random.seed(spindex_seed)
         spindex = -0.83 + spindex_rms * NP.random.randn(fint.size)
 
+    spec_type = 'func'
     spec_parms = {}
     # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
     spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
@@ -1365,33 +1418,68 @@ elif use_SUMSS:
     spec_parms['freq-width'] = 1.0e-3 + NP.zeros(ra_deg.size)
     flux_unit = 'Jy'
 
-    skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+
+    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
 elif use_MSS:
     pass
 elif use_GLEAM:
-    catdata = ascii.read(GLEAM_file, data_start=1, delimiter=',')
-    dec_deg = catdata['DEJ2000']
-    ra_deg = catdata['RAJ2000']
-    fpeak = catdata['S150_fit']
-    ferr = catdata['e_S150_fit']
-    spindex = catdata['Sp+Index']
+    freq_GLEAM = 0.200  # in GHz
+    hdulist = fits.open(GLEAM_file)
+    ra_deg_GLEAM = hdulist[1].data['RAJ2000']
+    dec_deg_GLEAM = hdulist[1].data['DECJ2000']
+    gleam_fint = hdulist[1].data['int_flux_deep']
+    gleam_majax = hdulist[1].data['a_deep']
+    gleam_minax = hdulist[1].data['b_deep']
+    gleam_pa = hdulist[1].data['pa_deep']
+    gleam_psf_majax = hdulist[1].data['psf_a_deep']
+    gleam_psf_minax = hdulist[1].data['psf_b_deep']
+    hdulist.close()
 
+    if spindex_seed is None:
+        spindex_GLEAM = spindex + spindex_rms * NP.random.randn(gleam_fint.size)
+    else:
+        NP.random.seed(2*spindex_seed)
+        spindex_GLEAM = spindex + spindex_rms * NP.random.randn(gleam_fint.size)
+
+    bright_source_ind = gleam_fint >= 10.0 * (freq_GLEAM*1e9/freq)**spindex_GLEAM
+    PS_ind = gleam_majax * gleam_minax <= 1.1 * gleam_psf_majax * gleam_psf_minax
+    valid_ind = NP.logical_and(bright_source_ind, PS_ind)
+    ra_deg_GLEAM = ra_deg_GLEAM[valid_ind]
+    dec_deg_GLEAM = dec_deg_GLEAM[valid_ind]
+    gleam_fint = gleam_fint[valid_ind]
+    spindex_GLEAM = spindex_GLEAM[valid_ind]
+    gleam_majax = gleam_majax[valid_ind]
+    gleam_minax = gleam_minax[valid_ind]
+    gleam_pa = gleam_pa[valid_ind]
+    fluxes = gleam_fint + 0.0
+    catlabel = NP.repeat('GLEAM', gleam_fint.size)
+    ra_deg = ra_deg_GLEAM + 0.0
+    dec_deg = dec_deg_GLEAM + 0.0
+    freq_catalog = freq_GLEAM*1e9 + NP.zeros(gleam_fint.size)
+    majax = gleam_majax / 3.6e3
+    minax = gleam_minax / 3.6e3
+    spindex = spindex_GLEAM + 0.0
+
+    spec_type = 'func'
     spec_parms = {}
-    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
     spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
     spec_parms['power-law-index'] = spindex
-    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
     spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
     spec_parms['flux-scale'] = fluxes
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
     spec_parms['freq-width'] = NP.zeros(ra_deg.size)
     flux_unit = 'Jy'
 
-    skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
 
-elif use_PS:
-    catdata = ascii.read(PS_file, comment='#', header_start=0, data_start=1)
+    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+
+elif use_custom:
+    catdata = ascii.read(custom_catalog_file, comment='#', header_start=0, data_start=1)
     ra_deg = catdata['RA'].data
     dec_deg = catdata['DEC'].data
     fint = catdata['F_INT'].data
@@ -1399,10 +1487,11 @@ elif use_PS:
     majax = catdata['MAJAX'].data
     minax = catdata['MINAX'].data
     pa = catdata['PA'].data
-    freq_PS = 0.185 # in GHz
-    freq_catalog = freq_PS * 1e9 + NP.zeros(fint.size)
-    catlabel = NP.repeat('PS', fint.size)
+    freq_custom = 0.185 # in GHz
+    freq_catalog = freq_custom * 1e9 + NP.zeros(fint.size)
+    catlabel = NP.repeat('custom', fint.size)
 
+    spec_type = 'func'
     spec_parms = {}
     # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
     spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
@@ -1414,19 +1503,55 @@ elif use_PS:
     spec_parms['freq-width'] = NP.zeros(ra_deg.size)
     flux_unit = 'Jy'
 
-    skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
 
-# elif use_PS:
-#     n_src = 1
-#     fpeak = 1000.0*NP.ones(n_src)
-#     spindex = NP.ones(n_src) * spindex
-#     ra_deg = NP.asarray(pointings_radec[0,0])
-#     dec_deg = NP.asarray(pointings_radec[0,1])
-#     fmajax = NP.ones(n_src)
-#     fminax = fmajax
-#     fpa = NP.zeros(n_src)
-#     ctlgobj = SM.Catalog('PS', freq_catalog*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), fpeak, spectral_index=spindex, src_shape=NP.hstack((fmajax.reshape(-1,1),fminax.reshape(-1,1),fpa.reshape(-1,1))), src_shape_units=['arcmin','arcmin','degree'])
+    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
+    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
+# Create organized directory structure
+
+timestamps_JD = NP.asarray(timestamps_JD)
+init_timestamps_JD = timestamps_JD.min()
+init_time = Time(init_timestamps_JD, format='jd', scale='utc')
+obsdatetime_dir = '{0}{1}{2}_{3}{4}{5}/'.format(init_time.datetime.year, init_time.datetime.month, init_time.datetime.day, init_time.datetime.hour, init_time.datetime.minute, init_time.datetime.second)
+
+sim_dir = 'simdata/'
+meta_dir = 'metainfo/'
+roi_dir = 'roi/'
+skymod_dir = 'skymodel/'
+
+try:
+    os.makedirs(rootdir+project_dir+simid+sim_dir, 0755)
+except OSError as exception:
+    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+sim_dir):
+        pass
+    else:
+        raise
+
+try:
+    os.makedirs(rootdir+project_dir+simid+meta_dir, 0755)
+except OSError as exception:
+    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+meta_dir):
+        pass
+    else:
+        raise
+
+try:
+    os.makedirs(rootdir+project_dir+simid+roi_dir, 0755)
+except OSError as exception:
+    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+roi_dir):
+        pass
+    else:
+        raise
+    
+try:
+    os.makedirs(rootdir+project_dir+simid+skymod_dir, 0755)
+except OSError as exception:
+    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+skymod_dir):
+        pass
+    else:
+        raise
+    
 ## Set up the observing run
 
 process_complete = False
@@ -1460,7 +1585,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ts = time.time()
             if j == 0:
                 ts0 = ts
-            ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+            ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
             te = time.time()
             # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
             progress.update(j+1)
@@ -1479,7 +1604,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ia.generate_noise()
             ia.add_noise()
             ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
-            outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+fg_str+'_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_str+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+            outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
             ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
         else:
             comm.send(ia.skyvis_freq, dest=0)
@@ -1558,7 +1683,8 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 
                 progress.update(j+1)
             progress.finish()
-            roifile = rootdir+project_dir+'roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str
+
+            roifile = rootdir+project_dir+simid+roi_dir+'roiinfo'
             roi.save(roifile, tabtype='BinTableHDU', overwrite=True, verbose=True)
             del roi   # to save memory if primary beam arrays or n_acc are large
         else:
@@ -1578,7 +1704,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             # nchan_chunk = min(frequency_bin_indices[freq_chunk[i]]+frequency_chunk_size,nchan) - frequency_bin_indices[freq_chunk[i]]
             f0_chunk = chans[freq_chunk[i]*frequency_chunk_size] + NP.floor(0.5*nchan_chunk) * freq_resolution / 1e9
             bw_chunk_str = '{0:0d}x{1:.1f}_kHz'.format(nchan_chunk, freq_resolution/1e3)
-            outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length.min(),bl_length.max())+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.3f}_MHz_'.format(Tsys, bw_chunk_str, f0_chunk*1e3)+beam_usage_str+'_'+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)            
+            outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
             ia = RI.InterferometerArray(labels, bl, chans_chunk, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')
             
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
@@ -1596,7 +1722,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 if j == 0:
                     ts0 = ts
               
-                ia.observe(timestamp, Tsys*noise_bpcorr[chans_chunk_indices], bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)                    
+                ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
                 te = time.time()
                 # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                 progress.update(j+1)
@@ -1628,7 +1754,7 @@ else: # MPI based on baseline multiplexing
                 process_sequence.append(rank)
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, count)
 
-                outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[count]],bl_length[min(baseline_bin_indices[count]+baseline_chunk_size-1,total_baselines-1)])+fg_str+'_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+pfb_str+bpass_shape+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(count)
+                outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(count)
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')        
 
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
@@ -1651,7 +1777,7 @@ else: # MPI based on baseline multiplexing
                     ts = time.time()
                     if j == 0:
                         ts0 = ts
-                    ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
                     te = time.time()
                     # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                     progress.update(j+1)
@@ -1744,7 +1870,8 @@ else: # MPI based on baseline multiplexing
                     
                     progress.update(j+1)
                 progress.finish()
-                roifile = rootdir+project_dir+'roi_info_'+telescope_str+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_'+fg_str+sky_sector_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str
+
+                roifile = rootdir+project_dir+simid+roi_dir+'roiinfo'
                 roi.save(roifile, tabtype='BinTableHDU', overwrite=True, verbose=True)
                 del roi   # to save memory if primary beam arrays or n_acc are large
             else:
@@ -1792,7 +1919,7 @@ else: # MPI based on baseline multiplexing
             for i in range(cumm_bl_chunks[rank], cumm_bl_chunks[rank+1]):
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i])
         
-                outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+'_'+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+                outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')
                 
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
@@ -1809,8 +1936,7 @@ else: # MPI based on baseline multiplexing
                     if j == 0:
                         ts0 = ts
                   
-                    # ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_info={'ind': roi.info['ind'][j], 'pbeam': roi.info['pbeam'][j]}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
-                    ia.observe(timestamp, Tsys*noise_bpcorr, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)                    
+                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
                     te = time.time()
                     # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                     progress.update(j+1)
@@ -1827,10 +1953,14 @@ else: # MPI based on baseline multiplexing
         pte_str = str(DT.datetime.now())                
  
 if rank == 0:
-    metafile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+pfb_str2+'.yaml'
+    parmsfile = rootdir+project_dir+simid+meta_dir+'simparms.yaml'
+    with open(parmsfile, 'w') as pfile:
+        yaml.dump(parms, pfile, default_flow_style=False)
 
+    minfo = {'user': pwd.getpwuid(os.getuid())[0], 'git#': prisim.__githash__, 'PRISim': prisim.__version__}
+    metafile = rootdir+project_dir+simid+meta_dir+'meta.yaml'
     with open(metafile, 'w') as mfile:
-        yaml.dump(parms, mfile, default_flow_style=False)
+        yaml.dump(minfo, mfile, default_flow_style=False)
 
 process_complete = True
 all_process_complete = comm.gather(process_complete, root=0)
@@ -1844,13 +1974,17 @@ if rank == 0:
         if mpi_on_bl:
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Baseline chunks '.format(n_bl_chunks), PGB.ETA()], maxval=n_bl_chunks).start()
             for i in range(0, n_bl_chunks):
-                blchunk_infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[bl_chunk[i]]],bl_length[min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+'_'+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+                blchunk_infile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
                 if i == 0:
                     simvis = RI.InterferometerArray(None, None, None, init_file=blchunk_infile+'.fits')    
                 else:
-                    simvis_next = RI.InterferometerArray(None, None, None, init_file=blchunk_infile+'.fits')    
+                    simvis_next = RI.InterferometerArray(None, None, None, init_file=blchunk_infile+'.fits')
                     simvis.concatenate(simvis_next, axis=0)
     
+                if cleanup:
+                    if os.path.isfile(blchunk_infile+'.fits'):
+                        os.remove(blchunk_infile+'.fits')
+                    
                 progress.update(i+1)
             progress.finish()
 
@@ -1862,13 +1996,17 @@ if rank == 0:
                 nchan_chunk = chans_chunk.size
                 f0_chunk = chans[freq_chunk[i]*frequency_chunk_size] + NP.floor(0.5*nchan_chunk) * freq_resolution / 1e9
                 bw_chunk_str = '{0:0d}x{1:.1f}_kHz'.format(nchan_chunk, freq_resolution/1e3)
-                freqchunk_infile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length.min(),bl_length.max())+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.3f}_MHz_'.format(Tsys, bw_chunk_str, f0_chunk*1e3)+beam_usage_str+'_'+pfb_str+'{0:.1f}'.format(oversampling_factor)+'_part_{0:0d}'.format(i)
+                freqchunk_infile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
                 if i == 0:
                     simvis = RI.InterferometerArray(None, None, None, init_file=freqchunk_infile+'.fits')    
                 else:
                     simvis_next = RI.InterferometerArray(None, None, None, init_file=freqchunk_infile+'.fits')    
                     simvis.concatenate(simvis_next, axis=1)
     
+                if cleanup:
+                    if os.path.isfile(freqchunk_infile+'.fits'):
+                        os.remove(freqchunk_infile+'.fits')
+                    
                 progress.update(i+1)
             progress.finish()
 
@@ -1876,10 +2014,15 @@ if rank == 0:
         if do_delay_transform:
             simvis.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
 
-        consolidated_outfile = rootdir+project_dir+telescope_str+'multi_baseline_visibilities_'+ground_plane_str+snapshot_type_str+obs_mode+duration_str+'_baseline_range_{0:.1f}-{1:.1f}_'.format(bl_length[baseline_bin_indices[0]],bl_length[min(baseline_bin_indices[n_bl_chunks-1]+baseline_chunk_size-1,total_baselines-1)])+fg_str+sky_sector_str+'sprms_{0:.1f}_'.format(spindex_rms)+spindex_seed_str+'nside_{0:0d}_'.format(nside)+delaygain_err_str+'Tsys_{0:.1f}K_{1}_{2:.1f}_MHz_'.format(Tsys, bandpass_str, freq/1e6)+beam_usage_str+pfb_str2
+        consolidated_outfile = rootdir+project_dir+simid+sim_dir+'simvis'
         simvis.save(consolidated_outfile, verbose=True, tabtype='BinTableHDU', npz=save_to_npz, overwrite=True)
+
+    # skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel.txt'
+    skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel'
     if fg_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:
-        skymod.save(consolidated_outfile+'.skymodel.txt', fileformat='ascii')
+        skymod.save(skymod_file, fileformat='hdf5')
+        # skymod.save(skymod_file, fileformat='ascii')
             
 print 'Process {0} has completed.'.format(rank)
-PDB.set_trace()
+if diagnosis_parms['wait_after_run']:
+    PDB.set_trace()
