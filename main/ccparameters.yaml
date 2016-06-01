@@ -1,4 +1,4 @@
-########## Directory information #########
+########## Directory information ######### 
 
 directory:
                                 # Directory information
@@ -132,7 +132,7 @@ beam    :
                                 # analytically from antenna aperture
                                 # specifications
 
-    identifier      : 'RBAN-128H'
+    identifier      : 'HERA-CST'
                                 # string to identify source of beam
                                 # Any string. e.g. RB=Rich Bradley,
                                 # AN=Abraham Neben
@@ -181,7 +181,7 @@ obsparm  :
                                 # 'drift', 'track', 'dns', 'lstbin', and 
                                 # 'custom' or null (default)
 
-    n_acc           : 80     
+    n_acc           : 80
                                 # Number of accumulations. Only two of
                                 # t_obs, n_acc, and t_acc must be set
 
@@ -340,6 +340,10 @@ clean   :
                                 # are 'rect' (rectangular), 'bnw'
                                 # (Blackman-Nuttall window), and 'bhw'
                                 # (Blackman-Harris window)
+
+    fftpow          : 2.0
+                                # FFT of the bandpass window function
+                                # will be raised to this power.
 
     pad             : 1.0
                                 # padding fraction relative to the

@@ -1,5 +1,4 @@
 from __future__ import division
-# import os as OS
 import numpy as NP
 import numpy.linalg as LA
 import scipy.constants as FCNST
@@ -11,13 +10,14 @@ import astropy
 from astropy.io import fits
 from distutils.version import LooseVersion
 import psutil 
-import geometry as GEOM
-import primary_beams as PB
+from astroutils import geometry as GEOM
+from astroutils import gridding_modules as GRD
+from astroutils import constants as CNST
+from astroutils import DSP_modules as DSP
+from astroutils import catalog as SM
+from astroutils import lookup_operations as LKP
 import baseline_delay_horizon as DLY
-import constants as CNST
-import my_DSP_modules as DSP
-import catalog as SM
-import lookup_operations as LKP
+import primary_beams as PB
 mwa_tools_found = True
 import psutil
 from distutils.version import LooseVersion
@@ -25,6 +25,7 @@ try:
     from mwapy.pb import primary_beam as MWAPB
 except ImportError:
     mwa_tools_found = False
+import ipdb as PDB
 
 ################################################################################
 
@@ -491,9 +492,11 @@ def uniq_baselines(baseline_locations, redundant=None):
     blo = NP.angle(baseline_locations[:,0] + 1j * baseline_locations[:,1], deg=True)
     blo[blo >= 180.0] -= 180.0
     blo[blo < 0.0] += 180.0
-    bll = NP.sqrt(baseline_locations[:,0]**2 + baseline_locations[:,1]**2)
 
-    blstr = ['{0[0]:.2f}_{0[1]:.3f}'.format(lo) for lo in zip(bll,blo)]
+    bll = NP.sqrt(NP.sum(baseline_locations**2, axis=1))
+    blza = NP.degrees(NP.arccos(baseline_locations[:,2] / bll))
+
+    blstr = ['{0[0]:.2f}_{0[1]:.3f}_{0[2]:.3f}'.format(lo) for lo in zip(bll,blza,blo)]
 
     uniq_blstr, ind, invind = NP.unique(blstr, return_index=True, return_inverse=True)  ## if numpy.__version__ < 1.9.0
 
@@ -1737,6 +1740,41 @@ class InterferometerArray(object):
                 end of the simulation, it will be a numpy array of size 
                 n_baselines x nchan x n_snaps.
 
+    Tsysinfo    [list of dictionaries] Contains a list of system temperature 
+                information for each timestamp of observation. Each dictionary 
+                element in the list following keys and values:
+                'Trx'      [scalar] Recevier temperature (in K) that is 
+                           applicable to all frequencies and baselines
+                'Tant'     [dictionary] contains antenna temperature info
+                           from which the antenna temperature is estimated. 
+                           Used only if the key 'Tnet' is absent or set to 
+                           None. It has the following keys and values:
+                           'f0'      [scalar] Reference frequency (in Hz) 
+                                     from which antenna temperature will 
+                                     be estimated (see formula below)
+                           'T0'      [scalar] Antenna temperature (in K) at
+                                     the reference frequency specified in 
+                                     key 'f0'. See formula below.
+                           'spindex' [scalar] Antenna temperature spectral
+                                     index. See formula below.
+
+                           Tsys = Trx + Tant['T0'] * (f/Tant['f0'])**spindex
+
+                'Tnet'     [numpy array] Pre-computed Tsys (in K) 
+                           information that will be used directly to set the
+                           Tsys. If specified, the information under keys 
+                           'Trx' and 'Tant' will be ignored. If a scalar 
+                           value is provided, it will be assumed to be 
+                           identical for all interferometers and all 
+                           frequencies. If a vector is provided whose length 
+                           is equal to the number of interferoemters, it 
+                           will be assumed identical for all frequencies. If 
+                           a vector is provided whose length is equal to the 
+                           number of frequency channels, it will be assumed 
+                           identical for all interferometers. If a 2D array 
+                           is provided, it should be of size 
+                           n_baselines x nchan. Tsys = Tnet
+
     vis_freq    [numpy array] The simulated complex visibility (in Jy or K) 
                 observed by each of the interferometers along frequency axis for 
                 each timestamp of observation per frequency channel. It is the
@@ -1842,8 +1880,9 @@ class InterferometerArray(object):
         eff_Q, A_eff, pointing_coords, baseline_coords, baseline_lengths, 
         channels, bp, bp_wts, freq_resolution, lags, lst, obs_catalog_indices, 
         pointing_center, skyvis_freq, skyvis_lag, timestamp, t_acc, Tsys, 
-        vis_freq, vis_lag, t_obs, n_acc, vis_noise_freq, vis_noise_lag, 
-        vis_rms_freq, geometric_delays, projected_baselines, simparms_file
+        Tsysinfo, vis_freq, vis_lag, t_obs, n_acc, vis_noise_freq, 
+        vis_noise_lag, vis_rms_freq, geometric_delays, projected_baselines, 
+        simparms_file
 
         Read docstring of class InterferometerArray for details on these
         attributes.
@@ -1973,6 +2012,10 @@ class InterferometerArray(object):
             else:
                 raise KeyError('Extension named "TIMESTAMPS" not found in init_file.')
 
+            self.Tsysinfo = []
+            if 'TSYSINFO' in extnames:
+                self.Tsysinfo = [{'Trx': elem['Trx'], 'Tant': {'T0': elem['Tant0'], 'f0': elem['f0'], 'spindex': elem['spindex']}, 'Tnet': None} for elem in hdulist['TSYSINFO'].data]
+
             if 'TSYS' in extnames:
                 self.Tsys = hdulist['Tsys'].data
             else:
@@ -2039,7 +2082,7 @@ class InterferometerArray(object):
             if 'REAL_FREQ_OBS_VISIBILITY' in extnames:
                 self.vis_freq = hdulist['real_freq_obs_visibility'].data
                 if 'IMAG_FREQ_OBS_VISIBILITY' in extnames:
-                    self.vis_freq = self.vis_freq.astype(NP.complex64)
+                    self.vis_freq = self.vis_freq.astype(NP.complex128)
                     self.vis_freq += 1j * hdulist['imag_freq_obs_visibility'].data
             else:
                 raise KeyError('Extension named "REAL_FREQ_OBS_VISIBILITY" not found in init_file.')
@@ -2047,7 +2090,7 @@ class InterferometerArray(object):
             if 'REAL_FREQ_SKY_VISIBILITY' in extnames:
                 self.skyvis_freq = hdulist['real_freq_sky_visibility'].data
                 if 'IMAG_FREQ_SKY_VISIBILITY' in extnames:
-                    self.skyvis_freq = self.skyvis_freq.astype(NP.complex64)
+                    self.skyvis_freq = self.skyvis_freq.astype(NP.complex128)
                     self.skyvis_freq += 1j * hdulist['imag_freq_sky_visibility'].data
             else:
                 raise KeyError('Extension named "REAL_FREQ_SKY_VISIBILITY" not found in init_file.')
@@ -2055,7 +2098,7 @@ class InterferometerArray(object):
             if 'REAL_FREQ_NOISE_VISIBILITY' in extnames:
                 self.vis_noise_freq = hdulist['real_freq_noise_visibility'].data
                 if 'IMAG_FREQ_NOISE_VISIBILITY' in extnames:
-                    self.vis_noise_freq = self.vis_noise_freq.astype(NP.complex64)
+                    self.vis_noise_freq = self.vis_noise_freq.astype(NP.complex128)
                     self.vis_noise_freq += 1j * hdulist['imag_freq_noise_visibility'].data
             else:
                 raise KeyError('Extension named "REAL_FREQ_NOISE_VISIBILITY" not found in init_file.')
@@ -2063,7 +2106,7 @@ class InterferometerArray(object):
             if 'REAL_LAG_VISIBILITY' in extnames:
                 self.vis_lag = hdulist['real_lag_visibility'].data
                 if 'IMAG_LAG_VISIBILITY' in extnames:
-                    self.vis_lag = self.vis_lag.astype(NP.complex64)
+                    self.vis_lag = self.vis_lag.astype(NP.complex128)
                     self.vis_lag += 1j * hdulist['imag_lag_visibility'].data
             else:
                 self.vis_lag = None
@@ -2071,7 +2114,7 @@ class InterferometerArray(object):
             if 'REAL_LAG_SKY_VISIBILITY' in extnames:
                 self.skyvis_lag = hdulist['real_lag_sky_visibility'].data
                 if 'IMAG_LAG_SKY_VISIBILITY' in extnames:
-                    self.skyvis_lag = self.skyvis_lag.astype(NP.complex64)
+                    self.skyvis_lag = self.skyvis_lag.astype(NP.complex128)
                     self.skyvis_lag += 1j * hdulist['imag_lag_sky_visibility'].data
             else:
                 self.skyvis_lag = None
@@ -2079,7 +2122,7 @@ class InterferometerArray(object):
             if 'REAL_LAG_NOISE_VISIBILITY' in extnames:
                 self.vis_noise_lag = hdulist['real_lag_noise_visibility'].data
                 if 'IMAG_LAG_NOISE_VISIBILITY' in extnames:
-                    self.vis_noise_lag = self.vis_noise_lag.astype(NP.complex64)
+                    self.vis_noise_lag = self.vis_noise_lag.astype(NP.complex128)
                     self.vis_noise_lag += 1j * hdulist['imag_lag_noise_visibility'].data
             else:
                 self.vis_noise_lag = None
@@ -2160,6 +2203,8 @@ class InterferometerArray(object):
         self.lag_kernel = DSP.FT1D(self.bp*self.bp_wts, ax=1, inverse=True, use_real=False, shift=True)
 
         self.Tsys = NP.zeros((self.baselines.shape[0],self.channels.size))
+        self.Tsysinfo = []
+
         self.flux_unit = 'JY'
         self.timestamp = []
         self.t_acc = []
@@ -2237,9 +2282,10 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def observe(self, timestamp, Tsys, bandpass, pointing_center, skymodel,
-                t_acc, pb_info=None, brightness_units=None, roi_info=None, 
-                roi_radius=None, roi_center=None, lst=None, memsave=False):
+    def observe(self, timestamp, Tsysinfo, bandpass, pointing_center, skymodel,
+                t_acc, pb_info=None, brightness_units=None, bpcorrect=None,
+                roi_info=None, roi_radius=None, roi_center=None, lst=None,
+                memsave=False):
 
         """
         -------------------------------------------------------------------------
@@ -2254,16 +2300,40 @@ class InterferometerArray(object):
         timestamp    [scalar] Timestamp associated with each integration in the
                      observation
 
-        Tsys         [scalar, list, tuple or numpy array] System temperature(s)
-                     associated with the interferometers for the specified
-                     timestamp of observation. If a scalar value is provided, it 
-                     will be assumed to be identical for all interferometers and
-                     all frequencies. If a vector is provided whose length is
-                     equal to the number of interferoemters, it will be assumed 
-                     identical for all frequencies. If a vector is provided whose
-                     length is equal to the number of frequency channels, it will
-                     be assumed identical for all interferometers. If a 2D array
-                     is provided, it should be of size n_baselines x nchan
+        Tsysinfo     [dictionary] Contains system temperature information for 
+                     specified timestamp of observation. It contains the 
+                     following keys and values:
+                     'Trx'      [scalar] Recevier temperature (in K) that is 
+                                applicable to all frequencies and baselines
+                     'Tant'     [dictionary] contains antenna temperature info
+                                from which the antenna temperature is estimated. 
+                                Used only if the key 'Tnet' is absent or set to 
+                                None. It has the following keys and values:
+                                'f0'      [scalar] Reference frequency (in Hz) 
+                                          from which antenna temperature will 
+                                          be estimated (see formula below)
+                                'T0'      [scalar] Antenna temperature (in K) at
+                                          the reference frequency specified in 
+                                          key 'f0'. See formula below.
+                                'spindex' [scalar] Antenna temperature spectral
+                                          index. See formula below.
+
+                                Tsys = Trx + Tant['T0'] * (f/Tant['f0'])**spindex
+
+                     'Tnet'     [numpy array] Pre-computed Tsys (in K) 
+                                information that will be used directly to set the
+                                Tsys. If specified, the information under keys 
+                                'Trx' and 'Tant' will be ignored. If a scalar 
+                                value is provided, it will be assumed to be 
+                                identical for all interferometers and all 
+                                frequencies. If a vector is provided whose length 
+                                is equal to the number of interferoemters, it 
+                                will be assumed identical for all frequencies. If 
+                                a vector is provided whose length is equal to the 
+                                number of frequency channels, it will be assumed 
+                                identical for all interferometers. If a 2D array 
+                                is provided, it should be of size 
+                                n_baselines x nchan. Tsys = Tnet
 
         bandpass     [numpy array] Bandpass weights associated with the 
                      interferometers for the specified timestamp of observation
@@ -2335,6 +2405,35 @@ class InterferometerArray(object):
 
         self.bp_wts = NP.ones_like(self.bp) # All additional bandpass shaping weights are set to unity.
 
+        if isinstance(Tsysinfo, dict):
+            set_Tsys = False
+            if 'Tnet' in Tsysinfo:
+                if Tsysinfo['Tnet'] is not None:
+                    Tsys = Tsysinfo['Tnet']
+                    set_Tsys = True
+            if not set_Tsys:
+                try:
+                    Tsys = Tsysinfo['Trx'] + Tsysinfo['Tant']['T0'] * (self.channels/Tsysinfo['Tant']['f0']) ** Tsysinfo['Tant']['spindex']
+                except KeyError:
+                    raise KeyError('One or more keys not found in input Tsysinfo')
+                Tsys = Tsys.reshape(1,-1) + NP.zeros(self.baselines.shape[0]).reshape(-1,1) # nbl x nchan
+        else:
+            raise TypeError('Input Tsysinfo must be a dictionary')
+
+        self.Tsysinfo += [Tsysinfo]
+        if bpcorrect is not None:
+            if not isinstance(bpcorrect, NP.ndarray):
+                raise TypeError('Input specifying bandpass correction must be a numpy array')
+            if bpcorrect.size == self.channels.size:
+                bpcorrect = bpcorrect.reshape(1,-1)
+            elif bpcorrect.size == self.baselines.shape[0]:
+                bpcorrect = bpcorrect.reshape(-1,1)
+            elif bpcorrect.size == self.baselines.shape[0] * self.channels.size:
+                bpcorrect = bpcorrect.reshape(-1,self.channels.size)
+            else:
+                raise ValueError('Input bpcorrect has dimensions incompatible with the number of baselines and frequencies')
+            Tsys = Tsys * bpcorrect
+
         if isinstance(Tsys, (int,float)):
             if Tsys < 0.0:
                 raise ValueError('Tsys found to be negative.')
@@ -2349,19 +2448,19 @@ class InterferometerArray(object):
                 raise ValueError('Tsys should be non-negative.')
 
             if Tsys.size == self.baselines.shape[0]:
-                if len(self.Tsys.shape) == 2:
+                if self.Tsys.ndim == 2:
                     self.Tsys = NP.expand_dims(NP.repeat(Tsys.reshape(-1,1), self.channels.size, axis=1), axis=2)
-                elif len(self.Tsys.shape) == 3:
+                elif self.Tsys.ndim == 3:
                     self.Tsys = NP.dstack((self.Tsys, NP.expand_dims(NP.repeat(Tsys.reshape(-1,1), self.channels.size, axis=1), axis=2)))
             elif Tsys.size == self.channels.size:
-                if len(self.Tsys.shape) == 2:
+                if self.Tsys.ndim == 2:
                     self.Tsys = NP.expand_dims(NP.repeat(Tsys.reshape(1,-1), self.baselines.shape[0], axis=0), axis=2)
-                elif len(self.Tsys.shape) == 3:
+                elif self.Tsys.ndim == 3:
                     self.Tsys = NP.dstack((self.Tsys, NP.expand_dims(NP.repeat(Tsys.reshape(1,-1), self.baselines.shape[0], axis=0), axis=2)))
             elif Tsys.size == self.baselines.shape[0]*self.channels.size:
-                if len(self.Tsys.shape) == 2:
+                if self.Tsys.ndim == 2:
                     self.Tsys = NP.expand_dims(Tsys.reshape(-1,self.channels.size), axis=2)
-                elif len(self.Tsys.shape) == 3:
+                elif self.Tsys.ndim == 3:
                     self.Tsys = NP.dstack((self.Tsys, NP.expand_dims(Tsys.reshape(-1,self.channels.size), axis=2)))
             else:
                 raise ValueError('Specified Tsys has incompatible dimensions with the number of baselines and/or number of frequency channels.')
@@ -2497,8 +2596,6 @@ class InterferometerArray(object):
             skypos_altaz_roi = skypos_altaz[m2,:]
             coords_str = 'altaz'
 
-            # fluxes = skymodel.flux_density[m2].reshape(-1,1) * (self.channels.reshape(1,-1)/skymodel.frequency[m2].reshape(-1,1))**skymodel.spectral_index[m2].reshape(-1,1) # numpy array broadcasting
-            
             skymodel_subset = skymodel.subset(indices=m2)
             fluxes = skymodel_subset.generate_spectrum()
 
@@ -2551,8 +2648,8 @@ class InterferometerArray(object):
                 skyvis = NP.zeros((self.baselines.shape[0], self.channels.size), dtype=NP.complex_)
                 memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 8.0 * 2 # bytes, 8 bytes per float, factor 2 is because the phase involves complex values
 
-            #memory_available = OS.popen("free -b").readlines()[2].split()[3]
-            memory_available = psutil.phymem_usage().available
+            # memory_available = psutil.phymem_usage().available
+            memory_available = psutil.virtual_memory().available
             if float(memory_available) > memory_required:
                 if memsave:
                     phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float32) *  (self.geometric_delays[-1][:,:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64)
@@ -2568,18 +2665,29 @@ class InterferometerArray(object):
                     else:
                         skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix), axis=0) # Don't apply bandpass here    
             else:
-                print '\t\tDetecting memory shortage. Enforcing single precision computations.'
+                print '\t\tDetecting memory shortage. Serializing over sky direction.'
                 downsize_factor = NP.ceil(memory_required/float(memory_available))
                 n_src_stepsize = int(len(m2)/downsize_factor)
                 src_indices = range(0,len(m2),n_src_stepsize)
-                for i in xrange(len(src_indices)):
-                    phase_matrix = NP.exp(NP.asarray(-1j * 2.0 * NP.pi).astype(NP.complex64) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32) - pc_delay_offsets.astype(NP.float32).reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64, copy=False)
-                    if vis_wts is not None:
-                        phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,:].astype(NP.float32)
-                        # phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32)
-                        
-                    phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float32)
-                    skyvis += NP.sum(phase_matrix, axis=0)
+                if memsave:
+                    print '\t\tEnforcing single precision computations.'
+                    for i in xrange(len(src_indices)):
+                        phase_matrix = NP.exp(NP.asarray(-1j * 2.0 * NP.pi).astype(NP.complex64) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32) - pc_delay_offsets.astype(NP.float32).reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64, copy=False)
+                        if vis_wts is not None:
+                            phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,:].astype(NP.float32)
+                            # phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32)
+                            
+                        phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float32)
+                        skyvis += NP.sum(phase_matrix, axis=0)
+                else:
+                    for i in xrange(len(src_indices)):
+                        phase_matrix = NP.exp(NP.asarray(-1j * 2.0 * NP.pi) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.reshape(1,1,-1))
+                        if vis_wts is not None:
+                            phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,:].astype(NP.float32)
+                            # phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32)
+                            
+                        phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float32)
+                        skyvis += NP.sum(phase_matrix, axis=0)
 
             self.obs_catalog_indices = self.obs_catalog_indices + [m2]
         else:
@@ -3490,6 +3598,10 @@ class InterferometerArray(object):
         self.bp = NP.concatenate(tuple([elem.bp for elem in loo]), axis=axis)
         self.bp_wts = NP.concatenate(tuple([elem.bp_wts for elem in loo]), axis=axis)
         self.Tsys = NP.concatenate(tuple([elem.Tsys for elem in loo]), axis=axis)
+        if not self.Tsysinfo:
+            for elem in loo:
+                if elem.Tsysinfo:
+                    self.Tsysinfo = elem.Tsysinfo
         if axis != 1:
             if self.skyvis_lag is not None:
                 self.skyvis_lag = NP.concatenate(tuple([elem.skyvis_lag for elem in loo]), axis=axis)
@@ -3515,7 +3627,7 @@ class InterferometerArray(object):
             self.eff_Q = NP.hstack(tuple([elem.eff_Q for elem in loo]))
             # self.delay_transform()
         elif axis == 2: # time axis
-            self.timestamp = [timestamp for elem in loo for timestamp in elem.timestamp]
+            # self.timestamp = [timestamp for elem in loo for timestamp in elem.timestamp]
             self.t_acc = [t_acc for elem in loo for t_acc in elem.t_acc]
             self.n_acc = len(self.t_acc)
             self.t_obs = sum(self.t_acc)
@@ -3523,7 +3635,7 @@ class InterferometerArray(object):
             self.phase_center = NP.vstack(tuple([elem.phase_center for elem in loo]))
             self.lst = [lst for elem in loo for lst in elem.lst]
             self.timestamp = [timestamp for elem in loo for timestamp in elem.timestamp]
-            # self.obs_catalog_indices = [elem.obs_catalog_indices for elem in loo]
+            self.Tsysinfo = [Tsysinfo for elem in loo for Tsysinfo in elem.Tsysinfo]
 
     #############################################################################
 
@@ -3681,6 +3793,17 @@ class InterferometerArray(object):
         if verbose:
             print '\tCreated extension table containing timestamps.'
 
+        if self.Tsysinfo:
+            cols = []
+            cols += [fits.Column(name='Trx', format='D', array=NP.asarray([elem['Trx'] for elem in self.Tsysinfo], dtype=NP.float))]
+            cols += [fits.Column(name='Tant0', format='D', array=NP.asarray([elem['Tant']['T0'] for elem in self.Tsysinfo], dtype=NP.float))]
+            cols += [fits.Column(name='f0', format='D', array=NP.asarray([elem['Tant']['f0'] for elem in self.Tsysinfo], dtype=NP.float))]
+            cols += [fits.Column(name='spindex', format='D', array=NP.asarray([elem['Tant']['spindex'] for elem in self.Tsysinfo], dtype=NP.float))]
+            columns = _astropy_columns(cols, tabtype=tabtype)
+            tbhdu = fits.new_table(columns)
+            tbhdu.header.set('EXTNAME', 'TSYSINFO')
+            hdulist += [tbhdu]
+
         hdulist += [fits.ImageHDU(self.Tsys, name='Tsys')]
         if verbose:
             print '\tCreated an extension for Tsys.'
@@ -3755,4 +3878,271 @@ class InterferometerArray(object):
 
 #################################################################################
 
+class ApertureSynthesis(object):
+
+    """
+    ----------------------------------------------------------------------------
+    Class to manage aperture synthesis of visibility measurements of a 
+    multi-element interferometer array. 
+
+    Attributes:
+
+    ia          [instance of class InterferometerArray] Instance of class
+                InterferometerArray created at the time of instantiating an 
+                object of class ApertureSynthesis
+
+    baselines:  [M x 3 Numpy array] The baseline vectors associated with the
+                M interferometers in SI units. The coordinate system of these
+                vectors is local East, North, Up system
+
+    blxyz       [M x 3 Numpy array] The baseline vectors associated with the
+                M interferometers in SI units. The coordinate system of these
+                vectors is X, Y, Z in equatorial coordinates
+
+    uvw_lambda  [M x 3 x Nt numpy array] Baseline vectors phased to the phase 
+                center of each accummulation. M is the number of baselines, Nt 
+                is the number of accumulations and 3 denotes U, V and W 
+                components. This is in units of physical distance (usually in m)
+
+    uvw         [M x 3 x Nch x Nt numpy array] Baseline vectors phased to the 
+                phase center of each accummulation at each frequency. M is the 
+                number of baselines, Nt is the number of accumulations, Nch is
+                the number of frequency channels, and 3 denotes U, V and W 
+                components. This is uvw_lambda / wavelength and in units of 
+                number of wavelengths
+
+    blc         [numpy array] 3-element numpy array specifying bottom left 
+                corner of the grid coincident with bottom left interferometer 
+                location in UVW coordinate system (same units as uvw)
+
+    trc         [numpy array] 3-element numpy array specifying top right 
+                corner of the grid coincident with top right interferometer 
+                location in UVW coordinate system (same units as uvw)
+
+    grid_blc    [numpy array] 3-element numpy array specifying bottom left 
+                corner of the grid in UVW coordinate system including any 
+                padding used (same units as uvw)
+
+    grid_trc    [numpy array] 2-element numpy array specifying top right 
+                corner of the grid in UVW coordinate system including any 
+                padding used (same units as uvw)
+
+    gridu       [numpy array] 3-dimensional numpy meshgrid array specifying
+                grid u-locations in units of uvw in the UVW coordinate system 
+                whose corners are specified by attributes grid_blc and grid_trc
+
+    gridv       [numpy array] 3-dimensional numpy meshgrid array specifying
+                grid v-locations in units of uvw in the UVW coordinate system 
+                whose corners are specified by attributes grid_blc and grid_trc
+
+    gridw       [numpy array] 3-dimensional numpy meshgrid array specifying
+                grid w-locations in units of uvw in the UVW coordinate system 
+                whose corners are specified by attributes grid_blc and grid_trc
+
+    grid_ready  [boolean] set to True if the gridding has been performed,
+                False if grid is not available yet. Set to False in case 
+                blc, trc, grid_blc or grid_trc is updated indicating gridding
+                is to be perfomed again
+
+    f           [numpy vector] frequency channels in Hz
+
+    df          [scalar] Frequency resolution (in Hz)
+
+    latitude    [Scalar] Latitude of the interferometer's location. Default
+                is 34.0790 degrees North corresponding to that of the VLA.
+
+    lst         [list] List of LST (in degrees) for each timestamp
+
+    n_acc       [scalar] Number of accumulations
+
+    pointing_center
+                [2-column numpy array] Pointing center (latitude and 
+                longitude) of the observation at a given timestamp. This is 
+                where the telescopes will be phased up to as reference. 
+                Coordinate system for the pointing_center is specified by another 
+                attribute pointing_coords.
+
+    phase_center
+                [2-column numpy array] Phase center (latitude and 
+                longitude) of the observation at a given timestamp. This is 
+                where the telescopes will be phased up to as reference. 
+                Coordinate system for the phase_center is specified by another 
+                attribute phase_center_coords.
+
+    pointing_coords
+                [string] Coordinate system for telescope pointing. Accepted 
+                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz' 
+                (Altitude-Azimuth). Default = 'hadec'.
+
+    phase_center_coords
+                [string] Coordinate system for array phase center. Accepted 
+                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz' 
+                (Altitude-Azimuth). Default = 'hadec'.
+
+    timestamp   [list] List of timestamps during the observation
+
+    Member functions:
+
+    __init__()      Initialize an instance of class ApertureSynthesis which 
+                    manages information on a aperture synthesis with an 
+                    interferometer array.
+
+    genUVW()        Generate U, V, W (in units of number of wavelengths) by 
+                    phasing the baseline vectors to the phase centers of each 
+                    pointing at all frequencies
+
+    reorderUVW()    Reorder U, V, W (in units of number of wavelengths) of shape 
+                    nbl x 3 x nchan x n_acc to 3 x (nbl x nchan x n_acc)
+
+    setUVWgrid()    Set up U, V, W grid (in units of number of wavelengths) 
+                    based on the synthesized U, V, W
+    ----------------------------------------------------------------------------
+    """
+
+    def __init__(self, interferometer_array=None):
+
+        """
+        ------------------------------------------------------------------------
+        Intialize the ApertureSynthesis class which manages information on a 
+        aperture synthesis with an interferometer array.
+
+        Class attributes initialized are:
+        ia, f, df, lst, timestamp, baselines, blxyz, phase_center, n_acc,
+        phase_center_coords, pointing_center, pointing_coords, latitude, blc,
+        trc, grid_blc, grid_trc, grid_ready, uvw, uvw_lambda, gridu, gridv,
+        gridw
+
+        Read docstring of class ApertureSynthesis for details on these
+        attributes.
+
+        Keyword input(s):
+
+        interferometer_array    
+                     [instance of class InterferometerArray] Instance of class
+                     InterferometerArray used to initialize an instance of 
+                     class ApertureSynthesis
+        ------------------------------------------------------------------------
+        """
+
+        if interferometer_array is not None:
+            if isinstance(interferometer_array, InterferometerArray):
+                self.ia = interferometer_array
+            else:
+                raise TypeError('Input interferometer_array must be an instance of class InterferoemterArray')
+        else:
+            raise NameError('No input interferometer_array provided')
+
+        self.f = self.ia.channels
+        self.df = interferometer_array.freq_resolution
+        self.n_acc = interferometer_array.n_acc
+        self.lst = interferometer_array.lst
+        self.phase_center = interferometer_array.phase_center
+        self.pointing_center = interferometer_array.pointing_center
+        self.phase_center_coords = interferometer_array.phase_center_coords
+        self.pointing_coords = interferometer_array.pointing_coords
+        self.baselines = interferometer_array.baselines
+        self.timestamp = interferometer_array.timestamp
+        self.latitude = interferometer_array.latitude
+        self.blxyz = GEOM.enu2xyz(self.baselines, self.latitude, units='degrees')
+        self.uvw_lambda = None
+        self.uvw = None
+        self.blc = NP.zeros(2)
+        self.trc = NP.zeros(2)
+        self.grid_blc = NP.zeros(2)
+        self.grid_trc = NP.zeros(2)
+        self.gridu, self.gridv, self.gridw = None, None, None
+        self.grid_ready = False
+
+    #############################################################################
+
+    def genUVW(self):
+
+        """
+        ------------------------------------------------------------------------
+        Generate U, V, W (in units of number of wavelengths) by phasing the 
+        baseline vectors to the phase centers of each pointing at all 
+        frequencies
+        ------------------------------------------------------------------------
+        """
+
+        if self.phase_center_coords == 'hadec':
+            pc_hadec = self.phase_center
+        elif self.phase_center_coords == 'radec':
+            pc_hadec = NP.hstack((NP.asarray(self.lst).reshape(-1,1), NP.zeros(len(self.lst)).reshape(-1,1)))
+        elif self.phase_center_coords == 'altaz':
+            pc_altaz = self.phase_center
+            pc_hadec = GEOM.altaz2hadec(pc_altaz, self.latitude, units='degrees')
+        else:
+            raise ValueError('Attribute phase_center_coords must be set to one of "hadec", "radec" or "altaz"')
+
+        pc_hadec = NP.radians(pc_hadec)
+        ha = pc_hadec[:,0]
+        dec = pc_hadec[:,1]
+        rotmat = NP.asarray([[NP.sin(ha), NP.cos(ha), NP.zeros_like(ha)],
+                            [-NP.sin(dec)*NP.cos(ha), NP.sin(dec)*NP.sin(ha), NP.cos(dec)],
+                            [NP.cos(dec)*NP.cos(ha), -NP.cos(dec)*NP.sin(ha), NP.sin(dec)]])
+        self.uvw_lambda = NP.tensordot(self.blxyz, rotmat, axes=[1,1])
+        wl = FCNST.c / self.f
+        self.uvw = self.uvw_lambda[:,:,NP.newaxis,:] / wl.reshape(1,1,-1,1)
+        
+    #############################################################################
+
+    def reorderUVW(self):
+
+        """
+        ------------------------------------------------------------------------
+        Reorder U, V, W (in units of number of wavelengths) of shape 
+        nbl x 3 x nchan x n_acc to 3 x (nbl x nchan x n_acc)
+        ------------------------------------------------------------------------
+        """
+
+        reorderedUVW = NP.swapaxes(self.uvw, 0, 1) # now 3 x Nbl x nchan x n_acc
+        reorderedUVW = reorderedUVW.reshape(3,-1) # now 3 x (Nbl x nchan x n_acc)
+        return reorderedUVW
+
+    #############################################################################
     
+    def setUVWgrid(self, spacing=0.5, pad=None, pow2=True):
+        
+        """
+        ------------------------------------------------------------------------
+        Routine to produce a grid based on the UVW spacings of the 
+        interferometer array 
+
+        Inputs:
+
+        spacing     [Scalar] Positive value indicating the upper limit on grid 
+                    spacing in uvw-coordinates desirable at the lowest 
+                    wavelength (max frequency). Default = 0.5
+
+        pad         [List] Padding to be applied around the locations 
+                    before forming a grid. List elements should be positive. If 
+                    it is a one-element list, the element is applicable to all 
+                    x, y and z axes. If list contains four or more elements, 
+                    only the first three elements are considered one for each 
+                    axis. Default = None (no padding).
+
+        pow2        [Boolean] If set to True, the grid is forced to have a size 
+                    a next power of 2 relative to the actual size required. If 
+                    False, gridding is done with the appropriate size as 
+                    determined by spacing. Default = True.
+        ------------------------------------------------------------------------
+        """
+        
+        if self.uvw is None:
+            self.genUVW()
+
+        uvw = self.reorderUVW()
+        blc = NP.amin(uvw, axis=1)
+        trc = NP.amax(uvw, axis=1)
+
+        self.trc = NP.amax(NP.abs(NP.vstack((blc, trc))), axis=0)
+        self.blc = -1 * self.trc
+        
+        self.gridu, self.gridv, self.gridw = GRD.grid_3d([(self.blc[0], self.trc[0]), (self.blc[1], self.trc[1]), (self.blc[2], self.trc[2])], pad=pad, spacing=spacing, pow2=True)
+
+        self.grid_blc = NP.asarray([self.gridu.min(), self.gridv.min(), self.gridw.min()])
+        self.grid_trc = NP.asarray([self.gridu.max(), self.gridv.max(), self.gridw.max()])
+        self.grid_ready = True
+
+    ############################################################################

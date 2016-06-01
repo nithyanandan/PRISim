@@ -4,8 +4,8 @@ from astropy.io import fits
 import glob
 
 rootdir = '/data3/t_nithyanandan/project_HERA/'
-beams_dir = 'power_patterns/CST/mdl03/'
-prefix = 'X4Y2H_490_'
+beams_dir = 'power_patterns/CST/mdl04/'
+prefix = 'X4Y2H_4900_'
 suffix = '.hmap'
 pols = ['X']
 

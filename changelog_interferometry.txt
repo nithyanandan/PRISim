@@ -1,3 +1,864 @@
+From ec70a26 (master) + b4099d4 (package):
+=========================================
+
+(*) Merge branch 'package' onto branch 'master'
+
+From 8fd5179 (master):
+=====================
+
+(*) Make changes in axes labels in figure '4a' of
+main/HERA_foreground_simulations_figures.py
+
+From 36209e1 (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add parameter to specify default simulation parameters template
+
+In scripts/run_prisim.py,
+
+(*) Load default simulation parameters if specified and override with
+custom simulation parameters
+
+From 72bdf8f (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add caution not to modify contents
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add caution not to modify contents
+
+From 88eba78 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add frequency flagging related search parameters
+
+From edd7dfe (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add output format related search parameters
+
+From 57cef79 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add parallel processing related search parameters
+
+From dd9a494 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add processing related search parameters
+
+From 3a87557 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add foreground model related search parameters
+
+From 41ff051 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add phase center related search parameters
+
+From 73332b2 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add pointing related search parameters
+
+In scripts/prisim_grep.py,
+
+(*) Modify function findType() to also check for dictionary data type
+(*) Modify function grepValues() to perform recursive search on
+dictionaries
+
+From 4d5bc67 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add observation related search parameters
+
+In changelog_interferometry.txt,
+
+(*) Modify to indicate previosu changes to defaultdbparms.yaml were
+under the prisim/examples/dbparms/ folder and not prisim/examples/
+folder
+
+From 3e7f4b4 (search-db):
+========================
+
+(*) Add scripts/prisim_ls.py to git repo
+
+In scripts/prisim_ls.py,
+
+(*) Add functionality to list all or only changing parameters in
+simulaiton runs. Add option to print output on terminal or save to an
+external file
+
+From 48e0807 (search-db):
+========================
+
+In scripts/prisim_grep.py,
+
+(*) Add input keyword sort
+
+From 2655d0a (search-db):
+========================
+
+In scripts/prisim_grep.py,
+
+(*) Remove commented lines involving defunct function searchPRISimDB()
+(*) Add input keyword verbose
+(*) Remove import of unused masked array module numpy.ma
+
+From be478a9 (search-db):
+========================
+
+In scripts/prisim_grep.py,
+
+(*) Create function grepPRISim() to search PRISim simulations for the
+parameters provided
+(*) grepPRISim() replaces the earlier function searchPRISimDB()
+(*) Comment out portions involving searchPRISimDB() which will be
+defunct in later revisions
+
+From 73e7838 (search-db):
+========================
+
+In scripts/prisim_grep.py,
+
+(*) Add function findType() to determine value type
+(*) Add functions grepBoolean(), grepScalarRange(), grepString() and
+grepValue() to search and select indices
+
+In changelog_interferometry.py,
+
+(*) Edit to indicate changes to prisim_ls.py happened under scripts
+folder and not prisim folder
+
+From a7fe080 (search-db):
+========================
+
+(*) In scripts/ folder, rename prisim_ls.py to prisim_grep.py
+
+From 331beb9 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add parameters to search bandpass info
+
+In scripts/prisim_ls.py,
+
+(*) Search for bandpass parameters
+
+From 14cb293 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add parameters to search beam info
+
+In scripts/prisim_ls.py,
+
+(*) Search for beam parameters
+
+From 0ffb367 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add parameters to search phased array info
+
+In scripts/prisim_ls.py,
+
+(*) Search for phased array parameters
+
+From d7afaeb (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add parameters to search Trx, Tant, Tsys and antenna element
+info
+
+In scripts/prisim_ls.py,
+
+(*) Search for Trx, Tant, Tsys, and antenna element parameters
+
+From d9ad45d (search-db):
+========================
+
+In scripts/prisim_ls.py,
+
+(*) Adjust code to account for simulation runs that are missing
+meta data
+
+From e26e753 (package):
+======================
+
+In scripts/run_prisim.py,
+
+(*) Update initialization of sky model based on updates in class
+SkyModel in the AstroUtils package
+
+From 79ee65b (package) + e482878 (search-db):
+============================================
+
+(*) Merge branch search-db onto branch package
+
+From 20e24ec (package):
+======================
+
+In prisim/primary_beams.py,
+
+(*) Include calls to uniform_rectangular_aperture() and
+uniform_square_aperture() in wrapper function primary_beam_generator()
+(*) Minor updates to docstrings of function primary_beam_generator()
+
+From 1d08cad (package):
+======================
+
+In prisim/primary_beams.py,
+
+(*) Add functions uniform_rectangular_aperture() and
+uniform_square_aperture() along with docstrings to compuate electric
+field or power patterns of uniformly illuminated rectangular and
+square apertures
+
+From c273be2 (package):
+======================
+
+In prisim/primary_beams.py,
+
+(*) Change sign of relative rotation by amount east2ax1 in function
+isotropic_radiators_array_field_pattern(). This is because azimuths
+are measured clockwise from North while east2ax1 is measured
+anti-clockwise from East
+
+From 43140a0 (package):
+======================
+
+In prisim/primary_beams.py,
+
+(*) Add input keyword power to functions to return power patterns if
+set to True. Update docstrings accordingly
+
+From aadc8db (Tsys):
+===================
+
+In prisim/interferometry.py,
+
+(*) Initialize attribute Tsysinfo from saved fits file in __init__()
+member function of class InterferometerArray
+
+From f93dd3f (Tsys):
+===================
+
+In prisim/interferometry.py,
+
+(*) Write attribute Tsysinfo to fits file in save() member function
+of class InterferometerArray
+(*) Minor change in docstring of __init__() member function of class
+InterferometerArray
+
+From 851e1fd (Tsys):
+===================
+
+In prisim/interferometry.py,
+
+(*) Concatenate attribute Tsysinfo in concatenate() member function
+of class InterferometerArray
+(*) Remove some commented lines
+
+In scripts/run_prisim.py,
+
+(*) Remove some commented lines
+
+From 02cbecc (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Modify Tsys info to be specified as receiver and antenna
+temperature parameters
+
+In prisim/interferometry.py,
+
+(*) Initialize Tsys information under attribute Tsysinfo of class
+InterferometerArray. Update docstring of __init__() member function
+and of the class InterferometerArray accordingly
+(*) Pass Tsysinfo to observe() member function of class
+InterferometerArray from which the Tsys array is constructed. Update
+attribute Tsysinfo by appending with every call to observe(). Update
+docstring accordingly
+(*) Add input parameter bpcorrect to member function observe() of
+class InterferometerArray
+
+In scripts/run_prisim.py,
+
+(*) Construct Tsysinfo from given Trx and Tant information in the
+parameters file.
+(*) Pass Tsysinfo instead of Tsys in call to observe() member function
+of class InterferometerArray to be compatible with changes made to the
+class and its member functions
+(*) Comment all earlier calls to the old observe() member function
+
+From 0444f79 (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add default/custom path specification for phased array layout file
+
+In scripts/run_prisim.py,
+
+(*) Account for default/custom path specification for phased array
+layout file
+
+From e9be3eb (package):
+======================
+
+In scripts/run_prisim.py,
+
+(*) Change hardcoded location of array layout file for MWA-128T to a
+default location in the package data directory
+
+From e15f1f9 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add baseline selection parameters 
+
+In scripts/prisim_ls.py,
+
+(*) Set up database search based on baseline parameters
+(*) Convert None to NaN by typecasting to NP.float
+
+From d0b3a91 (search-db):
+========================
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) In this commit, these are array layout parameters 
+
+In scripts/prisim_ls.py,
+
+(*) Set up database search based on array layout parameters
+
+From e9be3eb (search-db):
+========================
+
+(*) Add prisim/examples/dbparms/defaultdbparms.yaml and
+scripts/prisim_ls.py to git repo
+
+In prisim/examples/dbparms/defaultdbparms.yaml,
+
+(*) Add parameters in YAML format to base the database search on
+(*) In this commit, these are telescope parameters 
+
+In scripts/prisim_ls.py,
+
+(*) This is a module to select the simulation runs that contain the
+selection criteria specified in
+prisim/examples/dbparms/defaultdbparms.yaml
+(*) First working example created
+
+In setup.py,
+
+(*) Add 'examples/dbparms/*.yaml' under package_data
+
+From eb03329 (package):
+======================
+
+In scripts/run_prisim.py,
+
+(*) Generate simulation ID in one process and broadcast to all others
+in order to avoid race conditions and creation of multiple IDs and
+directories by different processes for the same simulation 
+
+From 003a9f3 (dirstruct):
+========================
+
+In scripts/sun_prisim.py,
+
+(*) Write meta info such as git#, user, and PRISim version in
+meta.yaml under metainfo folder in the output directory
+structure
+
+From 4eb80fc (dirstruct):
+========================
+
+In setup.py,
+
+(*) Find hash tag of current git commit (if any) and
+create/overwrite a githash file named githash.txt on the fly
+(*) githash.txt will not be part of the git repo because it keeps
+lagging one commit behind
+(*) Install githash.txt under package data
+
+In prisim/__init__.py,
+
+(*) Open githash.txt file and initialize attribute __githash__
+
+From 996f965 (dirstruct):
+========================
+
+In scripts/run_prisim.py,
+
+(*) Remove commented filename generation that was in use earlier
+
+From c633fd5 (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Reorganize directory structure parameters
+(*) Add simulation ID parameter 'simid' for simulation outputs to
+go under default folders or under user-specified folders
+
+In scripts/run_prisim.py,
+
+(*) Modify folder structure of simulation output:
+rootdir/project_dir/simid/simdata
+rootdir/project_dir/simid/roi
+rootdir/project_dir/simid/metainfo
+rootdir/project_dir/simid/skymodel
+(*) Files under rootdir/project_dir/simid/simdata:
+simvis.fits and simvis.npz (if npz save parameter is set)
+(*) Files under rootdir/project_dir/simid/roi: roiinfo.fits
+(*) Files under rootdir/project_dir/simid/metainfo: simparms.yaml
+(*) Files under rootdir/project_dir/simid/skymodel: skymodel.txt
+(*) Comment out earlier filename strings that have parameters built
+into them
+
+From 8b2a3e7 (package):
+======================
+
+In scripts/run_prisim.py,
+
+(*) Add more organization to folder structure for output products -
+'sim', 'parms', 'roi' and 'skymodel' for simulated data, simulation
+parameters, regions of interest, and sky model respectively.
+
+From 52edf66 (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add parameter to clean up intermediate files
+
+In scripts/run_prisim.py,
+
+(*) Add option to clean up intermediate files
+
+From 8cf0770 (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Edit description of project directory parameter
+
+In scripts/run_prisim.py,
+
+(*) Import modules os, errno, astropy.time
+(*) Save data into date-time folders under the project folder
+(*) Create date-time folder if it does not exist already
+
+From 362299e (package):
+======================
+
+In scripts/run_prisim.py,
+
+(*) Add ability to simulate GLEAM catalog
+
+From b6178a9 (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Rename user-defined PS catalog parameters as custom catalog
+parameters
+
+In scripts/run_prisim.py,
+
+(*) Rename user-defined PS catalog parameters as custom catalog
+parameters
+
+From b2c3e8e (package):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Allow specification of default or custom paths for catalogs
+
+In scripts/run_prisim.py,
+
+(*) Allow specification of default or custom paths for catalogs
+
+In setup.py,
+
+(*) Minor changes
+
+From a8d950f (package):
+======================
+
+(*) All data files under and including the prisim/data/ folder
+were erased and their histories were rewritten, specifically
+eb7a9a4 (now 3e549f9), d28aaaa (now 2bdd6ce), and 90b4304
+(now 0d8759f).
+(*) Add folder data/ under prisim/
+(*) Add folders beams/, bandpass/, catalogs/, array_layouts/ and
+phasedarray_layouts/ under prisim/data/
+(*) Add few text files in the subfolders of prisim/data/
+
+In MANIFEST.in,
+
+(*) Adjust parameters to reflect changes to data folder
+
+In setup.py,
+
+(*) Adjust parameters to reflect changes to data folder
+
+In changelog_interferometry.txt,
+
+(*) Record the changed histories
+
+From 90b4304 (package) - now 0d8759f:
+====================================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Update commented information on specifying external beam file
+under group named beam
+(*) Add diagnostic parameter option 'wait_after_run' under group
+'diagnosis'
+
+In scripts/run_prisim.py,
+
+(*) Add option to keep python shell open or close after successful
+completion based on the diagnostic parameter 'wait_after_run'
+
+In MANIFEST.in,
+
+(*) Include *.fits files under prisim/data/beams/
+
+In setup.py,
+
+(*) Include *.fits files under prisim/data/beams/ also under package
+data
+
+From d28aaaa (package) - now 2bdd6ce:
+====================================
+
+(*) Add examples/ folder under prisim/
+(*) Remove examples/ folder under prisim/simparms/
+(*) Move prisim/simparms to prisim/examples/simparms
+(*) Add schedulers/ folder under prisim/examples/
+(*) Add MWA_Aug23_obs_scheduler.txt under prisim/examples/schedulers/
+
+In setup.py,
+
+(*) Adjust for changes above
+
+In MANIFEST.in,
+
+(*) Adjust for changes above
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Update commented information on specifying pointing file under
+group named pointing information
+
+In scripts/run_prisim.py,
+
+(*) Modify location of default input parameters file
+
+From eb7a9a4 (pkg) - now 3e549f9:
+================================
+
+In simparms/defaultparms.yaml,
+
+(*) Move bandpass related parameters to a new group under bandpass
+(*) Add ability to specify default or custom paths for PFB file info
+
+In scripts/run_prisim.py,
+
+(*) Adjust to changes to format in simparms/defaultparms.yaml
+
+From ba4dac9 (pkg):
+==================
+
+(*) Add folder simparms/ under prisim/
+(*) Add folder examples/ under prisim/simparms/ and add an
+example yaml parameters file
+
+In prisim/data/,
+
+(*) Move simparameters.yaml to prisim/simparms and rename as
+defaultparms.yaml
+
+(*) Add folders catalogs, beams, array_layouts, phasedarray_layouts,
+bandpass under prisim/data and add catalog, beam, layouts, and
+bandpass files under the respective folders
+
+In setup.py,
+
+(*) Add keywords classifiers, maintainer, and maintainer_email
+(*) Modify values under keyword package_data to include newly
+included data
+(*) Import glob and use it to specify scripts from the scripts
+folder automatically
+
+In MANIFEST.in
+
+(*) Modify to include the recently added package data files
+
+In prisim/__init__.py,
+
+(*) Add info on maintainer and maintainer_email
+
+From cbf524f (pkg):
+==================
+
+In setup.py,
+
+(*) Add package dependencies under keywords install_requires and
+setup_requires
+
+In prisim/delay_spectrum.py,
+
+(*) Remove import of unused module statsmodels
+
+From 8fd5179 (pkg):
+==================
+
+(*) Set up a minimal installation package with dependency on package
+AstroUtils
+(*) Restructure to make it compatible with setup.py installation
+(*) Rename interferometer_data_simulation.yaml.mpi.py to run_prisim.py
+and move it scripts/ folder
+(*) Move modules interfermetry.py, primary_beams.py,
+delay_spectrum.py, and baseline_delay_horizon.py to prisim/ folder
+(*) Adjust imports in modules interfermetry.py, primary_beams.py,
+delay_spectrum.py, baseline_delay_horizon.py and the script
+run_primsim.py to import appropriate modules from the AstroUtils and
+PRISim modules
+(*) This package has been verified to install correctly
+(*) Script run_prisim was executed and verified to function as
+expected
+
+In interferometry.py,
+
+(*) Change call to deprecated phymem_usage() in psutil module to
+virtual_memory()
+
+In delay_spectrum.py,
+
+(*) Comment out import of aipy module
+(*) Comment out deprecated global function _gentle_clean()
+(*) Comment out deprecated member function clean() of class
+DelaySpectrum that called the deprecated global function _gentle_clean()
+
+From d106e08 (master), 14b0c3b (synthesis):
+==========================================
+
+(*) Merge synthesis branch (14b0c3b) onto master (d106e08) branch
+
+From 461c706 (uniqbl):
+=====================
+
+In interferometry.py,
+
+(*) Determine unique baselines in uniq_baselines() using r, theta,
+and phi parameters of the baseline vectors
+
+From 37d619a (synthesis):
+========================
+
+In interferometry.py,
+
+(*) Rename member function gridUVW() to setUVWgrid() in class
+ApertureSynthesis. Update docstring accordingly
+
+From 8a84fc2 (synthesis):
+========================
+
+In interferometry.py,
+
+(*) Add member function gridUVW() to class ApertureSynthesis along with
+docstring
+(*) Add and initialize attributes blc, trc, gridu, gridv, gridw,
+grid_blc, grid_trc in __init__() member function of class
+ApertureSynthesis
+(*) Update docstring of class ApertureSynthesis
+
+From ecf2dab (synthesis):
+========================
+
+In interferometry.py,
+
+(*) Add member function reorderUVW() to class ApertureSynthesis
+along with docstring
+(*) Update docstring of class ApertureSynthesis with that of
+newly added member function reorderUVW()
+
+From 6453399 (synthesis):
+========================
+
+In interferometry.py,
+
+(*) Add member function genUVW() to class ApertureSynthesis along
+with docstring
+(*) Update docstring of class ApertureSynthesis
+
+From 461c706 (synthesis):
+========================
+
+In interferometry.py,
+
+(*) Add new class ApertureSynthesis with a preliminary __init__()
+member function and docstring
+
+From 62f97d1 (master):
+=====================
+
+(*) Commit just to tag HERA foreground simulations paper submission
+to ApJ
+
+From 1147d95 (master):
+=====================
+
+(*) Commit version corresponding to paper draft submission for
+HERA collaboration review on effects of antenna beam chromaticity and
+HERA performance
+
+From 8527d38 (master):
+=====================
+
+In interferometry.py,
+
+(*) In observe() member function of class InterferometerArray, enforce
+double precision in case of memory shortage only if input keyword
+memsave is set to True
+
+From dcb4fc0 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Enforce interpolated beam never exceeds unity in member function
+beam3Dvol() of class DelayPowerSpectrum
+
+From 2d3fb5e (master):
+=====================
+
+In interferometry.py,
+
+(*) Enforce double precision while initializing visibilities from
+init file in __init__() member function of class InterferometerArray
+
+From 38d2085 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Check for presence of foreground strategy key in member function
+subband_delay_transform() of class DelaySpectrum
+
+From 97c2fa5 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Enforce double precision arithmetic in subband_delay_transform()
+member function of class DelaySpectrum
+
+From 9cde45c (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Add input keyword fftpow in subband_delay_transform() member
+function of class DelaySpectrum. Update docstring accordingly
+(*) Invoke newly created function window_fftpow() in my_DSP_modules.py
+inside subband_delay_trasnform() member function of class
+DelaySpectrum thus replacing earlier call to windowing() function
+
+From 5ef1f24 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Compute attribute subband_delay_power_spectra_resampled in
+member function compute_power_spectrum() of class DelayPowerSpectrum
+
+From c63c148 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Add attribute subband_delay_power_spectra_resampled in class
+DelayPowerSpectrum and initialize inside member function __init__().
+Modify docstring accordingly
+
+From db814ea (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Modify member function subband_delay_transform() of class
+DelaySPectrum to compute downsampled subband delay spectrum
+attribute subband_delay_spectra_resampled. Update docstring
+accordingly
+
+From aa0a8a9 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Add attribute subband_delay_spectra_resampled to class
+DelaySpectrum. Update docstring accordingly.
+(*) Newly added attribute subband_delay_spectra_resampled is
+initialized in __init__() and saved in save() member functions of
+class DelaySpectrum
+
+From c29e3d5 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Add input keyword action to member function delay_transform()
+of class DelaySpectrum. Update docstring accordingly. This input
+keyword determines whether the estimated delay spectrum quantities
+are to be returned and/or stored as internal attributes
+
+From caa4a53 (master):
+=====================
+
+In delay_spectrum.py,
+
+(*) Make multiple subband omega x bw product possible through numpy
+broadcasting in function beam3Dvol(). Update docstring accordingly
+(*) Account for NaN in estimating 3D beam volume in beam3Dvol()
+
 From b2f8b2c (master):
 =====================
 

@@ -1,0 +1,553 @@
+##### IMPORTANT INFORMATION #####
+##### DO NOT MODIFY THIS FILE #####
+##### MAKE A COPY OF THIS FILE AND CUSTOMIZE #####
+
+########## Directory Structure information #########
+
+dirstruct:
+                                # Directory information
+
+    rootdir     : '/data3/t_nithyanandan/'
+                                # Base directory
+
+    project     : 'prisim_test'
+                                # Directory for the project under
+                                # rootdir. Will be created if it
+                                # does not exist. If set to null,
+                                # all projects under the specified
+                                # root directory will be searched
+
+########## Parameter ranges for inclusion #########
+
+telescope:
+
+    label_prefix    : null
+
+    id              : null
+                                # Accepts 'mwa', 'vla', 'gmrt',
+                                # 'hera', 'mwa_dipole', 'custom',
+                                # 'paper_dipole', 'mwa_tools' or
+                                # null
+
+    latitude        : [-30.7224, -30.7224]
+                                # [min, max] latitude range
+                                # Latitude in degrees
+                                # -26.701 for MWA,
+                                # -30.7224 for HERA, PAPER
+                                # 34.079 for VLA,
+                                # 19.0965 for GMRT
+
+    longitude       : [+21.4278, +21.4278]
+                                # [min, max] longitude range
+                                # Longitude of observatory (in degrees)
+                                # Default (null) implies 0.0 degrees
+                                # corresponding to GMT.
+                                # -107.6184 for VLA, +116.670815 for MWA
+                                # +21.4278 for PAPER and HERA,
+                                # +74.0497 for GMRT
+
+    A_eff           : [154, 154]
+                                # [min, max] range of effective area of
+                                # antenna element in m^2
+
+    Trx            : [50.0, 60.0]
+                                # [min, max] range in receiver 
+                                # temperature (in K)
+
+    Tant_ref       : [200.0, 220.0]
+                                # [min, max] range in antenna 
+                                # temperature (in K) at reference
+                                # frequency
+
+    Tant_freqref   : [150000000.0, 160000000.0]
+                                # [min, max] range in Tant reference
+                                # frequency (in Hz)
+
+    Tsys           : [220.0, 220.0]
+                                # [min, max] range in system 
+                                # temperature (in K)
+
+########## Antenna layout #########
+
+array   :                       # Parameters 'file' and 'layout'
+                                # below are mutually exclusive
+
+    file            : null
+                                # File containing antenna locations
+                                # Should be either null or specified
+                                # as a list of file paths containing
+                                # array layouts
+
+    layout          : ['HERA-19']
+                                # List containing layout names, namely,
+                                # 'MWA-128T', 'HERA-7', 'HERA-19',
+                                # 'HERA-37', 'HERA-61', 'HERA-91',
+                                # 'HERA-127', 'HERA-169', 'HERA-217',
+                                # 'HERA-271', 'HERA-331', 'CIRC', or
+                                # null
+
+    minR            : null
+                                # Applies only when layout = 'CIRC'
+                                # null (default) or 2-element
+                                # list containing range of minimum
+                                # radius of circular ring.
+
+    maxR            : [141.0, 141.0]
+                                # Applies only when layout = 'CIRC'
+                                # null (default) or 2-element
+                                # list containing range of maximum
+                                # radius of circular ring.
+
+########## Baseline Selection #########
+
+baseline :                      # Parameters specifying baseline
+                                # selection criteria
+
+    min             : null
+                                # Minimum baseline in distance
+                                # units (m). Default = 0 (null).
+                                # Must be specified as a 2-element
+                                # list to select a range between min
+                                # and max
+
+    max             : null
+                                # Maximum baseline in distance
+                                # units (m). Default = max (null)
+                                # Must be specified as a 2-element
+                                # list to select a range between min
+                                # and max
+
+    direction       : null
+                                # Default = null (all directions).
+                                # Other accepted values are 'E' (east)
+                                # 'SE' (south-east), 'NE' (north-east),
+                                # and 'N' (north). Multiple values from
+                                # this accepted list can be specified
+                                # as a list of strings.
+                                # e.g., ['N', 'E'], ['NE', 'SE', 'E'],
+                                # ['SE', 'E', 'NE', 'N'] which is
+                                # equivalent to null, etc.
+
+########## Antenna Element information #########                      
+
+antenna  :
+
+    shape           : ['dish']
+                                # List containing Shape(s) of antenna 
+                                # elements to search for.
+                                # Accepted values are 'dish', 'dipole',
+                                # and 'delta' or null (defaults to
+                                # 'delta')
+
+    size            : [0.7, 14.0]
+                                # [min, max] range of size of antenna 
+                                # element (in m) diameter for dish, 
+                                # linear size for dipole
+                    
+    ocoords         : ['altaz']
+                                # Coordinate system describing the
+                                # orientation of antenna element. Must
+                                # be specified as a list and mutliple
+                                # values can be searched for.
+                                # Accepted values are 'altaz', 'dircos'
+                    
+    phased_array    : null
+                                # phased array setting if true or false
+                                # can be searched for. Default=null 
+                                # means both True and False values will 
+                                # be included in the search. 
+                    
+    ground_plane    : null
+                                # Ground plane height (in m). Default
+                                # (null) means ground plane values are
+                                # not searched for. Otherwise must be
+                                # specified as a list in the form
+                                # [min, max] to search for a range of
+                                # ground_plane values
+
+########## Phased array parameters #########
+
+phasedarray:
+
+    file            : ['MWA_tile_dipole_locations.txt']
+                                # List of files containing phased array 
+                                # elements locations to be searched for
+
+    delayerr        : [0.0, 0.0]
+                                # [min, max] of delay error rms (in ns). 
+                                # null means delayerr parameter is not
+                                # searched for
+
+    gainerr         : [0.0, 0,0]
+                                # [min, max] of gain error rms in dB. 
+                                # null means gainerr parameter is not
+                                # searched for
+
+    nrand           : [1, 1]
+                                # [min, max] of Number of random 
+                                # realizations used to average gain/delay
+                                # errors. null means this parameter is
+                                # not searched for
+
+########## Beam specifications #########
+
+beam    :
+
+    use_external    : false
+                                # Search DB if external beam was used.
+                                # If set to null (default), this
+                                # parameter is not searched for. Accepted
+                                # values are null, true and false
+
+    file            : ['HERA_HFSS_X4Y2H_4900.hmap']
+
+                                # List of FITS files containing the 
+                                # external antenna beam to be searched for
+
+    identifier      : ['HERA-CST']
+                                # search for beam identifiers specified in
+                                # this list of strings.
+                                # Any string. e.g. RB=Rich Bradley,
+                                # AN=Abraham Neben
+                                # DD=Dave DeBoer, or 'HERA-CST'
+
+    pol             : ['X']
+                                # List of beam polarizations to be
+                                # searched for. Accepted values
+                                # are 'X' and 'Y'
+
+    chromatic       : true
+                                # search DB if chromatic beam was used.
+                                # If set to null (default), this parameter 
+                                # is not searched for in the DB. Accepted
+                                # values are null, true and false
+
+    select_freq     : [150000000.0, 150000000.0]
+                                # [min, max] range of frequency (Hz)
+                                # to search in DB as the pivot frequency
+                                # in case of achromatic beam. If set to
+                                # null (default), this parameter is not
+                                # searched for.
+
+    spec_interp     : ['cubic']
+                                # list of spectral interpolation methods
+                                # for external beam. Must be list of
+                                # strings. Accepted string values are
+                                # 'linear', 'bilinear', 'cubic',
+                                # 'fft'. If set to null, this parameter
+                                # is not searched for in the DB.
+
+########## Bandpass setup ##########
+
+bandpass :
+
+    freq            : [150000000.0, 150000000.0]
+                                # [min, max] range of Center frequency
+                                # (in Hz)to search the DB for. If set
+                                # to null, this parameter is not searched
+                                # for
+
+    freq_resolution : [390625.0, 781250.0]
+                                # [min, max] range of Frequency resolution
+                                # (in Hz) to search for. If set to null,
+                                # this parameter is not searched for
+
+    nchan           : [256, 256]
+                                # [min, max] range of number of channels
+                                # to search the DB for. If set to null,
+                                # this parameter will not be searched for
+
+    pfb_method      : null 
+                                # PFB method to be be searched for. Default
+                                # (null) means this parameter is not searched
+                                # for. Other accepted values are 'theoretical'
+                                # and 'empirical'
+
+    pfb_file        : ['MWA_pfb_512x8.fits']
+                                # List of files to search for which hold
+                                # PFB coefficients. If set to null, this
+                                # parameter is not searched for. The
+                                # file paths could be relative or absolute
+                                # depending on how they were originally set
+
+########## Observation setup ##########
+
+obsparm  :
+
+    obs_date        : ['2015/11/23']
+                                # List of strings specifying observation
+                                # start dates in yyyy/mm/dd format to
+                                # search for. If set to null, this
+                                # parameter is not searched for
+
+    obs_mode        : ['drift']
+                                # List of observing modes to search for.
+                                # Accepted values are 'drift', 'track',
+                                # 'dns', 'lstbin', and 'custom'. If set
+                                # to null, this parameter is not searched
+                                # for
+
+    t_obs           : null      
+                                # [min, max] range of duration of
+                                # observation (in seconds) to search for.
+                                # If set to null, this parameter is not
+                                # searched for
+
+    n_acc           : [2, 2]
+                                # [min, max] range of number of
+                                # accumulations to search for. If set to
+                                # null, this parameter is not searched for
+
+    t_acc           : [1080.0, 1080.0]
+                                # [min, max] range of accumulation time
+                                # (in seconds) to search for. If set to
+                                # null, this parameter is not searched for
+                                
+    timeformat      : ['JD']
+                                # List of output formats for timestamp to
+                                # search for. Accepted values are
+                                # 'DT' (default) for DateTime format
+                                # yyyy-mm-dd hh:mm:ss.s or 'JD' for
+                                # julian date format. If set to null, this
+                                # parameter is not searched for
+                                
+######### Pointing information #########
+
+pointing :                      # If pointing file is specified to be
+                                # non-null, other parameters like
+                                # drift_init and track_init are ignored
+
+    file            : null
+                                # List of strings specifying full paths to 
+                                # files containing pointing information to
+                                # search for. If set to null, this parameter
+                                # is not searched for
+
+    drift_init :
+                                # Applies in case of initializing pointing
+                                # information for drift scan mode
+
+        alt         : null
+                                # [min, max] range of altitude of telescope
+                                # pointing (degrees) to be searched for. If
+                                # set to null, this parameter is not searched
+                                # for
+
+        az          : null
+                                # [min, max] range of azimuth of telescope
+                                # pointing (degrees) to be searched for. If
+                                # set to null, this parameter is not searched
+                                # for
+
+        ha          : [0.0, 0.0]
+                                # [min, max] range of hour angle of telescope 
+                                # pointing (degrees) to be searched for. If set
+                                # to null ,this parameter is not searched for
+
+        dec         : [-30.7224, -30.7224]
+                                # [min, max] range of declination of telescope 
+                                # pointing (degrees) to be searched for. If set
+                                # to null, this parameter is not searched for
+
+        lst         : [0.0, 0.0]
+                                # [min, max] range of LST at start of
+                                # observation (hours) to be searched for.
+                                # If set to null, this parameter is not
+                                # searched for. The epoch is assumed to be the 
+                                # date of observation.
+
+    track_init :
+
+        ra          : [0.0, 0.0]
+                                # [min, max] range of tracked RA (degrees)
+                                # to be searched for. If set to null ,this
+                                # parameter is not searched for
+
+        dec         : [-30.7224, -30.7224]
+                                # [min, max] range of tracked declination
+                                # (degrees) to be searched for. If set
+                                # to null, this parameter is not searched for
+
+        ha          : [0.0, 0.0]
+                                # [min, max] range of tracked hour angle
+                                # (degrees) to be searched for. If set
+                                # to null ,this parameter is not searched for
+
+        epoch       : ['2000']
+                                # List of epochs to be searched for which
+                                # specify the RA of the tracked sky
+                                # position. If set to  null, this parameter
+                                # is not searched for
+
+######### Phase center information #########
+
+phasing :                       # Phase center parameters
+
+    coords          : ['altaz']
+                                # list of strings specifying coordinate
+                                # system of phase center to be searched for.
+                                # Accepted values are 'altaz', 'hadec', 
+                                # 'radec', and 'dircos'. If set to null,
+                                # this parameter is not searched for
+
+######### Foreground model ##########
+
+fgparm   :
+
+    model           : ['csm']
+                                # List of strings specifying foreground
+                                # models to be searched for. Accepted 
+                                # values are 'csm' (NVSS+SUMSS point 
+                                # sources), 'dsm' (diffuse emission), 
+                                # 'asm' (both point sources and diffuse 
+                                # emission), 'sumss' (SUMSS catalog), 
+                                # nvss (NVSS catalog), 'mss' (Molonglo 
+                                # Sky Survey), 'gleam' (GLEAM catalog), 
+                                # 'custom' (user-defined catalog), 'usm' 
+                                # (uniform sky model), 'mwacs' (MWACS 
+                                # catalog), 'HI_monopole' (global EoR), 
+                                # HI_cube (HI cube from external 
+                                # simulations), and'HI_fluctuations' (HI 
+                                # fluctuations with the global mean signal 
+                                # removed). If set to null, this parameter 
+                                # is not searched for
+
+    epoch           : ['2000']
+                                # List of strings specifying the epoch of
+                                # the coordinates of the foreground model
+                                # or EoR signal to be searched for. If set
+                                # null, this parameter is not searched for
+
+    nside           : [256, 256]
+                                # [min, max] range of healpix nside
+                                # parameter for foreground model input
+                                # map to be searched for. Accepted values 
+                                # are valid nside values. If set to null,
+                                # this parameter is not searched for
+
+    flux_unit       : null
+                                # list of strings specifying Units of flux
+                                # or flux density. Accepted values are 'K' 
+                                # for temperature in K or 'Jy' for flux
+                                # density in Jy. If set to None, this
+                                # parameter is not searched for
+
+    spindex         : [-0.83, -0.83]
+                                # [min, max] of mean spectral indices of
+                                # point sources to search for. If set to
+                                # null, this parameter will not be
+                                # searched for
+
+    spindex_rms     : [0.0, 0.0]
+                                # [min, max] of rms in distribution of 
+                                # spectral indices to search for. If set
+                                # to null, this parameter is not searched
+                                # for
+
+    lidz            : true
+                                # Search DB if Lidz cube was used. Accepted
+                                # values are true or false. If set to null,
+                                # this parameter will not be searched for. 
+
+    21cmfast        : false
+                                # Search DB if 21CMFAST cube was used. 
+                                # Accepted values are true or false. If set 
+                                # to null, this parameter will not be
+                                # searched for. 
+
+
+########## Processing setup ##########
+
+processing:
+
+    n_bl_chunks     : null
+                                # [min, max] range on upper limit on
+                                # number of baseline chunks processed
+                                # to search for. If set to null, this
+                                # parameter is not searched for
+
+    bl_chunk_size   : null
+                                # [min, max] range on baseline chunk 
+                                # size to search for. If set to null, 
+                                # this parameter is not searched for
+
+    n_freq_chunks   : null
+                                # [min, max] range on upper limit on
+                                # number of frequency chunks processed
+                                # to search for. If set to null, this
+                                # parameter is not searched for
+
+    freq_chunk_size : null
+                                # [min, max] range on frequency chunk 
+                                # size to search for. If set to null, 
+                                # this parameter is not searched for
+
+    memsave         : false
+                                # Search DB if parameter to save
+                                # memory was set. Accepted values are
+                                # true and false. If set to null,
+                                # this parameter is not searched for
+
+    cleanup         : true
+                                # Search DB if clean up of intermediate
+                                # files was performed. Accepted values 
+                                # are true and false. If set to null,
+                                # this parameter is not searched for
+
+########## Parallel processing setup #########
+
+pp       :
+
+    key             : ['freq']
+                                # List of strings to search the key
+                                # based on which parallelization was
+                                # performed. Accepted values are 'bl'
+                                # (baselines), 'src' (sources) or
+                                # 'freq' (frequency). If set to null,
+                                # this parameter is not searched for
+
+    eqvol           : true
+                                # Search DB if mode of parallelization
+                                # was synchronous (true) or asynchronous
+                                # (false). if set to true, load is split 
+                                # equally between the parallel processes.
+                                # If set to false, load may be split
+                                # unevenly across processes as and when
+                                # a process becomes free. If set to null,
+                                # this parameter is not searched for
+
+    method          : ['pool']
+                                # List of strings to search the method
+                                # by which parallelization was
+                                # performed. Accepted values are 'pool'
+                                # or 'queue'. If set to null, this
+                                # parameter is not searched for
+
+########## Frequency flagging ##########
+
+flags    :
+
+    bp_flag_repeat  : false
+                                # Search DB if channel flagging was set
+                                # to true or false to repeat or not repeat
+                                # for every coarse channel periodically. If
+                                # set to null, this parameter is not
+                                # searched for
+
+    flag_repeat_edge_channels: false
+                                # Search DB if edge channel flagging was set
+                                # to true or false to repeat or not repeat
+                                # for every coarse channel periodically. If
+                                # set to null, this parameter is not
+                                # searched for
+
+########## Save format ##########
+
+save_formats :
+
+    npz             : true
+                                # Search DB if simulated data was saved
+                                # in npz format (true) or not (false).
+                                # If set to null, this parameter is not
+                                # searched for
+
