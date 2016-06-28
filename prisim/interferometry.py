@@ -8,6 +8,7 @@ import datetime as DT
 import progressbar as PGB
 import astropy 
 from astropy.io import fits
+import h5py
 from distutils.version import LooseVersion
 import psutil 
 from astroutils import geometry as GEOM
@@ -3637,8 +3638,8 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def save(self, outfile, tabtype='BinTableHDU', npz=True, overwrite=False,
-             verbose=True):
+    def save(self, outfile, fmt='HDF5', tabtype='BinTableHDU', npz=True, 
+             overwrite=False, verbose=True):
 
         """
         -------------------------------------------------------------------------
@@ -3647,14 +3648,20 @@ class InterferometerArray(object):
         Inputs:
 
         outfile      [string] Filename with full path to be saved to. Will be
-                     appended with '.fits' extension
+                     appended with '.hdf5' or '.fits' extension depending on 
+                     input keyword fmt
 
         Keyword Input(s):
+
+        fmt          [string] string specifying the format of the output. 
+                     Accepted values are 'HDF5' (default) and 'FITS' and the
+                     file names will be appended with '.hdf5' and '.fits'
+                     respecitvely
 
         tabtype      [string] indicates table type for one of the extensions in 
                      the FITS file. Allowed values are 'BinTableHDU' and 
                      'TableHDU' for binary and ascii tables respectively. Default 
-                     is 'BinTableHDU'.
+                     is 'BinTableHDU'. Only applies if input fmt is set to 'FITS'
 
         npz          [boolean] True (default) indicates a numpy NPZ format file
                      is created in addition to the FITS file to store essential
@@ -3674,204 +3681,309 @@ class InterferometerArray(object):
         except NameError:
             raise NameError('No filename provided. Aborting InterferometerArray.save()...')
 
-        filename = outfile + '.fits' 
+        if fmt not in ['HDF5', 'hdf5', 'FITS', 'fits']:
+            raise ValueError('Invalid output file format specified')
+        if fmt in ['HDF5', 'hdf5']:
+            filename = outfile + '.hdf5'
+        if fmt in ['FITS', 'fits']:
+            filename = outfile + '.fits' 
 
         if verbose:
             print '\nSaving information about interferometer...'
 
-        use_ascii = False
-        if tabtype == 'TableHDU':
-            use_ascii = True
-
-        hdulist = []
-
-        hdulist += [fits.PrimaryHDU()]
-        hdulist[0].header['latitude'] = (self.latitude, 'Latitude of interferometer')
-        hdulist[0].header['longitude'] = (self.longitude, 'Longitude of interferometer')        
-        hdulist[0].header['baseline_coords'] = (self.baseline_coords, 'Baseline coordinate system')
-        hdulist[0].header['freq_resolution'] = (self.freq_resolution, 'Frequency Resolution (Hz)')
-        hdulist[0].header['pointing_coords'] = (self.pointing_coords, 'Pointing coordinate system')
-        hdulist[0].header['phase_center_coords'] = (self.phase_center_coords, 'Phase center coordinate system')
-        hdulist[0].header['skycoords'] = (self.skycoords, 'Sky coordinate system')
-        if 'id' in self.telescope:
-            hdulist[0].header['telescope'] = (self.telescope['id'], 'Telescope Name')
-        if self.simparms_file is not None:
-            hdulist[0].header['simparms'] = (self.simparms_file, 'YAML file with simulation parameters')
-        hdulist[0].header['element_shape'] = (self.telescope['shape'], 'Antenna element shape')
-        hdulist[0].header['element_size'] = (self.telescope['size'], 'Antenna element size')
-        hdulist[0].header['element_ocoords'] = (self.telescope['ocoords'], 'Antenna element orientation coordinates')
-        hdulist[0].header['t_obs'] = (self.t_obs, 'Observing duration (s)')
-        hdulist[0].header['n_acc'] = (self.n_acc, 'Number of accumulations')        
-        hdulist[0].header['flux_unit'] = (self.flux_unit, 'Unit of flux density')
-        hdulist[0].header['EXTNAME'] = 'PRIMARY'
-
-        if verbose:
-            print '\tCreated a primary HDU.'
-
-        hdulist += [fits.ImageHDU(self.telescope['orientation'], name='Antenna element orientation')]
-        if verbose:
-            print '\tCreated an extension for antenna element orientation.'
-
-        cols = []
-        if self.lst: 
-            cols += [fits.Column(name='LST', format='D', array=NP.asarray(self.lst).ravel())]
-            cols += [fits.Column(name='pointing_longitude', format='D', array=self.pointing_center[:,0])]
-            cols += [fits.Column(name='pointing_latitude', format='D', array=self.pointing_center[:,1])]
-            cols += [fits.Column(name='phase_center_longitude', format='D', array=self.phase_center[:,0])]
-            cols += [fits.Column(name='phase_center_latitude', format='D', array=self.phase_center[:,1])]
-
-        columns = _astropy_columns(cols, tabtype=tabtype)
-
-        tbhdu = fits.new_table(columns)
-        tbhdu.header.set('EXTNAME', 'POINTING AND PHASE CENTER INFO')
-        hdulist += [tbhdu]
-        if verbose:
-            print '\tCreated pointing and phase center information table.'
-
-        label_lengths = [len(label[0]) for label in self.labels]
-        maxlen = max(label_lengths)
-        labels = NP.asarray(self.labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
-        cols = []
-        cols += [fits.Column(name='A1', format='{0:0d}A'.format(maxlen), array=labels['A1'])]
-        cols += [fits.Column(name='A2', format='{0:0d}A'.format(maxlen), array=labels['A2'])]        
-        # cols += [fits.Column(name='labels', format='5A', array=NP.asarray(self.labels))]
-
-        columns = _astropy_columns(cols, tabtype=tabtype)
-
-        tbhdu = fits.new_table(columns)
-        tbhdu.header.set('EXTNAME', 'LABELS')
-        hdulist += [tbhdu]
-        if verbose:
-            print '\tCreated extension table containing baseline labels.'
-
-        hdulist += [fits.ImageHDU(self.baselines, name='baselines')]
-        if verbose:
-            print '\tCreated an extension for baseline vectors.'
-
-        if self.projected_baselines is not None:
-            hdulist += [fits.ImageHDU(self.projected_baselines, name='proj_baselines')]
+        if fmt in ['FITS', 'fits']:
+            use_ascii = False
+            if tabtype == 'TableHDU':
+                use_ascii = True
+    
+            hdulist = []
+    
+            hdulist += [fits.PrimaryHDU()]
+            hdulist[0].header['latitude'] = (self.latitude, 'Latitude of interferometer')
+            hdulist[0].header['longitude'] = (self.longitude, 'Longitude of interferometer')        
+            hdulist[0].header['baseline_coords'] = (self.baseline_coords, 'Baseline coordinate system')
+            hdulist[0].header['freq_resolution'] = (self.freq_resolution, 'Frequency Resolution (Hz)')
+            hdulist[0].header['pointing_coords'] = (self.pointing_coords, 'Pointing coordinate system')
+            hdulist[0].header['phase_center_coords'] = (self.phase_center_coords, 'Phase center coordinate system')
+            hdulist[0].header['skycoords'] = (self.skycoords, 'Sky coordinate system')
+            if 'id' in self.telescope:
+                hdulist[0].header['telescope'] = (self.telescope['id'], 'Telescope Name')
+            if self.simparms_file is not None:
+                hdulist[0].header['simparms'] = (self.simparms_file, 'YAML file with simulation parameters')
+            hdulist[0].header['element_shape'] = (self.telescope['shape'], 'Antenna element shape')
+            hdulist[0].header['element_size'] = (self.telescope['size'], 'Antenna element size')
+            hdulist[0].header['element_ocoords'] = (self.telescope['ocoords'], 'Antenna element orientation coordinates')
+            hdulist[0].header['t_obs'] = (self.t_obs, 'Observing duration (s)')
+            hdulist[0].header['n_acc'] = (self.n_acc, 'Number of accumulations')        
+            hdulist[0].header['flux_unit'] = (self.flux_unit, 'Unit of flux density')
+            hdulist[0].header['EXTNAME'] = 'PRIMARY'
+    
             if verbose:
-                print '\tCreated an extension for projected baseline vectors.'
-
-        hdulist += [fits.ImageHDU(self.A_eff, name='Effective area')]
-        if verbose:
-            print '\tCreated an extension for effective area.'
-
-        hdulist += [fits.ImageHDU(self.eff_Q, name='Interferometer efficiency')]
-        if verbose:
-            print '\tCreated an extension for interferometer efficiency.'
-
-        cols = []
-        cols += [fits.Column(name='frequency', format='D', array=self.channels)]
-        if self.lags is not None:
-            cols += [fits.Column(name='lag', format='D', array=self.lags)]
-
-        columns = _astropy_columns(cols, tabtype=tabtype)
-
-        tbhdu = fits.new_table(columns)
-        tbhdu.header.set('EXTNAME', 'SPECTRAL INFO')
-        hdulist += [tbhdu]
-        if verbose:
-            print '\tCreated spectral information table.'
-
-        if self.t_acc:
-            hdulist += [fits.ImageHDU(self.t_acc, name='t_acc')]
+                print '\tCreated a primary HDU.'
+    
+            hdulist += [fits.ImageHDU(self.telescope['orientation'], name='Antenna element orientation')]
             if verbose:
-                print '\tCreated an extension for accumulation times.'
-
-        cols = []
-        if isinstance(self.timestamp[0], str):
-            cols += [fits.Column(name='timestamps', format='24A', array=NP.asarray(self.timestamp))]
-        elif isinstance(self.timestamp[0], float):
-            cols += [fits.Column(name='timestamps', format='D', array=NP.asarray(self.timestamp))]
-        else:
-            raise TypeError('Invalid data type for timestamps')
-
-        columns = _astropy_columns(cols, tabtype=tabtype)
-
-        tbhdu = fits.new_table(columns)
-        tbhdu.header.set('EXTNAME', 'TIMESTAMPS')
-        hdulist += [tbhdu]
-        if verbose:
-            print '\tCreated extension table containing timestamps.'
-
-        if self.Tsysinfo:
+                print '\tCreated an extension for antenna element orientation.'
+    
             cols = []
-            cols += [fits.Column(name='Trx', format='D', array=NP.asarray([elem['Trx'] for elem in self.Tsysinfo], dtype=NP.float))]
-            cols += [fits.Column(name='Tant0', format='D', array=NP.asarray([elem['Tant']['T0'] for elem in self.Tsysinfo], dtype=NP.float))]
-            cols += [fits.Column(name='f0', format='D', array=NP.asarray([elem['Tant']['f0'] for elem in self.Tsysinfo], dtype=NP.float))]
-            cols += [fits.Column(name='spindex', format='D', array=NP.asarray([elem['Tant']['spindex'] for elem in self.Tsysinfo], dtype=NP.float))]
+            if self.lst: 
+                cols += [fits.Column(name='LST', format='D', array=NP.asarray(self.lst).ravel())]
+                cols += [fits.Column(name='pointing_longitude', format='D', array=self.pointing_center[:,0])]
+                cols += [fits.Column(name='pointing_latitude', format='D', array=self.pointing_center[:,1])]
+                cols += [fits.Column(name='phase_center_longitude', format='D', array=self.phase_center[:,0])]
+                cols += [fits.Column(name='phase_center_latitude', format='D', array=self.phase_center[:,1])]
+    
             columns = _astropy_columns(cols, tabtype=tabtype)
+    
             tbhdu = fits.new_table(columns)
-            tbhdu.header.set('EXTNAME', 'TSYSINFO')
+            tbhdu.header.set('EXTNAME', 'POINTING AND PHASE CENTER INFO')
             hdulist += [tbhdu]
+            if verbose:
+                print '\tCreated pointing and phase center information table.'
+    
+            label_lengths = [len(label[0]) for label in self.labels]
+            maxlen = max(label_lengths)
+            labels = NP.asarray(self.labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
+            cols = []
+            cols += [fits.Column(name='A1', format='{0:0d}A'.format(maxlen), array=labels['A1'])]
+            cols += [fits.Column(name='A2', format='{0:0d}A'.format(maxlen), array=labels['A2'])]        
+            # cols += [fits.Column(name='labels', format='5A', array=NP.asarray(self.labels))]
+    
+            columns = _astropy_columns(cols, tabtype=tabtype)
+    
+            tbhdu = fits.new_table(columns)
+            tbhdu.header.set('EXTNAME', 'LABELS')
+            hdulist += [tbhdu]
+            if verbose:
+                print '\tCreated extension table containing baseline labels.'
+    
+            hdulist += [fits.ImageHDU(self.baselines, name='baselines')]
+            if verbose:
+                print '\tCreated an extension for baseline vectors.'
+    
+            if self.projected_baselines is not None:
+                hdulist += [fits.ImageHDU(self.projected_baselines, name='proj_baselines')]
+                if verbose:
+                    print '\tCreated an extension for projected baseline vectors.'
+    
+            hdulist += [fits.ImageHDU(self.A_eff, name='Effective area')]
+            if verbose:
+                print '\tCreated an extension for effective area.'
+    
+            hdulist += [fits.ImageHDU(self.eff_Q, name='Interferometer efficiency')]
+            if verbose:
+                print '\tCreated an extension for interferometer efficiency.'
+    
+            cols = []
+            cols += [fits.Column(name='frequency', format='D', array=self.channels)]
+            if self.lags is not None:
+                cols += [fits.Column(name='lag', format='D', array=self.lags)]
+    
+            columns = _astropy_columns(cols, tabtype=tabtype)
+    
+            tbhdu = fits.new_table(columns)
+            tbhdu.header.set('EXTNAME', 'SPECTRAL INFO')
+            hdulist += [tbhdu]
+            if verbose:
+                print '\tCreated spectral information table.'
+    
+            if self.t_acc:
+                hdulist += [fits.ImageHDU(self.t_acc, name='t_acc')]
+                if verbose:
+                    print '\tCreated an extension for accumulation times.'
+    
+            cols = []
+            if isinstance(self.timestamp[0], str):
+                cols += [fits.Column(name='timestamps', format='24A', array=NP.asarray(self.timestamp))]
+            elif isinstance(self.timestamp[0], float):
+                cols += [fits.Column(name='timestamps', format='D', array=NP.asarray(self.timestamp))]
+            else:
+                raise TypeError('Invalid data type for timestamps')
+    
+            columns = _astropy_columns(cols, tabtype=tabtype)
+    
+            tbhdu = fits.new_table(columns)
+            tbhdu.header.set('EXTNAME', 'TIMESTAMPS')
+            hdulist += [tbhdu]
+            if verbose:
+                print '\tCreated extension table containing timestamps.'
+    
+            if self.Tsysinfo:
+                cols = []
+                cols += [fits.Column(name='Trx', format='D', array=NP.asarray([elem['Trx'] for elem in self.Tsysinfo], dtype=NP.float))]
+                cols += [fits.Column(name='Tant0', format='D', array=NP.asarray([elem['Tant']['T0'] for elem in self.Tsysinfo], dtype=NP.float))]
+                cols += [fits.Column(name='f0', format='D', array=NP.asarray([elem['Tant']['f0'] for elem in self.Tsysinfo], dtype=NP.float))]
+                cols += [fits.Column(name='spindex', format='D', array=NP.asarray([elem['Tant']['spindex'] for elem in self.Tsysinfo], dtype=NP.float))]
+                columns = _astropy_columns(cols, tabtype=tabtype)
+                tbhdu = fits.new_table(columns)
+                tbhdu.header.set('EXTNAME', 'TSYSINFO')
+                hdulist += [tbhdu]
+    
+            hdulist += [fits.ImageHDU(self.Tsys, name='Tsys')]
+            if verbose:
+                print '\tCreated an extension for Tsys.'
+            
+            if self.vis_rms_freq is not None:
+                hdulist += [fits.ImageHDU(self.vis_rms_freq, name='freq_channel_noise_rms_visibility')]
+                if verbose:
+                    print '\tCreated an extension for simulated visibility noise rms per channel.'
+            
+            if self.vis_freq is not None:
+                hdulist += [fits.ImageHDU(self.vis_freq.real, name='real_freq_obs_visibility')]
+                hdulist += [fits.ImageHDU(self.vis_freq.imag, name='imag_freq_obs_visibility')]
+                if verbose:
+                    print '\tCreated extensions for real and imaginary parts of observed visibility frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_freq.shape)
+    
+            if self.skyvis_freq is not None:
+                hdulist += [fits.ImageHDU(self.skyvis_freq.real, name='real_freq_sky_visibility')]
+                hdulist += [fits.ImageHDU(self.skyvis_freq.imag, name='imag_freq_sky_visibility')]
+                if verbose:
+                    print '\tCreated extensions for real and imaginary parts of noiseless sky visibility frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.skyvis_freq.shape)
+    
+            if self.vis_noise_freq is not None:
+                hdulist += [fits.ImageHDU(self.vis_noise_freq.real, name='real_freq_noise_visibility')]
+                hdulist += [fits.ImageHDU(self.vis_noise_freq.imag, name='imag_freq_noise_visibility')]
+                if verbose:
+                    print '\tCreated extensions for real and imaginary parts of visibility noise frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_noise_freq.shape)
+    
+            hdulist += [fits.ImageHDU(self.bp, name='bandpass')]
+            if verbose:
+                print '\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape)
+    
+            hdulist += [fits.ImageHDU(self.bp_wts, name='bandpass_weights')]
+            if verbose:
+                print '\tCreated an extension for bandpass weights of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp_wts.shape)
+    
+            # hdulist += [fits.ImageHDU(self.lag_kernel.real, name='lag_kernel_real')]
+            # hdulist += [fits.ImageHDU(self.lag_kernel.imag, name='lag_kernel_imag')]
+            # if verbose:
+            #     print '\tCreated an extension for impulse response of frequency bandpass shape of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.lag_kernel.shape)
+    
+            if self.vis_lag is not None:
+                hdulist += [fits.ImageHDU(self.vis_lag.real, name='real_lag_visibility')]
+                hdulist += [fits.ImageHDU(self.vis_lag.imag, name='imag_lag_visibility')]
+                if verbose:
+                    print '\tCreated extensions for real and imaginary parts of observed visibility delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_lag.shape)
+    
+            if self.skyvis_lag is not None:
+                hdulist += [fits.ImageHDU(self.skyvis_lag.real, name='real_lag_sky_visibility')]
+                hdulist += [fits.ImageHDU(self.skyvis_lag.imag, name='imag_lag_sky_visibility')]
+                if verbose:
+                    print '\tCreated extensions for real and imaginary parts of noiseless sky visibility delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.skyvis_lag.shape)
+    
+            if self.vis_noise_lag is not None:
+                hdulist += [fits.ImageHDU(self.vis_noise_lag.real, name='real_lag_noise_visibility')]
+                hdulist += [fits.ImageHDU(self.vis_noise_lag.imag, name='imag_lag_noise_visibility')]
+                if verbose:
+                    print '\tCreated extensions for real and imaginary parts of visibility noise delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_noise_lag.shape)
+    
+            if verbose:
+                print '\tNow writing FITS file to disk...'
+            hdu = fits.HDUList(hdulist)
+            hdu.writeto(filename, clobber=overwrite)
+        else:
+            if overwrite:
+                write_str = 'a'
+            else:
+                write_str = 'w-'
+            with h5py.File(filename, write_str) as fileobj:
+                hdr_group = fileobj.create_group('header')
+                hdr_group['flux_unit'] = self.flux_unit
+                tlscp_group = fileobj.create_group('telescope_parms')
+                tlscp_group['latitude'] = self.latitude
+                tlscp_group['longitude'] = self.longitude
+                tlscp_group['latitude'].attrs['units'] = 'deg'
+                tlscp_group['longitude'].attrs['units'] = 'deg'
+                tlscp_group['baseline_coords'] = self.baseline_coords
+                if 'id' in self.telescope:
+                    tlscp_group['id'] = self.telescope['id']
+                spec_group = fileobj.create_group('spectral_info')
+                spec_group['freq_resolution'] = self.freq_resolution
+                spec_group['freq_resolution'].attrs['units'] = 'Hz'
+                spec_group['freqs'] = self.channels
+                spec_group['freqs'].attrs['units'] = 'Hz'
+                if self.lags is not None:
+                    spec_group['lags'] = self.lags
+                    spec_group['lags'].attrs['units'] = 's'
+                spec_group['bp'] = self.bp
+                spec_group['bp_wts'] = self.bp_wts
+                if self.simparms_file is not None:
+                    sim_group = fileobj.create_group('simparms')
+                    sim_group['simparms'] = self.simparms_file
+                antelem_group = fileobj.create_group('antenna_element')
+                antelem_group['shape'] = self.telescope['shape']
+                antelem_group['size'] = self.telescope['size']
+                antelem_group['size'].attrs['units'] = 'm'
+                antelem_group['ocoords'] = self.telescope['ocoords']
+                antelem_group['orientation'] = self.telescope['orientation']
+                if self.telescope['ocoords'] != 'dircos':
+                    antelem_group['orientation'].attrs['units'] = 'deg'
+                timing_group = fileobj.create_group('timing')
+                timing_group['t_obs'] = self.t_obs
+                timing_group['n_acc'] = self.n_acc
+                if self.t_acc:
+                    timing_group['t_acc'] = self.t_acc
+                timing_group['timestamps'] = NP.asarray(self.timestamp)
+                sky_group = fileobj.create_group('skyparms')
+                sky_group['pointing_coords'] = self.pointing_coords
+                sky_group['phase_center_coords'] = self.phase_center_coords
+                sky_group['skycoords'] = self.skycoords
+                sky_group['LST'] = NP.asarray(self.lst).ravel()
+                sky_group['LST'].attrs['units'] = 'deg'
+                sky_group['pointing_center'] = self.pointing_center
+                sky_group['phase_center'] = self.phase_center
+                array_group = fileobj.create_group('array')
+                label_lengths = [len(label[0]) for label in self.labels]
+                maxlen = max(label_lengths)
+                labels = NP.asarray(self.labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
+                array_group['labels'] = labels
+                array_group['baselines'] = self.baselines
+                array_group['baselines'].attrs['coords'] = 'local-ENU'
+                array_group['baselines'].attrs['units'] = 'm'
+                array_group['projected_baselines'] = self.baselines
+                array_group['baselines'].attrs['coords'] = 'eq-XYZ'
+                array_group['baselines'].attrs['units'] = 'm'
+                instr_group = fileobj.create_group('instrument')
+                instr_group['effective_area'] = self.A_eff
+                instr_group['effective_area'].attrs['units'] = 'm^2'
+                instr_group['efficiency'] = self.eff_Q
+                if self.Tsysinfo:
+                    instr_group['Trx'] = NP.asarray([elem['Trx'] for elem in self.Tsysinfo], dtype=NP.float)
+                    instr_group['Tant0'] = NP.asarray([elem['Tant']['T0'] for elem in self.Tsysinfo], dtype=NP.float)
+                    instr_group['f0'] = NP.asarray([elem['Tant']['f0'] for elem in self.Tsysinfo], dtype=NP.float)
+                    instr_group['spindex'] = NP.asarray([elem['Tant']['spindex'] for elem in self.Tsysinfo], dtype=NP.float)
+                    instr_group['Trx'].attrs['units'] = 'K'
+                    instr_group['Tant0'].attrs['units'] = 'K'
+                    instr_group['f0'].attrs['units'] = 'Hz'
+                instr_group['Tsys'] = self.Tsys
+                instr_group['Tsys'].attrs['units'] = 'K'
+                vis_group = fileobj.create_group('visibilities')
+                visfreq_group = vis_group.create_group('freq_spectrum')
+                if self.vis_rms_freq is not None:
+                    visfreq_group['rms'] = self.vis_rms_freq
+                    visfreq_group['rms'].attrs['units'] = 'Jy'
+                if self.vis_freq is not None:
+                    visfreq_group['vis'] = self.vis_freq
+                    visfreq_group['vis'].attrs['units'] = 'Jy'
+                if self.skyvis_freq is not None:
+                    visfreq_group['skyvis'] = self.skyvis_freq
+                    visfreq_group['skyvis'].attrs['units'] = 'Jy'
+                if self.vis_noise_freq is not None:
+                    visfreq_group['noise'] = self.vis_noise_freq
+                    visfreq_group['noise'].attrs['units'] = 'Jy'
+                vislags_group = vis_group.create_group('delay_spectrum')
+                if self.vis_lag is not None:
+                    vislags_group['vis'] = self.vis_lag
+                    vislags_group['vis'].attrs['units'] = 'Jy Hz'
+                if self.skyvis_lag is not None:
+                    vislags_group['skyvis'] = self.skyvis_lag
+                    vislags_group['skyvis'].attrs['units'] = 'Jy Hz'
+                if self.vis_noise_lag is not None:
+                    vislags_group['noise'] = self.vis_noise_lag
+                    vislags_group['noise'].attrs['units'] = 'Jy Hz'
 
-        hdulist += [fits.ImageHDU(self.Tsys, name='Tsys')]
         if verbose:
-            print '\tCreated an extension for Tsys.'
-        
-        if self.vis_rms_freq is not None:
-            hdulist += [fits.ImageHDU(self.vis_rms_freq, name='freq_channel_noise_rms_visibility')]
-            if verbose:
-                print '\tCreated an extension for simulated visibility noise rms per channel.'
-        
-        if self.vis_freq is not None:
-            hdulist += [fits.ImageHDU(self.vis_freq.real, name='real_freq_obs_visibility')]
-            hdulist += [fits.ImageHDU(self.vis_freq.imag, name='imag_freq_obs_visibility')]
-            if verbose:
-                print '\tCreated extensions for real and imaginary parts of observed visibility frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_freq.shape)
-
-        if self.skyvis_freq is not None:
-            hdulist += [fits.ImageHDU(self.skyvis_freq.real, name='real_freq_sky_visibility')]
-            hdulist += [fits.ImageHDU(self.skyvis_freq.imag, name='imag_freq_sky_visibility')]
-            if verbose:
-                print '\tCreated extensions for real and imaginary parts of noiseless sky visibility frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.skyvis_freq.shape)
-
-        if self.vis_noise_freq is not None:
-            hdulist += [fits.ImageHDU(self.vis_noise_freq.real, name='real_freq_noise_visibility')]
-            hdulist += [fits.ImageHDU(self.vis_noise_freq.imag, name='imag_freq_noise_visibility')]
-            if verbose:
-                print '\tCreated extensions for real and imaginary parts of visibility noise frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_noise_freq.shape)
-
-        hdulist += [fits.ImageHDU(self.bp, name='bandpass')]
-        if verbose:
-            print '\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape)
-
-        hdulist += [fits.ImageHDU(self.bp_wts, name='bandpass_weights')]
-        if verbose:
-            print '\tCreated an extension for bandpass weights of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp_wts.shape)
-
-        # hdulist += [fits.ImageHDU(self.lag_kernel.real, name='lag_kernel_real')]
-        # hdulist += [fits.ImageHDU(self.lag_kernel.imag, name='lag_kernel_imag')]
-        # if verbose:
-        #     print '\tCreated an extension for impulse response of frequency bandpass shape of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.lag_kernel.shape)
-
-        if self.vis_lag is not None:
-            hdulist += [fits.ImageHDU(self.vis_lag.real, name='real_lag_visibility')]
-            hdulist += [fits.ImageHDU(self.vis_lag.imag, name='imag_lag_visibility')]
-            if verbose:
-                print '\tCreated extensions for real and imaginary parts of observed visibility delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_lag.shape)
-
-        if self.skyvis_lag is not None:
-            hdulist += [fits.ImageHDU(self.skyvis_lag.real, name='real_lag_sky_visibility')]
-            hdulist += [fits.ImageHDU(self.skyvis_lag.imag, name='imag_lag_sky_visibility')]
-            if verbose:
-                print '\tCreated extensions for real and imaginary parts of noiseless sky visibility delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.skyvis_lag.shape)
-
-        if self.vis_noise_lag is not None:
-            hdulist += [fits.ImageHDU(self.vis_noise_lag.real, name='real_lag_noise_visibility')]
-            hdulist += [fits.ImageHDU(self.vis_noise_lag.imag, name='imag_lag_noise_visibility')]
-            if verbose:
-                print '\tCreated extensions for real and imaginary parts of visibility noise delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_noise_lag.shape)
-
-        if verbose:
-            print '\tNow writing FITS file to disk...'
-
-        hdu = fits.HDUList(hdulist)
-        hdu.writeto(filename, clobber=overwrite)
-
-        if verbose:
-            print '\tInterferometer array information written successfully to FITS file on disk:\n\t\t{0}\n'.format(filename)
+            print '\tInterferometer array information written successfully to file on disk:\n\t\t{0}\n'.format(filename)
 
         if npz:
             NP.savez_compressed(outfile+'.npz', skyvis_freq=self.skyvis_freq, vis_freq=self.vis_freq, vis_noise_freq=self.vis_noise_freq, lst=self.lst, freq=self.channels, timestamp=self.timestamp, bl=self.baselines, bl_length=self.baseline_lengths)

@@ -714,6 +714,11 @@ flags    :
 
 save_formats :
 
+    fmt             : 'HDF5'
+                                # File format for the final saved data
+                                # Accepted values are 'HDF5' (default) 
+                                # and 'FITS'
+
     npz             : true
                                 # If true, save to numpy NPZ format
 

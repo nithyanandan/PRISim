@@ -1,3 +1,22 @@
+From 1666b41 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Import h5py for handling HDF5 file format
+(*) Add input fmt in member function save() of class
+InterferometerArray. Update member function docstring accordingly
+(*) Add functionality in save() member function of class
+InterferometerArray to save in HDF5 format
+
+In scripts/run_prisim.py,
+
+(*) Modify to save in HDF5 format
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add fmt option to indicate output format
+
 From ec70a26 (master) + b4099d4 (package):
 =========================================
 

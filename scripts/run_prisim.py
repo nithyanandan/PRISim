@@ -216,6 +216,9 @@ mpi_key = parms['pp']['key']
 mpi_eqvol = parms['pp']['eqvol']
 save_formats = parms['save_formats']
 save_to_npz = save_formats['npz']
+outfmt = save_formats['fmt']
+if outfmt not in ['HDF5', 'hdf5', 'FITS', 'fits']:
+    raise ValueError('Output format invalid')
 plots = parms['plots']
 diagnosis_parms = parms['diagnosis']
 
@@ -1605,7 +1608,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ia.add_noise()
             ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
             outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
-            ia.save(outfile, verbose=True, tabtype='BinTableHDU', overwrite=True)
+            ia.save(outfile, fmt='FITS', verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
         else:
             comm.send(ia.skyvis_freq, dest=0)
             # comm.Send([ia.skyvis_freq, ia.skyvis_freq.size, MPI.DOUBLE_COMPLEX])
@@ -1735,7 +1738,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             ia.add_noise()
             # ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
             ia.project_baselines()
-            ia.save(outfile, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
+            ia.save(outfile, fmt='FITS', verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
 
 else: # MPI based on baseline multiplexing
 
@@ -1789,7 +1792,7 @@ else: # MPI based on baseline multiplexing
                 ia.generate_noise()
                 ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
-                ia.save(outfile, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
+                ia.save(outfile, fmt='FITS', verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
         counter.free()
         pte = time.time()
         pte_str = str(DT.datetime.now())
@@ -1949,7 +1952,7 @@ else: # MPI based on baseline multiplexing
                 ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
                 ia.project_baselines()
-                ia.save(outfile, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
+                ia.save(outfile, fmt='FITS', verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
         pte_str = str(DT.datetime.now())                
  
 if rank == 0:
@@ -2015,7 +2018,7 @@ if rank == 0:
             simvis.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
 
         consolidated_outfile = rootdir+project_dir+simid+sim_dir+'simvis'
-        simvis.save(consolidated_outfile, verbose=True, tabtype='BinTableHDU', npz=save_to_npz, overwrite=True)
+        simvis.save(consolidated_outfile, fmt=outfmt, verbose=True, tabtype='BinTableHDU', npz=save_to_npz, overwrite=True)
 
     # skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel.txt'
     skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel'
