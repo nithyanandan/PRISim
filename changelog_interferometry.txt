@@ -1,3 +1,11 @@
+From a861e83 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Modify __init__() member function to initialize the object from
+HDF5 files
+
 From 1666b41 (master):
 =====================
 

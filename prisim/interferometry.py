@@ -1906,227 +1906,380 @@ class InterferometerArray(object):
         init_file_success = False
         if init_file is not None:
             try:
-                hdulist = fits.open(init_file)
-            except IOError:
-                argument_init = True
-                print '\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...'
-
-            extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,len(hdulist))]
-
-            self.simparms_file = None
-            if 'simparms' in hdulist[0].header:
-                if isinstance(hdulist[0].header['simparms'], str):
-                    self.simparms_file = hdulist[0].header['simparms']
-                else:
-                    print '\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.'
-
-            try:
-                self.freq_resolution = hdulist[0].header['freq_resolution']
-            except KeyError:
-                hdulist.close()
-                raise KeyError('Keyword "freq_resolution" not found in header.')
-
-            try:
-                self.latitude = hdulist[0].header['latitude']
-            except KeyError:
-                print '\tKeyword "latitude" not found in header. Assuming 34.0790 degrees for attribute latitude.'
-                self.latitude = 34.0790
-
-            try:
-                self.longitude = hdulist[0].header['longitude']
-            except KeyError:
-                print '\tKeyword "longitude" not found in header. Assuming 0.0 degrees for attribute longitude.'
-                self.longitude = 0.0
-                
-            self.telescope = {}
-            if 'telescope' in hdulist[0].header:
-                self.telescope['id'] = hdulist[0].header['telescope']
-
-            try:
-                self.telescope['shape'] = hdulist[0].header['element_shape']
-            except KeyError:
-                print '\tKeyword "element_shape" not found in header. Assuming "delta" for attribute antenna element shape.'
-                self.telescope['shape'] = 'delta'
-
-            try:
-                self.telescope['size'] = hdulist[0].header['element_size']
-            except KeyError:
-                print '\tKeyword "element_size" not found in header. Assuming 25.0m for attribute antenna element size.'
-                self.telescope['size'] = 1.0
-
-            try:
-                self.telescope['ocoords'] = hdulist[0].header['element_ocoords']
-            except KeyError:
-                raise KeyError('\tKeyword "element_ocoords" not found in header. No defaults.')
-
-            try:
-                self.telescope['groundplane'] = hdulist[0].header['groundplane']
-            except KeyError:
-                self.telescope['groundplane'] = None
-
-            if 'ANTENNA ELEMENT ORIENTATION' not in extnames:
-                raise KeyError('No extension found containing information on element orientation.')
-            else:
-                self.telescope['orientation'] = hdulist['ANTENNA ELEMENT ORIENTATION'].data.reshape(1,-1)
-
-            try:
-                self.baseline_coords = hdulist[0].header['baseline_coords']
-            except KeyError:
-                print '\tKeyword "baseline_coords" not found in header. Assuming "localenu" for attribute baseline_coords.'
-                self.baseline_coords = 'localenu'
-
-            try:
-                self.pointing_coords = hdulist[0].header['pointing_coords']
-            except KeyError:
-                print '\tKeyword "pointing_coords" not found in header. Assuming "hadec" for attribute pointing_coords.'
-                self.pointing_coords = 'hadec'
-
-            try:
-                self.phase_center_coords = hdulist[0].header['phase_center_coords']
-            except KeyError:
-                print '\tKeyword "phase_center_coords" not found in header. Assuming "hadec" for attribute phase_center_coords.'
-                self.phase_center_coords = 'hadec'
-
-            try:
-                self.skycoords = hdulist[0].header['skycoords']
-            except KeyError:
-                print '\tKeyword "skycoords" not found in header. Assuming "radec" for attribute skycoords.'
-                self.skycoords = 'radec'
-
-            try:
-                self.flux_unit = hdulist[0].header['flux_unit']
-            except KeyError:
-                print '\tKeyword "flux_unit" not found in header. Assuming "jy" for attribute flux_unit.'
-                self.flux_unit = 'JY'
-
-            if 'POINTING AND PHASE CENTER INFO' not in extnames:
-                raise KeyError('No extension table found containing pointing information.')
-            else:
-                self.lst = hdulist['POINTING AND PHASE CENTER INFO'].data['LST'].tolist()
-                self.pointing_center = NP.hstack((hdulist['POINTING AND PHASE CENTER INFO'].data['pointing_longitude'].reshape(-1,1), hdulist['POINTING AND PHASE CENTER INFO'].data['pointing_latitude'].reshape(-1,1)))
-                self.phase_center = NP.hstack((hdulist['POINTING AND PHASE CENTER INFO'].data['phase_center_longitude'].reshape(-1,1), hdulist['POINTING AND PHASE CENTER INFO'].data['phase_center_latitude'].reshape(-1,1)))
-
-            if 'TIMESTAMPS' in extnames:
-                self.timestamp = hdulist['TIMESTAMPS'].data['timestamps'].tolist()
-            else:
-                raise KeyError('Extension named "TIMESTAMPS" not found in init_file.')
-
-            self.Tsysinfo = []
-            if 'TSYSINFO' in extnames:
-                self.Tsysinfo = [{'Trx': elem['Trx'], 'Tant': {'T0': elem['Tant0'], 'f0': elem['f0'], 'spindex': elem['spindex']}, 'Tnet': None} for elem in hdulist['TSYSINFO'].data]
-
-            if 'TSYS' in extnames:
-                self.Tsys = hdulist['Tsys'].data
-            else:
-                raise KeyError('Extension named "Tsys" not found in init_file.')
-
-            if 'BASELINES' in extnames:
-                self.baselines = hdulist['BASELINES'].data.reshape(-1,3)
-                self.baseline_lengths = NP.sqrt(NP.sum(self.baselines**2, axis=1))
-            else:
-                raise KeyError('Extension named "BASELINES" not found in init_file.')
-
-            if 'PROJ_BASELINES' in extnames:
-                self.projected_baselines = hdulist['PROJ_BASELINES'].data
-
-            if 'LABELS' in extnames:
-                # self.labels = hdulist['LABELS'].data.tolist()
-                a1 = hdulist['LABELS'].data['A1']
-                a2 = hdulist['LABELS'].data['A2']
-                self.labels = zip(a2,a1)
-            else:
-                self.labels = ['B{0:0d}'.format(i+1) for i in range(self.baseline_lengths.size)]
-
-            if 'EFFECTIVE AREA' in extnames:
-                self.A_eff = hdulist['EFFECTIVE AREA'].data
-            else:
-                raise KeyError('Extension named "EFFECTIVE AREA" not found in init_file.')
-
-            if 'INTERFEROMETER EFFICIENCY' in extnames:
-                self.eff_Q = hdulist['INTERFEROMETER EFFICIENCY'].data
-            else:
-                raise KeyError('Extension named "INTERFEROMETER EFFICIENCY" not found in init_file.')
-
-            if 'SPECTRAL INFO' not in extnames:
-                raise KeyError('No extension table found containing spectral information.')
-            else:
-                self.channels = hdulist['SPECTRAL INFO'].data['frequency']
-                try:
-                    self.lags = hdulist['SPECTRAL INFO'].data['lag']
-                except KeyError:
+                with h5py.File(init_file+'.hdf5', 'r') as fileobj:
+                    self.simparms_file = None
+                    self.latitude = 0.0
+                    self.longitude = 0.0
+                    self.skycoords = 'radec'
+                    self.flux_unit = 'JY'
+                    self.telescope = {}
+                    self.telescope['shape'] = 'delta'
+                    self.telescope['size'] = 1.0
+                    self.telescope['groundplane'] = None
+                    self.Tsysinfo = []
                     self.lags = None
+                    self.vis_lag = None
+                    self.skyvis_lag = None
+                    self.vis_noise_lag = None
+                    for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'instrument', 'visibilities']:
+                        try:
+                            grp = fileobj[key]
+                        except KeyError:
+                            if key != 'simparms':
+                                raise KeyError('Key {0} not found in init_file'.format(key))
+                        if key == 'header':
+                            self.flux_unit = grp['flux_unit'].value
+                        if key == 'telescope_parms':
+                            if 'latitude' in grp:
+                                self.latitude = grp['latitude'].value
+                            if 'longitude' in grp:
+                                self.longitude = grp['longitude'].value
+                            if 'id' in grp:
+                                self.telescope['id'] = grp['id'].value
+                        if key == 'antenna_element':
+                            if 'shape' in grp:
+                                self.telescope['shape'] = grp['shape'].value
+                            if 'size' in grp:
+                                self.telescope['size'] = grp['size'].value
+                            if 'ocoords' in grp:
+                                self.telescope['ocoords'] = grp['ocoords'].value
+                            else:
+                                raise KeyError('Keyword "ocoords" not found in init_file')
+                            if 'orientation' in grp:
+                                self.telescope['orientation'] = grp['orientation'].value.reshape(1,-1)
+                            else:
+                                raise KeyError('Key "orientation" not found in init_file')
+                            if 'groundplane' in grp:
+                                self.telescope['groundplane'] = grp['groundplane'].value
+                                
+                        if key == 'simparms':
+                            if 'simfile' in grp:
+                                self.simparms_file = grp['simfile'].value
+                        if key == 'spectral_info':
+                            self.freq_resolution = grp['freq_resolution'].value
+                            self.channels = grp['freqs'].value
+                            if 'lags' in grp:
+                                self.lags = grp['lags'].value
+                            if 'bp' in grp:
+                                self.bp = grp['bp'].value
+                            else:
+                                raise KeyError('Key "bp" not found in init_file')
+                            if 'bp_wts' in grp:
+                                self.bp_wts = grp['bp_wts'].value
+                            else:
+                                self.bp_wts = NP.ones_like(self.bp)
+                            self.bp_wts = grp['bp_wts'].value
+                        if key == 'skyparms':
+                            if 'pointing_coords' in grp:
+                                self.pointing_coords = grp['pointing_coords'].value
+                            if 'phase_center_coords' in grp:
+                                self.phase_center_coords = grp['phase_center_coords'].value
+                            if 'skycoords' in grp:
+                                self.skycoords = grp['skycoords'].value
+                            self.lst = grp['LST'].value
+                            self.pointing_center = grp['pointing_center'].value
+                            self.phase_center = grp['phase_center'].value
+                        if key == 'timing':
+                            if 'timestamps' in grp:
+                                self.timestamp = grp['timestamps'].value.tolist()
+                            else:
+                                raise KeyError('Key "timestamps" not found in init_file')
+                            if 't_acc' in grp:
+                                self.t_acc = grp['t_acc'].value.tolist()
+                                self.t_obs = grp['t_obs'].value
+                                self.n_acc = grp['n_acc'].value
+                            else:
+                                raise KeyError('Key "t_acc" not found in init_file')
 
-            if 'BANDPASS' in extnames:
-                self.bp = hdulist['BANDPASS'].data
-            else:
-                raise KeyError('Extension named "BANDPASS" not found in init_file.')
-
-            if 'BANDPASS_WEIGHTS' in extnames:
-                self.bp_wts = hdulist['BANDPASS_WEIGHTS'].data
-            else:
-                self.bp_wts = NP.ones_like(self.bp)
-
-            if 'T_ACC' in extnames:
-                self.t_acc = hdulist['t_acc'].data.tolist()
-                self.n_acc = len(self.t_acc)
-                self.t_obs = sum(self.t_acc)
-            else:
-                raise KeyError('Extension named "T_ACC" not found in init_file.')
-            
-            if 'FREQ_CHANNEL_NOISE_RMS_VISIBILITY' in extnames:
-                self.vis_rms_freq = hdulist['freq_channel_noise_rms_visibility'].data
-            else:
-                raise KeyError('Extension named "FREQ_CHANNEL_NOISE_RMS_VISIBILITY" not found in init_file.')
-
-            if 'REAL_FREQ_OBS_VISIBILITY' in extnames:
-                self.vis_freq = hdulist['real_freq_obs_visibility'].data
-                if 'IMAG_FREQ_OBS_VISIBILITY' in extnames:
-                    self.vis_freq = self.vis_freq.astype(NP.complex128)
-                    self.vis_freq += 1j * hdulist['imag_freq_obs_visibility'].data
-            else:
-                raise KeyError('Extension named "REAL_FREQ_OBS_VISIBILITY" not found in init_file.')
-
-            if 'REAL_FREQ_SKY_VISIBILITY' in extnames:
-                self.skyvis_freq = hdulist['real_freq_sky_visibility'].data
-                if 'IMAG_FREQ_SKY_VISIBILITY' in extnames:
-                    self.skyvis_freq = self.skyvis_freq.astype(NP.complex128)
-                    self.skyvis_freq += 1j * hdulist['imag_freq_sky_visibility'].data
-            else:
-                raise KeyError('Extension named "REAL_FREQ_SKY_VISIBILITY" not found in init_file.')
-
-            if 'REAL_FREQ_NOISE_VISIBILITY' in extnames:
-                self.vis_noise_freq = hdulist['real_freq_noise_visibility'].data
-                if 'IMAG_FREQ_NOISE_VISIBILITY' in extnames:
-                    self.vis_noise_freq = self.vis_noise_freq.astype(NP.complex128)
-                    self.vis_noise_freq += 1j * hdulist['imag_freq_noise_visibility'].data
-            else:
-                raise KeyError('Extension named "REAL_FREQ_NOISE_VISIBILITY" not found in init_file.')
-
-            if 'REAL_LAG_VISIBILITY' in extnames:
-                self.vis_lag = hdulist['real_lag_visibility'].data
-                if 'IMAG_LAG_VISIBILITY' in extnames:
-                    self.vis_lag = self.vis_lag.astype(NP.complex128)
-                    self.vis_lag += 1j * hdulist['imag_lag_visibility'].data
-            else:
-                self.vis_lag = None
-
-            if 'REAL_LAG_SKY_VISIBILITY' in extnames:
-                self.skyvis_lag = hdulist['real_lag_sky_visibility'].data
-                if 'IMAG_LAG_SKY_VISIBILITY' in extnames:
-                    self.skyvis_lag = self.skyvis_lag.astype(NP.complex128)
-                    self.skyvis_lag += 1j * hdulist['imag_lag_sky_visibility'].data
-            else:
-                self.skyvis_lag = None
-
-            if 'REAL_LAG_NOISE_VISIBILITY' in extnames:
-                self.vis_noise_lag = hdulist['real_lag_noise_visibility'].data
-                if 'IMAG_LAG_NOISE_VISIBILITY' in extnames:
-                    self.vis_noise_lag = self.vis_noise_lag.astype(NP.complex128)
-                    self.vis_noise_lag += 1j * hdulist['imag_lag_noise_visibility'].data
-            else:
-                self.vis_noise_lag = None
-
-            hdulist.close()
+                        if key == 'instrument':
+                            if ('Trx' in grp) and ('Tant' in grp) and ('spindex' in grp) and ('Tnet' in grp):
+                                for ti in xrange(grp['Trx'].value.size):
+                                    tsysinfo = {}
+                                    tsysinfo['Trx'] = grp['Trx'].value[ti]
+                                    tsysinfo['Tant'] = {'Tant0': grp['Tant0'].value[ti], 'f0': grp['f0'].value[ti], 'spindex': grp['spindex'].value[ti]}
+                                    tsysinfo['Tnet'] = None
+                                    self.Tsysinfo += [tsysinfo]
+                            if 'Tsys' in grp:
+                                self.Tsys = grp['Tsys'].value
+                            else:
+                                raise KeyError('Key "Tsys" not found in init_file')
+                            if 'effective_area' in grp:
+                                self.A_eff = grp['effective_area'].value
+                            else:
+                                raise KeyError('Key "effective_area" not found in init_file')
+                            if 'efficiency' in grp:
+                                self.eff_Q = grp['efficiency'].value
+                            else:
+                                raise KeyError('Key "effeciency" not found in init_file')
+                            
+                        if key == 'array':
+                            if 'labels' in grp:
+                                self.labels = grp['labels'].value
+                            else:
+                                self.labels = ['B{0:0d}'.format(i+1) for i in range(self.baseline_lengths.size)]
+                            if 'baselines' in grp:
+                                self.baselines = grp['baselines'].value
+                                self.baseline_lengths = NP.sqrt(NP.sum(self.baselines**2, axis=1))
+                            else:
+                                raise KeyError('Key "baselines" not found in init_file')
+                            if 'baseline_coords' in grp:
+                                self.baseline_coords = grp['baseline_coords'].value
+                            else:
+                                self.baseline_coords = 'localenu'
+                            if 'projected_baselines' in grp:
+                                self.projected_baselines = grp['projected_baselines'].value
+                        if key == 'visibilities':
+                            if 'freq_spectrum' in grp:
+                                subgrp = grp['freq_spectrum']
+                                if 'rms' in subgrp:
+                                    self.vis_rms_freq = subgrp['rms'].value
+                                else:
+                                    raise KeyError('Key "rms" not found in init_file')
+                                if 'vis' in subgrp:
+                                    self.vis_freq = subgrp['vis'].value
+                                else:
+                                    raise KeyError('Key "vis" not found in init_file')
+                                if 'skyvis' in subgrp:
+                                    self.skyvis_freq = subgrp['skyvis'].value
+                                else:
+                                    raise KeyError('Key "skyvis" not found in init_file')
+                                if 'noise' in subgrp:
+                                    self.vis_noise_freq = subgrp['noise'].value
+                                else:
+                                    raise KeyError('Key "noise" not found in init_file')
+                            else:
+                                raise KeyError('Key "freq_spectrum" not found in init_file')
+                            if 'delay_spectrum' in grp:
+                                subgrp = grp['delay_spectrum']
+                                if 'vis' in subgrp:
+                                    self.vis_lag = subgrp['vis'].value
+                                if 'skyvis' in subgrp:
+                                    self.skyvis_lag = subgrp['skyvis'].value
+                                if 'noise' in subgrp:
+                                    self.vis_noise_lag = subgrp['noise'].value
+            except IOError: # Check if a FITS file is available
+                try:
+                    hdulist = fits.open(init_file+'.fits')
+                except IOError:
+                    argument_init = True
+                    print '\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...'
+    
+                extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,len(hdulist))]
+    
+                self.simparms_file = None
+                if 'simparms' in hdulist[0].header:
+                    if isinstance(hdulist[0].header['simparms'], str):
+                        self.simparms_file = hdulist[0].header['simparms']
+                    else:
+                        print '\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.'
+    
+                try:
+                    self.freq_resolution = hdulist[0].header['freq_resolution']
+                except KeyError:
+                    hdulist.close()
+                    raise KeyError('Keyword "freq_resolution" not found in header.')
+    
+                try:
+                    self.latitude = hdulist[0].header['latitude']
+                except KeyError:
+                    print '\tKeyword "latitude" not found in header. Assuming 34.0790 degrees for attribute latitude.'
+                    self.latitude = 34.0790
+    
+                try:
+                    self.longitude = hdulist[0].header['longitude']
+                except KeyError:
+                    print '\tKeyword "longitude" not found in header. Assuming 0.0 degrees for attribute longitude.'
+                    self.longitude = 0.0
+                    
+                self.telescope = {}
+                if 'telescope' in hdulist[0].header:
+                    self.telescope['id'] = hdulist[0].header['telescope']
+    
+                try:
+                    self.telescope['shape'] = hdulist[0].header['element_shape']
+                except KeyError:
+                    print '\tKeyword "element_shape" not found in header. Assuming "delta" for attribute antenna element shape.'
+                    self.telescope['shape'] = 'delta'
+    
+                try:
+                    self.telescope['size'] = hdulist[0].header['element_size']
+                except KeyError:
+                    print '\tKeyword "element_size" not found in header. Assuming 25.0m for attribute antenna element size.'
+                    self.telescope['size'] = 1.0
+    
+                try:
+                    self.telescope['ocoords'] = hdulist[0].header['element_ocoords']
+                except KeyError:
+                    raise KeyError('\tKeyword "element_ocoords" not found in header. No defaults.')
+    
+                try:
+                    self.telescope['groundplane'] = hdulist[0].header['groundplane']
+                except KeyError:
+                    self.telescope['groundplane'] = None
+    
+                if 'ANTENNA ELEMENT ORIENTATION' not in extnames:
+                    raise KeyError('No extension found containing information on element orientation.')
+                else:
+                    self.telescope['orientation'] = hdulist['ANTENNA ELEMENT ORIENTATION'].data.reshape(1,-1)
+    
+                try:
+                    self.baseline_coords = hdulist[0].header['baseline_coords']
+                except KeyError:
+                    print '\tKeyword "baseline_coords" not found in header. Assuming "localenu" for attribute baseline_coords.'
+                    self.baseline_coords = 'localenu'
+    
+                try:
+                    self.pointing_coords = hdulist[0].header['pointing_coords']
+                except KeyError:
+                    print '\tKeyword "pointing_coords" not found in header. Assuming "hadec" for attribute pointing_coords.'
+                    self.pointing_coords = 'hadec'
+    
+                try:
+                    self.phase_center_coords = hdulist[0].header['phase_center_coords']
+                except KeyError:
+                    print '\tKeyword "phase_center_coords" not found in header. Assuming "hadec" for attribute phase_center_coords.'
+                    self.phase_center_coords = 'hadec'
+    
+                try:
+                    self.skycoords = hdulist[0].header['skycoords']
+                except KeyError:
+                    print '\tKeyword "skycoords" not found in header. Assuming "radec" for attribute skycoords.'
+                    self.skycoords = 'radec'
+    
+                try:
+                    self.flux_unit = hdulist[0].header['flux_unit']
+                except KeyError:
+                    print '\tKeyword "flux_unit" not found in header. Assuming "jy" for attribute flux_unit.'
+                    self.flux_unit = 'JY'
+    
+                if 'POINTING AND PHASE CENTER INFO' not in extnames:
+                    raise KeyError('No extension table found containing pointing information.')
+                else:
+                    self.lst = hdulist['POINTING AND PHASE CENTER INFO'].data['LST'].tolist()
+                    self.pointing_center = NP.hstack((hdulist['POINTING AND PHASE CENTER INFO'].data['pointing_longitude'].reshape(-1,1), hdulist['POINTING AND PHASE CENTER INFO'].data['pointing_latitude'].reshape(-1,1)))
+                    self.phase_center = NP.hstack((hdulist['POINTING AND PHASE CENTER INFO'].data['phase_center_longitude'].reshape(-1,1), hdulist['POINTING AND PHASE CENTER INFO'].data['phase_center_latitude'].reshape(-1,1)))
+    
+                if 'TIMESTAMPS' in extnames:
+                    self.timestamp = hdulist['TIMESTAMPS'].data['timestamps'].tolist()
+                else:
+                    raise KeyError('Extension named "TIMESTAMPS" not found in init_file.')
+    
+                self.Tsysinfo = []
+                if 'TSYSINFO' in extnames:
+                    self.Tsysinfo = [{'Trx': elem['Trx'], 'Tant': {'T0': elem['Tant0'], 'f0': elem['f0'], 'spindex': elem['spindex']}, 'Tnet': None} for elem in hdulist['TSYSINFO'].data]
+    
+                if 'TSYS' in extnames:
+                    self.Tsys = hdulist['Tsys'].data
+                else:
+                    raise KeyError('Extension named "Tsys" not found in init_file.')
+    
+                if 'BASELINES' in extnames:
+                    self.baselines = hdulist['BASELINES'].data.reshape(-1,3)
+                    self.baseline_lengths = NP.sqrt(NP.sum(self.baselines**2, axis=1))
+                else:
+                    raise KeyError('Extension named "BASELINES" not found in init_file.')
+    
+                if 'PROJ_BASELINES' in extnames:
+                    self.projected_baselines = hdulist['PROJ_BASELINES'].data
+    
+                if 'LABELS' in extnames:
+                    # self.labels = hdulist['LABELS'].data.tolist()
+                    a1 = hdulist['LABELS'].data['A1']
+                    a2 = hdulist['LABELS'].data['A2']
+                    self.labels = zip(a2,a1)
+                else:
+                    self.labels = ['B{0:0d}'.format(i+1) for i in range(self.baseline_lengths.size)]
+    
+                if 'EFFECTIVE AREA' in extnames:
+                    self.A_eff = hdulist['EFFECTIVE AREA'].data
+                else:
+                    raise KeyError('Extension named "EFFECTIVE AREA" not found in init_file.')
+    
+                if 'INTERFEROMETER EFFICIENCY' in extnames:
+                    self.eff_Q = hdulist['INTERFEROMETER EFFICIENCY'].data
+                else:
+                    raise KeyError('Extension named "INTERFEROMETER EFFICIENCY" not found in init_file.')
+    
+                if 'SPECTRAL INFO' not in extnames:
+                    raise KeyError('No extension table found containing spectral information.')
+                else:
+                    self.channels = hdulist['SPECTRAL INFO'].data['frequency']
+                    try:
+                        self.lags = hdulist['SPECTRAL INFO'].data['lag']
+                    except KeyError:
+                        self.lags = None
+    
+                if 'BANDPASS' in extnames:
+                    self.bp = hdulist['BANDPASS'].data
+                else:
+                    raise KeyError('Extension named "BANDPASS" not found in init_file.')
+    
+                if 'BANDPASS_WEIGHTS' in extnames:
+                    self.bp_wts = hdulist['BANDPASS_WEIGHTS'].data
+                else:
+                    self.bp_wts = NP.ones_like(self.bp)
+    
+                if 'T_ACC' in extnames:
+                    self.t_acc = hdulist['t_acc'].data.tolist()
+                    self.n_acc = len(self.t_acc)
+                    self.t_obs = sum(self.t_acc)
+                else:
+                    raise KeyError('Extension named "T_ACC" not found in init_file.')
+                
+                if 'FREQ_CHANNEL_NOISE_RMS_VISIBILITY' in extnames:
+                    self.vis_rms_freq = hdulist['freq_channel_noise_rms_visibility'].data
+                else:
+                    raise KeyError('Extension named "FREQ_CHANNEL_NOISE_RMS_VISIBILITY" not found in init_file.')
+    
+                if 'REAL_FREQ_OBS_VISIBILITY' in extnames:
+                    self.vis_freq = hdulist['real_freq_obs_visibility'].data
+                    if 'IMAG_FREQ_OBS_VISIBILITY' in extnames:
+                        self.vis_freq = self.vis_freq.astype(NP.complex128)
+                        self.vis_freq += 1j * hdulist['imag_freq_obs_visibility'].data
+                else:
+                    raise KeyError('Extension named "REAL_FREQ_OBS_VISIBILITY" not found in init_file.')
+    
+                if 'REAL_FREQ_SKY_VISIBILITY' in extnames:
+                    self.skyvis_freq = hdulist['real_freq_sky_visibility'].data
+                    if 'IMAG_FREQ_SKY_VISIBILITY' in extnames:
+                        self.skyvis_freq = self.skyvis_freq.astype(NP.complex128)
+                        self.skyvis_freq += 1j * hdulist['imag_freq_sky_visibility'].data
+                else:
+                    raise KeyError('Extension named "REAL_FREQ_SKY_VISIBILITY" not found in init_file.')
+    
+                if 'REAL_FREQ_NOISE_VISIBILITY' in extnames:
+                    self.vis_noise_freq = hdulist['real_freq_noise_visibility'].data
+                    if 'IMAG_FREQ_NOISE_VISIBILITY' in extnames:
+                        self.vis_noise_freq = self.vis_noise_freq.astype(NP.complex128)
+                        self.vis_noise_freq += 1j * hdulist['imag_freq_noise_visibility'].data
+                else:
+                    raise KeyError('Extension named "REAL_FREQ_NOISE_VISIBILITY" not found in init_file.')
+    
+                if 'REAL_LAG_VISIBILITY' in extnames:
+                    self.vis_lag = hdulist['real_lag_visibility'].data
+                    if 'IMAG_LAG_VISIBILITY' in extnames:
+                        self.vis_lag = self.vis_lag.astype(NP.complex128)
+                        self.vis_lag += 1j * hdulist['imag_lag_visibility'].data
+                else:
+                    self.vis_lag = None
+    
+                if 'REAL_LAG_SKY_VISIBILITY' in extnames:
+                    self.skyvis_lag = hdulist['real_lag_sky_visibility'].data
+                    if 'IMAG_LAG_SKY_VISIBILITY' in extnames:
+                        self.skyvis_lag = self.skyvis_lag.astype(NP.complex128)
+                        self.skyvis_lag += 1j * hdulist['imag_lag_sky_visibility'].data
+                else:
+                    self.skyvis_lag = None
+    
+                if 'REAL_LAG_NOISE_VISIBILITY' in extnames:
+                    self.vis_noise_lag = hdulist['real_lag_noise_visibility'].data
+                    if 'IMAG_LAG_NOISE_VISIBILITY' in extnames:
+                        self.vis_noise_lag = self.vis_noise_lag.astype(NP.complex128)
+                        self.vis_noise_lag += 1j * hdulist['imag_lag_noise_visibility'].data
+                else:
+                    self.vis_noise_lag = None
+    
+                hdulist.close()
             init_file_success = True
             return
         else:
@@ -3708,6 +3861,8 @@ class InterferometerArray(object):
             hdulist[0].header['skycoords'] = (self.skycoords, 'Sky coordinate system')
             if 'id' in self.telescope:
                 hdulist[0].header['telescope'] = (self.telescope['id'], 'Telescope Name')
+            if self.telescope['groundplane'] is not None:
+                hdulist[0].header['groundplane'] = (self.telescope['groundplane'], 'Ground plane height')
             if self.simparms_file is not None:
                 hdulist[0].header['simparms'] = (self.simparms_file, 'YAML file with simulation parameters')
             hdulist[0].header['element_shape'] = (self.telescope['shape'], 'Antenna element shape')
@@ -3894,7 +4049,6 @@ class InterferometerArray(object):
                 tlscp_group['longitude'] = self.longitude
                 tlscp_group['latitude'].attrs['units'] = 'deg'
                 tlscp_group['longitude'].attrs['units'] = 'deg'
-                tlscp_group['baseline_coords'] = self.baseline_coords
                 if 'id' in self.telescope:
                     tlscp_group['id'] = self.telescope['id']
                 spec_group = fileobj.create_group('spectral_info')
@@ -3909,7 +4063,7 @@ class InterferometerArray(object):
                 spec_group['bp_wts'] = self.bp_wts
                 if self.simparms_file is not None:
                     sim_group = fileobj.create_group('simparms')
-                    sim_group['simparms'] = self.simparms_file
+                    sim_group['simfile'] = self.simparms_file
                 antelem_group = fileobj.create_group('antenna_element')
                 antelem_group['shape'] = self.telescope['shape']
                 antelem_group['size'] = self.telescope['size']
@@ -3918,6 +4072,9 @@ class InterferometerArray(object):
                 antelem_group['orientation'] = self.telescope['orientation']
                 if self.telescope['ocoords'] != 'dircos':
                     antelem_group['orientation'].attrs['units'] = 'deg'
+                if 'groundplane' in self.telescope:
+                    if self.telescope['groundplane'] is not None:
+                        antelem_group['groundplane'] = self.telescope['groundplane']
                 timing_group = fileobj.create_group('timing')
                 timing_group['t_obs'] = self.t_obs
                 timing_group['n_acc'] = self.n_acc
@@ -3938,6 +4095,7 @@ class InterferometerArray(object):
                 labels = NP.asarray(self.labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
                 array_group['labels'] = labels
                 array_group['baselines'] = self.baselines
+                array_group['baseline_coords'] = self.baseline_coords
                 array_group['baselines'].attrs['coords'] = 'local-ENU'
                 array_group['baselines'].attrs['units'] = 'm'
                 array_group['projected_baselines'] = self.baselines
@@ -3981,7 +4139,6 @@ class InterferometerArray(object):
                 if self.vis_noise_lag is not None:
                     vislags_group['noise'] = self.vis_noise_lag
                     vislags_group['noise'].attrs['units'] = 'Jy Hz'
-
         if verbose:
             print '\tInterferometer array information written successfully to file on disk:\n\t\t{0}\n'.format(filename)
 
