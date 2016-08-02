@@ -1,3 +1,19 @@
+From d177cb4 (cube):
+===================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Replace input parameter names HI_cube and HI_fluctuations with
+cube and fluctuations respectively to make them generic. Update
+their descriptions accordingly
+
+In scripts/run_prisim.py,
+
+(*) Replace internally variables containing HI_cube and
+HI_fluctuations with cube and fluctuations respectively. See
+corresponding changes in prisim/examples/simparms/defaultparms.yaml
+(*) Remove commented lines
+
 From 0199fed (master):
 =====================
 

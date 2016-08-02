@@ -194,8 +194,6 @@ spindex = parms['fgparm']['spindex']
 spindex_rms = parms['fgparm']['spindex_rms']
 spindex_seed = parms['fgparm']['spindex_seed']
 cube_id = parms['fgparm']['cube_identifier']
-# use_lidz = parms['fgparm']['lidz']
-# use_21cmfast = parms['fgparm']['21cmfast']
 global_HI_parms = parms['fgparm']['global_EoR_parms']
 catalog_filepathtype = parms['catalog']['filepathtype']
 DSM_file_prefix = parms['catalog']['DSM_file_prefix']
@@ -692,10 +690,10 @@ use_MSS = False
 use_custom = False
 use_NVSS = False
 use_HI_monopole = False
-use_HI_cube = False
-use_HI_fluctuations = False
+use_cube = False
+use_fluctuations = False
 
-if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations']:
+if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'mss', 'cube', 'HI_monopole', 'fluctuations']:
     raise ValueError('Invalid foreground model string specified.')
 
 if fg_str == 'asm':
@@ -716,10 +714,10 @@ elif fg_str == 'usm':
     use_USM = True
 elif fg_str == 'HI_monopole':
     use_HI_monopole = True
-elif fg_str == 'HI_fluctuations':
-    use_HI_fluctuations = True
-elif fg_str == 'HI_cube':
-    use_HI_cube = True
+elif fg_str == 'fluctuations':
+    use_fluctuations = True
+elif fg_str == 'cube':
+    use_cube = True
 
 if global_HI_parms is not None:
     try:
@@ -956,24 +954,6 @@ if not isinstance(n_sky_sectors, int):
 elif (n_sky_sectors < 1):
     n_sky_sectors = 1
 
-# if use_HI_cube:
-#     if not isinstance(use_lidz, bool):
-#         raise TypeError('Parameter specifying use of Lidz simulations must be Boolean')
-#     if not isinstance(use_21cmfast, bool):
-#         raise TypeError('Parameter specifying use of 21cmfast simulations must be Boolean')
-    
-# if use_HI_monopole or use_HI_fluctuations or use_HI_cube:
-#     if use_lidz and use_21cmfast:
-#         raise ValueError('Only one of Adam Lidz or 21CMFAST simulations can be chosen')
-#     if not use_lidz and not use_21cmfast:
-#         use_lidz = True
-#         use_21cmfast = False
-#         eor_simfile = rootdir+'EoR_simulations/Adam_Lidz/Boom_tiles/hpxcube_138.915-195.235_MHz_80.0_kHz_nside_{0:0d}.fits'.format(nside)
-#     elif use_lidz:
-#         eor_simfile = rootdir+'EoR_simulations/Adam_Lidz/Boom_tiles/hpxcube_138.915-195.235_MHz_80.0_kHz_nside_{0:0d}.fits'.format(nside)
-#     elif use_21cmfast:
-#         pass
-
 spindex_rms_str = ''
 spindex_seed_str = ''
 if not isinstance(spindex_rms, (int,float)):
@@ -988,7 +968,7 @@ if spindex_seed is not None:
         raise TypeError('Spectral index random seed must be a scalar')
     spindex_seed_str = '{0:0d}_'.format(spindex_seed)
 
-if use_HI_fluctuations or use_HI_cube:
+if use_fluctuations or use_cube:
     # if freq_resolution != 80e3:
     #     raise ValueError('Currently frequency resolution can only be set to 80 kHz')
 
@@ -1016,16 +996,8 @@ if use_HI_fluctuations or use_HI_cube:
             else:
                 temperatures = NP.hstack((temperatures, hdulist[ind_cube_freq[i]+1].data['Temperature'].reshape(-1,1)))
 
-    if use_HI_fluctuations:
+    if use_fluctuations:
         temperatures = temperatures - NP.mean(temperatures, axis=0, keepdims=True)
-
-    # if use_HI_monopole:
-    #     shp_temp = temperatures.shape
-    #     temperatures = NP.mean(temperatures, axis=0, keepdims=True) + NP.zeros(shp_temp)
-    #     fg_str = 'HI_monopole'
-    # elif use_HI_fluctuations:
-    #     temperatures = temperatures - NP.mean(temperatures, axis=0, keepdims=True)
-    #     fg_str = 'HI_fluctuations'
 
     pixres = hdulist['PRIMARY'].header['PIXAREA']
     coords_table = hdulist['COORDINATE'].data
@@ -2035,7 +2007,7 @@ if rank == 0:
 
     # skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel.txt'
     skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel'
-    if fg_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:
+    if fg_str not in ['cube', 'fluctuations', 'HI_monopole', 'usm']:
         skymod.save(skymod_file, fileformat='hdf5')
         # skymod.save(skymod_file, fileformat='ascii')
             

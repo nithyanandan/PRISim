@@ -467,10 +467,11 @@ fgparm   :
                                 # 'gleam' (GLEAM catalog), 'custom' (user-
                                 # defined catalog), 'usm' (uniform
                                 # sky model), 'mwacs' (MWACS catalog),
-                                # 'HI_monopole' (global EoR), HI_cube
-                                # (HI cube from external simulations), 
-                                # and'HI_fluctuations' (HI fluctuations
-                                # with the global mean signal removed)
+                                # 'HI_monopole' (global EoR), cube
+                                # (cube from external sources), 
+                                # and 'fluctuations' (fluctuations in
+                                # cube with the global mean signal
+                                # removed)
 
     epoch           : '2000'
                                 # Epoch of the coordinates of the
