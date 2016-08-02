@@ -1,3 +1,10 @@
+From fce637a (cube):
+===================
+
+In scripts/run_prisim.py,
+
+(*) Comment out unused lines assigning the variable fgmod
+
 From 0c565e6 (cube):
 ===================
 
