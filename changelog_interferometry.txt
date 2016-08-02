@@ -1,3 +1,23 @@
+From 0199fed (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add parameter cube_identifier under foreground model parameters
+(*) Remove parameters lidz and 21cmfast under foreground model
+parameters
+(*) Add parameter cube_file under foreground catalogs parameters
+
+In scripts/run_prisim.py,
+
+(*) Make changes to include and simulate a generic cube. See
+corresponding changes in prisim/examples/simparms/defaultparms.yaml
+(*) Use unit conversion depending on input parameter flux_unit
+(*) Comment out references to use_lidz and use_21cmfast
+(*) Make internal changes to variable names such as eor_simfile to
+cube_file, eor_simfreq to cube_freq, eor_freq_resolution to
+cube_freq_resolution, *_EoR to *_cube, etc.
+
 From 5b719e4 (master):
 =====================
 

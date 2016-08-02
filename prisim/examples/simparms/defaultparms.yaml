@@ -477,7 +477,7 @@ fgparm   :
                                 # foreground model or EoR signal
 
     nside           : 256
-                                # Healpix nside parameter for foreground
+                                # Healpix nside parameter for sky
                                 # model input map. Accepted values are
                                 # valid nside values
 
@@ -498,15 +498,9 @@ fgparm   :
                                 # Random seed for generation of random
                                 # spectral indices
 
-    lidz            : true
-                                # Use simulations of Adam Lidz. Only
-                                # one of lidz or 21cmfast can be set
-                                # to true
-
-    21cmfast        : false
-                                # Use 21CMFAST simulations of Andrei
-                                # Mesinger. Only one of lidz or
-                                # 21cmfast can be set to true
+    cube_identifier : 'ID'
+                                # Any user-specified unique identifier
+                                # for the cube. e.g. '21cmfast', 'Lidz'
 
     global_EoR_parms: [0.027, 150e6, 1.0] 
                                 # Parameters defining the global EoR
@@ -551,11 +545,17 @@ catalog  :
                       # '/path/to/GLEAMcatalogFile.fits'
                                 # GLEAM catalog file
 
-    custom_file         : 'custom_catalog.txt'
+    custom_file     : 'custom_catalog.txt'
                       # '/path/to/custom_catalog.txt'
                                 # User defined catalog. See
                                 # prisim/data/catalogs/custom_catalog.txt
                                 # for file format
+
+    cube_file       : 'cube.fits'
+                      # '/path/to/cube.fits'
+                                # User defined external cube to
+                                # simulate. File format currently
+                                # vague but need to finalize
 
 ########## Processing setup ##########
 

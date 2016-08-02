@@ -193,8 +193,9 @@ flux_unit = parms['fgparm']['flux_unit']
 spindex = parms['fgparm']['spindex']
 spindex_rms = parms['fgparm']['spindex_rms']
 spindex_seed = parms['fgparm']['spindex_seed']
-use_lidz = parms['fgparm']['lidz']
-use_21cmfast = parms['fgparm']['21cmfast']
+cube_id = parms['fgparm']['cube_identifier']
+# use_lidz = parms['fgparm']['lidz']
+# use_21cmfast = parms['fgparm']['21cmfast']
 global_HI_parms = parms['fgparm']['global_EoR_parms']
 catalog_filepathtype = parms['catalog']['filepathtype']
 DSM_file_prefix = parms['catalog']['DSM_file_prefix']
@@ -203,6 +204,7 @@ NVSS_file = parms['catalog']['NVSS_file']
 MWACS_file = parms['catalog']['MWACS_file']
 GLEAM_file = parms['catalog']['GLEAM_file']
 custom_catalog_file = parms['catalog']['custom_file']
+cube_file = parms['catalog']['cube_file']
 if catalog_filepathtype == 'default':
     DSM_file_prefix = prisim_path + 'data/catalogs/' + DSM_file_prefix
     SUMSS_file = prisim_path + 'data/catalogs/' + SUMSS_file
@@ -210,6 +212,7 @@ if catalog_filepathtype == 'default':
     MWACS_file = prisim_path + 'data/catalogs/' + MWACS_file
     GLEAM_file = prisim_path + 'data/catalogs/' + GLEAM_file
     custom_catalog_file = prisim_path + 'data/catalogs/' + custom_catalog_file
+    cube_file = prisim_path + 'data/catalogs/' + cube_file
 pc = parms['phasing']['center']
 pc_coords = parms['phasing']['coords']
 mpi_key = parms['pp']['key']
@@ -953,23 +956,23 @@ if not isinstance(n_sky_sectors, int):
 elif (n_sky_sectors < 1):
     n_sky_sectors = 1
 
-if use_HI_cube:
-    if not isinstance(use_lidz, bool):
-        raise TypeError('Parameter specifying use of Lidz simulations must be Boolean')
-    if not isinstance(use_21cmfast, bool):
-        raise TypeError('Parameter specifying use of 21cmfast simulations must be Boolean')
+# if use_HI_cube:
+#     if not isinstance(use_lidz, bool):
+#         raise TypeError('Parameter specifying use of Lidz simulations must be Boolean')
+#     if not isinstance(use_21cmfast, bool):
+#         raise TypeError('Parameter specifying use of 21cmfast simulations must be Boolean')
     
-if use_HI_monopole or use_HI_fluctuations or use_HI_cube:
-    if use_lidz and use_21cmfast:
-        raise ValueError('Only one of Adam Lidz or 21CMFAST simulations can be chosen')
-    if not use_lidz and not use_21cmfast:
-        use_lidz = True
-        use_21cmfast = False
-        eor_simfile = rootdir+'EoR_simulations/Adam_Lidz/Boom_tiles/hpxcube_138.915-195.235_MHz_80.0_kHz_nside_{0:0d}.fits'.format(nside)
-    elif use_lidz:
-        eor_simfile = rootdir+'EoR_simulations/Adam_Lidz/Boom_tiles/hpxcube_138.915-195.235_MHz_80.0_kHz_nside_{0:0d}.fits'.format(nside)
-    elif use_21cmfast:
-        pass
+# if use_HI_monopole or use_HI_fluctuations or use_HI_cube:
+#     if use_lidz and use_21cmfast:
+#         raise ValueError('Only one of Adam Lidz or 21CMFAST simulations can be chosen')
+#     if not use_lidz and not use_21cmfast:
+#         use_lidz = True
+#         use_21cmfast = False
+#         eor_simfile = rootdir+'EoR_simulations/Adam_Lidz/Boom_tiles/hpxcube_138.915-195.235_MHz_80.0_kHz_nside_{0:0d}.fits'.format(nside)
+#     elif use_lidz:
+#         eor_simfile = rootdir+'EoR_simulations/Adam_Lidz/Boom_tiles/hpxcube_138.915-195.235_MHz_80.0_kHz_nside_{0:0d}.fits'.format(nside)
+#     elif use_21cmfast:
+#         pass
 
 spindex_rms_str = ''
 spindex_seed_str = ''
@@ -989,29 +992,29 @@ if use_HI_fluctuations or use_HI_cube:
     # if freq_resolution != 80e3:
     #     raise ValueError('Currently frequency resolution can only be set to 80 kHz')
 
-    hdulist = fits.open(eor_simfile)
+    hdulist = fits.open(cube_file)
     nexten = hdulist['PRIMARY'].header['NEXTEN']
     fitstype = hdulist['PRIMARY'].header['FITSTYPE']
     temperatures = None
     extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,nexten+1)]
     if fitstype == 'IMAGE':
-        eor_simfreq = hdulist['FREQUENCY'].data['Frequency [MHz]']
+        cube_freq = hdulist['FREQUENCY'].data['Frequency [MHz]']
     else:
-        eor_simfreq = [float(extname.split(' ')[0]) for extname in extnames]
-        eor_simfreq = NP.asarray(eor_simfreq)
+        cube_freq = [float(extname.split(' ')[0]) for extname in extnames]
+        cube_freq = NP.asarray(cube_freq)
 
-    eor_freq_resolution = eor_simfreq[1] - eor_simfreq[0]
-    ind_chans, ind_eor_simfreq, dfrequency = LKP.find_1NN(eor_simfreq.reshape(-1,1), 1e3*chans.reshape(-1,1), distance_ULIM=0.5*eor_freq_resolution, remove_oob=True)
+    cube_freq_resolution = cube_freq[1] - cube_freq[0]
+    ind_chans, ind_cube_freq, dfrequency = LKP.find_1NN(cube_freq.reshape(-1,1), 1e3*chans.reshape(-1,1), distance_ULIM=0.5*cube_freq_resolution, remove_oob=True)
 
-    eor_simfreq = eor_simfreq[ind_eor_simfreq]
+    cube_freq = cube_freq[ind_cube_freq]
     if fitstype == 'IMAGE':
-        temperatures = hdulist['TEMPERATURE'].data[:,ind_eor_simfreq]
+        temperatures = hdulist['TEMPERATURE'].data[:,ind_cube_freq]
     else:
-        for i in xrange(eor_simfreq.size):
+        for i in xrange(cube_freq.size):
             if i == 0:
-                temperatures = hdulist[ind_eor_simfreq[i]+1].data['Temperature'].reshape(-1,1)
+                temperatures = hdulist[ind_cube_freq[i]+1].data['Temperature'].reshape(-1,1)
             else:
-                temperatures = NP.hstack((temperatures, hdulist[ind_eor_simfreq[i]+1].data['Temperature'].reshape(-1,1)))
+                temperatures = NP.hstack((temperatures, hdulist[ind_cube_freq[i]+1].data['Temperature'].reshape(-1,1)))
 
     if use_HI_fluctuations:
         temperatures = temperatures - NP.mean(temperatures, axis=0, keepdims=True)
@@ -1026,19 +1029,22 @@ if use_HI_fluctuations or use_HI_cube:
 
     pixres = hdulist['PRIMARY'].header['PIXAREA']
     coords_table = hdulist['COORDINATE'].data
-    ra_deg_EoR = coords_table['RA']
-    dec_deg_EoR = coords_table['DEC']
-    fluxes_EoR = temperatures * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
-    freq_EoR = freq/1e9
+    ra_deg_cube = coords_table['RA']
+    dec_deg_cube = coords_table['DEC']
+    if flux_unit == 'K':
+        fluxes_cube = temperatures * (2.0 * FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
+    else:
+        fluxes_cube = temperatures
+    freq_cube = freq/1e9
     hdulist.close()
 
     flux_unit = 'Jy'
-    catlabel = 'HI-cube'
+    catlabel = cube_id+'-cube'
     spec_type = 'spectrum'
     spec_parms = {}
-    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'spectrum': fluxes_EoR}
+    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg_cube.reshape(-1,1), dec_deg_cube.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'spectrum': fluxes_cube}
 
-    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), spec_type, spectrum=fluxes_EoR, spec_parms=None)
+    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg_cube.reshape(-1,1), dec_deg_cube.reshape(-1,1))), spec_type, spectrum=fluxes_cube, spec_parms=None)
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 elif use_HI_monopole:
 
