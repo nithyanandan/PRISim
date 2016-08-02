@@ -186,15 +186,15 @@ flag_chan = NP.asarray(parms['flags']['flag_chan']).reshape(-1)
 bp_flag_repeat = parms['flags']['bp_flag_repeat']
 n_edge_flag = NP.asarray(parms['flags']['n_edge_flag']).reshape(-1)
 flag_repeat_edge_channels = parms['flags']['flag_repeat_edge_channels']
-fg_str = parms['fgparm']['model']
-fgcat_epoch = parms['fgparm']['epoch']
-nside = parms['fgparm']['nside']
-flux_unit = parms['fgparm']['flux_unit']
-spindex = parms['fgparm']['spindex']
-spindex_rms = parms['fgparm']['spindex_rms']
-spindex_seed = parms['fgparm']['spindex_seed']
-cube_id = parms['fgparm']['cube_identifier']
-global_HI_parms = parms['fgparm']['global_EoR_parms']
+skymod_str = parms['skyparm']['model']
+skymod_epoch = parms['skyparm']['epoch']
+nside = parms['skyparm']['nside']
+flux_unit = parms['skyparm']['flux_unit']
+spindex = parms['skyparm']['spindex']
+spindex_rms = parms['skyparm']['spindex_rms']
+spindex_seed = parms['skyparm']['spindex_seed']
+cube_id = parms['skyparm']['cube_identifier']
+global_HI_parms = parms['skyparm']['global_EoR_parms']
 catalog_filepathtype = parms['catalog']['filepathtype']
 DSM_file_prefix = parms['catalog']['DSM_file_prefix']
 SUMSS_file = parms['catalog']['SUMSS_file']
@@ -630,12 +630,12 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     obsrvr = EP.Observer()
     obsrvr.lat = NP.radians(latitude)
     obsrvr.lon = NP.radians(longitude)
-    obsrvr.date = fgcat_epoch
+    obsrvr.date = skymod_epoch
 
     lstobj.compute(obsrvr)
-    lst_init_fgcat_epoch = NP.degrees(lstobj.ra) / 15.0 # LST (hours) in epoch of foreground catalog
-    # lst = (lst_init_fgcat_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 # in degrees at the epoch of the foreground catalog
-    lst = (lst_init_fgcat_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 / sday # in degrees at the epoch of the foreground catalog    
+    lst_init_skymod_epoch = NP.degrees(lstobj.ra) / 15.0 # LST (hours) in epoch of sky catalog
+    # lst = (lst_init_skymod_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 # in degrees at the epoch of the sky catalog
+    lst = (lst_init_skymod_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 / sday # in degrees at the epoch of the sky catalog    
     t_acc = t_acc + NP.zeros(n_acc)
     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
@@ -693,30 +693,30 @@ use_HI_monopole = False
 use_cube = False
 use_fluctuations = False
 
-if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'mss', 'cube', 'HI_monopole', 'fluctuations']:
-    raise ValueError('Invalid foreground model string specified.')
+if skymod_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'mss', 'cube', 'HI_monopole', 'fluctuations']:
+    raise ValueError('Invalid sky model string specified.')
 
-if fg_str == 'asm':
+if skymod_str == 'asm':
     use_GSM = True
-elif fg_str == 'dsm':
+elif skymod_str == 'dsm':
     use_DSM = True
-elif fg_str == 'csm':
+elif skymod_str == 'csm':
     use_CSM = True
-elif fg_str == 'sumss':
+elif skymod_str == 'sumss':
     use_SUMSS = True
-elif fg_str == 'gleam':
+elif skymod_str == 'gleam':
     use_GLEAM = True
-elif fg_str == 'custom':
+elif skymod_str == 'custom':
     use_custom = True
-elif fg_str == 'nvss':
+elif skymod_str == 'nvss':
     use_NVSS = True
-elif fg_str == 'usm':
+elif skymod_str == 'usm':
     use_USM = True
-elif fg_str == 'HI_monopole':
+elif skymod_str == 'HI_monopole':
     use_HI_monopole = True
-elif fg_str == 'fluctuations':
+elif skymod_str == 'fluctuations':
     use_fluctuations = True
-elif fg_str == 'cube':
+elif skymod_str == 'cube':
     use_cube = True
 
 if global_HI_parms is not None:
@@ -2007,7 +2007,7 @@ if rank == 0:
 
     # skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel.txt'
     skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel'
-    if fg_str not in ['cube', 'fluctuations', 'HI_monopole', 'usm']:
+    if skymod_str not in ['cube', 'fluctuations', 'HI_monopole', 'usm']:
         skymod.save(skymod_file, fileformat='hdf5')
         # skymod.save(skymod_file, fileformat='ascii')
             

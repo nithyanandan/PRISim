@@ -453,12 +453,12 @@ snapshot :                      # Parameters below are mutually
                                 # Consider all snapshots if set to
                                 # true. Default = false
 
-######### Foreground model ##########
+######### Sky model ##########
 
-fgparm   :
+skyparm   :
 
     model           : 'csm'
-                                # Foreground model. Accepted values
+                                # Sky model. Accepted values
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both
                                 # point sources and diffuse emission),
@@ -475,7 +475,7 @@ fgparm   :
 
     epoch           : '2000'
                                 # Epoch of the coordinates of the
-                                # foreground model or EoR signal
+                                # sky model to be simualted
 
     nside           : 256
                                 # Healpix nside parameter for sky
@@ -511,7 +511,7 @@ fgparm   :
                                 # x_i=0.5, and characteristic redshift
                                 # width for tanh() function
                                
-######### Foreground Catalogs #########
+######### Sky Model Catalogs #########
 
 catalog  :
 

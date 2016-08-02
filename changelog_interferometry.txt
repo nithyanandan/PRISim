@@ -1,3 +1,16 @@
+From 0c565e6 (cube):
+===================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Replace "foreground" model and its parameters with "sky" model
+
+In scripts/run_prisim.py,
+
+(*) Replace 'fgparm' with 'skyparm', 'fg_str' with 'skymod_str',
+'fgcat_epoch' with 'skymod_epoch' and make any references to
+foreground generically as sky
+
 From d177cb4 (cube):
 ===================
 
