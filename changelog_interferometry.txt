@@ -1,3 +1,10 @@
+From 0199fed (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Add type, value checking for some input parameters
+
 From 5b719e4 (master):
 =====================
 

@@ -59,6 +59,7 @@ telescope:
                                 # -30.7224 for HERA, PAPER
                                 # 34.079 for VLA,
                                 # 19.0965 for GMRT
+                                # -26.82472208 for SKA low
 
     longitude       : +21.4278
                                 # Longitude of observatory (in degrees)
@@ -66,7 +67,8 @@ telescope:
                                 # corresponding to GMT.
                                 # -107.6184 for VLA, +116.670815 for MWA
                                 # +21.4278 for PAPER and HERA,
-                                # +74.0497 for GMRT
+                                # +74.0497 for GMRT,
+                                # +116.7644482 for SKA-Low
 
     A_eff           : 154
                                 # Effective area of antenna element
@@ -238,6 +240,10 @@ beam    :
                                 # folder prisim/data/beams/
                                 # If set to 'custom' then the full path
                                 # to the file must be specified
+
+    filefmt         : 'HDF5'
+                                # File format for external beam file.
+                                # Accepted values are 'HDF5' and 'FITS'
 
     identifier      : 'HERA-CST'
                                 # string to identify source of beam

@@ -111,8 +111,13 @@ if longitude is None:
 pfb_method = parms['bandpass']['pfb_method']
 pfb_filepath = parms['bandpass']['pfb_filepath']
 pfb_file = parms['bandpass']['pfb_file']
-if pfb_filepath == 'default':
-    pfb_file = prisim_path + 'data/bandpass/'+pfb_file
+if pfb_method is not None:
+    if pfb_method not in ['theoretical', 'empirical']:
+        raise ValueError('Value specified for pfb_method is not one of accepted values')
+    if not isinstance(pfb_file, str):
+        raise TypeError('Filename containing PFB information must be a string')
+    if pfb_filepath == 'default':
+        pfb_file = prisim_path + 'data/bandpass/'+pfb_file
 element_shape = parms['antenna']['shape']
 element_size = parms['antenna']['size']
 element_ocoords = parms['antenna']['ocoords']
@@ -120,8 +125,11 @@ element_orientation = parms['antenna']['orientation']
 ground_plane = parms['antenna']['ground_plane']
 phased_array = parms['antenna']['phased_array']
 phased_elements_file = parms['phasedarray']['file']
-if parms['phasedarray']['filepathtype'] == 'default':
-    phased_elements_file = prisim_path+'data/phasedarray_layouts/'+phased_elements_file
+if phased_array:
+    if not isinstance(phased_elements_file, str):
+        raise TypeError('Filename containing phased array elements must be a string')
+    if parms['phasedarray']['filepathtype'] == 'default':
+        phased_elements_file = prisim_path+'data/phasedarray_layouts/'+phased_elements_file
 delayerr = parms['phasedarray']['delayerr']
 gainerr = parms['phasedarray']['gainerr']
 nrand = parms['phasedarray']['nrand']
@@ -144,9 +152,15 @@ timeformat = parms['obsparm']['timeformat']
 beam_info = parms['beam']
 use_external_beam = beam_info['use_external']
 if use_external_beam:
+    if not isinstance(beam_info['file'], str):
+        raise TypeError('Filename containing external beam information must be a string')
     external_beam_file = beam_info['file']
     if beam_info['filepathtype'] == 'default':
         external_beam_file = prisim_path+'data/beams/'+external_beam_file
+    if beam_info['filefmt'] in ['HDF5', 'hdf5', 'fits', 'FITS']:
+        beam_filefmt = beam_info['filefmt']
+    else:
+        raise ValueError('Invalid beam file format specified')
     beam_pol = beam_info['pol']
     beam_id = beam_info['identifier']
     select_beam_freq = beam_info['select_freq']
