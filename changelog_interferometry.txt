@@ -1,3 +1,24 @@
+From e2ac156 (master):
+=====================
+
+In prisim/data/array_layouts/ folder,
+
+(*) Change header of ascii file
+MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt
+slightly
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add option to indicate if redundancy is present in the array
+layout
+(*) Add options to parse the antenna array layout file which
+can now read more generic ascii formats
+
+In scripts/run_prisim.py,
+
+(*) Add options to check for redundancy in array layout
+(*) Add options to read generic ascii formats for array layout files
+
 From 0199fed (master):
 =====================
 

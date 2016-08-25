@@ -133,6 +133,9 @@ if phased_array:
 delayerr = parms['phasedarray']['delayerr']
 gainerr = parms['phasedarray']['gainerr']
 nrand = parms['phasedarray']['nrand']
+array_is_redundant = parms['array']['redundant']
+if not isinstance(array_is_redundant, bool):
+    raise TypeError('Parameter specifying array redundancy must be a boolean value')
 antenna_file = parms['array']['file']
 array_layout = parms['array']['layout']
 minR = parms['array']['minR']
@@ -409,13 +412,100 @@ if (antenna_file is None) and (array_layout is None):
 if (antenna_file is not None) and (array_layout is not None):
     raise ValueError('Only one of antenna array file or layout must be specified')
 
-if antenna_file is not None: 
+if antenna_file is not None:
+    if not isinstance(antenna_file, str):
+        raise TypeError('Filename containing antenna array elements must be a string')
+    if parms['array']['filepathtype'] == 'default':
+        antenna_file = prisim_path+'data/array_layouts/'+antenna_file
+    
+    antfile_parser = parms['array']['parser']
+    if 'comment' in antfile_parser:
+        comment = antfile_parser['comment']
+        if comment is None:
+            comment = '#'
+        elif not isinstance(comment, str):
+            raise TypeError('Comment expression must be a string')
+    else:
+        comment = '#'
+    if 'delimiter' in antfile_parser:
+        delimiter = antfile_parser['delimiter']
+        if delimiter is not None:
+            if not isinstance(delimiter, str):
+                raise TypeError('Delimiter expression must be a string')
+        else:
+            delimiter = ' '
+    else:
+        delimiter = ' '
+
+    if 'data_start' in antfile_parser:
+        data_start = antfile_parser['data_start']
+        if not isinstance(data_start, int):
+            raise TypeError('data_start parameter must be an integer')
+    else:
+        raise KeyError('data_start parameter not provided')
+    if 'data_end' in antfile_parser:
+        data_end = antfile_parser['data_end']
+        if data_end is not None:
+            if not isinstance(data_end, int):
+                raise TypeError('data_end parameter must be an integer')
+    else:
+        data_end = None
+    if 'header_start' in antfile_parser:
+        header_start = antfile_parser['header_start']
+        if not isinstance(header_start, int):
+            raise TypeError('header_start parameter must be an integer')
+    else:
+        raise KeyError('header_start parameter not provided')
+
+    if 'label' not in antfile_parser:
+        antfile_parser['label'] = None
+    elif antfile_parser['label'] is not None:
+        antfile_parser['label'] = str(antfile_parser['label'])
+
+    if 'east' not in antfile_parser:
+        raise KeyError('Keyword for "east" coordinates not provided')
+    else:
+        if not isinstance(antfile_parser['east'], str):
+            raise TypeError('Keyword for "east" coordinates must be a string')
+    if 'north' not in antfile_parser:
+        raise KeyError('Keyword for "north" coordinates not provided')
+    else:
+        if not isinstance(antfile_parser['north'], str):
+            raise TypeError('Keyword for "north" coordinates must be a string')
+    if 'up' not in antfile_parser:
+        raise KeyError('Keyword for "up" coordinates not provided')
+    else:
+        if not isinstance(antfile_parser['up'], str):
+            raise TypeError('Keyword for "up" coordinates must be a string')
+
     try:
-        ant_info = NP.loadtxt(antenna_file, skiprows=6, comments='#', usecols=(0,1,2,3))
-        ant_id = ant_info[:,0].astype(int).astype(str)
-        ant_locs = ant_info[:,1:]
+        ant_info = ascii.read(antenna_file, comment=comment, delimiter=delimiter, header_start=header_start, data_start=data_start, data_end=data_end, guess=False)
     except IOError:
         raise IOError('Could not open file containing antenna locations.')
+
+    if (antfile_parser['east'] not in ant_info.colnames) or (antfile_parser['north'] not in ant_info.colnames) or (antfile_parser['up'] not in ant_info.colnames):
+        raise KeyError('One of east, north, up coordinates incompatible with the table in antenna_file')
+
+    if antfile_parser['label'] is not None:
+        ant_id = ant_info[antfile_parser['label']].data.astype('str')
+    else:
+        ant_id = NP.arange(len(ant_info)).astype('str')
+
+    east = ant_info[antfile_parser['east']].data
+    north = ant_info[antfile_parser['north']].data
+    elev = ant_info[antfile_parser['up']].data
+
+    if (east.dtype != NP.float) or (north.dtype != NP.float) or (elev.dtype != NP.float):
+        raise TypeError('Antenna locations must be of floating point type')
+
+    ant_locs = NP.hstack((east.reshape(-1,1), north.reshape(-1,1), elev.reshape(-1,1)))
+
+    # try:
+    #     ant_info = NP.loadtxt(antenna_file, skiprows=6, comments='#', usecols=(0,1,2,3))
+    #     ant_id = ant_info[:,0].astype(int).astype(str)
+    #     ant_locs = ant_info[:,1:]
+    # except IOError:
+    #     raise IOError('Could not open file containing antenna locations.')
 else:
     if array_layout not in ['MWA-128T', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331', 'CIRC']:
         raise ValueError('Invalid array layout specified')
@@ -742,8 +832,9 @@ if global_HI_parms is not None:
     dz_half = global_HI_parms[2]
 
 bl, bl_id = RI.baseline_generator(ant_locs, ant_id=ant_id, auto=False, conjugate=False)
-bl, select_bl_ind, bl_count = RI.uniq_baselines(bl)
-bl_id = bl_id[select_bl_ind]
+if array_is_redundant:
+    bl, select_bl_ind, bl_count = RI.uniq_baselines(bl)
+    bl_id = bl_id[select_bl_ind]
 bl_length = NP.sqrt(NP.sum(bl**2, axis=1))
 bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
 sortind = NP.argsort(bl_length, kind='mergesort')
@@ -751,7 +842,8 @@ bl = bl[sortind,:]
 bl_id = bl_id[sortind]
 bl_length = bl_length[sortind]
 bl_orientation = bl_orientation[sortind]
-bl_count = bl_count[sortind]
+if array_is_redundant:
+    bl_count = bl_count[sortind]
 neg_bl_orientation_ind = (bl_orientation < -67.5) | (bl_orientation > 112.5)
 # neg_bl_orientation_ind = NP.logical_or(bl_orientation < -0.5*180.0/n_bins_baseline_orientation, bl_orientation > 180.0 - 0.5*180.0/n_bins_baseline_orientation)
 bl[neg_bl_orientation_ind,:] = -1.0 * bl[neg_bl_orientation_ind,:]

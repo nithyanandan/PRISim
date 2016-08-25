@@ -3,7 +3,7 @@
 # All coordinates are in Zone 50
 # Positions given refer to the south west corner of the ground mesh.
 #
-# Ant	Easting		Northing	Elevation
+Ant	Easting		Northing	Elevation
 11	467101.60	7046644.69	377.02
 12	467155.98	7046649.21	377.29
 13	467162.84	7046645.06	377.32
