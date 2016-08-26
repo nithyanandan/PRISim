@@ -6,6 +6,8 @@ from scipy.linalg import toeplitz
 import scipy.optimize as OPT
 import datetime as DT
 import progressbar as PGB
+import os
+from glob import glob
 import astropy 
 from astropy.io import fits
 import h5py
@@ -2635,11 +2637,6 @@ class InterferometerArray(object):
         # else:
         #     raise ValueError('Invalid brightness temperature units specified.')
 
-        self.t_acc = self.t_acc + [t_acc]
-        self.t_obs = t_acc
-        self.n_acc = 1
-        self.lst = self.lst + [lst]
-
         if not self.timestamp:
             self.pointing_center = NP.asarray(pointing_center).reshape(1,-1)
             self.phase_center = NP.asarray(pointing_center).reshape(1,-1)
@@ -2853,6 +2850,10 @@ class InterferometerArray(object):
             self.skyvis_freq = NP.dstack((self.skyvis_freq, skyvis[:,:,NP.newaxis]))
 
         self.timestamp = self.timestamp + [timestamp]
+        self.t_acc = self.t_acc + [t_acc]
+        self.t_obs += t_acc
+        self.n_acc += 1
+        self.lst = self.lst + [lst]
 
     ############################################################################
 
@@ -4039,7 +4040,7 @@ class InterferometerArray(object):
             hdu.writeto(filename, clobber=overwrite)
         else:
             if overwrite:
-                write_str = 'a'
+                write_str = 'w'
             else:
                 write_str = 'w-'
             with h5py.File(filename, write_str) as fileobj:

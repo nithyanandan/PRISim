@@ -1,3 +1,8 @@
+From 978bfa0 (pyuvdata), 04715dc (master):
+=========================================
+
+(*) Merge master branch onto pyuvdata to bring changes made in master
+
 From 2ee7707 (pyuvdata):
 =======================
 
@@ -6,6 +11,38 @@ In prisim/interferometry.py,
 (*) Import uvdata module
 (*) Start working on creating a uvdata object using a new member
 function createUVData() under class InterferometerArray
+
+From 1df0c85 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Fix writing previleges in save() member function of class
+InterferometerArray to enable overwriting of files in HDF5 format
+
+In scripts/run_prisim.py,
+
+(*) Remove few commented lines
+
+From f547d01 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Fix cleanup of intermediate files for any output format
+
+From 2ee7707 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Fix bugs in updating attributes n_acc and t_obs in member function
+observe() of class InterferometerArray
+
+In scripts/run_prisim.py,
+
+(*) Comment out setting attribute ia.t_obs manually when mpi_on_freq
+is set to True
 
 From 2298a8e (master):
 =====================

@@ -1839,7 +1839,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
 
             te0 = time.time()
             print 'Process {0:0d} took {1:.1f} minutes to complete frequency chunk # {2:0d}'.format(rank, (te0-ts0)/60, freq_chunk[i])
-            ia.t_obs = t_obs
+            # ia.t_obs = t_obs
             ia.generate_noise()
             ia.add_noise()
             # ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
@@ -2087,15 +2087,11 @@ if rank == 0:
                     simvis = RI.InterferometerArray(None, None, None, init_file=blchunk_infile)
                 else:
                     simvis_next = RI.InterferometerArray(None, None, None, init_file=blchunk_infile)
-                # if i == 0:
-                #     simvis = RI.InterferometerArray(None, None, None, init_file=blchunk_infile+'.fits')
-                # else:
-                #     simvis_next = RI.InterferometerArray(None, None, None, init_file=blchunk_infile+'.fits')
                     simvis.concatenate(simvis_next, axis=0)
     
                 if cleanup:
-                    if os.path.isfile(blchunk_infile+'.fits'):
-                        os.remove(blchunk_infile+'.fits')
+                    if os.path.isfile(blchunk_infile+'.'+savefmt.lower()):
+                        os.remove(blchunk_infile+'.'+savefmt.lower())
                     
                 progress.update(i+1)
             progress.finish()
@@ -2113,15 +2109,11 @@ if rank == 0:
                     simvis = RI.InterferometerArray(None, None, None, init_file=freqchunk_infile)    
                 else:
                     simvis_next = RI.InterferometerArray(None, None, None, init_file=freqchunk_infile)    
-                # if i == 0:
-                #     simvis = RI.InterferometerArray(None, None, None, init_file=freqchunk_infile+'.fits')    
-                # else:
-                #     simvis_next = RI.InterferometerArray(None, None, None, init_file=freqchunk_infile+'.fits')    
                     simvis.concatenate(simvis_next, axis=1)
     
                 if cleanup:
-                    if os.path.isfile(freqchunk_infile+'.fits'):
-                        os.remove(freqchunk_infile+'.fits')
+                    if os.path.isfile(freqchunk_infile+'.'+savefmt.lower()):
+                        os.remove(freqchunk_infile+'.'+savefmt.lower())
                     
                 progress.update(i+1)
             progress.finish()
@@ -2133,7 +2125,6 @@ if rank == 0:
         consolidated_outfile = rootdir+project_dir+simid+sim_dir+'simvis'
         simvis.save(consolidated_outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=save_to_npz, overwrite=True)
 
-    # skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel.txt'
     skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel'
     if fg_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:
         skymod.save(skymod_file, fileformat='hdf5')
