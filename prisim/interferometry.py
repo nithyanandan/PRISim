@@ -7,7 +7,6 @@ import scipy.optimize as OPT
 import datetime as DT
 import progressbar as PGB
 import os
-from glob import glob
 import astropy 
 from astropy.io import fits
 import h5py
