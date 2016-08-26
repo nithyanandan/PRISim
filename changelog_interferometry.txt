@@ -1,3 +1,10 @@
+From 3e0a050 (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Update import of uvdata module
+
 From 482d37f (pyuvdata):
 =======================
 

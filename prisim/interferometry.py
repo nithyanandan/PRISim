@@ -25,7 +25,7 @@ try:
     from mwapy.pb import primary_beam as MWAPB
 except ImportError:
     mwa_tools_found = False
-from uvdata.uv import UVData
+from uvdata import UVData
 import ipdb as PDB
 
 ################################################################################
@@ -4169,7 +4169,8 @@ class InterferometerArray(object):
             dataobj.data_array = self.vis_noise_freq.reshape(dataobj.Nblts, dataobj.Nspws, dataobj.Nfreqs, dataobj.Npols)
         dataobj.vis_units = 'Jy'
         # dataobj.nsample_array = NP.asarray([1]).reshape(dataobj.Nblts, dataobj.Nspws, dataobj.Nfreqs, dataobj.Npols)
-        dataobj.uvw_array = self.projected_baselines.reshape(3,dataobj.Nblts).T
+        
+        # dataobj.uvw_array = self.projected_baselines.reshape(3,dataobj.Nblts).T
         dataobj.time_array = NP.asarray(self.timestamp)
 
         return dataobj
