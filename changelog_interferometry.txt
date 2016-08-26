@@ -1,3 +1,15 @@
+From 1df0c85 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Fix writing previleges in save() member function of class
+InterferometerArray to enable overwriting of files in HDF5 format
+
+In scripts/run_prisim.py,
+
+(*) Remove few commented lines
+
 From f547d01 (master):
 =====================
 

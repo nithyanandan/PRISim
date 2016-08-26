@@ -6,6 +6,8 @@ from scipy.linalg import toeplitz
 import scipy.optimize as OPT
 import datetime as DT
 import progressbar as PGB
+import os
+from glob import glob
 import astropy 
 from astropy.io import fits
 import h5py
@@ -4037,7 +4039,7 @@ class InterferometerArray(object):
             hdu.writeto(filename, clobber=overwrite)
         else:
             if overwrite:
-                write_str = 'a'
+                write_str = 'w'
             else:
                 write_str = 'w-'
             with h5py.File(filename, write_str) as fileobj:
