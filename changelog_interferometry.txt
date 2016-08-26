@@ -1,3 +1,10 @@
+From f547d01 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Fix cleanup of intermediate files for any output format
+
 From 2ee7707 (master):
 =====================
 

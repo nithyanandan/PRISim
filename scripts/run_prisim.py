@@ -2094,8 +2094,10 @@ if rank == 0:
                     simvis.concatenate(simvis_next, axis=0)
     
                 if cleanup:
-                    if os.path.isfile(blchunk_infile+'.fits'):
-                        os.remove(blchunk_infile+'.fits')
+                    if os.path.isfile(blchunk_infile+'.'+savefmt.lower()):
+                        os.remove(blchunk_infile+'.'+savefmt.lower())
+                    # if os.path.isfile(blchunk_infile+'.fits'):
+                    #     os.remove(blchunk_infile+'.fits')
                     
                 progress.update(i+1)
             progress.finish()
@@ -2120,8 +2122,10 @@ if rank == 0:
                     simvis.concatenate(simvis_next, axis=1)
     
                 if cleanup:
-                    if os.path.isfile(freqchunk_infile+'.fits'):
-                        os.remove(freqchunk_infile+'.fits')
+                    if os.path.isfile(freqchunk_infile+'.'+savefmt.lower()):
+                        os.remove(freqchunk_infile+'.'+savefmt.lower())
+                    # if os.path.isfile(freqchunk_infile+'.fits'):
+                    #     os.remove(freqchunk_infile+'.fits')
                     
                 progress.update(i+1)
             progress.finish()
