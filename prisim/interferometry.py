@@ -24,6 +24,7 @@ try:
     from mwapy.pb import primary_beam as MWAPB
 except ImportError:
     mwa_tools_found = False
+from uvdata.uv import UVData
 import ipdb as PDB
 
 ################################################################################
@@ -4146,6 +4147,32 @@ class InterferometerArray(object):
             NP.savez_compressed(outfile+'.npz', skyvis_freq=self.skyvis_freq, vis_freq=self.vis_freq, vis_noise_freq=self.vis_noise_freq, lst=self.lst, freq=self.channels, timestamp=self.timestamp, bl=self.baselines, bl_length=self.baseline_lengths)
             if verbose:
                 print '\tInterferometer array information written successfully to NPZ file on disk:\n\t\t{0}\n'.format(outfile+'.npz')
+
+    #############################################################################
+
+    def createUVData(self, datatype='skyvis'):
+
+        dataobj = UVData()
+        dataobj.Ntimes = self.n_acc
+        dataobj.Nbls = self.baselines.shape[0]
+        dataobj.Nblts = dataobj.Nbls * dataobj.Ntimes
+        dataobj.Nfreqs = self.channels.size
+        dataobj.Npols = 1
+        dataobj.Nspws = 1
+        if datatype not in ['skyvis', 'vis', 'noise']:
+            raise ValueError('Invalid data type specified')
+        if datatype == 'skyvis':
+            dataobj.data_array = self.skyvis_freq.reshape(dataobj.Nblts, dataobj.Nspws, dataobj.Nfreqs, dataobj.Npols)
+        elif datatype == 'vis':
+            dataobj.data_array = self.vis_freq.reshape(dataobj.Nblts, dataobj.Nspws, dataobj.Nfreqs, dataobj.Npols)
+        else:
+            dataobj.data_array = self.vis_noise_freq.reshape(dataobj.Nblts, dataobj.Nspws, dataobj.Nfreqs, dataobj.Npols)
+        dataobj.vis_units = 'Jy'
+        # dataobj.nsample_array = NP.asarray([1]).reshape(dataobj.Nblts, dataobj.Nspws, dataobj.Nfreqs, dataobj.Npols)
+        dataobj.uvw_array = self.projected_baselines.reshape(3,dataobj.Nblts).T
+        dataobj.time_array = NP.asarray(self.timestamp)
+
+        return dataobj
 
 #################################################################################
 

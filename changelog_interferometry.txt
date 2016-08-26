@@ -1,3 +1,12 @@
+From 2ee7707 (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Import uvdata module
+(*) Start working on creating a uvdata object using a new member
+function createUVData() under class InterferometerArray
+
 From 2298a8e (master):
 =====================
 
