@@ -1,3 +1,10 @@
+From 04715dc (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Remove import of unused glob module
+
 From 1df0c85 (master):
 =====================
 
