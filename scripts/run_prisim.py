@@ -1839,7 +1839,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
 
             te0 = time.time()
             print 'Process {0:0d} took {1:.1f} minutes to complete frequency chunk # {2:0d}'.format(rank, (te0-ts0)/60, freq_chunk[i])
-            ia.t_obs = t_obs
+            # ia.t_obs = t_obs
             ia.generate_noise()
             ia.add_noise()
             # ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)

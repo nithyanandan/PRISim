@@ -1,3 +1,16 @@
+From 2ee7707 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Fix bugs in updating attributes n_acc and t_obs in member function
+observe() of class InterferometerArray
+
+In scripts/run_prisim.py,
+
+(*) Comment out setting attribute ia.t_obs manually when mpi_on_freq
+is set to True
+
 From 2298a8e (master):
 =====================
 
