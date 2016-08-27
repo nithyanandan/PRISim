@@ -1840,12 +1840,18 @@ class InterferometerArray(object):
     add_noise()         Adds the thermal noise generated in member function 
                         generate_noise() to the sky visibilities
                         
+    rotate_visibilities()
+                        Centers the phase of visibilities around any given phase 
+                        center. Project baseline vectors with respect to a 
+                        reference point on the sky. Essentially a wrapper to
+                        member functions phase_centering() and project_baselines()
+
     phase_centering()   Centers the phase of visibilities around any given phase 
                         center.
                         
     project_baselines() Project baseline vectors with respect to a reference 
-                        point (usually pointing center) on the sky.
-
+                        point on the sky. Assigns the projected baselines to the 
+                        attribute projected_baselines
 
     conjugate()         Flips the baseline vectors and conjugates the visibilies 
                         for a specified subset of baselines.
@@ -3150,38 +3156,36 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def rotate_visibilities(self, ref_point=None, do_delay_transform=False,
+    def rotate_visibilities(self, ref_point, do_delay_transform=False,
                             verbose=True):
 
         """
         -------------------------------------------------------------------------
         Centers the phase of visibilities around any given phase center.
-        Project baseline vectors with respect to a reference point (usually
-        pointing center) on the sky. Essentially a wrapper to member functions
-        phase_centering() and project_baselines()
+        Project baseline vectors with respect to a reference point on the sky. 
+        Essentially a wrapper to member functions phase_centering() and 
+        project_baselines()
 
         Input(s):
 
         ref_point   [dictionary] Contains information about the reference 
-                    position to which projected baselines are to be computed. If
-                    none provided, default = None. Default sets the reference
-                    point to be the pointing center as determined from the
-                    instance of class InterferometerArray. If this dictionary is
-                    specified, it must be contain the following keys with the 
-                    following values:
-                    'location'  [string or 2-element numpy vector] If set to 
-                                'pointing_center' or 'phase_center', it uses the
-                                pointing or phase center value from the instance
-                                of class InterferometerArray. If not set to one
-                                of these strings, it must be a 2-element RA-Dec
-                                position (in degrees). 
+                    position to which projected baselines and rotated 
+                    visibilities are to be computed. No defaults. It must be 
+                    contain the following keys with the following values:
                     'coords'    [string] Refers to the coordinate system in
                                 which value in key 'location' is specified in. 
-                                This is used only when value in key 'location' 
-                                is not a string but a 2-element numpy array.
-                                Currently can be set only to 'radec'. More 
-                                functionality to be added later. If none
-                                provided, it is assumed to be 'radec'
+                                Accepted values are 'radec', 'hadec', 'altaz'
+                                and 'dircos'
+                    'location'  [numpy array] Must be a Mx2 (if value in key 
+                                'coords' is set to 'radec', 'hadec', 'altaz' or
+                                'dircos') or Mx3 (if value in key 'coords' is 
+                                set to 'dircos'). M can be 1 or equal to number
+                                of timestamps. If M=1, the same reference point
+                                in the same coordinate system will be repeated 
+                                for all tiemstamps. If value under key 'coords'
+                                is set to 'radec', 'hadec' or 'altaz', the 
+                                value under this key 'location' must be in 
+                                units of degrees.
 
         do_delay_transform
                       [boolean] If set to True (default), also recompute the
@@ -3193,16 +3197,19 @@ class InterferometerArray(object):
         -------------------------------------------------------------------------
         """
         
+        try:
+            ref_point
+        except NameError:
+            raise NameError('Input ref_point must be provided')
         if ref_point is None:
-            print 'No reference point specified. Returning...'
-            return
+            raise ValueError('Invalid input specified in ref_point')
         elif not isinstance(ref_point, dict):
             raise TypeError('Input ref_point must be a dictionary')
         else:
             if ('location' not in ref_point) or ('coords' not in ref_point):
                 raise KeyError('Both keys "location" and "coords" must be specified in input dictionary ref_point')
             self.phase_centering(phase_center=ref_point['location'], phase_center_coords=ref_point['coords'], do_delay_transform=do_delay_transform, verbose=verbose)
-            self.project_baselines(ref_point=ref_point)
+            self.project_baselines(ref_point)
 
     #############################################################################
 

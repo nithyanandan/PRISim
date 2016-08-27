@@ -1,3 +1,16 @@
+From 1435ea9 (phasing):
+======================
+
+In prisim/interferometry.py,
+
+(*) Create member function rotate_visibilities() under class
+InterferometerArray which serves as a wrapper to member functions
+phase_centering() and project_baselines() of the same class. Update
+class docstring accordingly
+(*) Update description of member function project_baselines() of
+class InterferometerArray to reflect the changes made in the member
+function
+
 From 7cfbc55 (phasing):
 ======================
 
