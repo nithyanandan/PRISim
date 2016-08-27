@@ -1,3 +1,19 @@
+From a55c6b6 (phasing):
+======================
+
+In prisim/interferometry.py,
+
+(*) Change inputs to member function phase_centering() of class
+InterferometerArray. This makes it consistent with other similar
+member functions rotate_visibilities() and project_baselines().
+Update member function docstring accordingly
+(*) Change default of input do_delay_transform to False in member
+function phase_centering() of class InterferometerArray. Update
+member function docstring accordingly
+(*) Update call to member function phase_centering() in member
+function rotate_visibilities() of class InterferometerArray in
+accordance with changes made above.
+
 From 1435ea9 (phasing):
 ======================
 

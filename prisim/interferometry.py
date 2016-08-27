@@ -3208,13 +3208,12 @@ class InterferometerArray(object):
         else:
             if ('location' not in ref_point) or ('coords' not in ref_point):
                 raise KeyError('Both keys "location" and "coords" must be specified in input dictionary ref_point')
-            self.phase_centering(phase_center=ref_point['location'], phase_center_coords=ref_point['coords'], do_delay_transform=do_delay_transform, verbose=verbose)
+            self.phase_centering(ref_point, do_delay_transform=do_delay_transform, verbose=verbose)
             self.project_baselines(ref_point)
 
     #############################################################################
 
-    def phase_centering(self, phase_center=None, phase_center_coords=None,
-                        do_delay_transform=True, verbose=True):
+    def phase_centering(self, ref_point, do_delay_transform=False, verbose=True):
 
         """
         -------------------------------------------------------------------------
@@ -3222,40 +3221,52 @@ class InterferometerArray(object):
 
         Inputs:
         
-        phase_center  [numpy array] Mx2 or Mx3 numpy array specifying phase
-                      centers for each timestamp in the observation. Default is 
-                      None (No phase rotation of visibilities). M can be 1 
-                      or equal to the number of timestamps in the observation. If
-                      M=1, the same phase center is assumed for all the
-                      timestamps in the observation and visibility phases are
-                      centered accordingly. If M = number of timestamps, each 
-                      timestamp is rotated by the corresponding phase center. If
-                      phase center coordinates are specified in 'altaz', 'hadec'
-                      or 'radec' coordinates, it is a 2-column array. If
-                      specified in 'dircos' coordinates, it can be a 2-column or 
-                      3-column array following rules of direction cosines. If a
-                      2-column array of direction cosines is provided, the third
-                      column is automatically generated. The coordinates of phase
-                      center are provided by the other input phase_center_coords.
-        
-        phase_center_coords
-                      [string scalar] Coordinate system of phase center. It can 
-                      be 'altaz', 'radec', 'hadec' or 'dircos'. Default = None.
-                      phase_center_coords must be provided.
+        ref_point   [dictionary] Contains information about the reference 
+                    position to which projected baselines and rotated 
+                    visibilities are to be computed. No defaults. It must be 
+                    contain the following keys with the following values:
+                    'coords'    [string] Refers to the coordinate system in
+                                which value in key 'location' is specified in. 
+                                Accepted values are 'radec', 'hadec', 'altaz'
+                                and 'dircos'
+                    'location'  [numpy array] Must be a Mx2 (if value in key 
+                                'coords' is set to 'radec', 'hadec', 'altaz' or
+                                'dircos') or Mx3 (if value in key 'coords' is 
+                                set to 'dircos'). M can be 1 or equal to number
+                                of timestamps. If M=1, the same reference point
+                                in the same coordinate system will be repeated 
+                                for all tiemstamps. If value under key 'coords'
+                                is set to 'radec', 'hadec' or 'altaz', the 
+                                value under this key 'location' must be in 
+                                units of degrees.
 
         do_delay_transform
-                      [boolean] If set to True (default), also recompute the
-                      delay transform after the visibilities are rotated to the
-                      new phase center
+                      [boolean] If set to True, also recompute the delay 
+                      transform after the visibilities are rotated to the new 
+                      phase center. If set to False (default), this is skipped
 
         verbose:      [boolean] If set to True (default), prints progress and
                       diagnostic messages.
         -------------------------------------------------------------------------
         """
 
+        try:
+            ref_point
+        except NameError:
+            raise NameError('Input ref_point must be provided')
+        if ref_point is None:
+            raise ValueError('Invalid input specified in ref_point')
+        elif not isinstance(ref_point, dict):
+            raise TypeError('Input ref_point must be a dictionary')
+        else:
+            if ('location' not in ref_point) or ('coords' not in ref_point):
+                raise KeyError('Both keys "location" and "coords" must be specified in input dictionary ref_point')
+
+        phase_center = ref_point['location']
+        phase_center_coords = ref_point['coords']
+
         if phase_center is None:
-            print 'No Phase center provided.'
-            return
+            raise ValueError('Valid phase center not specified in input ref_point')
         elif not isinstance(phase_center, NP.ndarray):
             raise TypeError('Phase center must be a numpy array')
         elif phase_center.shape[0] == 1:
