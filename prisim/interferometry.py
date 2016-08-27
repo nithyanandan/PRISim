@@ -2762,7 +2762,7 @@ class InterferometerArray(object):
             vis_wts = None
             if skymodel_subset.src_shape is not None:
                 eps = 1.0e-13
-                f0 = self.channels[self.channels.size/2]
+                f0 = self.channels[int(0.5*self.channels.size)]
                 wl0 = FCNST.c / f0
                 wl = FCNST.c / self.channels
                 skypos_dircos_roi = GEOM.altaz2dircos(skypos_altaz_roi, units='degrees')
@@ -3710,7 +3710,7 @@ class InterferometerArray(object):
                 raise ValueError('All values in effective bandwidth must be strictly positive')
 
         if freq_center is None:
-            freq_center = NP.asarray(self.channels[self.channels.size/2]).reshape(-1)
+            freq_center = NP.asarray(self.channels[int(0.5*self.channels.size)]).reshape(-1)
         elif isinstance(freq_center, (int, float, list, NP.ndarray)):
             freq_center = NP.asarray(freq_center).reshape(-1)
             if NP.any((freq_center <= self.channels.min()) | (freq_center >= self.channels.max())):

@@ -1,3 +1,10 @@
+From 28fd496 (phasing):
+======================
+
+In prisim/interferometry.py,
+
+(*) Fix fractional indexing to ensure integer index
+
 From a55c6b6 (phasing):
 ======================
 
