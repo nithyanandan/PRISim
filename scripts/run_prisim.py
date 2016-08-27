@@ -1843,7 +1843,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             ia.generate_noise()
             ia.add_noise()
             # ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
-            ia.project_baselines()
+            ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
             ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
 else: # MPI based on baseline multiplexing
 
@@ -2056,7 +2056,7 @@ else: # MPI based on baseline multiplexing
                 ia.generate_noise()
                 ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
-                ia.project_baselines()
+                ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
                 ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
         pte_str = str(DT.datetime.now())                
  

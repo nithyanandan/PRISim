@@ -1841,12 +1841,18 @@ class InterferometerArray(object):
     add_noise()         Adds the thermal noise generated in member function 
                         generate_noise() to the sky visibilities
                         
+    rotate_visibilities()
+                        Centers the phase of visibilities around any given phase 
+                        center. Project baseline vectors with respect to a 
+                        reference point on the sky. Essentially a wrapper to
+                        member functions phase_centering() and project_baselines()
+
     phase_centering()   Centers the phase of visibilities around any given phase 
                         center.
                         
     project_baselines() Project baseline vectors with respect to a reference 
-                        point (usually pointing center) on the sky.
-
+                        point on the sky. Assigns the projected baselines to the 
+                        attribute projected_baselines
 
     conjugate()         Flips the baseline vectors and conjugates the visibilies 
                         for a specified subset of baselines.
@@ -2757,7 +2763,7 @@ class InterferometerArray(object):
             vis_wts = None
             if skymodel_subset.src_shape is not None:
                 eps = 1.0e-13
-                f0 = self.channels[self.channels.size/2]
+                f0 = self.channels[int(0.5*self.channels.size)]
                 wl0 = FCNST.c / f0
                 wl = FCNST.c / self.channels
                 skypos_dircos_roi = GEOM.altaz2dircos(skypos_altaz_roi, units='degrees')
@@ -3151,35 +3157,36 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def phase_centering(self, phase_center=None, phase_center_coords=None,
-                        do_delay_transform=True, verbose=True):
+    def rotate_visibilities(self, ref_point, do_delay_transform=False,
+                            verbose=True):
 
         """
         -------------------------------------------------------------------------
         Centers the phase of visibilities around any given phase center.
+        Project baseline vectors with respect to a reference point on the sky. 
+        Essentially a wrapper to member functions phase_centering() and 
+        project_baselines()
 
-        Inputs:
-        
-        phase_center  [numpy array] Mx2 or Mx3 numpy array specifying phase
-                      centers for each timestamp in the observation. Default is 
-                      None (No phase rotation of visibilities). M can be 1 
-                      or equal to the number of timestamps in the observation. If
-                      M=1, the same phase center is assumed for all the
-                      timestamps in the observation and visibility phases are
-                      centered accordingly. If M = number of timestamps, each 
-                      timestamp is rotated by the corresponding phase center. If
-                      phase center coordinates are specified in 'altaz', 'hadec'
-                      or 'radec' coordinates, it is a 2-column array. If
-                      specified in 'dircos' coordinates, it can be a 2-column or 
-                      3-column array following rules of direction cosines. If a
-                      2-column array of direction cosines is provided, the third
-                      column is automatically generated. The coordinates of phase
-                      center are provided by the other input phase_center_coords.
-        
-        phase_center_coords
-                      [string scalar] Coordinate system of phase cneter. It can 
-                      be 'altaz', 'radec', 'hadec' or 'dircos'. Default = None.
-                      phase_center_coords must be provided.
+        Input(s):
+
+        ref_point   [dictionary] Contains information about the reference 
+                    position to which projected baselines and rotated 
+                    visibilities are to be computed. No defaults. It must be 
+                    contain the following keys with the following values:
+                    'coords'    [string] Refers to the coordinate system in
+                                which value in key 'location' is specified in. 
+                                Accepted values are 'radec', 'hadec', 'altaz'
+                                and 'dircos'
+                    'location'  [numpy array] Must be a Mx2 (if value in key 
+                                'coords' is set to 'radec', 'hadec', 'altaz' or
+                                'dircos') or Mx3 (if value in key 'coords' is 
+                                set to 'dircos'). M can be 1 or equal to number
+                                of timestamps. If M=1, the same reference point
+                                in the same coordinate system will be repeated 
+                                for all tiemstamps. If value under key 'coords'
+                                is set to 'radec', 'hadec' or 'altaz', the 
+                                value under this key 'location' must be in 
+                                units of degrees.
 
         do_delay_transform
                       [boolean] If set to True (default), also recompute the
@@ -3190,10 +3197,77 @@ class InterferometerArray(object):
                       diagnostic messages.
         -------------------------------------------------------------------------
         """
+        
+        try:
+            ref_point
+        except NameError:
+            raise NameError('Input ref_point must be provided')
+        if ref_point is None:
+            raise ValueError('Invalid input specified in ref_point')
+        elif not isinstance(ref_point, dict):
+            raise TypeError('Input ref_point must be a dictionary')
+        else:
+            if ('location' not in ref_point) or ('coords' not in ref_point):
+                raise KeyError('Both keys "location" and "coords" must be specified in input dictionary ref_point')
+            self.phase_centering(ref_point, do_delay_transform=do_delay_transform, verbose=verbose)
+            self.project_baselines(ref_point)
+
+    #############################################################################
+
+    def phase_centering(self, ref_point, do_delay_transform=False, verbose=True):
+
+        """
+        -------------------------------------------------------------------------
+        Centers the phase of visibilities around any given phase center.
+
+        Inputs:
+        
+        ref_point   [dictionary] Contains information about the reference 
+                    position to which projected baselines and rotated 
+                    visibilities are to be computed. No defaults. It must be 
+                    contain the following keys with the following values:
+                    'coords'    [string] Refers to the coordinate system in
+                                which value in key 'location' is specified in. 
+                                Accepted values are 'radec', 'hadec', 'altaz'
+                                and 'dircos'
+                    'location'  [numpy array] Must be a Mx2 (if value in key 
+                                'coords' is set to 'radec', 'hadec', 'altaz' or
+                                'dircos') or Mx3 (if value in key 'coords' is 
+                                set to 'dircos'). M can be 1 or equal to number
+                                of timestamps. If M=1, the same reference point
+                                in the same coordinate system will be repeated 
+                                for all tiemstamps. If value under key 'coords'
+                                is set to 'radec', 'hadec' or 'altaz', the 
+                                value under this key 'location' must be in 
+                                units of degrees.
+
+        do_delay_transform
+                      [boolean] If set to True, also recompute the delay 
+                      transform after the visibilities are rotated to the new 
+                      phase center. If set to False (default), this is skipped
+
+        verbose:      [boolean] If set to True (default), prints progress and
+                      diagnostic messages.
+        -------------------------------------------------------------------------
+        """
+
+        try:
+            ref_point
+        except NameError:
+            raise NameError('Input ref_point must be provided')
+        if ref_point is None:
+            raise ValueError('Invalid input specified in ref_point')
+        elif not isinstance(ref_point, dict):
+            raise TypeError('Input ref_point must be a dictionary')
+        else:
+            if ('location' not in ref_point) or ('coords' not in ref_point):
+                raise KeyError('Both keys "location" and "coords" must be specified in input dictionary ref_point')
+
+        phase_center = ref_point['location']
+        phase_center_coords = ref_point['coords']
 
         if phase_center is None:
-            print 'No Phase center provided.'
-            return
+            raise ValueError('Valid phase center not specified in input ref_point')
         elif not isinstance(phase_center, NP.ndarray):
             raise TypeError('Phase center must be a numpy array')
         elif phase_center.shape[0] == 1:
@@ -3314,93 +3388,114 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def project_baselines(self, ref_point=None):
+    def project_baselines(self, ref_point):
 
         """
         ------------------------------------------------------------------------
-        Project baseline vectors with respect to a reference point (usually
-        pointing center) on the sky. Assigns the projected baselines to the 
-        attribute projected_baselines
+        Project baseline vectors with respect to a reference point on the sky. 
+        Assigns the projected baselines to the attribute projected_baselines
 
         Input(s):
 
         ref_point   [dictionary] Contains information about the reference 
-                    position to which projected baselines are to be computed. If
-                    none provided, default = None. Default sets the reference
-                    point to be the pointing center as determined from the
-                    instance of class InterferometerArray. If this dictionary is
-                    specified, it must be contain the following keys with the 
+                    position to which projected baselines are to be computed. 
+                    No defaults. It must be contain the following keys with the 
                     following values:
-                    'location'  [string or 2-element numpy vector] If set to 
-                                'pointing_center' or 'phase_center', it uses the
-                                pointing or phase center value from the instance
-                                of class InterferometerArray. If not set to one
-                                of these strings, it must be a 2-element RA-Dec
-                                position (in degrees). 
                     'coords'    [string] Refers to the coordinate system in
                                 which value in key 'location' is specified in. 
-                                This is used only when value in key 'location' 
-                                is not a string but a 2-element numpy array.
-                                Currently can be set only to 'radec'. More 
-                                functionality to be added later. If none
-                                provided, it is assumed to be 'radec'
+                                Accepted values are 'radec', 'hadec', 'altaz'
+                                and 'dircos'
+                    'location'  [numpy array] Must be a Mx2 (if value in key 
+                                'coords' is set to 'radec', 'hadec', 'altaz' or
+                                'dircos') or Mx3 (if value in key 'coords' is 
+                                set to 'dircos'). M can be 1 or equal to number
+                                of timestamps. If M=1, the same reference point
+                                in the same coordinate system will be repeated 
+                                for all tiemstamps. If value under key 'coords'
+                                is set to 'radec', 'hadec' or 'altaz', the 
+                                value under this key 'location' must be in 
+                                units of degrees.
         ------------------------------------------------------------------------
         """
 
+        try:
+            ref_point
+        except NameError:
+            raise NameError('Input ref_point must be provided')
         if ref_point is None:
-            ref_point = {}
-            ref_point['location'] = 'pointing_center'
-        elif isinstance(ref_point, dict):
-            if 'location' in ref_point:
-                if (ref_point['location'] != 'pointing_center') and (ref_point['location'] != 'phase_center'):
-                    if not isinstance(ref_point['location'], NP.ndarray):
-                        raise ValueError('Value of key "location" in input parameter ref_point can only be "pointing_center" or "phase_center"')
-                    else:
-                        ref_point['location'] = ref_point['location'].ravel()
-                        if ref_point['location'].size != 2:
-                            raise ValueError('key "location" in input parameter ref_point must be a 2-element numpy array')
-
-                    if 'coords' in ref_point:
-                        if ref_point['coords'] != 'radec':
-                            raise ValueError('Value of key "coords" in input parameter ref_point must be "radec"')
-                    
-                    else:
-                        ref_point['coords'] = 'radec'
-            else:
-                raise KeyError('Key "location" not provided in input parameter ref_point')
+            raise ValueError('Invalid input specified in ref_point')
+        elif not isinstance(ref_point, dict):
+            raise TypeError('Input ref_point must be a dictionary')
         else:
-            raise TypeError('Input parameter ref_point must be a dictionary')
+            if ('location' not in ref_point) or ('coords' not in ref_point):
+                raise KeyError('Both keys "location" and "coords" must be specified in input dictionary ref_point')
 
-        if ref_point['location'] == 'pointing_center':
-            dec = self.pointing_center[:,1]
-            if self.pointing_coords == 'hadec':
-                ha = self.pointing_center[:,0]
-            elif self.pointing_coords == 'radec':
-                ha = NP.asarray(self.lst) - self.pointing_center[:,0]
-        elif ref_point['location'] == 'phase_center':
-            dec = self.phase_center[:,1]
-            if self.phase_coords == 'hadec':
-                ha = self.phase_center[:,0]
-            elif self.phase_coords == 'radec':
-                ha = NP.asarray(self.lst) - self.phase_center[:,0]
-        else:
-            ha = NP.asarray(self.lst) - ref_point['location'][0]
-            dec = ref_point['location'][1] + NP.zeros(len(self.lst))
-
+        phase_center = ref_point['location']
+        phase_center_coords = ref_point['coords']
+        if not isinstance(phase_center, NP.ndarray):
+            raise TypeError('The specified reference point must be a numpy array')
+        if not isinstance(phase_center_coords, str):
+            raise TypeError('The specified coordinates of the reference point must be a string')
+        if phase_center_coords not in ['radec', 'hadec', 'altaz', 'dircos']:
+            raise ValueError('Specified coordinates of reference point invalid')
+        if phase_center.ndim == 1:
+            phase_center = phase_center.reshape(1,-1)
+        if phase_center.ndim > 2:
+            raise ValueError('Reference point has invalid dimensions')
+        if (phase_center.shape[0] != self.n_acc) and (phase_center.shape[0] != 1):
+            raise ValueError('Reference point has dimensions incompatible with the number of timestamps')
+        if phase_center.shape[0] == 1:
+            phase_center = phase_center + NP.zeros(self.n_acc).reshape(-1,1)
+        if phase_center_coords == 'radec':
+            if phase_center.shape[1] != 2:
+                raise ValueError('Reference point has invalid dimensions')
+            ha = NP.asarray(self.lst) - phase_center[:,0]
+            dec = phase_center[:,1]
+        elif phase_center_coords == 'hadec':
+            if phase_center.shape[1] != 2:
+                raise ValueError('Reference point has invalid dimensions')
+            ha = phase_center[:,0]
+            dec = phase_center[:,1]
+        elif phase_center_coords == 'altaz':
+            if phase_center.shape[1] != 2:
+                raise ValueError('Reference point has invalid dimensions')
+            hadec = GEOM.altaz2hadec(phase_center, self.latitude, units='degrees')
+            ha = hadec[:,0]
+            dec = hadec[:,1]
+        else: # phase_center_coords = 'dircos'
+            if (phase_center.shape[1] < 2) or (phase_center.shape[1] > 3):
+                raise ValueError('Reference point has invalid dimensions')
+            if NP.any(NP.sqrt(NP.sum(phase_center**2, axis=1)) > 1.0):
+                raise ValueError('direction cosines found to be exceeding unit magnitude.')
+            if NP.any(NP.max(NP.abs(phase_center), axis=1) > 1.0):
+                raise ValueError('direction cosines found to be exceeding unit magnitude.')
+            if phase_center.shape[1] == 2:
+                n = 1.0 - NP.sqrt(NP.sum(phase_center**2, axis=1))
+                phase_center = NP.hstack((phase_center, n.reshape(-1,1)))
+            altaz = GEOM.dircos2altaz(phase_center, units='degrees')
+            hadec = GEOM.altaz2hadec(phase_center, self.latitude, units='degrees')
+            ha = hadec[:,0]
+            dec = hadec[:,1]
         ha = NP.radians(ha).ravel()
         dec = NP.radians(dec).ravel()
 
         eq_baselines = GEOM.enu2xyz(self.baselines, self.latitude, units='degrees')
-        proj_baselines = NP.empty((eq_baselines.shape[0], eq_baselines.shape[1], len(self.lst)))
+        rot_matrix = NP.asarray([[NP.sin(ha),               NP.cos(ha),             NP.zeros(ha.size)],
+                                 [-NP.sin(dec)*NP.cos(ha), NP.sin(dec)*NP.sin(ha), NP.cos(dec)], 
+                                 [NP.cos(dec)*NP.cos(ha), -NP.cos(dec)*NP.sin(ha), NP.sin(dec)]])
+        if rot_matrix.ndim == 2:
+            rot_matrix = rot_matrix[:,:,NP.newaxis] # To ensure correct dot product is obtained in the next step
+        self.projected_baselines = NP.dot(eq_baselines, rot_matrix) # (n_bl x [3]).(3 x [3] x n_acc) -> n_bl x (first 3) x n_acc 
 
-        for i in xrange(len(self.lst)):
-            rot_matrix = NP.asarray([[NP.sin(ha[i]),               NP.cos(ha[i]),             0.0],
-                                     [-NP.sin(dec[i])*NP.cos(ha[i]), NP.sin(dec[i])*NP.sin(ha[i]), NP.cos(dec[i])], 
-                                     [NP.cos(dec[i])*NP.cos(ha[i]), -NP.cos(dec[i])*NP.sin(ha[i]), NP.sin(dec[i])]])
+        # proj_baselines = NP.empty((eq_baselines.shape[0], eq_baselines.shape[1], len(self.lst)))
+        # for i in xrange(len(self.lst)):
+        #     rot_matrix = NP.asarray([[NP.sin(ha[i]),               NP.cos(ha[i]),             0.0],
+        #                              [-NP.sin(dec[i])*NP.cos(ha[i]), NP.sin(dec[i])*NP.sin(ha[i]), NP.cos(dec[i])], 
+        #                              [NP.cos(dec[i])*NP.cos(ha[i]), -NP.cos(dec[i])*NP.sin(ha[i]), NP.sin(dec[i])]])
 
-            proj_baselines[:,:,i] = NP.dot(eq_baselines, rot_matrix.T)
+        #     proj_baselines[:,:,i] = NP.dot(eq_baselines, rot_matrix.T)
 
-        self.projected_baselines = proj_baselines
+        # self.projected_baselines = proj_baselines
 
     #############################################################################
 
@@ -3616,7 +3711,7 @@ class InterferometerArray(object):
                 raise ValueError('All values in effective bandwidth must be strictly positive')
 
         if freq_center is None:
-            freq_center = NP.asarray(self.channels[self.channels.size/2]).reshape(-1)
+            freq_center = NP.asarray(self.channels[int(0.5*self.channels.size)]).reshape(-1)
         elif isinstance(freq_center, (int, float, list, NP.ndarray)):
             freq_center = NP.asarray(freq_center).reshape(-1)
             if NP.any((freq_center <= self.channels.min()) | (freq_center >= self.channels.max())):
