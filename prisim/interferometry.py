@@ -3150,6 +3150,62 @@ class InterferometerArray(object):
 
     #############################################################################
 
+    def rotate_visibilities(self, ref_point=None, do_delay_transform=False,
+                            verbose=True):
+
+        """
+        -------------------------------------------------------------------------
+        Centers the phase of visibilities around any given phase center.
+        Project baseline vectors with respect to a reference point (usually
+        pointing center) on the sky. Essentially a wrapper to member functions
+        phase_centering() and project_baselines()
+
+        Input(s):
+
+        ref_point   [dictionary] Contains information about the reference 
+                    position to which projected baselines are to be computed. If
+                    none provided, default = None. Default sets the reference
+                    point to be the pointing center as determined from the
+                    instance of class InterferometerArray. If this dictionary is
+                    specified, it must be contain the following keys with the 
+                    following values:
+                    'location'  [string or 2-element numpy vector] If set to 
+                                'pointing_center' or 'phase_center', it uses the
+                                pointing or phase center value from the instance
+                                of class InterferometerArray. If not set to one
+                                of these strings, it must be a 2-element RA-Dec
+                                position (in degrees). 
+                    'coords'    [string] Refers to the coordinate system in
+                                which value in key 'location' is specified in. 
+                                This is used only when value in key 'location' 
+                                is not a string but a 2-element numpy array.
+                                Currently can be set only to 'radec'. More 
+                                functionality to be added later. If none
+                                provided, it is assumed to be 'radec'
+
+        do_delay_transform
+                      [boolean] If set to True (default), also recompute the
+                      delay transform after the visibilities are rotated to the
+                      new phase center
+
+        verbose:      [boolean] If set to True (default), prints progress and
+                      diagnostic messages.
+        -------------------------------------------------------------------------
+        """
+        
+        if ref_point is None:
+            print 'No reference point specified. Returning...'
+            return
+        elif not isinstance(ref_point, dict):
+            raise TypeError('Input ref_point must be a dictionary')
+        else:
+            if ('location' not in ref_point) or ('coords' not in ref_point):
+                raise KeyError('Both keys "location" and "coords" must be specified in input dictionary ref_point')
+            self.phase_centering(phase_center=ref_point['location'], phase_center_coords=ref_point['coords'], do_delay_transform=do_delay_transform, verbose=verbose)
+            self.project_baselines(ref_point=ref_point)
+
+    #############################################################################
+
     def phase_centering(self, phase_center=None, phase_center_coords=None,
                         do_delay_transform=True, verbose=True):
 
@@ -3176,7 +3232,7 @@ class InterferometerArray(object):
                       center are provided by the other input phase_center_coords.
         
         phase_center_coords
-                      [string scalar] Coordinate system of phase cneter. It can 
+                      [string scalar] Coordinate system of phase center. It can 
                       be 'altaz', 'radec', 'hadec' or 'dircos'. Default = None.
                       phase_center_coords must be provided.
 
@@ -3390,16 +3446,22 @@ class InterferometerArray(object):
         dec = NP.radians(dec).ravel()
 
         eq_baselines = GEOM.enu2xyz(self.baselines, self.latitude, units='degrees')
-        proj_baselines = NP.empty((eq_baselines.shape[0], eq_baselines.shape[1], len(self.lst)))
+        rot_matrix = NP.asarray([[NP.sin(ha),               NP.cos(ha),             NP.zeros(ha.size)],
+                                 [-NP.sin(dec)*NP.cos(ha), NP.sin(dec)*NP.sin(ha), NP.cos(dec)], 
+                                 [NP.cos(dec)*NP.cos(ha), -NP.cos(dec)*NP.sin(ha), NP.sin(dec)]])
+        if rot_matrix.ndim == 2:
+            rot_matrix = rot_matrix[:,:,NP.newaxis] # To ensure correct dot product is obtained in the next step
+        self.projected_baselines = NP.dot(eq_baselines, rot_matrix) # (n_bl x [3]).(3 x [3] x n_acc) -> n_bl x (first 3) x n_acc 
 
-        for i in xrange(len(self.lst)):
-            rot_matrix = NP.asarray([[NP.sin(ha[i]),               NP.cos(ha[i]),             0.0],
-                                     [-NP.sin(dec[i])*NP.cos(ha[i]), NP.sin(dec[i])*NP.sin(ha[i]), NP.cos(dec[i])], 
-                                     [NP.cos(dec[i])*NP.cos(ha[i]), -NP.cos(dec[i])*NP.sin(ha[i]), NP.sin(dec[i])]])
+        # proj_baselines = NP.empty((eq_baselines.shape[0], eq_baselines.shape[1], len(self.lst)))
+        # for i in xrange(len(self.lst)):
+        #     rot_matrix = NP.asarray([[NP.sin(ha[i]),               NP.cos(ha[i]),             0.0],
+        #                              [-NP.sin(dec[i])*NP.cos(ha[i]), NP.sin(dec[i])*NP.sin(ha[i]), NP.cos(dec[i])], 
+        #                              [NP.cos(dec[i])*NP.cos(ha[i]), -NP.cos(dec[i])*NP.sin(ha[i]), NP.sin(dec[i])]])
 
-            proj_baselines[:,:,i] = NP.dot(eq_baselines, rot_matrix.T)
+        #     proj_baselines[:,:,i] = NP.dot(eq_baselines, rot_matrix.T)
 
-        self.projected_baselines = proj_baselines
+        # self.projected_baselines = proj_baselines
 
     #############################################################################
 

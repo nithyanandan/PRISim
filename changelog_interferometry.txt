@@ -1,3 +1,11 @@
+From 6a96a0b (phasing):
+======================
+
+In prisim/interferometry.py,
+
+(*) Vectorize rotation matrix and dot product in member function
+project_baselines() of class InterferometerArray
+
 From 04715dc (master):
 =====================
 
