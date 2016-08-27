@@ -1,3 +1,18 @@
+From 7cfbc55 (phasing):
+======================
+
+In prisim/interferometry.py,
+
+(*) Generalize input ref_point of member function project_baselines()
+of class InterferometerArray to take multiple reference points and
+any coordinate system in 'radec', 'hadec', 'altaz' or 'dircos'. This
+input is now mandatory with no defaults. Update docstring accordingly
+
+In scripts/run_prisim.py,
+
+(*) Update inputs in call to member function project_baselines() of
+class InterferometerArray in accordance with changes made to it
+
 From 6a96a0b (phasing):
 ======================
 

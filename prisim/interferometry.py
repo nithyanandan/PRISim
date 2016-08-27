@@ -3369,79 +3369,94 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def project_baselines(self, ref_point=None):
+    def project_baselines(self, ref_point):
 
         """
         ------------------------------------------------------------------------
-        Project baseline vectors with respect to a reference point (usually
-        pointing center) on the sky. Assigns the projected baselines to the 
-        attribute projected_baselines
+        Project baseline vectors with respect to a reference point on the sky. 
+        Assigns the projected baselines to the attribute projected_baselines
 
         Input(s):
 
         ref_point   [dictionary] Contains information about the reference 
-                    position to which projected baselines are to be computed. If
-                    none provided, default = None. Default sets the reference
-                    point to be the pointing center as determined from the
-                    instance of class InterferometerArray. If this dictionary is
-                    specified, it must be contain the following keys with the 
+                    position to which projected baselines are to be computed. 
+                    No defaults. It must be contain the following keys with the 
                     following values:
-                    'location'  [string or 2-element numpy vector] If set to 
-                                'pointing_center' or 'phase_center', it uses the
-                                pointing or phase center value from the instance
-                                of class InterferometerArray. If not set to one
-                                of these strings, it must be a 2-element RA-Dec
-                                position (in degrees). 
                     'coords'    [string] Refers to the coordinate system in
                                 which value in key 'location' is specified in. 
-                                This is used only when value in key 'location' 
-                                is not a string but a 2-element numpy array.
-                                Currently can be set only to 'radec'. More 
-                                functionality to be added later. If none
-                                provided, it is assumed to be 'radec'
+                                Accepted values are 'radec', 'hadec', 'altaz'
+                                and 'dircos'
+                    'location'  [numpy array] Must be a Mx2 (if value in key 
+                                'coords' is set to 'radec', 'hadec', 'altaz' or
+                                'dircos') or Mx3 (if value in key 'coords' is 
+                                set to 'dircos'). M can be 1 or equal to number
+                                of timestamps. If M=1, the same reference point
+                                in the same coordinate system will be repeated 
+                                for all tiemstamps. If value under key 'coords'
+                                is set to 'radec', 'hadec' or 'altaz', the 
+                                value under this key 'location' must be in 
+                                units of degrees.
         ------------------------------------------------------------------------
         """
 
+        try:
+            ref_point
+        except NameError:
+            raise NameError('Input ref_point must be provided')
         if ref_point is None:
-            ref_point = {}
-            ref_point['location'] = 'pointing_center'
-        elif isinstance(ref_point, dict):
-            if 'location' in ref_point:
-                if (ref_point['location'] != 'pointing_center') and (ref_point['location'] != 'phase_center'):
-                    if not isinstance(ref_point['location'], NP.ndarray):
-                        raise ValueError('Value of key "location" in input parameter ref_point can only be "pointing_center" or "phase_center"')
-                    else:
-                        ref_point['location'] = ref_point['location'].ravel()
-                        if ref_point['location'].size != 2:
-                            raise ValueError('key "location" in input parameter ref_point must be a 2-element numpy array')
-
-                    if 'coords' in ref_point:
-                        if ref_point['coords'] != 'radec':
-                            raise ValueError('Value of key "coords" in input parameter ref_point must be "radec"')
-                    
-                    else:
-                        ref_point['coords'] = 'radec'
-            else:
-                raise KeyError('Key "location" not provided in input parameter ref_point')
+            raise ValueError('Invalid input specified in ref_point')
+        elif not isinstance(ref_point, dict):
+            raise TypeError('Input ref_point must be a dictionary')
         else:
-            raise TypeError('Input parameter ref_point must be a dictionary')
+            if ('location' not in ref_point) or ('coords' not in ref_point):
+                raise KeyError('Both keys "location" and "coords" must be specified in input dictionary ref_point')
 
-        if ref_point['location'] == 'pointing_center':
-            dec = self.pointing_center[:,1]
-            if self.pointing_coords == 'hadec':
-                ha = self.pointing_center[:,0]
-            elif self.pointing_coords == 'radec':
-                ha = NP.asarray(self.lst) - self.pointing_center[:,0]
-        elif ref_point['location'] == 'phase_center':
-            dec = self.phase_center[:,1]
-            if self.phase_coords == 'hadec':
-                ha = self.phase_center[:,0]
-            elif self.phase_coords == 'radec':
-                ha = NP.asarray(self.lst) - self.phase_center[:,0]
-        else:
-            ha = NP.asarray(self.lst) - ref_point['location'][0]
-            dec = ref_point['location'][1] + NP.zeros(len(self.lst))
-
+        phase_center = ref_point['location']
+        phase_center_coords = ref_point['coords']
+        if not isinstance(phase_center, NP.ndarray):
+            raise TypeError('The specified reference point must be a numpy array')
+        if not isinstance(phase_center_coords, str):
+            raise TypeError('The specified coordinates of the reference point must be a string')
+        if phase_center_coords not in ['radec', 'hadec', 'altaz', 'dircos']:
+            raise ValueError('Specified coordinates of reference point invalid')
+        if phase_center.ndim == 1:
+            phase_center = phase_center.reshape(1,-1)
+        if phase_center.ndim > 2:
+            raise ValueError('Reference point has invalid dimensions')
+        if (phase_center.shape[0] != self.n_acc) and (phase_center.shape[0] != 1):
+            raise ValueError('Reference point has dimensions incompatible with the number of timestamps')
+        if phase_center.shape[0] == 1:
+            phase_center = phase_center + NP.zeros(self.n_acc).reshape(-1,1)
+        if phase_center_coords == 'radec':
+            if phase_center.shape[1] != 2:
+                raise ValueError('Reference point has invalid dimensions')
+            ha = NP.asarray(self.lst) - phase_center[:,0]
+            dec = phase_center[:,1]
+        elif phase_center_coords == 'hadec':
+            if phase_center.shape[1] != 2:
+                raise ValueError('Reference point has invalid dimensions')
+            ha = phase_center[:,0]
+            dec = phase_center[:,1]
+        elif phase_center_coords == 'altaz':
+            if phase_center.shape[1] != 2:
+                raise ValueError('Reference point has invalid dimensions')
+            hadec = GEOM.altaz2hadec(phase_center, self.latitude, units='degrees')
+            ha = hadec[:,0]
+            dec = hadec[:,1]
+        else: # phase_center_coords = 'dircos'
+            if (phase_center.shape[1] < 2) or (phase_center.shape[1] > 3):
+                raise ValueError('Reference point has invalid dimensions')
+            if NP.any(NP.sqrt(NP.sum(phase_center**2, axis=1)) > 1.0):
+                raise ValueError('direction cosines found to be exceeding unit magnitude.')
+            if NP.any(NP.max(NP.abs(phase_center), axis=1) > 1.0):
+                raise ValueError('direction cosines found to be exceeding unit magnitude.')
+            if phase_center.shape[1] == 2:
+                n = 1.0 - NP.sqrt(NP.sum(phase_center**2, axis=1))
+                phase_center = NP.hstack((phase_center, n.reshape(-1,1)))
+            altaz = GEOM.dircos2altaz(phase_center, units='degrees')
+            hadec = GEOM.altaz2hadec(phase_center, self.latitude, units='degrees')
+            ha = hadec[:,0]
+            dec = hadec[:,1]
         ha = NP.radians(ha).ravel()
         dec = NP.radians(dec).ravel()
 
