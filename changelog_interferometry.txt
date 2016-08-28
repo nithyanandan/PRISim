@@ -1,7 +1,23 @@
+From a076125 (master), 8e5036a (pyuvdata):
+=========================================
+
+(*) Merge changes from master branch on to pyuvdata branch
+
 From 88f9e82 (master), 9e2f35c (pyuvdata):
 =========================================
 
 (*) Merge changes from master branch on to pyuvdata branch
+
+From 88f9e82 (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add options to perturb antenna positions
+
+In scripts/run_prisim.py,
+
+(*) Take into account perturbations to antenna positions
 
 From 28fd496 (phasing):
 ======================

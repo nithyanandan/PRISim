@@ -140,6 +140,15 @@ antenna_file = parms['array']['file']
 array_layout = parms['array']['layout']
 minR = parms['array']['minR']
 maxR = parms['array']['maxR']
+antpos_rms_tgtplane = parms['array']['rms_tgtplane']
+antpos_rms_elevation = parms['array']['rms_elevation']
+antpos_rms_seed = parms['array']['seed']
+if antpos_rms_seed is None:
+    antpos_rms_seed = NP.random.randint(1, high=100000)
+elif isinstance(antpos_rms_seed, (int,float)):
+    antpos_rms_seed = int(NP.abs(antpos_rms_seed))
+else:
+    raise ValueError('Random number seed must be a positive integer')
 minbl = parms['baseline']['min']
 maxbl = parms['baseline']['max']
 bldirection = parms['baseline']['direction']
@@ -536,6 +545,19 @@ else:
         ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=331)
     elif array_layout == 'CIRC':
         ant_locs, ant_id = RI.circular_antenna_array(element_size, minR, maxR=maxR)
+    ant_id = NP.asarray(ant_id)
+if ant_locs.shape[1] == 2:
+    ant_locs = NP.hstack((ant_locs, NP.zeros(ant_id.size).reshape(-1,1)))
+if rank == 0:
+    antpos_rstate = NP.random.RandomState(antpos_rms_seed)
+    deast = antpos_rms_tgtplane/NP.sqrt(2.0) * antpos_rstate.randn(ant_id.size)
+    dnorth = antpos_rms_tgtplane/NP.sqrt(2.0) * antpos_rstate.randn(ant_id.size)
+    dup = antpos_rms_elevation * antpos_rstate.randn(ant_id.size)
+    denu = NP.hstack((deast.reshape(-1,1), dnorth.reshape(-1,1), dup.reshape(-1,1)))
+else:
+    denu = None
+denu = comm.bcast(denu, root=0) # Broadcast antenna position perturbations
+ant_locs = ant_locs + denu
 
 telescope = {}
 if telescope_id in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'mwa_tools']:

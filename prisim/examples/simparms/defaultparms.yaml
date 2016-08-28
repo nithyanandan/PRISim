@@ -201,6 +201,21 @@ array   :                       # Parameters 'file' and 'layout'
                                 # Maximum radius of circular ring.
                                 # Applies only when layout = 'CIRC'
 
+    rms_tgtplane    : 0.0
+                                # Perturbation of antenna positions
+                                # (in m) in tangent plane.
+                                # Default=0.0
+
+    rms_elevation   : 0.0
+                                # Perturbation of antenna positions
+                                # (in m) in perpendicular to tangent
+                                # plane. Default=0.0
+
+    seed            : 200
+                                # Random number seed for antenna
+                                # position perturbations.
+                                # Default=null means no fixed seed
+
 ########## Baseline Selection #########
 
 baseline :                      # Parameters specifying baseline
