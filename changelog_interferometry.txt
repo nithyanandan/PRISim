@@ -1,3 +1,14 @@
+From 88f9e82 (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add options to perturb antenna positions
+
+In scripts/run_prisim.py,
+
+(*) Take into account perturbations to antenna positions
+
 From 28fd496 (phasing):
 ======================
 
