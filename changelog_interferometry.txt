@@ -1,3 +1,23 @@
+From f4e294f (pyuvdata):
+=======================
+
+(*) Add prisim/data_interface.py to git repo
+
+In prisim/data_interface.py,
+
+(*) Create class InterferometerData to act as interface between
+PRISim and external data formats
+(*) Create member function __init__() of class InterferometerData
+to initialize an instance of the class. Add docstring.
+(*) Create member function createUVData() of class InterferometerData
+to return an instance of class UVData. Add docstring.
+(*) Create docstring for class describing attributes and member
+functions
+
+In interferometry.py,
+
+(*) Remove import and handling of UVData
+
 From a076125 (master), 8e5036a (pyuvdata):
 =========================================
 
