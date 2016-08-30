@@ -1,3 +1,12 @@
+From a076125 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Remove import of linear algebra and optimization modules
+from scipy
+(*) Remove import of ipdb module
+
 From 88f9e82 (master):
 =====================
 

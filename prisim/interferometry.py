@@ -2,8 +2,6 @@ from __future__ import division
 import numpy as NP
 import numpy.linalg as LA
 import scipy.constants as FCNST
-from scipy.linalg import toeplitz
-import scipy.optimize as OPT
 import datetime as DT
 import progressbar as PGB
 import os
@@ -25,7 +23,6 @@ try:
     from mwapy.pb import primary_beam as MWAPB
 except ImportError:
     mwa_tools_found = False
-import ipdb as PDB
 
 ################################################################################
 
