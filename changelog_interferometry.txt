@@ -1,3 +1,17 @@
+From d011bb1 (pyuvdata):
+=======================
+
+In prisim/data_interface.py,
+
+(*) Import warnings
+(*) Update attribute infodict of class InterferometerData with more
+keys in __init__() member function
+(*) Add a couple of helper functions _blnum_to_antnums() and
+_antnums_to_blnum() as member functions in class InterferometerData
+(*) Create member function write() with docstring in class 
+InterferometerData to write to external files in specified formats.
+Currently works with UVFITS format. Update class docstring accordingly
+
 From 3806f42 (master), 4b1aa52 (pyuvdata):
 =========================================
 
