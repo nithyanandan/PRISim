@@ -1,6 +1,7 @@
 import numpy as NP 
 import scipy.constants as FCNST
 import scipy.special as SPS
+import h5py
 from astroutils import geometry as GEOM
 
 #################################################################################

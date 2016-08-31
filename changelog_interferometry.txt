@@ -1,3 +1,154 @@
+From 88f9e82 (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add options to perturb antenna positions
+
+In scripts/run_prisim.py,
+
+(*) Take into account perturbations to antenna positions
+
+From 28fd496 (phasing):
+======================
+
+In prisim/interferometry.py,
+
+(*) Fix fractional indexing to ensure integer index
+
+From a55c6b6 (phasing):
+======================
+
+In prisim/interferometry.py,
+
+(*) Change inputs to member function phase_centering() of class
+InterferometerArray. This makes it consistent with other similar
+member functions rotate_visibilities() and project_baselines().
+Update member function docstring accordingly
+(*) Change default of input do_delay_transform to False in member
+function phase_centering() of class InterferometerArray. Update
+member function docstring accordingly
+(*) Update call to member function phase_centering() in member
+function rotate_visibilities() of class InterferometerArray in
+accordance with changes made above.
+
+From 1435ea9 (phasing):
+======================
+
+In prisim/interferometry.py,
+
+(*) Create member function rotate_visibilities() under class
+InterferometerArray which serves as a wrapper to member functions
+phase_centering() and project_baselines() of the same class. Update
+class docstring accordingly
+(*) Update description of member function project_baselines() of
+class InterferometerArray to reflect the changes made in the member
+function
+
+From 7cfbc55 (phasing):
+======================
+
+In prisim/interferometry.py,
+
+(*) Generalize input ref_point of member function project_baselines()
+of class InterferometerArray to take multiple reference points and
+any coordinate system in 'radec', 'hadec', 'altaz' or 'dircos'. This
+input is now mandatory with no defaults. Update docstring accordingly
+
+In scripts/run_prisim.py,
+
+(*) Update inputs in call to member function project_baselines() of
+class InterferometerArray in accordance with changes made to it
+
+From 6a96a0b (phasing):
+======================
+
+In prisim/interferometry.py,
+
+(*) Vectorize rotation matrix and dot product in member function
+project_baselines() of class InterferometerArray
+
+From 04715dc (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Remove import of unused glob module
+
+From 1df0c85 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Fix writing previleges in save() member function of class
+InterferometerArray to enable overwriting of files in HDF5 format
+
+In scripts/run_prisim.py,
+
+(*) Remove few commented lines
+
+From f547d01 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Fix cleanup of intermediate files for any output format
+
+From 2ee7707 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Fix bugs in updating attributes n_acc and t_obs in member function
+observe() of class InterferometerArray
+
+In scripts/run_prisim.py,
+
+(*) Comment out setting attribute ia.t_obs manually when mpi_on_freq
+is set to True
+
+From 2298a8e (master):
+=====================
+
+(*) Add SKA1-low array layout to the repository
+
+From e2ac156 (master):
+=====================
+
+In prisim/data/array_layouts/ folder,
+
+(*) Change header of ascii file
+MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt
+slightly
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add option to indicate if redundancy is present in the array
+layout
+(*) Add options to parse the antenna array layout file which
+can now read more generic ascii formats
+
+In scripts/run_prisim.py,
+
+(*) Add options to check for redundancy in array layout
+(*) Add options to read generic ascii formats for array layout files
+
+From 0199fed (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Add type, value checking for some input parameters
+
+From 5b719e4 (master):
+=====================
+
+(*) Add test script test_mpi4py_for_prisim.py to git repo
+
+In setup.py,
+
+(*) Include .hdf5 files in beams folder in data directory
+
 From a861e83 (master):
 =====================
 

@@ -60,6 +60,7 @@ telescope:
                                 # -30.7224 for HERA, PAPER
                                 # 34.079 for VLA,
                                 # 19.0965 for GMRT
+                                # -26.82472208 for SKA low
 
     longitude       : +21.4278
                                 # Longitude of observatory (in degrees)
@@ -67,7 +68,8 @@ telescope:
                                 # corresponding to GMT.
                                 # -107.6184 for VLA, +116.670815 for MWA
                                 # +21.4278 for PAPER and HERA,
-                                # +74.0497 for GMRT
+                                # +74.0497 for GMRT,
+                                # +116.7644482 for SKA-Low
 
     A_eff           : 154
                                 # Effective area of antenna element
@@ -97,8 +99,19 @@ telescope:
 array   :                       # Parameters 'file' and 'layout'
                                 # below are mutually exclusive
 
-    file            : null
-                                # File containing antenna locations
+    redundant       : true
+                                # Indicates if redundancy is present.
+                                # If true (default), unique baselines
+                                # will be evaluated and used to
+                                # compute visibilities. If set to
+                                # false, all baselines whether
+                                # redundant or not will be used in
+                                # the simulation. Set to false only
+                                # if the array is definitely
+                                # non-redundant in which case it
+                                # may save a little time as it does
+                                # not have to compute the unique
+                                # baselines
 
     layout          : 'HERA-19'
                                 # Accepted values are 'MWA-128T',
@@ -108,6 +121,80 @@ array   :                       # Parameters 'file' and 'layout'
                                 # 'HERA-331', 'CIRC', or null
                            
 
+    file            : null
+                                # File containing antenna locations
+                                # parsed according to info in
+                                # parse_info
+
+    filepathtype    : 'default'
+                                # If set to 'default', only filename
+                                # should be specified in file and it
+                                # will be searched in the default 
+                                # array_layouts folder
+                                # prisim/data/array_layouts
+                                # If set to 'custom' then the full path
+                                # to the file must be specified
+
+    parser :
+                                # Will be used for parsing the file
+                                # if file is specified for array
+                                # layout
+
+        comment     : null
+                                # Regular expression defining a comment
+                                # line in table. Default = null ('#')
+
+        delimiter   : null
+                                # Delimiter string. Accepted values
+                                # are whitespace (default or null), ','
+                                # and '|'
+
+        data_start  : 3
+                                # Line index for the start of data
+                                # not counting comment or blank
+                                # lines. A line with only whitespace
+                                # is considered blank. It is required.
+                                # No defaults. Indexing starts from 0
+
+        data_end    : null
+                                # Line index for the end of data not
+                                # counting comment or blank lines.
+                                # This value can be negative to count
+                                # from the end. Default is null (all
+                                # the way to end of file). Indexing
+                                # starts from 0.
+
+        header_start: 0
+                                # Line index for the header line not
+                                # counting comment or blank lines. A
+                                # line with only whitespace is
+                                # considered blank. Must be provided.
+                                # No defaults
+
+        label       : null
+                                # String in the header containing
+                                # antenna labels. If set to null
+                                # (default), antenna labels will be
+                                # automatically assigned. e.g. of
+                                # some accepted values are null,
+                                # 'label', 'id', 'antid', etc. This
+                                # must be found in the header
+
+        east        : 'East'
+                                # String specifying East coordinates
+                                # in the header and data. Must be
+                                # provided. No defaults.
+
+        north       : 'North'
+                                # String specifying North coordinates
+                                # in the header and data. Must be
+                                # provided. No defaults.
+
+        up          : 'Up'
+                                # String specifying elevation
+                                # coordinates in the header and data.
+                                # Must be provided. No defaults.
+
     minR            : 141.0
                                 # Minimum radius of circular ring.
                                 # Applies only when layout = 'CIRC'
@@ -115,6 +202,21 @@ array   :                       # Parameters 'file' and 'layout'
     maxR            : 141.0
                                 # Maximum radius of circular ring.
                                 # Applies only when layout = 'CIRC'
+
+    rms_tgtplane    : 0.0
+                                # Perturbation of antenna positions
+                                # (in m) in tangent plane.
+                                # Default=0.0
+
+    rms_elevation   : 0.0
+                                # Perturbation of antenna positions
+                                # (in m) in perpendicular to tangent
+                                # plane. Default=0.0
+
+    seed            : 200
+                                # Random number seed for antenna
+                                # position perturbations.
+                                # Default=null means no fixed seed
 
 ########## Baseline Selection #########
 
@@ -241,6 +343,10 @@ beam    :
                                 # folder prisim/data/beams/
                                 # If set to 'custom' then the full path
                                 # to the file must be specified
+
+    filefmt         : 'HDF5'
+                                # File format for external beam file.
+                                # Accepted values are 'HDF5' and 'FITS'
 
     identifier      : 'HERA-CST'
                                 # string to identify source of beam
