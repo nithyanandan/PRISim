@@ -1,3 +1,11 @@
+From 0afd315 (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Make minor changes in save() member function of class
+InterferometerArray
+
 From d011bb1 (pyuvdata):
 =======================
 

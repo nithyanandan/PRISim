@@ -3926,17 +3926,17 @@ class InterferometerArray(object):
         except NameError:
             raise NameError('No filename provided. Aborting InterferometerArray.save()...')
 
-        if fmt not in ['HDF5', 'hdf5', 'FITS', 'fits']:
+        if fmt.lower() not in ['hdf5', 'fits']:
             raise ValueError('Invalid output file format specified')
-        if fmt in ['HDF5', 'hdf5']:
-            filename = outfile + '.hdf5'
-        if fmt in ['FITS', 'fits']:
-            filename = outfile + '.fits' 
+        if fmt.lower() == 'hdf5':
+            filename = outfile + fmt.lower()
+        if fmt.lower() == 'fits':
+            filename = outfile + fmt.lower()
 
         if verbose:
             print '\nSaving information about interferometer...'
 
-        if fmt in ['FITS', 'fits']:
+        if fmt.lower() == 'fits'::
             use_ascii = False
             if tabtype == 'TableHDU':
                 use_ascii = True
@@ -4128,7 +4128,7 @@ class InterferometerArray(object):
                 print '\tNow writing FITS file to disk...'
             hdu = fits.HDUList(hdulist)
             hdu.writeto(filename, clobber=overwrite)
-        else:
+        elif fmt.lower() == 'hdf5':
             if overwrite:
                 write_str = 'w'
             else:
@@ -4231,6 +4231,8 @@ class InterferometerArray(object):
                 if self.vis_noise_lag is not None:
                     vislags_group['noise'] = self.vis_noise_lag
                     vislags_group['noise'].attrs['units'] = 'Jy Hz'
+        else:
+            pass
         if verbose:
             print '\tInterferometer array information written successfully to file on disk:\n\t\t{0}\n'.format(filename)
 
