@@ -1,3 +1,28 @@
+From ad3b23d (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Copy class InterferometerData from data_interface.py to
+interferometry.py
+(*) Modify save() member function of class InterferometerArray to
+save in UVFITS format. Update docstring accordingly
+(*) Remove import of unused linear algebra module
+
+In scripts/run_prisim.py,
+
+(*) Update parsing and processing to take inputs and allow for saving
+in UVFITS format
+(*) Remove some commented lines
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add inputs for saving in UVFITS format
+
+In prisim/data_interface.py,
+
+(*) Make a comment noting that this module is deprecated
+
 From 0afd315 (pyuvdata):
 =======================
 

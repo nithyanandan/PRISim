@@ -242,9 +242,13 @@ mpi_key = parms['pp']['key']
 mpi_eqvol = parms['pp']['eqvol']
 save_formats = parms['save_formats']
 save_to_npz = save_formats['npz']
+save_to_uvfits = save_formats['uvfits']
 savefmt = save_formats['fmt']
 if savefmt not in ['HDF5', 'hdf5', 'FITS', 'fits']:
     raise ValueError('Output format invalid')
+if save_to_uvfits:
+    if save_formats['uvfits_method'] not in [None, 'uvdata', 'uvfits']:
+        raise ValueError('Invalid method specified for saving to UVFITS format')
 plots = parms['plots']
 diagnosis_parms = parms['diagnosis']
 
@@ -508,13 +512,6 @@ if antenna_file is not None:
         raise TypeError('Antenna locations must be of floating point type')
 
     ant_locs = NP.hstack((east.reshape(-1,1), north.reshape(-1,1), elev.reshape(-1,1)))
-
-    # try:
-    #     ant_info = NP.loadtxt(antenna_file, skiprows=6, comments='#', usecols=(0,1,2,3))
-    #     ant_id = ant_info[:,0].astype(int).astype(str)
-    #     ant_locs = ant_info[:,1:]
-    # except IOError:
-    #     raise IOError('Could not open file containing antenna locations.')
 else:
     if array_layout not in ['MWA-128T', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331', 'CIRC']:
         raise ValueError('Invalid array layout specified')
@@ -1736,7 +1733,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ia.add_noise()
             ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
             outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
-            ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
+            ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
         else:
             comm.send(ia.skyvis_freq, dest=0)
             # comm.Send([ia.skyvis_freq, ia.skyvis_freq.size, MPI.DOUBLE_COMPLEX])
@@ -1866,7 +1863,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             ia.add_noise()
             # ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
             ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
-            ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
+            ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
 else: # MPI based on baseline multiplexing
 
     if mpi_async: # does not impose equal volume per process
@@ -1919,7 +1916,7 @@ else: # MPI based on baseline multiplexing
                 ia.generate_noise()
                 ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
-                ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
+                ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
         counter.free()
         pte = time.time()
         pte_str = str(DT.datetime.now())
@@ -2079,7 +2076,7 @@ else: # MPI based on baseline multiplexing
                 ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
                 ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
-                ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
+                ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
         pte_str = str(DT.datetime.now())                
  
 if rank == 0:
@@ -2141,11 +2138,18 @@ if rank == 0:
             progress.finish()
 
         simvis.simparms_file = metafile
+        ref_point = {'coords': pc_coords, 'location': NP.asarray(pc).reshape(1,-1)}
+        simvis.rotate_visibilities(ref_point, do_delay_transform=do_delay_transform, verbose=True)
         if do_delay_transform:
             simvis.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
 
+        uvfits_parms = None
+        if save_to_uvfits:
+            uvfits_ref_point = {'location': NP.asarray(save_formats['phase_center']).reshape(1,-1), 'coords': 'radec'}
+            uvfits_parms = {'ref_point': uvfits_ref_point, 'method': save_formats['uvfits_method']}
+
         consolidated_outfile = rootdir+project_dir+simid+sim_dir+'simvis'
-        simvis.save(consolidated_outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=save_to_npz, overwrite=True)
+        simvis.save(consolidated_outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=save_to_npz, overwrite=True, uvfits_parms=uvfits_parms)
 
     skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel'
     if fg_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:

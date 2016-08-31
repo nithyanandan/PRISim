@@ -1,3 +1,5 @@
+# THIS IS NOW DEPRECATED. DO NOT USE IT. WILL BE DELETED SOON
+
 import numpy as NP
 from astropy.io import fits
 from astropy.coordinates import SkyCoord
