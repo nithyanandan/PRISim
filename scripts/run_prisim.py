@@ -2143,13 +2143,14 @@ if rank == 0:
         if do_delay_transform:
             simvis.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
 
+        consolidated_outfile = rootdir+project_dir+simid+sim_dir+'simvis'
+        simvis.save(consolidated_outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=save_to_npz, overwrite=True, uvfits_parms=None)
+
         uvfits_parms = None
         if save_to_uvfits:
             uvfits_ref_point = {'location': NP.asarray(save_formats['phase_center']).reshape(1,-1), 'coords': 'radec'}
             uvfits_parms = {'ref_point': uvfits_ref_point, 'method': save_formats['uvfits_method']}
-
-        consolidated_outfile = rootdir+project_dir+simid+sim_dir+'simvis'
-        simvis.save(consolidated_outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=save_to_npz, overwrite=True, uvfits_parms=uvfits_parms)
+            simvis.write_uvfits(consolidated_outfile, uvfits_parms=uvfits_parms, overwrite=True)
 
     skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel'
     if fg_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:

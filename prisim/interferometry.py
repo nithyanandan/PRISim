@@ -1873,7 +1873,11 @@ class InterferometerArray(object):
                        of class InterferometerArray along baseline, frequency or
                        time axis.
 
-    save()             Saves the interferometer array information to disk. 
+    save()             Saves the interferometer array information to disk in
+                       HDF5, FITS, NPZ and UVFITS formats
+
+    write_uvfits()     Saves the interferometer array information to disk in 
+                       UVFITS format 
 
     ----------------------------------------------------------------------------
     """
@@ -3899,7 +3903,8 @@ class InterferometerArray(object):
 
         """
         -------------------------------------------------------------------------
-        Saves the interferometer array information to disk. 
+        Saves the interferometer array information to disk in HDF5, FITS, NPZ 
+        and UVFITS formats
 
         Inputs:
 
@@ -4296,6 +4301,76 @@ class InterferometerArray(object):
             if verbose:
                 print '\tInterferometer array information written successfully to NPZ file on disk:\n\t\t{0}\n'.format(outfile+'.npz')
 
+        if uvfits_parms is not None:
+            self.write_uvfits(outfile, uvfits_parms=uvfits_parms, overwrite=overwrite, verbose=verbose)
+
+    #############################################################################
+
+    def write_uvfits(self, outfile, uvfits_parms=None, overwrite=False, 
+                     verbose=True):
+
+        """
+        -------------------------------------------------------------------------
+        Saves the interferometer array information to disk in UVFITS format 
+
+        Inputs:
+
+        outfile      [string] Filename with full path to be saved to. Three 
+                     UVFITS files will also be created whose names will be 
+                     outfile+'-noiseless', outfile+'-noisy' and 
+                     'outfile+'-noise' appended with '.uvfits'
+
+        Keyword Input(s):
+
+        uvfits_parms [dictionary] specifies basic parameters required for 
+                     saving in UVFITS format. If set to None (default), the
+                     data will not be saved in UVFITS format. To save in UVFITS 
+                     format, the following keys and values are required:
+                     'ref_point'    [dictionary] Contains information about the 
+                                    reference position to which projected 
+                                    baselines and rotated visibilities are to 
+                                    be computed. Default=None (no additional 
+                                    phasing will be performed). It must be 
+                                    contain the following keys with the 
+                                    following values:
+                                    'coords'    [string] Refers to the 
+                                                coordinate system in which value 
+                                                in key 'location' is specified 
+                                                in. Accepted values are 'radec', 
+                                                'hadec', 'altaz' and 'dircos'
+                                    'location'  [numpy array] Must be a Mx2 (if 
+                                                value in key 'coords' is set to 
+                                                'radec', 'hadec', 'altaz' or 
+                                                'dircos') or Mx3 (if value in 
+                                                key 'coords' is set to 
+                                                'dircos'). M can be 1 or equal 
+                                                to number of timestamps. If M=1, 
+                                                the same reference point in the 
+                                                same coordinate system will be 
+                                                repeated for all tiemstamps. If 
+                                                value under key 'coords' is set 
+                                                to 'radec', 'hadec' or 'altaz', 
+                                                the value under this key 
+                                                'location' must be in units of 
+                                                degrees.
+                     'method'       [string] specifies method to be used in 
+                                    saving in UVFITS format. Accepted values are 
+                                    'uvdata', 'uvfits' or None (default). If set 
+                                    to 'uvdata', the UVFITS writer in uvdata 
+                                    module is used. If set to 'uvfits', the 
+                                    in-house UVFITS writer is used. If set to 
+                                    None, first uvdata module will be attempted 
+                                    but if it fails then the in-house UVFITS 
+                                    writer will be tried.
+
+        overwrite    [boolean] True indicates overwrite even if a file already 
+                     exists. Default = False (does not overwrite)
+                     
+        verbose      [boolean] If True (default), prints diagnostic and progress
+                     messages. If False, suppress printing such messages.
+        -------------------------------------------------------------------------
+        """
+                
         if uvfits_parms is not None:
             if not isinstance(uvfits_parms, dict):
                 raise TypeError('Input uvfits_parms must be a dictionary')

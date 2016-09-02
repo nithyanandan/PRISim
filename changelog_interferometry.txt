@@ -1,3 +1,19 @@
+From 4bd1dec (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Create member function write_uvfits() (with docstring) under
+class InterferometerArray to save data in UVFITS format. Update
+class docstring accordingly
+(*) UVFITS writing functionality in save() member function of class
+InterferometerArray now calls write_uvfits() internally
+
+In scripts/run_prisim.py,
+
+(*) Saving to uvfits now happens outside of call to save() and
+instead calls write_uvfits() directly
+
 From dc10bce (pyuvdata):
 =======================
 
