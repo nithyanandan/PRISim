@@ -1790,12 +1790,12 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 if use_external_beam:
                     theta_phi = NP.hstack((NP.pi/2-NP.radians(src_altaz_current[roi_subset,0]).reshape(-1,1), NP.radians(src_altaz_current[roi_subset,1]).reshape(-1,1)))
                     if beam_chromaticity:
-                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e3, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
+                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e9, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
                         # interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e3, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
                         
                     else:
                         nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs*1e6 - select_beam_freq))
-                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e3, outloc_axis=chans*1e3, axis=1, assume_sorted=True)
+                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e9, outloc_axis=chans*1e9, axis=1, assume_sorted=True)
                     interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)
                     interp_logbeam_max[interp_logbeam_max <= 0.0] = 0.0
                     interp_logbeam_max = interp_logbeam_max.reshape(1,-1)

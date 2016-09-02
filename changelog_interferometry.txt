@@ -1,3 +1,11 @@
+From 3806f42 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Convert input and output frequencies into units of Hz
+during interpolation of externally specified beams
+
 From a076125 (master):
 =====================
 

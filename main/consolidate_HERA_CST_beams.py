@@ -21,7 +21,7 @@ for pol in pols:
     fnames = [fname.split('/')[-1] for fname in fullfnames]
     fnames = NP.asarray(fnames)
     freqs_str = [fname.split('_')[2].split('.')[0] for fname in fnames]
-    freqs = NP.asarray(map(float, freqs_str))
+    freqs = NP.asarray(map(float, freqs_str)) * 1e6 # Convert to Hz
     sortind = NP.argsort(freqs)
     fullfnames = fullfnames[sortind]
     fnames = fnames[sortind]
