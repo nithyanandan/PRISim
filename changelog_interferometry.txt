@@ -1,3 +1,8 @@
+From dc10bce (pyuvdata):
+=======================
+
+(*) Remove deprecated prisim/data_interface.py from git repo
+
 From a34db4e (pyuvdata):
 =======================
 
