@@ -1,3 +1,21 @@
+From a34db4e (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Conjugate visibilities of PRISim output while converting to
+UVFITS in order to be compatible with CASA imaging
+
+In prisim/data_interface.py,
+
+(*) Conjugate visibilities of PRISim output while converting to
+UVFITS in order to be compatible with CASA imaging
+
+In scripts/run_prisim.py,
+
+(*) Fix variable for flux density when sky model is set from a custom
+catalog
+
 From ad3b23d (pyuvdata):
 =======================
 

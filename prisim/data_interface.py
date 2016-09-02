@@ -90,6 +90,7 @@ class InterferometerData(object):
         datatypes = ['noiseless', 'noisy', 'noise']
         visibilities = {key: None for key in datatypes}
         for key in visibilities:
+            # Conjugate visibilities for compatibility with UVFITS and CASA imager
             if key == 'noiseless':
                 visibilities[key] = prisim_object.skyvis_freq
             if key == 'noisy':
@@ -120,8 +121,10 @@ class InterferometerData(object):
         ant_2_array = prisim_object.labels['A2'].astype(NP.int)
         ant_1_array = ant_1_array.reshape(1,-1) + NP.zeros(self.infodict['Ntimes'], dtype=NP.int).reshape(-1,1)
         ant_2_array = ant_2_array.reshape(1,-1) + NP.zeros(self.infodict['Ntimes'], dtype=NP.int).reshape(-1,1)
+
         self.infodict['ant_1_array'] = ant_1_array.ravel()
         self.infodict['ant_2_array'] = ant_2_array.ravel()
+
         self.infodict['baseline_array'] = 2048 * (self.infodict['ant_2_array'] + 1) + (self.infodict['ant_1_array'] + 1) + 2**16
         self.infodict['freq_array'] = prisim_object.channels.reshape(self.infodict['Nspws'],-1)
         self.infodict['polarization_array'] = NP.asarray([1]).reshape(self.infodict['Npols'])

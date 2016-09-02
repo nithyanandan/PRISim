@@ -1631,7 +1631,7 @@ elif use_custom:
     spec_parms['freq-width'] = NP.zeros(ra_deg.size)
     flux_unit = 'Jy'
 
-    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
 
     # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
