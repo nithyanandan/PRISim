@@ -4173,6 +4173,19 @@ class InterferometerArray(object):
                 if verbose:
                     print '\tCreated an extension for projected baseline vectors.'
     
+            if self.layout:
+                label_lengths = [len(label) for label in self.layout['labels']]
+                maxlen = max(label_lengths)
+                cols = []
+                cols += [fits.Column(name='labels', format='{0:0d}A'.format(maxlen), array=self.layout['labels'])]
+                cols += [fits.Column(name='ids', format='J', array=self.layout['ids'])]
+                cols += [fits.Column(name='positions', format='3D', array=self.layout['positions'])]
+                columns = _astropy_columns(cols, tabtype=tabtype)
+                tbhdu = fits.new_table(columns)
+                tbhdu.header.set('EXTNAME', 'LAYOUT')
+                tbhdu.header.set('COORDS', self.layout['coords'])
+                hdulist += [tbhdu]
+
             hdulist += [fits.ImageHDU(self.A_eff, name='Effective area')]
             if verbose:
                 print '\tCreated an extension for effective area.'
@@ -4327,6 +4340,13 @@ class InterferometerArray(object):
                 if 'groundplane' in self.telescope:
                     if self.telescope['groundplane'] is not None:
                         antelem_group['groundplane'] = self.telescope['groundplane']
+                if self.layout:
+                    layout_group = fileobj.create_group('layout')
+                    layout_group['positions'] = self.layout['positions']
+                    layout_group['positions'].attrs['units'] = 'm'
+                    layout_group['positions'].attrs['coords'] = self.layout['coords']
+                    layout_group['labels'] = self.layout['labels']
+                    layout_group['ids'] = self.layout['ids']
                 timing_group = fileobj.create_group('timing')
                 timing_group['t_obs'] = self.t_obs
                 timing_group['n_acc'] = self.n_acc

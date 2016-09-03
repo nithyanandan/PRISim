@@ -1,3 +1,11 @@
+From 52fbbcd (labeling):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Save layout information in save() member function of class
+InterferometerArray in both HDF5 and FITS formats
+
 From 5e5c142 (labeling):
 =======================
 
