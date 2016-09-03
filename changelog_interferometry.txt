@@ -1,3 +1,20 @@
+From 5e5c142 (labeling):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Add attribute layout in class InterferometerArray. Update
+class docstring accordingly
+(*) Add input keyword layout in __init__() member function
+of class InterferometerArray. Update member function docstring
+accordingly
+
+In scripts/run_prisim.py,
+
+(*) Create layout information and initialize instances of class
+InterferometerArray with it
+(*) Fix bugs in ids and labels of antennas and baselines
+
 From 3d36a19 (labeling):
 =======================
 

@@ -1770,6 +1770,23 @@ class InterferometerArray(object):
                                       modified and scaled values to. If not set, 
                                       there is no upper limit
 
+    layout      [dictionary] contains array layout information (on the full
+                array even if only a subset of antennas or baselines are used
+                in the simulation). It contains the following keys and 
+                information:
+                'positions' [numpy array] Antenna positions (in m) as a 
+                            nant x 3 array in coordinates specified by key
+                            'coords'
+                'coords'    [string] Coordinate system in which antenna 
+                            positions are specified. Currently accepts 'ENU'
+                            for local ENU system
+                'labels'    [list or numpy array of strings] Unique string
+                            identifiers for antennas. Must be of same length
+                            as nant.
+                'ids'       [list or numpy array of integers] Unique integer 
+                            identifiers for antennas. Must be of same length
+                            as nant.
+
     timestamp   [list] List of timestamps during the observation
 
     t_acc       [list] Accumulation time (sec) corresponding to each timestamp
@@ -1918,8 +1935,8 @@ class InterferometerArray(object):
     def __init__(self, labels, baselines, channels, telescope=None, eff_Q=0.89,
                  latitude=34.0790, longitude=0.0, skycoords='radec',
                  A_eff=NP.pi*(25.0/2)**2, pointing_coords='hadec',
-                 baseline_coords='localenu', freq_scale=None, init_file=None,
-                 simparms_file=None):
+                 layout=None, baseline_coords='localenu', freq_scale=None, 
+                 init_file=None, simparms_file=None):
         
         """
         ------------------------------------------------------------------------
@@ -1933,7 +1950,7 @@ class InterferometerArray(object):
         pointing_center, skyvis_freq, skyvis_lag, timestamp, t_acc, Tsys, 
         Tsysinfo, vis_freq, vis_lag, t_obs, n_acc, vis_noise_freq, 
         vis_noise_lag, vis_rms_freq, geometric_delays, projected_baselines, 
-        simparms_file
+        simparms_file, layout
 
         Read docstring of class InterferometerArray for details on these
         attributes.
@@ -1969,6 +1986,7 @@ class InterferometerArray(object):
                     self.telescope['size'] = 1.0
                     self.telescope['groundplane'] = None
                     self.Tsysinfo = []
+                    self.layout = {}
                     self.lags = None
                     self.vis_lag = None
                     self.skyvis_lag = None
@@ -2123,7 +2141,8 @@ class InterferometerArray(object):
                     if isinstance(hdulist[0].header['simparms'], str):
                         self.simparms_file = hdulist[0].header['simparms']
                     else:
-                        print '\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.'
+                        warnings.warn('\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.')
+                        # print '\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.'
     
                 try:
                     self.freq_resolution = hdulist[0].header['freq_resolution']
@@ -2174,6 +2193,7 @@ class InterferometerArray(object):
                 else:
                     self.telescope['orientation'] = hdulist['ANTENNA ELEMENT ORIENTATION'].data.reshape(1,-1)
     
+                self.layout = {}
                 try:
                     self.baseline_coords = hdulist[0].header['baseline_coords']
                 except KeyError:
@@ -2371,7 +2391,8 @@ class InterferometerArray(object):
         if isinstance(simparms_file, str):
             self.simparms_file = simparms_file
         else:
-            print '\tInvalid specification found in input simparms_file for simulation parameters file. Proceeding with None as default.'
+            warnings.warn('\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.')
+            # print '\tInvalid specification found in input simparms_file for simulation parameters file. Proceeding with None as default.'
 
         if isinstance(telescope, dict):
             self.telescope = telescope
@@ -2383,6 +2404,47 @@ class InterferometerArray(object):
             self.telescope['ocoords'] = 'altaz'
             self.telescope['orientation'] = NP.asarray([90.0, 270.0]).reshape(1,-1)
             self.telescope['groundplane'] = None
+
+        self.layout = {}
+        if isinstance(layout, dict):
+            if 'positions' in layout:
+                if isinstance(layout['positions'], NP.ndarray):
+                    if layout['positions'].ndim == 2:
+                        if (layout['positions'].shape[1] == 2) or (layout['positions'].shape[1] == 3):
+                            if layout['positions'].shape[1] == 2:
+                                layout['positions'] = NP.hstack((layout['positions'], NP.zeros(layout['positions'].shape[0]).reshape(-1,1)))
+                            self.layout['positions'] = layout['positions']
+                        else:
+                            raise ValueError('Incompatible shape in array layout')
+                    else:
+                        raise ValueError('Incompatible shape in array layout')
+                else:
+                    raise TypeError('Array layout positions must be a numpy array')
+            else:
+                raise KeyError('Array layout positions missing')
+            if 'coords' in layout:
+                if isinstance(layout['coords'], str):
+                    self.layout['coords'] = layout['coords']
+                else:
+                    raise TypeError('Array layout coordinates must be a string')
+            else:
+                raise KeyError('Array layout coordinates missing')
+            if 'labels' in layout:
+                if isinstance(layout['labels'], (list,NP.ndarray)):
+                    self.layout['labels'] = layout['labels']
+                else:
+                    raise TypeError('Array antenna labels must be a list or numpy array')
+            else:
+                raise KeyError('Array antenna labels missing')
+            if 'ids' in layout:
+                if isinstance(layout['ids'], (list,NP.ndarray)):
+                    self.layout['ids'] = layout['ids']
+                else:
+                    raise TypeError('Array antenna ids must be a list or numpy array')
+            else:
+                raise KeyError('Array antenna ids missing')
+            if (layout['positions'].shape[0] != layout['labels'].size) or (layout['ids'].size != layout['labels'].size):
+                raise ValueError('Antenna layout positions, labels and IDs must all be for same number of antennas')
 
         self.latitude = latitude
         self.longitude = longitude
