@@ -1,3 +1,15 @@
+From 3d36a19 (labeling):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Modify baseline_generator() to accept antenna ids besides
+antenna labels and output antenna pair ids as well as labels
+
+In scripts/run_prisim.py,
+
+(*) Assign ids and labels for antennas as well as baselines
+
 From 2d874d6 (pyuvdata), 13a8297 (master):
 =========================================
 

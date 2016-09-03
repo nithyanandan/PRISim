@@ -290,11 +290,11 @@ def circular_antenna_array(antsize, minR, maxR=None):
 
 ################################################################################
 
-def baseline_generator(antenna_locations, ant_id=None, auto=False,
-                       conjugate=False):
+def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
+                       auto=False, conjugate=False):
 
     """
-    -------------------------------------------------------------------
+    ---------------------------------------------------------------------------
     Generate baseline from antenna locations.
 
     Inputs:
@@ -306,7 +306,12 @@ def baseline_generator(antenna_locations, ant_id=None, auto=False,
 
     Input keywords:
 
-    ant_id             [list of strings] Unique identifier for each
+    ant_label          [list of strings] Unique string identifier for each
+                       antenna. Default = None. If None provided,
+                       antennas will be indexed by an integer starting
+                       from 0 to N(ants)-1
+
+    ant_id             [list of integers] Unique integer identifier for each
                        antenna. Default = None. If None provided,
                        antennas will be indexed by an integer starting
                        from 0 to N(ants)-1
@@ -325,13 +330,20 @@ def baseline_generator(antenna_locations, ant_id=None, auto=False,
                         Nb x 3 with each row specifying one baseline 
                         vector)
 
-    antenna_pairs       [Numpy structured array tuples] IDs of antennas 
+    antpair_labels      [Numpy structured array tuples] Labels of 
+                        antennas in the pair used to produce the 
+                        baseline vector under fields 'A2' and 'A1' for 
+                        second and first antenna respectively. The 
+                        baseline vector is obtained by position of 
+                        antennas under 'A2' minus position of antennas 
+                        under 'A1'
+
+    antpair_ids         [Numpy structured array tuples] IDs of antennas 
                         in the pair used to produce the baseline vector
                         under fields 'A2' and 'A1' for second and first 
                         antenna respectively. The baseline vector is 
                         obtained by position of antennas under 'A2' 
                         minus position of antennas under 'A1'
-
     -------------------------------------------------------------------
     """
 
@@ -387,6 +399,17 @@ def baseline_generator(antenna_locations, ant_id=None, auto=False,
     else:
         num_ants = antenna_locations.shape[0]
 
+    if ant_label is not None:
+        if isinstance(ant_label, list):
+            if len(ant_label) != num_ants:
+                raise ValueError('Dimensions of ant_label and antenna_locations do not match.')
+        elif isinstance(ant_label, NP.ndarray):
+            if ant_label.size != num_ants:
+                raise ValueError('Dimensions of ant_label and antenna_locations do not match.')
+            ant_label = ant_label.tolist()
+    else:
+        ant_label = ['{0:0d}'.format(i) for i in xrange(num_ants)]
+
     if ant_id is not None:
         if isinstance(ant_id, list):
             if len(ant_id) != num_ants:
@@ -396,53 +419,63 @@ def baseline_generator(antenna_locations, ant_id=None, auto=False,
                 raise ValueError('Dimensions of ant_id and antenna_locations do not match.')
             ant_id = ant_id.tolist()
     else:
-        ant_id = ['{0:0d}'.format(i) for i in xrange(num_ants)]
-
+        ant_id = range(num_ants)
+        
     if inp_type == 'loo':
         if auto:
             baseline_locations = [antenna_locations[j]-antenna_locations[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            # antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
         else:
             baseline_locations = [antenna_locations[j]-antenna_locations[i] for i in range(0,num_ants) for j in range(0,num_ants) if j > i]                
-            # antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
-            antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
         if conjugate:
             baseline_locations += [antenna_locations[j]-antenna_locations[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            # antenna_pairs += [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            antenna_pairs += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            # antpair_labels += [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antpair_labels += [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antpair_ids += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
     elif inp_type == 'lot':
         if auto:
             baseline_locations = [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            # antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]            
+            # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
         else:
             baseline_locations = [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
-            # antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
-            antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]            
+            # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
         if conjugate:
             baseline_locations += [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            # antenna_pairs += [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            antenna_pairs += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]            
+            # antpair_labels += [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antpair_labels += [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antpair_ids += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
     elif inp_type == 'npa':
         if auto:
             baseline_locations = [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            # antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]            
+            # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
         else:
             baseline_locations = [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]  
-            # antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
-            antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]                  
+            # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
         if conjugate:
             baseline_locations += [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]         
-            # antenna_pairs += [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            antenna_pairs += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]            
+            # antpair_labels += [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antpair_labels += [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antpair_ids += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
 
         baseline_locations = NP.asarray(baseline_locations)
-        maxlen = max(len(aid) for aid in ant_id)
-        antenna_pairs = NP.asarray(antenna_pairs, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
+        maxlen = max(len(albl) for albl in ant_label)
+        antpair_labels = NP.asarray(antpair_labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
+        antpair_ids = NP.asarray(antpair_ids, dtype=[('A2', int), ('A1', int)])
 
-    return baseline_locations, antenna_pairs
+    return baseline_locations, antpair_labels, antpair_ids
 
 #################################################################################
 
