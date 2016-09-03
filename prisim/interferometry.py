@@ -3935,7 +3935,10 @@ class InterferometerArray(object):
                      handing over of python files
                      
         overwrite    [boolean] True indicates overwrite even if a file already 
-                     exists. Default = False (does not overwrite)
+                     exists. Default = False (does not overwrite). Beware this 
+                     may not work reliably for UVFITS output when uvfits_method 
+                     is set to None or 'uvdata' and hence always better to make 
+                     sure the output file does not exist already
                      
         uvfits_parms [dictionary] specifies basic parameters required for 
                      saving in UVFITS format. If set to None (default), the
@@ -4364,7 +4367,10 @@ class InterferometerArray(object):
                                     writer will be tried.
 
         overwrite    [boolean] True indicates overwrite even if a file already 
-                     exists. Default = False (does not overwrite)
+                     exists. Default = False (does not overwrite). Beware this 
+                     may not work reliably if uvfits_method is set to None or
+                     'uvdata' and hence always better to make sure the output
+                     file does not exist already
                      
         verbose      [boolean] If True (default), prints diagnostic and progress
                      messages. If False, suppress printing such messages.
@@ -4380,7 +4386,7 @@ class InterferometerArray(object):
                 uvfits_parms['method'] = None
             dataobj = InterferometerData(self, ref_point=uvfits_parms['ref_point'])
             for datakey in dataobj.infodict['data_array']:
-                dataobj.write(outfile+'-{0}.uvfits'.format(datakey), datatype=datakey, fmt='UVFITS', uvfits_method=uvfits_parms['method'])
+                dataobj.write(outfile+'-{0}.uvfits'.format(datakey), datatype=datakey, fmt='UVFITS', uvfits_method=uvfits_parms['method'], overwrite=overwrite)
 
 #################################################################################
 
@@ -4948,7 +4954,8 @@ class InterferometerData(object):
 
     #############################################################################
     
-    def write(self, outfile, datatype='noiseless', fmt='UVFITS', uvfits_method=None):
+    def write(self, outfile, datatype='noiseless', fmt='UVFITS',
+              uvfits_method=None, overwrite=False):
 
         """
         ------------------------------------------------------------------------
@@ -4976,6 +4983,12 @@ class InterferometerData(object):
                     used. If set to None, first uvdata module will be attempted
                     but if it fails then the in-house UVFITS writer will be
                     tried.
+
+        overwrite   [boolean] True indicates overwrite even if a file already 
+                    exists. Default = False (does not overwrite). Beware this 
+                    may not work reliably if uvfits_method is set to None or
+                    'uvdata' and hence always better to make sure the output
+                    file does not exist already
         ------------------------------------------------------------------------
         """
 
@@ -5203,7 +5216,7 @@ class InterferometerData(object):
         
                 # write the file
                 hdulist = fits.HDUList(hdus=[hdu, ant_hdu])
-                hdulist.writeto(outfile, clobber=True)
+                hdulist.writeto(outfile, clobber=overwrite)
             except Exception as xption2:
                 print xption2
                 raise IOError('Could not write to UVFITS file')

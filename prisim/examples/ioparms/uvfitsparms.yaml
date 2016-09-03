@@ -1,0 +1,48 @@
+##### IMPORTANT INFORMATION #####
+##### DO NOT MODIFY THIS FILE #####
+##### MAKE A COPY OF THIS FILE AND CUSTOMIZE #####
+
+infile          : '/path/to/prisim_file'
+                            # string specifying full path to the
+                            # PRISim data. It is not needed
+                            # to provide extension to the file
+                            # name. It will automatically search
+                            # for PRISim compatible files
+
+outfile         : '/path/to/output/uvfits_file'
+                            # String specifying full path to
+                            # output UVFITS file. The extension
+                            # 'uvfits' will be automatically added
+                            # and should need not be provided
+
+overwrite       : true
+                            # boolean flag specifying if the output
+                            # file (if already exisits) can be
+                            # overwritten. Default=false (does not
+                            # overwite). If set to true (allows
+                            # overwriting). Beware this may not work
+                            # reliably if uvfits_method is set to
+                            # None or 'uvdata' and hence always
+                            # better to make sure the output
+                            # file does not exist already
+
+uvfits_method   : null
+                            # specifies method to save to UVFITS
+                            # format. Accepted value are 'uvdata'
+                            # (uses uvdata module in pyuvdata
+                            # package), 'uvfits' (uses in-house
+                            # uvfits writer) or null (default)
+                            # which tries the 'uvdata' method
+                            # first and if it fails, tries the
+                            # 'uvfits' method
+
+phase_center    : [0.0, -30.7224]
+                            # Phase center [ra, dec] (in degrees)
+                            # to phase the visibilities to before
+                            # writing in UVFITS format. This will
+                            # apply only to UVFITS file and not
+                            # to other formats saved. Hence,
+                            # operates independently of phase
+                            # center set earlier under phase
+                            # center information and only affects
+                            # the UVFITS output

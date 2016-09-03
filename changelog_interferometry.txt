@@ -1,3 +1,27 @@
+From 6082978 (pyuvdata):
+=======================
+
+(*) Add scripts/prisim_to_uvfits.py to git repo
+(*) Add prisim/examples/ioparms/uvfitsparms.yaml to git repo
+
+In prisim/interferometry.py,
+
+(*) Add input keyword overwrite in write() member function of class
+InterferometerData. Update member function docstring accordingly
+(*) Update docstring of member function write_uvfits() of class
+InterferometerArray
+(*) Update docstring of member function save() of class
+InterferometerArray
+
+In scripts/prisim_to_uvfits.py,
+
+(*) Enable to convert PRISim data to UVFITS format
+
+In prisim/examples/ioparms/uvfitsparms.yaml,
+
+(*) Add example parameters to allow conversion of PRISim data
+to UVFITS format using the prisim_to_uvfits.py script
+
 From 4bd1dec (pyuvdata):
 =======================
 
