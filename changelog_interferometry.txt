@@ -1,3 +1,13 @@
+From 0fe2e25 (labeling):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Update __init__() member function of class InterferometerData
+to handle antenna numbers, names and positions based on the antenna
+IDs and labels.
+(*) Verify ability to write in UVFITS format
+
 From 570e33b (labeling):
 =======================
 

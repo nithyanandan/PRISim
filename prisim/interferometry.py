@@ -4899,8 +4899,22 @@ class InterferometerData(object):
         self.infodict['time_array'] = time_array.ravel()
         lst_array = NP.radians(NP.asarray(prisim_object.lst).reshape(-1,1)) + NP.zeros(self.infodict['Nbls']).reshape(1,-1)
         self.infodict['lst_array'] = lst_array.ravel()
-        ant_1_array = prisim_object.labels['A1'].astype(NP.int)
-        ant_2_array = prisim_object.labels['A2'].astype(NP.int)
+        
+        labels_A1 = prisim_object.labels['A1']
+        labels_A2 = prisim_object.labels['A2']
+        if prisim_object.layout:
+            id_A1 = [prisim_object.layout['ids'][prisim_object.layout['labels'].tolist().index(albl)] for albl in labels_A1]
+            id_A2 = [prisim_object.layout['ids'][prisim_object.layout['labels'].tolist().index(albl)] for albl in labels_A2]
+            id_A1 = NP.asarray(id_A1, dtype=int)
+            id_A2 = NP.asarray(id_A2, dtype=int)
+        else:
+            try:
+                id_A1 = prisim_object.labels['A1'].astype(NP.int)
+                id_A2 = prisim_object.labels['A2'].astype(NP.int)
+            except ValueError:
+                raise ValueError('Could not convert antenna labels to numbers')
+        ant_1_array = id_A1
+        ant_2_array = id_A2
         ant_1_array = ant_1_array.reshape(1,-1) + NP.zeros(self.infodict['Ntimes'], dtype=NP.int).reshape(-1,1)
         ant_2_array = ant_2_array.reshape(1,-1) + NP.zeros(self.infodict['Ntimes'], dtype=NP.int).reshape(-1,1)
 
@@ -4983,24 +4997,36 @@ class InterferometerData(object):
 
         # ----- antenna information ------
         self.infodict['Nants_data'] = len(set(prisim_object.labels['A1']) | set(prisim_object.labels['A2']))
-        self.infodict['Nants_telescope'] = len(set(prisim_object.labels['A1']) | set(prisim_object.labels['A2']))
-        self.infodict['antenna_names'] = NP.asarray(list(set(prisim_object.labels['A1']) | set(prisim_object.labels['A2'])))
-        self.infodict['antenna_numbers'] = NP.asarray(list(set(prisim_object.labels['A1']) | set(prisim_object.labels['A2']))).astype(NP.int)
+        if prisim_object.layout:
+            # self.infodict['Nants_telescope'] = len(set(prisim_object.labels['A1']) | set(prisim_object.labels['A2']))
+            self.infodict['Nants_telescope'] = prisim_object.layout['ids'].size
+        else:
+            self.infodict['Nants_telescope'] = self.infodict['Nants_data']
+
+        if prisim_object.layout:
+            self.infodict['antenna_names'] = prisim_object.layout['labels']
+            self.infodict['antenna_numbers'] = prisim_object.layout['ids']
+        else:
+            self.infodict['antenna_names'] = NP.asarray(list(set(prisim_object.labels['A1']) | set(prisim_object.labels['A2'])))
+            try:
+                self.infodict['antenna_numbers'] = NP.asarray(list(set(prisim_object.labels['A1']) | set(prisim_object.labels['A2']))).astype(NP.int)
+            except ValueError:
+                raise ValueError('Count not convert antenna labels to numbers')
         
         # ----- Optional information ------
         self.infodict['dateobs'] = Time(prisim_object.timestamp[0], format='jd', scale='utc').iso
         self.infodict['phase_center_ra'] = NP.radians(phase_center_obscenter.ra.value)
         self.infodict['phase_center_dec'] = NP.radians(phase_center_obscenter.dec.value)
         self.infodict['antenna_positions'] = NP.zeros((self.infodict['Nants_telescope'],3), dtype=NP.float)
-        if hasattr(prisim_object, 'antenna_positions'):
-            if prisim_object.antenna_positions is not None:
-                if not isinstance(prisim_object.antenna_positions, NP.ndarray):
+        if hasattr(prisim_object, 'layout'):
+            if prisim_object.layout:
+                if not isinstance(prisim_object.layout['positions'], NP.ndarray):
                     warnings.warn('Antenna positions must be a numpy array. Proceeding with default values.')
                 else:
-                    if prisim_object.antenna_positions.shape != (self.infodict['Nants_telescope'],3):
+                    if prisim_object.layout['positions'].shape != (self.infodict['Nants_telescope'],3):
                         warnings.warn('Number of antennas in prisim_object found to be incompatible with number of unique antennas found. Proceeding with default values.')
                     else:
-                        self.infodict['antenna_positions'] = prisim_object.antenna_positions
+                        self.infodict['antenna_positions'] = prisim_object.layout['positions']
             
         self.infodict['gst0'] = 0.0
         self.infodict['rdate'] = ''
