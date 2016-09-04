@@ -1,3 +1,10 @@
+From d2af20c (master):
+=====================
+
+In setup.py,
+
+(*) Include prisim/examples/ioparms/ folder in package data
+
 From 97645a6 (master):
 =====================
 
