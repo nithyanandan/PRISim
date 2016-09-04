@@ -1,3 +1,11 @@
+From 97645a6 (master):
+=====================
+
+In setup.py,
+
+(*) Include *.FITS files in prisim/data/beams
+(*) Exclude *.hdf5 files in prisim/data/beams
+
 From 0fe2e25 (labeling):
 =======================
 
