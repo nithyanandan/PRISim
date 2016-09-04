@@ -1,3 +1,12 @@
+From 570e33b (labeling):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Initialize attribute layout in __init__() member function of
+class InterferometerArray from init_file in both HDF5 and FITS
+formats
+
 From 52fbbcd (labeling):
 =======================
 

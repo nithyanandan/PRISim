@@ -1991,7 +1991,7 @@ class InterferometerArray(object):
                     self.vis_lag = None
                     self.skyvis_lag = None
                     self.vis_noise_lag = None
-                    for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'instrument', 'visibilities']:
+                    for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'layout', 'instrument', 'visibilities']:
                         try:
                             grp = fileobj[key]
                         except KeyError:
@@ -2006,6 +2006,25 @@ class InterferometerArray(object):
                                 self.longitude = grp['longitude'].value
                             if 'id' in grp:
                                 self.telescope['id'] = grp['id'].value
+                        if key == 'layout':
+                            if 'positions' in grp:
+                                self.layout['positions'] = grp['positions'].value
+                            else:
+                                raise KeyError('Antenna layout positions is missing')
+                            try:
+                                self.layout['coords'] = grp['positions'].attrs['coords']
+                            except KeyError:
+                                raise KeyError('Antenna layout position coordinate system is missing')
+                            if 'labels' in grp:
+                                self.layout['labels'] = grp['labels'].value
+                            else:
+                                raise KeyError('Layout antenna labels is missing')
+                            if 'ids' in grp:
+                                self.layout['ids'] = grp['ids'].value
+                            else:
+                                raise KeyError('Layout antenna ids is missing')
+                            # for subkey in grp:
+                            #     self.layout[subkey] = grp[subkey].value
                         if key == 'antenna_element':
                             if 'shape' in grp:
                                 self.telescope['shape'] = grp['shape'].value
@@ -2193,7 +2212,6 @@ class InterferometerArray(object):
                 else:
                     self.telescope['orientation'] = hdulist['ANTENNA ELEMENT ORIENTATION'].data.reshape(1,-1)
     
-                self.layout = {}
                 try:
                     self.baseline_coords = hdulist[0].header['baseline_coords']
                 except KeyError:
@@ -2262,6 +2280,12 @@ class InterferometerArray(object):
                 else:
                     self.labels = ['B{0:0d}'.format(i+1) for i in range(self.baseline_lengths.size)]
     
+                self.layout = {}
+                if 'LAYOUT' in extnames:
+                    for key in ['positions', 'ids', 'labels']:
+                        self.layout[key] = hdulist['LAYOUT'].data[key]
+                    self.layout['coords'] = hdulist['LAYOUT'].header['COORDS']
+
                 if 'EFFECTIVE AREA' in extnames:
                     self.A_eff = hdulist['EFFECTIVE AREA'].data
                 else:
