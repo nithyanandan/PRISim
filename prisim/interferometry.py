@@ -21,8 +21,6 @@ from astroutils import lookup_operations as LKP
 import baseline_delay_horizon as DLY
 import primary_beams as PB
 mwa_tools_found = True
-import psutil
-from distutils.version import LooseVersion
 try:
     from mwapy.pb import primary_beam as MWAPB
 except ImportError:
@@ -3941,75 +3939,6 @@ class InterferometerArray(object):
         if verbose:
             print '\nSaving information about interferometer...'
 
-<<<<<<< HEAD
-
-
-        hdulist = []
-
-        hdulist += [fits.PrimaryHDU()]
-        hdulist[0].header['latitude'] = (self.latitude, 'Latitude of interferometer')
-        hdulist[0].header['longitude'] = (self.longitude, 'Longitude of interferometer')        
-        hdulist[0].header['baseline_coords'] = (self.baseline_coords, 'Baseline coordinate system')
-        hdulist[0].header['freq_resolution'] = (self.freq_resolution, 'Frequency Resolution (Hz)')
-        hdulist[0].header['pointing_coords'] = (self.pointing_coords, 'Pointing coordinate system')
-        hdulist[0].header['phase_center_coords'] = (self.phase_center_coords, 'Phase center coordinate system')
-        hdulist[0].header['skycoords'] = (self.skycoords, 'Sky coordinate system')
-        if 'id' in self.telescope:
-            hdulist[0].header['telescope'] = (self.telescope['id'], 'Telescope Name')
-        if self.simparms_file is not None:
-            hdulist[0].header['simparms'] = (self.simparms_file, 'YAML file with simulation parameters')
-        hdulist[0].header['element_shape'] = (self.telescope['shape'], 'Antenna element shape')
-        hdulist[0].header['element_size'] = (self.telescope['size'], 'Antenna element size')
-        hdulist[0].header['element_ocoords'] = (self.telescope['ocoords'], 'Antenna element orientation coordinates')
-        hdulist[0].header['t_obs'] = (self.t_obs, 'Observing duration (s)')
-        hdulist[0].header['n_acc'] = (self.n_acc, 'Number of accumulations')        
-        hdulist[0].header['flux_unit'] = (self.flux_unit, 'Unit of flux density')
-        hdulist[0].header['EXTNAME'] = 'PRIMARY'
-
-        if verbose:
-            print '\tCreated a primary HDU.'
-
-        hdulist += [fits.ImageHDU(self.telescope['orientation'], name='Antenna element orientation')]
-        if verbose:
-            print '\tCreated an extension for antenna element orientation.'
-
-        cols = []
-        if self.lst: 
-            cols += [fits.Column(name='LST', format='D', array=NP.asarray(self.lst).ravel())]
-            cols += [fits.Column(name='pointing_longitude', format='D', array=self.pointing_center[:,0])]
-            cols += [fits.Column(name='pointing_latitude', format='D', array=self.pointing_center[:,1])]
-            cols += [fits.Column(name='phase_center_longitude', format='D', array=self.phase_center[:,0])]
-            cols += [fits.Column(name='phase_center_latitude', format='D', array=self.phase_center[:,1])]
-        columns = _astropy_columns(cols, tabtype=tabtype)
-        tbhdu = fits.new_table(columns)
-        tbhdu.header.set('EXTNAME', 'POINTING AND PHASE CENTER INFO')
-        hdulist += [tbhdu]
-        if verbose:
-            print '\tCreated pointing and phase center information table.'
-
-        label_lengths = [len(label[0]) for label in self.labels]
-        maxlen = max(label_lengths)
-        labels = NP.asarray(self.labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
-        cols = []
-        cols += [fits.Column(name='A1', format='{0:0d}A'.format(maxlen), array=labels['A1'])]
-        cols += [fits.Column(name='A2', format='{0:0d}A'.format(maxlen), array=labels['A2'])]        
-        # cols += [fits.Column(name='labels', format='5A', array=NP.asarray(self.labels))]
-
-        columns = _astropy_columns(cols, tabtype=tabtype)
-
-        tbhdu = fits.new_table(columns)
-        tbhdu.header.set('EXTNAME', 'LABELS')
-        hdulist += [tbhdu]
-        if verbose:
-            print '\tCreated extension table containing baseline labels.'
-
-        hdulist += [fits.ImageHDU(self.baselines, name='baselines')]
-        if verbose:
-            print '\tCreated an extension for baseline vectors.'
-
-        if self.projected_baselines is not None:
-            hdulist += [fits.ImageHDU(self.projected_baselines, name='proj_baselines')]
-=======
         if fmt in ['FITS', 'fits']:
             use_ascii = False
             if tabtype == 'TableHDU':
@@ -4039,7 +3968,6 @@ class InterferometerArray(object):
             hdulist[0].header['flux_unit'] = (self.flux_unit, 'Unit of flux density')
             hdulist[0].header['EXTNAME'] = 'PRIMARY'
     
->>>>>>> nithya/master
             if verbose:
                 print '\tCreated a primary HDU.'
     
