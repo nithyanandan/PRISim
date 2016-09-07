@@ -242,9 +242,13 @@ mpi_key = parms['pp']['key']
 mpi_eqvol = parms['pp']['eqvol']
 save_formats = parms['save_formats']
 save_to_npz = save_formats['npz']
+save_to_uvfits = save_formats['uvfits']
 savefmt = save_formats['fmt']
 if savefmt not in ['HDF5', 'hdf5', 'FITS', 'fits']:
     raise ValueError('Output format invalid')
+if save_to_uvfits:
+    if save_formats['uvfits_method'] not in [None, 'uvdata', 'uvfits']:
+        raise ValueError('Invalid method specified for saving to UVFITS format')
 plots = parms['plots']
 diagnosis_parms = parms['diagnosis']
 
@@ -496,9 +500,9 @@ if antenna_file is not None:
         raise KeyError('One of east, north, up coordinates incompatible with the table in antenna_file')
 
     if antfile_parser['label'] is not None:
-        ant_id = ant_info[antfile_parser['label']].data.astype('str')
+        ant_label = ant_info[antfile_parser['label']].data.astype('str')
     else:
-        ant_id = NP.arange(len(ant_info)).astype('str')
+        ant_label = NP.arange(len(ant_info)).astype('str')
 
     east = ant_info[antfile_parser['east']].data
     north = ant_info[antfile_parser['north']].data
@@ -508,56 +512,54 @@ if antenna_file is not None:
         raise TypeError('Antenna locations must be of floating point type')
 
     ant_locs = NP.hstack((east.reshape(-1,1), north.reshape(-1,1), elev.reshape(-1,1)))
-
-    # try:
-    #     ant_info = NP.loadtxt(antenna_file, skiprows=6, comments='#', usecols=(0,1,2,3))
-    #     ant_id = ant_info[:,0].astype(int).astype(str)
-    #     ant_locs = ant_info[:,1:]
-    # except IOError:
-    #     raise IOError('Could not open file containing antenna locations.')
 else:
     if array_layout not in ['MWA-128T', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331', 'CIRC']:
         raise ValueError('Invalid array layout specified')
 
     if array_layout == 'MWA-128T':
         ant_info = NP.loadtxt(prisim_path+'data/array_layouts/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', skiprows=6, comments='#', usecols=(0,1,2,3))
-        ant_id = ant_info[:,0].astype(int).astype(str)
+        ant_label = ant_info[:,0].astype(int).astype(str)
         ant_locs = ant_info[:,1:]
     elif array_layout == 'HERA-7':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=7)
+        ant_locs, ant_label = RI.hexagon_generator(14.6, n_total=7)
     elif array_layout == 'HERA-19':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=19)
+        ant_locs, ant_label = RI.hexagon_generator(14.6, n_total=19)
     elif array_layout == 'HERA-37':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=37)
+        ant_locs, ant_label = RI.hexagon_generator(14.6, n_total=37)
     elif array_layout == 'HERA-61':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=61)
+        ant_locs, ant_label = RI.hexagon_generator(14.6, n_total=61)
     elif array_layout == 'HERA-91':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=91)
+        ant_locs, ant_label = RI.hexagon_generator(14.6, n_total=91)
     elif array_layout == 'HERA-127':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=127)
+        ant_locs, ant_label = RI.hexagon_generator(14.6, n_total=127)
     elif array_layout == 'HERA-169':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=169)
+        ant_locs, ant_label = RI.hexagon_generator(14.6, n_total=169)
     elif array_layout == 'HERA-217':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=217)
+        ant_locs, ant_label = RI.hexagon_generator(14.6, n_total=217)
     elif array_layout == 'HERA-271':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=271)
+        ant_locs, ant_label = RI.hexagon_generator(14.6, n_total=271)
     elif array_layout == 'HERA-331':
-        ant_locs, ant_id = RI.hexagon_generator(14.6, n_total=331)
+        ant_locs, ant_label = RI.hexagon_generator(14.6, n_total=331)
     elif array_layout == 'CIRC':
-        ant_locs, ant_id = RI.circular_antenna_array(element_size, minR, maxR=maxR)
-    ant_id = NP.asarray(ant_id)
+        ant_locs, ant_label = RI.circular_antenna_array(element_size, minR, maxR=maxR)
+    ant_label = NP.asarray(ant_label)
 if ant_locs.shape[1] == 2:
-    ant_locs = NP.hstack((ant_locs, NP.zeros(ant_id.size).reshape(-1,1)))
+    ant_locs = NP.hstack((ant_locs, NP.zeros(ant_label.size).reshape(-1,1)))
 if rank == 0:
     antpos_rstate = NP.random.RandomState(antpos_rms_seed)
-    deast = antpos_rms_tgtplane/NP.sqrt(2.0) * antpos_rstate.randn(ant_id.size)
-    dnorth = antpos_rms_tgtplane/NP.sqrt(2.0) * antpos_rstate.randn(ant_id.size)
-    dup = antpos_rms_elevation * antpos_rstate.randn(ant_id.size)
+    deast = antpos_rms_tgtplane/NP.sqrt(2.0) * antpos_rstate.randn(ant_label.size)
+    dnorth = antpos_rms_tgtplane/NP.sqrt(2.0) * antpos_rstate.randn(ant_label.size)
+    dup = antpos_rms_elevation * antpos_rstate.randn(ant_label.size)
     denu = NP.hstack((deast.reshape(-1,1), dnorth.reshape(-1,1), dup.reshape(-1,1)))
 else:
     denu = None
 denu = comm.bcast(denu, root=0) # Broadcast antenna position perturbations
 ant_locs = ant_locs + denu
+ant_locs_orig = NP.copy(ant_locs)
+ant_label_orig = NP.copy(ant_label)
+ant_id = NP.arange(ant_label.size, dtype=int)
+ant_id_orig = NP.copy(ant_id)
+layout_info = {'positions': ant_locs_orig, 'labels': ant_label_orig, 'ids': ant_id_orig, 'coords': 'ENU'}
 
 telescope = {}
 if telescope_id in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'mwa_tools']:
@@ -854,14 +856,19 @@ if global_HI_parms is not None:
     freq_half = global_HI_parms[1]
     dz_half = global_HI_parms[2]
 
-bl, bl_id = RI.baseline_generator(ant_locs, ant_id=ant_id, auto=False, conjugate=False)
+bl_orig, bl_label_orig, bl_id_orig = RI.baseline_generator(ant_locs_orig, ant_label=ant_label_orig, ant_id=ant_id_orig, auto=False, conjugate=False)
+bl = NP.copy(bl_orig)
+bl_label = NP.copy(bl_label_orig)
+bl_id = NP.copy(bl_id_orig)
 if array_is_redundant:
     bl, select_bl_ind, bl_count = RI.uniq_baselines(bl)
+    bl_label = bl_label[select_bl_ind]
     bl_id = bl_id[select_bl_ind]
 bl_length = NP.sqrt(NP.sum(bl**2, axis=1))
 bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
 sortind = NP.argsort(bl_length, kind='mergesort')
 bl = bl[sortind,:]
+bl_label = bl_label[sortind]
 bl_id = bl_id[sortind]
 bl_length = bl_length[sortind]
 bl_orientation = bl_orientation[sortind]
@@ -871,9 +878,11 @@ neg_bl_orientation_ind = (bl_orientation < -67.5) | (bl_orientation > 112.5)
 # neg_bl_orientation_ind = NP.logical_or(bl_orientation < -0.5*180.0/n_bins_baseline_orientation, bl_orientation > 180.0 - 0.5*180.0/n_bins_baseline_orientation)
 bl[neg_bl_orientation_ind,:] = -1.0 * bl[neg_bl_orientation_ind,:]
 bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
-maxlen = max(max(len(aid[0]), len(aid[1])) for aid in bl_id)
+maxlen = max(max(len(albl[0]), len(albl[1])) for albl in bl_label)
+bl_label = [tuple(reversed(bl_label[i])) if neg_bl_orientation_ind[i] else bl_label[i] for i in xrange(bl_label.size)]
+bl_label = NP.asarray(bl_label, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
 bl_id = [tuple(reversed(bl_id[i])) if neg_bl_orientation_ind[i] else bl_id[i] for i in xrange(bl_id.size)]
-bl_id = NP.asarray(bl_id, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
+bl_id = NP.asarray(bl_id, dtype=[('A2', int), ('A1', int)])
 
 if minbl is None:
     minbl = 0.0
@@ -920,6 +929,7 @@ else:
     select_bl_ind = NP.ones(bl_length.size, dtype=NP.bool)
 
 select_bl_ind = select_bl_ind & (bl_length >= minbl) & (bl_length <= maxbl)
+bl_label = bl_label[select_bl_ind]
 bl_id = bl_id[select_bl_ind]
 bl = bl[select_bl_ind,:]
 bl_length = bl_length[select_bl_ind]
@@ -932,12 +942,14 @@ if use_HI_monopole:
     count_uniq_bll = NP.asarray(count_uniq_bll)
 
     bl = bl[ind_uniq_bll,:]
+    bl_label = bl_label[ind_uniq_bll]
     bl_id = bl_id[ind_uniq_bll]
     bl_orientation = bl_orientation[ind_uniq_bll]
     bl_length = bl_length[ind_uniq_bll]
 
     sortind = NP.argsort(bl_length, kind='mergesort')
     bl = bl[sortind,:]
+    bl_label = bl_label[sortind]
     bl_id = bl_id[sortind]
     bl_length = bl_length[sortind]
     bl_orientation = bl_orientation[sortind]
@@ -947,11 +959,16 @@ total_baselines = bl_length.size
 baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
 
 try:
-    labels = bl_id.tolist()
+    labels = bl_label.tolist()
 except NameError:
     labels = []
     labels += [label_prefix+'{0:0d}'.format(i+1) for i in xrange(bl.shape[0])]
 
+try:
+    ids = bl_id.tolist()
+except NameError:
+    ids = range(bl.shape[0])
+    
 if bl_chunk is None:
     bl_chunk = range(len(baseline_bin_indices))
 if n_bl_chunks is None:
@@ -1635,7 +1652,7 @@ elif use_custom:
     spec_parms['freq-width'] = NP.zeros(ra_deg.size)
     flux_unit = 'Jy'
 
-    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
 
     # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
@@ -1692,7 +1709,7 @@ if mpi_on_src: # MPI based on source multiplexing
     for i in range(len(bl_chunk)):
         print 'Working on baseline chunk # {0:0d} ...'.format(bl_chunk[i])
 
-        ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')    
+        ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec')    
 
         progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
         for j in range(n_acc):
@@ -1737,7 +1754,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ia.add_noise()
             ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
             outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
-            ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
+            ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
         else:
             comm.send(ia.skyvis_freq, dest=0)
             # comm.Send([ia.skyvis_freq, ia.skyvis_freq.size, MPI.DOUBLE_COMPLEX])
@@ -1791,12 +1808,12 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 if use_external_beam:
                     theta_phi = NP.hstack((NP.pi/2-NP.radians(src_altaz_current[roi_subset,0]).reshape(-1,1), NP.radians(src_altaz_current[roi_subset,1]).reshape(-1,1)))
                     if beam_chromaticity:
-                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e3, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
-                        # interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e3, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
+                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e9, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
+                        # interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e9, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
                         
                     else:
                         nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs*1e6 - select_beam_freq))
-                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e3, outloc_axis=chans*1e3, axis=1, assume_sorted=True)
+                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e9, outloc_axis=chans*1e9, axis=1, assume_sorted=True)
                     interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)
                     interp_logbeam_max[interp_logbeam_max <= 0.0] = 0.0
                     interp_logbeam_max = interp_logbeam_max.reshape(1,-1)
@@ -1837,7 +1854,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             f0_chunk = chans[freq_chunk[i]*frequency_chunk_size] + NP.floor(0.5*nchan_chunk) * freq_resolution / 1e9
             bw_chunk_str = '{0:0d}x{1:.1f}_kHz'.format(nchan_chunk, freq_resolution/1e3)
             outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
-            ia = RI.InterferometerArray(labels, bl, chans_chunk, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')
+            ia = RI.InterferometerArray(labels, bl, chans_chunk, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec')
             
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
             for j in range(n_acc):
@@ -1867,7 +1884,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             ia.add_noise()
             # ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
             ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
-            ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
+            ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
 else: # MPI based on baseline multiplexing
 
     if mpi_async: # does not impose equal volume per process
@@ -1886,7 +1903,7 @@ else: # MPI based on baseline multiplexing
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, count)
 
                 outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(count)
-                ia = RI.InterferometerArray(labels[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')        
+                ia = RI.InterferometerArray(labels[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec')        
 
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
                 for j in range(n_acc):
@@ -1920,7 +1937,7 @@ else: # MPI based on baseline multiplexing
                 ia.generate_noise()
                 ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
-                ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
+                ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
         counter.free()
         pte = time.time()
         pte_str = str(DT.datetime.now())
@@ -1978,10 +1995,10 @@ else: # MPI based on baseline multiplexing
                     if use_external_beam:
                         theta_phi = NP.hstack((NP.pi/2-NP.radians(src_altaz_current[roi_subset,0]).reshape(-1,1), NP.radians(src_altaz_current[roi_subset,1]).reshape(-1,1)))
                         if beam_chromaticity:
-                            interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e3, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
+                            interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e9, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
                         else:
                             nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs*1e6 - freq))
-                            interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e3, outloc_axis=chans*1e3, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
+                            interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e9, outloc_axis=chans*1e9, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
                         
                         interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)
                         interp_logbeam_max[interp_logbeam_max <= 0.0] = 0.0
@@ -2051,7 +2068,7 @@ else: # MPI based on baseline multiplexing
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i])
         
                 outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
-                ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, freq_scale='GHz', pointing_coords='hadec')
+                ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec')
                 
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
                 for j in range(n_acc):
@@ -2080,7 +2097,7 @@ else: # MPI based on baseline multiplexing
                 ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
                 ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
-                ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True)
+                ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
         pte_str = str(DT.datetime.now())                
  
 if rank == 0:
@@ -2142,11 +2159,19 @@ if rank == 0:
             progress.finish()
 
         simvis.simparms_file = metafile
+        ref_point = {'coords': pc_coords, 'location': NP.asarray(pc).reshape(1,-1)}
+        simvis.rotate_visibilities(ref_point, do_delay_transform=do_delay_transform, verbose=True)
         if do_delay_transform:
             simvis.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
 
         consolidated_outfile = rootdir+project_dir+simid+sim_dir+'simvis'
-        simvis.save(consolidated_outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=save_to_npz, overwrite=True)
+        simvis.save(consolidated_outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=save_to_npz, overwrite=True, uvfits_parms=None)
+
+        uvfits_parms = None
+        if save_to_uvfits:
+            uvfits_ref_point = {'location': NP.asarray(save_formats['phase_center']).reshape(1,-1), 'coords': 'radec'}
+            uvfits_parms = {'ref_point': uvfits_ref_point, 'method': save_formats['uvfits_method']}
+            simvis.write_uvfits(consolidated_outfile, uvfits_parms=uvfits_parms, overwrite=True)
 
     skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel'
     if fg_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:

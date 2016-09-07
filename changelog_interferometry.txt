@@ -1,3 +1,241 @@
+From d2af20c (master):
+=====================
+
+In setup.py,
+
+(*) Include prisim/examples/ioparms/ folder in package data
+
+From 97645a6 (master):
+=====================
+
+In setup.py,
+
+(*) Include *.FITS files in prisim/data/beams
+(*) Exclude *.hdf5 files in prisim/data/beams
+
+From 0fe2e25 (labeling):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Update __init__() member function of class InterferometerData
+to handle antenna numbers, names and positions based on the antenna
+IDs and labels.
+(*) Verify ability to write in UVFITS format
+
+From 570e33b (labeling):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Initialize attribute layout in __init__() member function of
+class InterferometerArray from init_file in both HDF5 and FITS
+formats
+
+From 52fbbcd (labeling):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Save layout information in save() member function of class
+InterferometerArray in both HDF5 and FITS formats
+
+From 5e5c142 (labeling):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Add attribute layout in class InterferometerArray. Update
+class docstring accordingly
+(*) Add input keyword layout in __init__() member function
+of class InterferometerArray. Update member function docstring
+accordingly
+
+In scripts/run_prisim.py,
+
+(*) Create layout information and initialize instances of class
+InterferometerArray with it
+(*) Fix bugs in ids and labels of antennas and baselines
+
+From 3d36a19 (labeling):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Modify baseline_generator() to accept antenna ids besides
+antenna labels and output antenna pair ids as well as labels
+
+In scripts/run_prisim.py,
+
+(*) Assign ids and labels for antennas as well as baselines
+
+From 2d874d6 (pyuvdata), 13a8297 (master):
+=========================================
+
+(*) Merge developments in pyuvdata branch onto master branch
+
+From 3806f42 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Convert input and output frequencies into units of Hz
+during interpolation of externally specified beams
+
+From 6082978 (pyuvdata):
+=======================
+
+(*) Add scripts/prisim_to_uvfits.py to git repo
+(*) Add prisim/examples/ioparms/uvfitsparms.yaml to git repo
+
+In prisim/interferometry.py,
+
+(*) Add input keyword overwrite in write() member function of class
+InterferometerData. Update member function docstring accordingly
+(*) Update docstring of member function write_uvfits() of class
+InterferometerArray
+(*) Update docstring of member function save() of class
+InterferometerArray
+
+In scripts/prisim_to_uvfits.py,
+
+(*) Enable to convert PRISim data to UVFITS format
+
+In prisim/examples/ioparms/uvfitsparms.yaml,
+
+(*) Add example parameters to allow conversion of PRISim data
+to UVFITS format using the prisim_to_uvfits.py script
+
+From 4bd1dec (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Create member function write_uvfits() (with docstring) under
+class InterferometerArray to save data in UVFITS format. Update
+class docstring accordingly
+(*) UVFITS writing functionality in save() member function of class
+InterferometerArray now calls write_uvfits() internally
+
+In scripts/run_prisim.py,
+
+(*) Saving to uvfits now happens outside of call to save() and
+instead calls write_uvfits() directly
+
+From dc10bce (pyuvdata):
+=======================
+
+(*) Remove deprecated prisim/data_interface.py from git repo
+
+From a34db4e (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Conjugate visibilities of PRISim output while converting to
+UVFITS in order to be compatible with CASA imaging
+
+In prisim/data_interface.py,
+
+(*) Conjugate visibilities of PRISim output while converting to
+UVFITS in order to be compatible with CASA imaging
+
+In scripts/run_prisim.py,
+
+(*) Fix variable for flux density when sky model is set from a custom
+catalog
+
+From ad3b23d (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Copy class InterferometerData from data_interface.py to
+interferometry.py
+(*) Modify save() member function of class InterferometerArray to
+save in UVFITS format. Update docstring accordingly
+(*) Remove import of unused linear algebra module
+
+In scripts/run_prisim.py,
+
+(*) Update parsing and processing to take inputs and allow for saving
+in UVFITS format
+(*) Remove some commented lines
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add inputs for saving in UVFITS format
+
+In prisim/data_interface.py,
+
+(*) Make a comment noting that this module is deprecated
+
+From 0afd315 (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Make minor changes in save() member function of class
+InterferometerArray
+
+From d011bb1 (pyuvdata):
+=======================
+
+In prisim/data_interface.py,
+
+(*) Import warnings
+(*) Update attribute infodict of class InterferometerData with more
+keys in __init__() member function
+(*) Add a couple of helper functions _blnum_to_antnums() and
+_antnums_to_blnum() as member functions in class InterferometerData
+(*) Create member function write() with docstring in class 
+InterferometerData to write to external files in specified formats.
+Currently works with UVFITS format. Update class docstring accordingly
+
+From 3806f42 (master), 4b1aa52 (pyuvdata):
+=========================================
+
+(*) Merge changes from master branch on to pyuvdata branch
+
+From f4e294f (pyuvdata):
+=======================
+
+(*) Add prisim/data_interface.py to git repo
+
+In prisim/data_interface.py,
+
+(*) Create class InterferometerData to act as interface between
+PRISim and external data formats
+(*) Create member function __init__() of class InterferometerData
+to initialize an instance of the class. Add docstring.
+(*) Create member function createUVData() of class InterferometerData
+to return an instance of class UVData. Add docstring.
+(*) Create docstring for class describing attributes and member
+functions
+
+In interferometry.py,
+
+(*) Remove import and handling of UVData
+
+From a076125 (master), 8e5036a (pyuvdata):
+=========================================
+
+(*) Merge changes from master branch on to pyuvdata branch
+
+From 88f9e82 (master), 9e2f35c (pyuvdata):
+=========================================
+
+(*) Merge changes from master branch on to pyuvdata branch
+
+From a076125 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Remove import of linear algebra and optimization modules
+from scipy
+(*) Remove import of ipdb module
+
 From 88f9e82 (master):
 =====================
 
@@ -74,6 +312,34 @@ From 04715dc (master):
 In prisim/interferometry.py,
 
 (*) Remove import of unused glob module
+
+From 3e0a050 (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Update import of uvdata module
+
+From 482d37f (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Remove import of unused glob module
+
+From 978bfa0 (pyuvdata), 04715dc (master):
+=========================================
+
+(*) Merge master branch onto pyuvdata to bring changes made in master
+
+From 2ee7707 (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Import uvdata module
+(*) Start working on creating a uvdata object using a new member
+function createUVData() under class InterferometerArray
 
 From 1df0c85 (master):
 =====================

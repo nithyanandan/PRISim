@@ -526,7 +526,8 @@ phasing :                       # Phase center parameters
                                 # Phase center in coordinate system
                                 # in coords below. Must be 3-elements
                                 # if coordinate system is set to
-                                # 'dircos'
+                                # 'dircos'. Otherwise two elements
+                                # as [ra, dec], [ha, dec], [alt, az]
 
     coords          : 'altaz'
                                 # Coordinate system for specifying
@@ -848,6 +849,30 @@ save_formats :
 
     npz             : true
                                 # If true, save to numpy NPZ format
+
+    uvfits          : true
+                                # If true, save to UVFITS format
+
+    uvfits_method   : null
+                                # specifies method to save to UVFITS
+                                # format. Accepted value are 'uvdata'
+                                # (uses uvdata module in pyuvdata
+                                # package), 'uvfits' (uses in-house
+                                # uvfits writer) or null (default)
+                                # which tries the 'uvdata' method
+                                # first and if it fails, tries the
+                                # 'uvfits' method
+
+    phase_center    : [0.0, -30.7224]
+                                # Phase center [ra, dec] (in degrees)
+                                # to phase the visibilities to before
+                                # writing in UVFITS format. This will
+                                # apply only to UVFITS file and not
+                                # to other formats saved. Hence,
+                                # operates independently of phase
+                                # center set earlier under phase
+                                # center information and only affects
+                                # the UVFITS output
 
 ########## Create plots ##########
 

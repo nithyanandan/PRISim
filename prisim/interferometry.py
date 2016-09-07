@@ -1,14 +1,15 @@
 from __future__ import division
 import numpy as NP
-import numpy.linalg as LA
 import scipy.constants as FCNST
-from scipy.linalg import toeplitz
-import scipy.optimize as OPT
 import datetime as DT
 import progressbar as PGB
 import os
 import astropy 
 from astropy.io import fits
+from astropy.coordinates import SkyCoord
+from astropy import units
+from astropy.time import Time
+import warnings
 import h5py
 from distutils.version import LooseVersion
 import psutil 
@@ -20,12 +21,18 @@ from astroutils import catalog as SM
 from astroutils import lookup_operations as LKP
 import baseline_delay_horizon as DLY
 import primary_beams as PB
-mwa_tools_found = True
+try:
+    from uvdata import UVData
+except ImportError:
+    uvdata_module_found = False
+else:
+    uvdata_module_found = True
 try:
     from mwapy.pb import primary_beam as MWAPB
 except ImportError:
     mwa_tools_found = False
-import ipdb as PDB
+else:
+    mwa_tools_found = True
 
 ################################################################################
 
@@ -283,11 +290,11 @@ def circular_antenna_array(antsize, minR, maxR=None):
 
 ################################################################################
 
-def baseline_generator(antenna_locations, ant_id=None, auto=False,
-                       conjugate=False):
+def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
+                       auto=False, conjugate=False):
 
     """
-    -------------------------------------------------------------------
+    ---------------------------------------------------------------------------
     Generate baseline from antenna locations.
 
     Inputs:
@@ -299,7 +306,12 @@ def baseline_generator(antenna_locations, ant_id=None, auto=False,
 
     Input keywords:
 
-    ant_id             [list of strings] Unique identifier for each
+    ant_label          [list of strings] Unique string identifier for each
+                       antenna. Default = None. If None provided,
+                       antennas will be indexed by an integer starting
+                       from 0 to N(ants)-1
+
+    ant_id             [list of integers] Unique integer identifier for each
                        antenna. Default = None. If None provided,
                        antennas will be indexed by an integer starting
                        from 0 to N(ants)-1
@@ -318,13 +330,20 @@ def baseline_generator(antenna_locations, ant_id=None, auto=False,
                         Nb x 3 with each row specifying one baseline 
                         vector)
 
-    antenna_pairs       [Numpy structured array tuples] IDs of antennas 
+    antpair_labels      [Numpy structured array tuples] Labels of 
+                        antennas in the pair used to produce the 
+                        baseline vector under fields 'A2' and 'A1' for 
+                        second and first antenna respectively. The 
+                        baseline vector is obtained by position of 
+                        antennas under 'A2' minus position of antennas 
+                        under 'A1'
+
+    antpair_ids         [Numpy structured array tuples] IDs of antennas 
                         in the pair used to produce the baseline vector
                         under fields 'A2' and 'A1' for second and first 
                         antenna respectively. The baseline vector is 
                         obtained by position of antennas under 'A2' 
                         minus position of antennas under 'A1'
-
     -------------------------------------------------------------------
     """
 
@@ -380,6 +399,17 @@ def baseline_generator(antenna_locations, ant_id=None, auto=False,
     else:
         num_ants = antenna_locations.shape[0]
 
+    if ant_label is not None:
+        if isinstance(ant_label, list):
+            if len(ant_label) != num_ants:
+                raise ValueError('Dimensions of ant_label and antenna_locations do not match.')
+        elif isinstance(ant_label, NP.ndarray):
+            if ant_label.size != num_ants:
+                raise ValueError('Dimensions of ant_label and antenna_locations do not match.')
+            ant_label = ant_label.tolist()
+    else:
+        ant_label = ['{0:0d}'.format(i) for i in xrange(num_ants)]
+
     if ant_id is not None:
         if isinstance(ant_id, list):
             if len(ant_id) != num_ants:
@@ -389,53 +419,63 @@ def baseline_generator(antenna_locations, ant_id=None, auto=False,
                 raise ValueError('Dimensions of ant_id and antenna_locations do not match.')
             ant_id = ant_id.tolist()
     else:
-        ant_id = ['{0:0d}'.format(i) for i in xrange(num_ants)]
-
+        ant_id = range(num_ants)
+        
     if inp_type == 'loo':
         if auto:
             baseline_locations = [antenna_locations[j]-antenna_locations[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            # antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
         else:
             baseline_locations = [antenna_locations[j]-antenna_locations[i] for i in range(0,num_ants) for j in range(0,num_ants) if j > i]                
-            # antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
-            antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
         if conjugate:
             baseline_locations += [antenna_locations[j]-antenna_locations[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            # antenna_pairs += [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            antenna_pairs += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            # antpair_labels += [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antpair_labels += [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antpair_ids += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
     elif inp_type == 'lot':
         if auto:
             baseline_locations = [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            # antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]            
+            # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
         else:
             baseline_locations = [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
-            # antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
-            antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]            
+            # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
         if conjugate:
             baseline_locations += [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            # antenna_pairs += [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            antenna_pairs += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]            
+            # antpair_labels += [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antpair_labels += [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antpair_ids += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
     elif inp_type == 'npa':
         if auto:
             baseline_locations = [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            # antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]            
+            # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
         else:
             baseline_locations = [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]  
-            # antenna_pairs = [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
-            antenna_pairs = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]                  
+            # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
         if conjugate:
             baseline_locations += [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]         
-            # antenna_pairs += [ant_id[j]+'-'+ant_id[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            antenna_pairs += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]            
+            # antpair_labels += [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antpair_labels += [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antpair_ids += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
 
         baseline_locations = NP.asarray(baseline_locations)
-        maxlen = max(len(aid) for aid in ant_id)
-        antenna_pairs = NP.asarray(antenna_pairs, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
+        maxlen = max(len(albl) for albl in ant_label)
+        antpair_labels = NP.asarray(antpair_labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
+        antpair_ids = NP.asarray(antpair_ids, dtype=[('A2', int), ('A1', int)])
 
-    return baseline_locations, antenna_pairs
+    return baseline_locations, antpair_labels, antpair_ids
 
 #################################################################################
 
@@ -1730,6 +1770,23 @@ class InterferometerArray(object):
                                       modified and scaled values to. If not set, 
                                       there is no upper limit
 
+    layout      [dictionary] contains array layout information (on the full
+                array even if only a subset of antennas or baselines are used
+                in the simulation). It contains the following keys and 
+                information:
+                'positions' [numpy array] Antenna positions (in m) as a 
+                            nant x 3 array in coordinates specified by key
+                            'coords'
+                'coords'    [string] Coordinate system in which antenna 
+                            positions are specified. Currently accepts 'ENU'
+                            for local ENU system
+                'labels'    [list or numpy array of strings] Unique string
+                            identifiers for antennas. Must be of same length
+                            as nant.
+                'ids'       [list or numpy array of integers] Unique integer 
+                            identifiers for antennas. Must be of same length
+                            as nant.
+
     timestamp   [list] List of timestamps during the observation
 
     t_acc       [list] Accumulation time (sec) corresponding to each timestamp
@@ -1844,7 +1901,8 @@ class InterferometerArray(object):
                         Centers the phase of visibilities around any given phase 
                         center. Project baseline vectors with respect to a 
                         reference point on the sky. Essentially a wrapper to
-                        member functions phase_centering() and project_baselines()
+                        member functions phase_centering() and 
+                        project_baselines()
 
     phase_centering()   Centers the phase of visibilities around any given phase 
                         center.
@@ -1865,7 +1923,11 @@ class InterferometerArray(object):
                        of class InterferometerArray along baseline, frequency or
                        time axis.
 
-    save()             Saves the interferometer array information to disk. 
+    save()             Saves the interferometer array information to disk in
+                       HDF5, FITS, NPZ and UVFITS formats
+
+    write_uvfits()     Saves the interferometer array information to disk in 
+                       UVFITS format 
 
     ----------------------------------------------------------------------------
     """
@@ -1873,8 +1935,8 @@ class InterferometerArray(object):
     def __init__(self, labels, baselines, channels, telescope=None, eff_Q=0.89,
                  latitude=34.0790, longitude=0.0, skycoords='radec',
                  A_eff=NP.pi*(25.0/2)**2, pointing_coords='hadec',
-                 baseline_coords='localenu', freq_scale=None, init_file=None,
-                 simparms_file=None):
+                 layout=None, baseline_coords='localenu', freq_scale=None, 
+                 init_file=None, simparms_file=None):
         
         """
         ------------------------------------------------------------------------
@@ -1888,7 +1950,7 @@ class InterferometerArray(object):
         pointing_center, skyvis_freq, skyvis_lag, timestamp, t_acc, Tsys, 
         Tsysinfo, vis_freq, vis_lag, t_obs, n_acc, vis_noise_freq, 
         vis_noise_lag, vis_rms_freq, geometric_delays, projected_baselines, 
-        simparms_file
+        simparms_file, layout
 
         Read docstring of class InterferometerArray for details on these
         attributes.
@@ -1924,11 +1986,12 @@ class InterferometerArray(object):
                     self.telescope['size'] = 1.0
                     self.telescope['groundplane'] = None
                     self.Tsysinfo = []
+                    self.layout = {}
                     self.lags = None
                     self.vis_lag = None
                     self.skyvis_lag = None
                     self.vis_noise_lag = None
-                    for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'instrument', 'visibilities']:
+                    for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'layout', 'instrument', 'visibilities']:
                         try:
                             grp = fileobj[key]
                         except KeyError:
@@ -1943,6 +2006,25 @@ class InterferometerArray(object):
                                 self.longitude = grp['longitude'].value
                             if 'id' in grp:
                                 self.telescope['id'] = grp['id'].value
+                        if key == 'layout':
+                            if 'positions' in grp:
+                                self.layout['positions'] = grp['positions'].value
+                            else:
+                                raise KeyError('Antenna layout positions is missing')
+                            try:
+                                self.layout['coords'] = grp['positions'].attrs['coords']
+                            except KeyError:
+                                raise KeyError('Antenna layout position coordinate system is missing')
+                            if 'labels' in grp:
+                                self.layout['labels'] = grp['labels'].value
+                            else:
+                                raise KeyError('Layout antenna labels is missing')
+                            if 'ids' in grp:
+                                self.layout['ids'] = grp['ids'].value
+                            else:
+                                raise KeyError('Layout antenna ids is missing')
+                            # for subkey in grp:
+                            #     self.layout[subkey] = grp[subkey].value
                         if key == 'antenna_element':
                             if 'shape' in grp:
                                 self.telescope['shape'] = grp['shape'].value
@@ -2078,7 +2160,8 @@ class InterferometerArray(object):
                     if isinstance(hdulist[0].header['simparms'], str):
                         self.simparms_file = hdulist[0].header['simparms']
                     else:
-                        print '\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.'
+                        warnings.warn('\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.')
+                        # print '\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.'
     
                 try:
                     self.freq_resolution = hdulist[0].header['freq_resolution']
@@ -2197,6 +2280,12 @@ class InterferometerArray(object):
                 else:
                     self.labels = ['B{0:0d}'.format(i+1) for i in range(self.baseline_lengths.size)]
     
+                self.layout = {}
+                if 'LAYOUT' in extnames:
+                    for key in ['positions', 'ids', 'labels']:
+                        self.layout[key] = hdulist['LAYOUT'].data[key]
+                    self.layout['coords'] = hdulist['LAYOUT'].header['COORDS']
+
                 if 'EFFECTIVE AREA' in extnames:
                     self.A_eff = hdulist['EFFECTIVE AREA'].data
                 else:
@@ -2326,7 +2415,8 @@ class InterferometerArray(object):
         if isinstance(simparms_file, str):
             self.simparms_file = simparms_file
         else:
-            print '\tInvalid specification found in input simparms_file for simulation parameters file. Proceeding with None as default.'
+            warnings.warn('\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.')
+            # print '\tInvalid specification found in input simparms_file for simulation parameters file. Proceeding with None as default.'
 
         if isinstance(telescope, dict):
             self.telescope = telescope
@@ -2338,6 +2428,47 @@ class InterferometerArray(object):
             self.telescope['ocoords'] = 'altaz'
             self.telescope['orientation'] = NP.asarray([90.0, 270.0]).reshape(1,-1)
             self.telescope['groundplane'] = None
+
+        self.layout = {}
+        if isinstance(layout, dict):
+            if 'positions' in layout:
+                if isinstance(layout['positions'], NP.ndarray):
+                    if layout['positions'].ndim == 2:
+                        if (layout['positions'].shape[1] == 2) or (layout['positions'].shape[1] == 3):
+                            if layout['positions'].shape[1] == 2:
+                                layout['positions'] = NP.hstack((layout['positions'], NP.zeros(layout['positions'].shape[0]).reshape(-1,1)))
+                            self.layout['positions'] = layout['positions']
+                        else:
+                            raise ValueError('Incompatible shape in array layout')
+                    else:
+                        raise ValueError('Incompatible shape in array layout')
+                else:
+                    raise TypeError('Array layout positions must be a numpy array')
+            else:
+                raise KeyError('Array layout positions missing')
+            if 'coords' in layout:
+                if isinstance(layout['coords'], str):
+                    self.layout['coords'] = layout['coords']
+                else:
+                    raise TypeError('Array layout coordinates must be a string')
+            else:
+                raise KeyError('Array layout coordinates missing')
+            if 'labels' in layout:
+                if isinstance(layout['labels'], (list,NP.ndarray)):
+                    self.layout['labels'] = layout['labels']
+                else:
+                    raise TypeError('Array antenna labels must be a list or numpy array')
+            else:
+                raise KeyError('Array antenna labels missing')
+            if 'ids' in layout:
+                if isinstance(layout['ids'], (list,NP.ndarray)):
+                    self.layout['ids'] = layout['ids']
+                else:
+                    raise TypeError('Array antenna ids must be a list or numpy array')
+            else:
+                raise KeyError('Array antenna ids missing')
+            if (layout['positions'].shape[0] != layout['labels'].size) or (layout['ids'].size != layout['labels'].size):
+                raise ValueError('Antenna layout positions, labels and IDs must all be for same number of antennas')
 
         self.latitude = latitude
         self.longitude = longitude
@@ -3886,25 +4017,31 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def save(self, outfile, fmt='HDF5', tabtype='BinTableHDU', npz=True, 
-             overwrite=False, verbose=True):
+    def save(self, outfile, fmt='HDF5', tabtype='BinTableHDU', npz=True,
+             overwrite=False, uvfits_parms=None, verbose=True):
 
         """
         -------------------------------------------------------------------------
-        Saves the interferometer array information to disk. 
+        Saves the interferometer array information to disk in HDF5, FITS, NPZ 
+        and UVFITS formats
 
         Inputs:
 
         outfile      [string] Filename with full path to be saved to. Will be
                      appended with '.hdf5' or '.fits' extension depending on 
-                     input keyword fmt
+                     input keyword fmt. If input npz is set to True, the 
+                     simulated visibilities will also get stored in '.npz' 
+                     format. Depending on parameters in uvfits_parms, three 
+                     UVFITS files will also be created whose names will be 
+                     outfile+'-noiseless', outfile+'-noisy' and 
+                     'outfile+'-noise' appended with '.uvfits'
 
         Keyword Input(s):
 
         fmt          [string] string specifying the format of the output. 
-                     Accepted values are 'HDF5' (default) and 'FITS' and the
-                     file names will be appended with '.hdf5' and '.fits'
-                     respecitvely
+                     Accepted values are 'HDF5' (default) and 'FITS'. 
+                     The file names will be appended with '.hdf5' or '.fits'
+                     respectively
 
         tabtype      [string] indicates table type for one of the extensions in 
                      the FITS file. Allowed values are 'BinTableHDU' and 
@@ -3917,8 +4054,52 @@ class InterferometerArray(object):
                      handing over of python files
                      
         overwrite    [boolean] True indicates overwrite even if a file already 
-                     exists. Default = False (does not overwrite)
+                     exists. Default = False (does not overwrite). Beware this 
+                     may not work reliably for UVFITS output when uvfits_method 
+                     is set to None or 'uvdata' and hence always better to make 
+                     sure the output file does not exist already
                      
+        uvfits_parms [dictionary] specifies basic parameters required for 
+                     saving in UVFITS format. If set to None (default), the
+                     data will not be saved in UVFITS format. To save in UVFITS 
+                     format, the following keys and values are required:
+                     'ref_point'    [dictionary] Contains information about the 
+                                    reference position to which projected 
+                                    baselines and rotated visibilities are to 
+                                    be computed. Default=None (no additional 
+                                    phasing will be performed). It must be 
+                                    contain the following keys with the 
+                                    following values:
+                                    'coords'    [string] Refers to the 
+                                                coordinate system in which value 
+                                                in key 'location' is specified 
+                                                in. Accepted values are 'radec', 
+                                                'hadec', 'altaz' and 'dircos'
+                                    'location'  [numpy array] Must be a Mx2 (if 
+                                                value in key 'coords' is set to 
+                                                'radec', 'hadec', 'altaz' or 
+                                                'dircos') or Mx3 (if value in 
+                                                key 'coords' is set to 
+                                                'dircos'). M can be 1 or equal 
+                                                to number of timestamps. If M=1, 
+                                                the same reference point in the 
+                                                same coordinate system will be 
+                                                repeated for all tiemstamps. If 
+                                                value under key 'coords' is set 
+                                                to 'radec', 'hadec' or 'altaz', 
+                                                the value under this key 
+                                                'location' must be in units of 
+                                                degrees.
+                     'method'       [string] specifies method to be used in 
+                                    saving in UVFITS format. Accepted values are 
+                                    'uvdata', 'uvfits' or None (default). If set 
+                                    to 'uvdata', the UVFITS writer in uvdata 
+                                    module is used. If set to 'uvfits', the 
+                                    in-house UVFITS writer is used. If set to 
+                                    None, first uvdata module will be attempted 
+                                    but if it fails then the in-house UVFITS 
+                                    writer will be tried.
+
         verbose      [boolean] If True (default), prints diagnostic and progress
                      messages. If False, suppress printing such messages.
         -------------------------------------------------------------------------
@@ -3929,17 +4110,17 @@ class InterferometerArray(object):
         except NameError:
             raise NameError('No filename provided. Aborting InterferometerArray.save()...')
 
-        if fmt not in ['HDF5', 'hdf5', 'FITS', 'fits']:
+        if fmt.lower() not in ['hdf5', 'fits']:
             raise ValueError('Invalid output file format specified')
-        if fmt in ['HDF5', 'hdf5']:
-            filename = outfile + '.hdf5'
-        if fmt in ['FITS', 'fits']:
-            filename = outfile + '.fits' 
+        if fmt.lower() == 'hdf5':
+            filename = outfile + '.' + fmt.lower()
+        if fmt.lower() == 'fits':
+            filename = outfile + '.' + fmt.lower()
 
         if verbose:
             print '\nSaving information about interferometer...'
 
-        if fmt in ['FITS', 'fits']:
+        if fmt.lower() == 'fits':
             use_ascii = False
             if tabtype == 'TableHDU':
                 use_ascii = True
@@ -4016,6 +4197,19 @@ class InterferometerArray(object):
                 if verbose:
                     print '\tCreated an extension for projected baseline vectors.'
     
+            if self.layout:
+                label_lengths = [len(label) for label in self.layout['labels']]
+                maxlen = max(label_lengths)
+                cols = []
+                cols += [fits.Column(name='labels', format='{0:0d}A'.format(maxlen), array=self.layout['labels'])]
+                cols += [fits.Column(name='ids', format='J', array=self.layout['ids'])]
+                cols += [fits.Column(name='positions', format='3D', array=self.layout['positions'])]
+                columns = _astropy_columns(cols, tabtype=tabtype)
+                tbhdu = fits.new_table(columns)
+                tbhdu.header.set('EXTNAME', 'LAYOUT')
+                tbhdu.header.set('COORDS', self.layout['coords'])
+                hdulist += [tbhdu]
+
             hdulist += [fits.ImageHDU(self.A_eff, name='Effective area')]
             if verbose:
                 print '\tCreated an extension for effective area.'
@@ -4131,7 +4325,7 @@ class InterferometerArray(object):
                 print '\tNow writing FITS file to disk...'
             hdu = fits.HDUList(hdulist)
             hdu.writeto(filename, clobber=overwrite)
-        else:
+        elif fmt.lower() == 'hdf5':
             if overwrite:
                 write_str = 'w'
             else:
@@ -4170,6 +4364,13 @@ class InterferometerArray(object):
                 if 'groundplane' in self.telescope:
                     if self.telescope['groundplane'] is not None:
                         antelem_group['groundplane'] = self.telescope['groundplane']
+                if self.layout:
+                    layout_group = fileobj.create_group('layout')
+                    layout_group['positions'] = self.layout['positions']
+                    layout_group['positions'].attrs['units'] = 'm'
+                    layout_group['positions'].attrs['coords'] = self.layout['coords']
+                    layout_group['labels'] = self.layout['labels']
+                    layout_group['ids'] = self.layout['ids']
                 timing_group = fileobj.create_group('timing')
                 timing_group['t_obs'] = self.t_obs
                 timing_group['n_acc'] = self.n_acc
@@ -4241,6 +4442,90 @@ class InterferometerArray(object):
             NP.savez_compressed(outfile+'.npz', skyvis_freq=self.skyvis_freq, vis_freq=self.vis_freq, vis_noise_freq=self.vis_noise_freq, lst=self.lst, freq=self.channels, timestamp=self.timestamp, bl=self.baselines, bl_length=self.baseline_lengths)
             if verbose:
                 print '\tInterferometer array information written successfully to NPZ file on disk:\n\t\t{0}\n'.format(outfile+'.npz')
+
+        if uvfits_parms is not None:
+            self.write_uvfits(outfile, uvfits_parms=uvfits_parms, overwrite=overwrite, verbose=verbose)
+
+    #############################################################################
+
+    def write_uvfits(self, outfile, uvfits_parms=None, overwrite=False, 
+                     verbose=True):
+
+        """
+        -------------------------------------------------------------------------
+        Saves the interferometer array information to disk in UVFITS format 
+
+        Inputs:
+
+        outfile      [string] Filename with full path to be saved to. Three 
+                     UVFITS files will also be created whose names will be 
+                     outfile+'-noiseless', outfile+'-noisy' and 
+                     'outfile+'-noise' appended with '.uvfits'
+
+        Keyword Input(s):
+
+        uvfits_parms [dictionary] specifies basic parameters required for 
+                     saving in UVFITS format. If set to None (default), the
+                     data will not be saved in UVFITS format. To save in UVFITS 
+                     format, the following keys and values are required:
+                     'ref_point'    [dictionary] Contains information about the 
+                                    reference position to which projected 
+                                    baselines and rotated visibilities are to 
+                                    be computed. Default=None (no additional 
+                                    phasing will be performed). It must be 
+                                    contain the following keys with the 
+                                    following values:
+                                    'coords'    [string] Refers to the 
+                                                coordinate system in which value 
+                                                in key 'location' is specified 
+                                                in. Accepted values are 'radec', 
+                                                'hadec', 'altaz' and 'dircos'
+                                    'location'  [numpy array] Must be a Mx2 (if 
+                                                value in key 'coords' is set to 
+                                                'radec', 'hadec', 'altaz' or 
+                                                'dircos') or Mx3 (if value in 
+                                                key 'coords' is set to 
+                                                'dircos'). M can be 1 or equal 
+                                                to number of timestamps. If M=1, 
+                                                the same reference point in the 
+                                                same coordinate system will be 
+                                                repeated for all tiemstamps. If 
+                                                value under key 'coords' is set 
+                                                to 'radec', 'hadec' or 'altaz', 
+                                                the value under this key 
+                                                'location' must be in units of 
+                                                degrees.
+                     'method'       [string] specifies method to be used in 
+                                    saving in UVFITS format. Accepted values are 
+                                    'uvdata', 'uvfits' or None (default). If set 
+                                    to 'uvdata', the UVFITS writer in uvdata 
+                                    module is used. If set to 'uvfits', the 
+                                    in-house UVFITS writer is used. If set to 
+                                    None, first uvdata module will be attempted 
+                                    but if it fails then the in-house UVFITS 
+                                    writer will be tried.
+
+        overwrite    [boolean] True indicates overwrite even if a file already 
+                     exists. Default = False (does not overwrite). Beware this 
+                     may not work reliably if uvfits_method is set to None or
+                     'uvdata' and hence always better to make sure the output
+                     file does not exist already
+                     
+        verbose      [boolean] If True (default), prints diagnostic and progress
+                     messages. If False, suppress printing such messages.
+        -------------------------------------------------------------------------
+        """
+                
+        if uvfits_parms is not None:
+            if not isinstance(uvfits_parms, dict):
+                raise TypeError('Input uvfits_parms must be a dictionary')
+            if 'ref_point' not in uvfits_parms:
+                uvfits_parms['ref_point'] = None
+            if 'method' not in uvfits_parms:
+                uvfits_parms['method'] = None
+            dataobj = InterferometerData(self, ref_point=uvfits_parms['ref_point'])
+            for datakey in dataobj.infodict['data_array']:
+                dataobj.write(outfile+'-{0}.uvfits'.format(datakey), datatype=datakey, fmt='UVFITS', uvfits_method=uvfits_parms['method'], overwrite=overwrite)
 
 #################################################################################
 
@@ -4511,4 +4796,599 @@ class ApertureSynthesis(object):
         self.grid_trc = NP.asarray([self.gridu.max(), self.gridv.max(), self.gridw.max()])
         self.grid_ready = True
 
-    ############################################################################
+################################################################################
+
+class InterferometerData(object):
+
+    """
+    ----------------------------------------------------------------------------
+    Class to act as an interface between PRISim object and external data 
+    formats. 
+
+    Attributes:
+
+    infodict    [dictionary] Dictionary consisting of many attributes loaded 
+                from the PRISim object. This will be used to convert to info
+                required in external data formats
+
+    Member functions:
+
+    __init__()  Initialize an instance of class InterferometerData
+
+    createUVData()
+                Create an instance of class UVData
+
+    write()     Write an instance of class InterferometerData into specified 
+                formats. Currently writes in UVFITS format
+    ----------------------------------------------------------------------------
+    """
+
+    def __init__(self, prisim_object, ref_point=None):
+
+        """
+        ------------------------------------------------------------------------
+        Initialize an instance of class InterferometerData.
+
+        Class attributes initialized are:
+        infodict
+
+        Inputs:
+
+        prisim_object   
+                    [instance of class InterferometerArray] Instance of 
+                    class InterferometerArray used to initialize an 
+                    instance of class InterferometerData.
+
+        ref_point   [dictionary] Contains information about the reference 
+                    position to which projected baselines and rotated 
+                    visibilities are to be computed. Default=None (no additional
+                    phasing will be performed). It must be contain the following 
+                    keys with the following values:
+                    'coords'    [string] Refers to the coordinate system in
+                                which value in key 'location' is specified in. 
+                                Accepted values are 'radec', 'hadec', 'altaz'
+                                and 'dircos'
+                    'location'  [numpy array] Must be a Mx2 (if value in key 
+                                'coords' is set to 'radec', 'hadec', 'altaz' or
+                                'dircos') or Mx3 (if value in key 'coords' is 
+                                set to 'dircos'). M can be 1 or equal to number
+                                of timestamps. If M=1, the same reference point
+                                in the same coordinate system will be repeated 
+                                for all tiemstamps. If value under key 'coords'
+                                is set to 'radec', 'hadec' or 'altaz', the 
+                                value under this key 'location' must be in 
+                                units of degrees.
+        ------------------------------------------------------------------------
+        """
+
+        try:
+            prisim_object
+        except NameError:
+            raise NameError('Input prisim_object not specified')
+        if ref_point is not None:
+            prisim_object.rotate_visibilities(ref_point)
+        if not isinstance(prisim_object, InterferometerArray):
+            raise TypeError('Inout prisim_object must be an instance of class InterferometerArray')
+        datatypes = ['noiseless', 'noisy', 'noise']
+        visibilities = {key: None for key in datatypes}
+        for key in visibilities:
+            # Conjugate visibilities for compatibility with UVFITS and CASA imager
+            if key == 'noiseless':
+                visibilities[key] = prisim_object.skyvis_freq.conj()
+            if key == 'noisy':
+                visibilities[key] = prisim_object.vis_freq.conj()
+            if key == 'noise':
+                visibilities[key] = prisim_object.vis_noise_freq.conj()
+
+        self.infodict = {}
+        self.infodict['Ntimes'] = prisim_object.n_acc
+        self.infodict['Nbls'] = prisim_object.baselines.shape[0]
+        self.infodict['Nblts'] = self.infodict['Nbls'] * self.infodict['Ntimes']
+        self.infodict['Nfreqs'] = prisim_object.channels.size
+        self.infodict['Npols'] = 1
+        self.infodict['Nspws'] = 1
+        self.infodict['data_array'] = {'noiseless': None, 'noisy': None, 'noise': None}
+        for key in visibilities:
+            self.infodict['data_array'][key] = NP.transpose(NP.transpose(visibilities[key], (2,0,1)).reshape(self.infodict['Nblts'], self.infodict['Nfreqs'], self.infodict['Nspws'], self.infodict['Npols']), (0,2,1,3)) # (Nbls, Nfreqs, Ntimes) -> (Ntimes, Nbls, Nfreqs) -> (Nblts, Nfreqs, Nspws=1, Npols=1) -> (Nblts, Nspws=1, Nfreqs, Npols=1)
+        self.infodict['vis_units'] = 'Jy'
+        self.infodict['nsample_array'] = NP.ones((self.infodict['Nblts'], self.infodict['Nspws'], self.infodict['Nfreqs'], self.infodict['Npols']))
+        self.infodict['flag_array'] = NP.zeros((self.infodict['Nblts'], self.infodict['Nspws'], self.infodict['Nfreqs'], self.infodict['Npols']), dtype=NP.bool)
+        self.infodict['spw_array'] = NP.arange(self.infodict['Nspws'])
+        self.infodict['uvw_array'] = NP.transpose(prisim_object.projected_baselines, (2,0,1)).reshape(self.infodict['Nblts'], 3)
+        time_array = NP.asarray(prisim_object.timestamp).reshape(-1,1) + NP.zeros(self.infodict['Nbls']).reshape(1,-1)
+        self.infodict['time_array'] = time_array.ravel()
+        lst_array = NP.radians(NP.asarray(prisim_object.lst).reshape(-1,1)) + NP.zeros(self.infodict['Nbls']).reshape(1,-1)
+        self.infodict['lst_array'] = lst_array.ravel()
+        
+        labels_A1 = prisim_object.labels['A1']
+        labels_A2 = prisim_object.labels['A2']
+        if prisim_object.layout:
+            id_A1 = [prisim_object.layout['ids'][prisim_object.layout['labels'].tolist().index(albl)] for albl in labels_A1]
+            id_A2 = [prisim_object.layout['ids'][prisim_object.layout['labels'].tolist().index(albl)] for albl in labels_A2]
+            id_A1 = NP.asarray(id_A1, dtype=int)
+            id_A2 = NP.asarray(id_A2, dtype=int)
+        else:
+            try:
+                id_A1 = prisim_object.labels['A1'].astype(NP.int)
+                id_A2 = prisim_object.labels['A2'].astype(NP.int)
+            except ValueError:
+                raise ValueError('Could not convert antenna labels to numbers')
+        ant_1_array = id_A1
+        ant_2_array = id_A2
+        ant_1_array = ant_1_array.reshape(1,-1) + NP.zeros(self.infodict['Ntimes'], dtype=NP.int).reshape(-1,1)
+        ant_2_array = ant_2_array.reshape(1,-1) + NP.zeros(self.infodict['Ntimes'], dtype=NP.int).reshape(-1,1)
+
+        self.infodict['ant_1_array'] = ant_1_array.ravel()
+        self.infodict['ant_2_array'] = ant_2_array.ravel()
+        self.infodict['baseline_array'] = 2048 * (self.infodict['ant_2_array'] + 1) + (self.infodict['ant_1_array'] + 1) + 2**16
+        self.infodict['freq_array'] = prisim_object.channels.reshape(self.infodict['Nspws'],-1)
+        self.infodict['polarization_array'] = NP.asarray([-5]).reshape(self.infodict['Npols']) # stokes 1:4 (I,Q,U,V); circular -1:-4 (RR,LL,RL,LR); linear -5:-8 (XX,YY,XY,YX)
+        self.infodict['integration_time'] = prisim_object.t_acc[0]
+        self.infodict['channel_width'] = prisim_object.freq_resolution
+
+        # ----- Observation information ------
+        pointing_center = prisim_object.pointing_center
+        pointing_coords = prisim_object.pointing_coords
+        if pointing_coords == 'dircos':
+            pointing_center_dircos = pointing_center
+            pointing_center_altaz = GEOM.dircos2altaz(pointing_center_dircos, units='degrees')
+            pointing_center_hadec = GEOM.altaz2hadec(pointing_center_altaz, prisim_object.latitude, units='degrees')
+            pointing_center_ra = NP.asarray(prisim_object.lst) - pointing_center_hadec[:,0]
+            pointing_center_radec = NP.hstack((pointing_center_ra.reshape(-1,1), pointing_center_hadec[:,1].reshape(-1,1)))
+            pointing_coords = 'radec'
+        elif pointing_coords == 'altaz':
+            pointing_center_altaz = pointing_center
+            pointing_center_hadec = GEOM.altaz2hadec(pointing_center_altaz, prisim_object.latitude, units='degrees')
+            pointing_center_ra = NP.asarray(prisim_object.lst) - pointing_center_hadec[:,0]
+            pointing_center_radec = NP.hstack((pointing_center_ra.reshape(-1,1), pointing_center_hadec[:,1].reshape(-1,1)))
+            pointing_coords = 'radec'
+        elif pointing_coords == 'hadec':
+            pointing_center_hadec = pointing_center
+            pointing_center_ra = NP.asarray(prisim_object.lst) - pointing_center_hadec[:,0]
+            pointing_center_radec = NP.hstack((pointing_center_ra.reshape(-1,1), pointing_center_hadec[:,1].reshape(-1,1)))
+            pointing_coords = 'radec'
+        elif pointing_coords == 'radec':
+            pointing_center_radec = pointing_center
+        else:
+            raise ValueError('Invalid pointing center coordinates')
+
+        phase_center = prisim_object.phase_center
+        phase_center_coords = prisim_object.phase_center_coords
+        if phase_center_coords == 'dircos':
+            phase_center_dircos = phase_center
+            phase_center_altaz = GEOM.dircos2altaz(phase_center_dircos, units='degrees')
+            phase_center_hadec = GEOM.altaz2hadec(phase_center_altaz, prisim_object.latitude, units='degrees')
+            phase_center_ra = NP.asarray(prisim_object.lst) - phase_center_hadec[:,0]
+            phase_center_radec = NP.hstack((phase_center_ra.reshape(-1,1), phase_center_hadec[:,1].reshape(-1,1)))
+            phase_center_coords = 'radec'
+        elif phase_center_coords == 'altaz':
+            phase_center_altaz = phase_center
+            phase_center_hadec = GEOM.altaz2hadec(phase_center_altaz, prisim_object.latitude, units='degrees')
+            phase_center_ra = NP.asarray(prisim_object.lst) - phase_center_hadec[:,0]
+            phase_center_radec = NP.hstack((phase_center_ra.reshape(-1,1), phase_center_hadec[:,1].reshape(-1,1)))
+            phase_center_coords = 'radec'
+        elif phase_center_coords == 'hadec':
+            phase_center_hadec = phase_center
+            phase_center_ra = NP.asarray(prisim_object.lst) - phase_center_hadec[:,0]
+            phase_center_radec = NP.hstack((phase_center_ra.reshape(-1,1), phase_center_hadec[:,1].reshape(-1,1)))
+            phase_center_coords = 'radec'
+        elif phase_center_coords == 'radec':
+            phase_center_radec = phase_center
+        else:
+            raise ValueError('Invalid phase center coordinates')
+
+        pointing_centers = SkyCoord(ra=pointing_center_radec[:,0], dec=pointing_center_radec[:,1], frame='icrs', unit='deg')
+        phase_centers = SkyCoord(ra=phase_center_radec[:,0], dec=phase_center_radec[:,1], frame='icrs', unit='deg')
+        pointing_center_obscenter = pointing_centers[int(prisim_object.n_acc/2)]
+        phase_center_obscenter = phase_centers[int(prisim_object.n_acc/2)]
+        
+        self.infodict['object_name'] = 'J{0}{1}'.format(pointing_center_obscenter.ra.to_string(sep='', precision=2, pad=True), pointing_center_obscenter.dec.to_string(sep='', precision=2, alwayssign=True, pad=True))
+        if 'id' not in prisim_object.telescope:
+            self.infodict['telescope_name'] = 'custom'
+        else:
+            self.infodict['telescope_name'] = prisim_object.telescope['id']
+        self.infodict['instrument'] = self.infodict['telescope_name']
+        self.infodict['telescope_location'] = NP.asarray([prisim_object.latitude, prisim_object.longitude, 0.0])
+        self.infodict['history'] = 'PRISim'
+
+        self.infodict['phase_center_epoch'] = 2000.0
+        is_phased = NP.allclose(phase_centers.ra.value, phase_centers.ra.value[::-1]) and NP.allclose(phase_centers.dec.value, phase_centers.dec.value[::-1])
+        self.infodict['is_phased'] = is_phased
+
+        # ----- antenna information ------
+        self.infodict['Nants_data'] = len(set(prisim_object.labels['A1']) | set(prisim_object.labels['A2']))
+        if prisim_object.layout:
+            # self.infodict['Nants_telescope'] = len(set(prisim_object.labels['A1']) | set(prisim_object.labels['A2']))
+            self.infodict['Nants_telescope'] = prisim_object.layout['ids'].size
+        else:
+            self.infodict['Nants_telescope'] = self.infodict['Nants_data']
+
+        if prisim_object.layout:
+            self.infodict['antenna_names'] = prisim_object.layout['labels']
+            self.infodict['antenna_numbers'] = prisim_object.layout['ids']
+        else:
+            self.infodict['antenna_names'] = NP.asarray(list(set(prisim_object.labels['A1']) | set(prisim_object.labels['A2'])))
+            try:
+                self.infodict['antenna_numbers'] = NP.asarray(list(set(prisim_object.labels['A1']) | set(prisim_object.labels['A2']))).astype(NP.int)
+            except ValueError:
+                raise ValueError('Count not convert antenna labels to numbers')
+        
+        # ----- Optional information ------
+        self.infodict['dateobs'] = Time(prisim_object.timestamp[0], format='jd', scale='utc').iso
+        self.infodict['phase_center_ra'] = NP.radians(phase_center_obscenter.ra.value)
+        self.infodict['phase_center_dec'] = NP.radians(phase_center_obscenter.dec.value)
+        self.infodict['antenna_positions'] = NP.zeros((self.infodict['Nants_telescope'],3), dtype=NP.float)
+        if hasattr(prisim_object, 'layout'):
+            if prisim_object.layout:
+                if not isinstance(prisim_object.layout['positions'], NP.ndarray):
+                    warnings.warn('Antenna positions must be a numpy array. Proceeding with default values.')
+                else:
+                    if prisim_object.layout['positions'].shape != (self.infodict['Nants_telescope'],3):
+                        warnings.warn('Number of antennas in prisim_object found to be incompatible with number of unique antennas found. Proceeding with default values.')
+                    else:
+                        self.infodict['antenna_positions'] = prisim_object.layout['positions']
+            
+        self.infodict['gst0'] = 0.0
+        self.infodict['rdate'] = ''
+        self.infodict['earth_omega'] = 360.985
+        self.infodict['dut1'] = 0.0
+        self.infodict['timesys'] = 'UTC'
+        
+    #############################################################################
+
+    def createUVData(self, datatype='noiseless'):
+
+        """
+        ------------------------------------------------------------------------
+        Create an instance of class UVData.
+
+        Inputs:
+
+        datatype    [string] Specifies which visibilities are to be used in 
+                    creating the UVData object. Accepted values are 'noiseless'
+                    (default) for noiseless pure-sky visibilities, 'noisy' for
+                    sky visibilities to which noise has been added, or 'noise'
+                    for pure noise visibilities.
+
+        Outputs:
+
+        dataobj     [instance of class UVData] an instance of class UVData
+                    containing visibilities of type specified in datatype. This
+                    object can be used to write to some common external formats
+                    such as UVFITS, etc.
+        ------------------------------------------------------------------------
+        """
+
+        if not uvdata_module_found:
+            raise ImportError('uvdata module not found')
+
+        if datatype not in ['noiseless', 'noisy', 'noise']:
+            raise ValueError('Invalid input datatype specified')
+
+        attributes_of_uvdata = ['Ntimes', 'Nbls', 'Nblts', 'Nfreqs', 'Npols', 'Nspws', 'data_array', 'vis_units', 'nsample_array', 'flag_array', 'spw_array', 'uvw_array', 'time_array', 'lst_array', 'ant_1_array', 'ant_2_array', 'baseline_array', 'freq_array', 'polarization_array', 'integration_time', 'channel_width', 'object_name', 'telescope_name', 'instrument', 'telescope_location', 'history', 'phase_center_epoch', 'is_phased', 'Nants_data', 'Nants_telescope', 'antenna_names', 'antenna_numbers', 'dateobs', 'phase_center_ra', 'phase_center_dec']
+        dataobj = UVData()
+        for attrkey in attributes_of_uvdata:
+            if attrkey != 'data_array':
+                setattr(dataobj, attrkey, self.infodict[attrkey])
+            else:
+                if datatype in self.infodict[attrkey]:
+                    if self.infodict[attrkey][datatype] is not None:
+                        setattr(dataobj, attrkey, self.infodict[attrkey][datatype])
+                    else:
+                        raise KeyError('Data of specified datatype not found in InterferometerData object')
+                else:
+                    raise KeyError('Specified datatype not found in InterferometerData object')
+
+        return dataobj
+
+    #############################################################################
+    
+    def _blnum_to_antnums(self, blnum):
+        if self.infodict['Nants_telescope'] > 2048:
+            raise StandardError('error Nants={Nants}>2048 not supported'.format(Nants=self.infodict['Nants_telescope']))
+        if NP.min(blnum) > 2**16:
+            i = (blnum - 2**16) % 2048 - 1
+            j = (blnum - 2**16 - (i + 1)) / 2048 - 1
+        else:
+            i = (blnum) % 256 - 1
+            j = (blnum - (i + 1)) / 256 - 1
+        return NP.int32(i), NP.int32(j)
+
+    #############################################################################
+    
+    def _antnums_to_blnum(self, i, j, attempt256=False):
+        # set the attempt256 keyword to True to (try to) use the older
+        # 256 standard used in many uvfits files
+        # (will use 2048 standard if there are more than 256 antennas)
+        i, j = NP.int64((i, j))
+        if self.infodict['Nants_telescope'] > 2048:
+            raise StandardError('cannot convert i,j to a baseline index '
+                                'with Nants={Nants}>2048.'
+                                .format(Nants=self.infodict['Nants_telescope']))
+        if attempt256:
+            if (NP.max(i) < 255 and NP.max(j) < 255):
+                return 256 * (j + 1) + (i + 1)
+            else:
+                print('Max antnums are {} and {}'.format(NP.max(i), NP.max(j)))
+                message = 'antnums_to_baseline: found > 256 antennas, using ' \
+                          '2048 baseline indexing. Beware compatibility ' \
+                          'with CASA etc'
+                warnings.warn(message)
+
+        return NP.int64(2048 * (j + 1) + (i + 1) + 2**16)
+
+    #############################################################################
+    
+    def write(self, outfile, datatype='noiseless', fmt='UVFITS',
+              uvfits_method=None, overwrite=False):
+
+        """
+        ------------------------------------------------------------------------
+        Write an instance of class InterferometerData into specified formats.
+        Currently writes in UVFITS format
+
+        Inputs:
+
+        outfile     [string] Filename into which data will be written
+
+        datatype    [string] Specifies which visibilities are to be used in 
+                    creating the UVData object. Accepted values are 'noiseless'
+                    (default) for noiseless pure-sky visibilities, 'noisy' for
+                    sky visibilities to which noise has been added, or 'noise'
+                    for pure noise visibilities.
+
+        fmt         [string] Output file format. Currently accepted values are
+                    'UVFITS'
+
+        uvfits_method
+                    [string] Method using which UVFITS output is produced.
+                    Accepted values are 'uvdata', 'uvfits' or None (default).
+                    If set to 'uvdata', the UVFITS writer in uvdata module is
+                    used. If set to 'uvfits', the in-house UVFITS writer is
+                    used. If set to None, first uvdata module will be attempted
+                    but if it fails then the in-house UVFITS writer will be
+                    tried.
+
+        overwrite   [boolean] True indicates overwrite even if a file already 
+                    exists. Default = False (does not overwrite). Beware this 
+                    may not work reliably if uvfits_method is set to None or
+                    'uvdata' and hence always better to make sure the output
+                    file does not exist already
+        ------------------------------------------------------------------------
+        """
+
+        try:
+            outfile
+        except NameError:
+            raise NameError('Output filename not specified')
+
+        if not isinstance(outfile, str):
+            raise TypeError('Output filename must be a string')
+
+        if datatype not in ['noiseless', 'noisy', 'noise']:
+            raise ValueError('Invalid input datatype specified')
+
+        if fmt.lower() not in ['uvfits']:
+            raise ValueError('Output format not supported')
+
+        if fmt.lower() == 'uvfits':
+            write_successful = False
+            if uvfits_method not in [None, 'uvfits', 'uvdata']:
+                uvfits_method = None
+            if (uvfits_method is None) or (uvfits_method == 'uvdata'):
+                try:
+                    uvdataobj = self.createUVData(datatype=datatype)
+                    uvdataobj.write_uvfits(outfile, spoof_nonessential=True)
+                except Exception as xption1:
+                    write_successful = False
+                    if uvfits_method == 'uvdata':
+                        warnings.warn('Output through UVData module did not work due to the following exception:')
+                        raise xption1
+                    else:
+                        warnings.warn('Output through UVData module did not work. Trying with built-in UVFITS writer')
+                else:
+                    write_successful = True
+                    print 'Data successfully written using uvdata module to {0}'.format(outfile)
+                    return
+
+            # Try with in-house UVFITS writer
+            try: 
+                weights_array = self.infodict['nsample_array'] * NP.where(self.infodict['flag_array'], -1, 1)
+                data_array = self.infodict['data_array'][datatype][:, NP.newaxis, NP.newaxis, :, :, :, NP.newaxis]
+                weights_array = weights_array[:, NP.newaxis, NP.newaxis, :, :, :, NP.newaxis]
+                # uvfits_array_data shape will be  (Nblts,1,1,[Nspws],Nfreqs,Npols,3)
+                uvfits_array_data = NP.concatenate([data_array.real, data_array.imag, weights_array], axis=6)
+        
+                uvw_array_sec = self.infodict['uvw_array'] / FCNST.c
+                # jd_midnight = NP.floor(self.infodict['time_array'][0] - 0.5) + 0.5
+                tzero = NP.float32(self.infodict['time_array'][0])
+            
+                # uvfits convention is that time_array + relevant PZERO = actual JD
+                # We are setting PZERO4 = float32(first time of observation)
+                time_array = NP.float32(self.infodict['time_array'] - NP.float64(tzero))
+        
+                int_time_array = (NP.zeros_like((time_array), dtype=NP.float) + self.infodict['integration_time'])
+                baselines_use = self._antnums_to_blnum(self.infodict['ant_1_array'], self.infodict['ant_2_array'], attempt256=True)
+                # Set up dictionaries for populating hdu
+                # Note that uvfits antenna arrays are 1-indexed so we add 1
+                # to our 0-indexed arrays
+                group_parameter_dict = {'UU      ': uvw_array_sec[:, 0],
+                                        'VV      ': uvw_array_sec[:, 1],
+                                        'WW      ': uvw_array_sec[:, 2],
+                                        'DATE    ': time_array,
+                                        'BASELINE': baselines_use,
+                                        'ANTENNA1': self.infodict['ant_1_array'] + 1,
+                                        'ANTENNA2': self.infodict['ant_2_array'] + 1,
+                                        'SUBARRAY': NP.ones_like(self.infodict['ant_1_array']),
+                                        'INTTIM': int_time_array}
+                pscal_dict = {'UU      ': 1.0, 'VV      ': 1.0, 'WW      ': 1.0,
+                              'DATE    ': 1.0, 'BASELINE': 1.0, 'ANTENNA1': 1.0,
+                              'ANTENNA2': 1.0, 'SUBARRAY': 1.0, 'INTTIM': 1.0}
+                pzero_dict = {'UU      ': 0.0, 'VV      ': 0.0, 'WW      ': 0.0,
+                              'DATE    ': tzero, 'BASELINE': 0.0, 'ANTENNA1': 0.0,
+                              'ANTENNA2': 0.0, 'SUBARRAY': 0.0, 'INTTIM': 0.0}
+
+                # list contains arrays of [u,v,w,date,baseline];
+                # each array has shape (Nblts)
+                if (NP.max(self.infodict['ant_1_array']) < 255 and
+                        NP.max(self.infodict['ant_2_array']) < 255):
+                    # if the number of antennas is less than 256 then include both the
+                    # baseline array and the antenna arrays in the group parameters.
+                    # Otherwise just use the antenna arrays
+                    parnames_use = ['UU      ', 'VV      ', 'WW      ',
+                                    'DATE    ', 'BASELINE', 'ANTENNA1',
+                                    'ANTENNA2', 'SUBARRAY', 'INTTIM']
+                else:
+                    parnames_use = ['UU      ', 'VV      ', 'WW      ', 'DATE    ',
+                                    'ANTENNA1', 'ANTENNA2', 'SUBARRAY', 'INTTIM']
+
+                group_parameter_list = [group_parameter_dict[parname] for
+                                        parname in parnames_use]
+                hdu = fits.GroupData(uvfits_array_data, parnames=parnames_use,
+                                     pardata=group_parameter_list, bitpix=-32)
+                hdu = fits.GroupsHDU(hdu)
+        
+                for i, key in enumerate(parnames_use):
+                    hdu.header['PSCAL' + str(i + 1) + '  '] = pscal_dict[key]
+                    hdu.header['PZERO' + str(i + 1) + '  '] = pzero_dict[key]
+        
+                # ISO string of first time in self.infodict['time_array']
+
+                # hdu.header['DATE-OBS'] = Time(self.infodict['time_array'][0], scale='utc', format='jd').iso
+                hdu.header['DATE-OBS'] = self.infodict['dateobs']
+        
+                hdu.header['CTYPE2  '] = 'COMPLEX '
+                hdu.header['CRVAL2  '] = 1.0
+                hdu.header['CRPIX2  '] = 1.0
+                hdu.header['CDELT2  '] = 1.0
+        
+                hdu.header['CTYPE3  '] = 'STOKES  '
+                hdu.header['CRVAL3  '] = self.infodict['polarization_array'][0]
+                hdu.header['CRPIX3  '] = 1.0
+                try:
+                    hdu.header['CDELT3  '] = NP.diff(self.infodict['polarization_array'])[0]
+                except(IndexError):
+                    hdu.header['CDELT3  '] = 1.0
+        
+                hdu.header['CTYPE4  '] = 'FREQ    '
+                hdu.header['CRVAL4  '] = self.infodict['freq_array'][0, 0]
+                hdu.header['CRPIX4  '] = 1.0
+                hdu.header['CDELT4  '] = NP.diff(self.infodict['freq_array'][0])[0]
+        
+                hdu.header['CTYPE5  '] = 'IF      '
+                hdu.header['CRVAL5  '] = 1.0
+                hdu.header['CRPIX5  '] = 1.0
+                hdu.header['CDELT5  '] = 1.0
+        
+                hdu.header['CTYPE6  '] = 'RA'
+                hdu.header['CRVAL6  '] = NP.degrees(self.infodict['phase_center_ra'])
+        
+                hdu.header['CTYPE7  '] = 'DEC'
+                hdu.header['CRVAL7  '] = NP.degrees(self.infodict['phase_center_dec'])
+        
+                hdu.header['BUNIT   '] = self.infodict['vis_units']
+                hdu.header['BSCALE  '] = 1.0
+                hdu.header['BZERO   '] = 0.0
+        
+                hdu.header['OBJECT  '] = self.infodict['object_name']
+                hdu.header['TELESCOP'] = self.infodict['telescope_name']
+                hdu.header['LAT     '] = self.infodict['telescope_location'][0]
+                hdu.header['LON     '] = self.infodict['telescope_location'][1]
+                hdu.header['ALT     '] = self.infodict['telescope_location'][2]
+                hdu.header['INSTRUME'] = self.infodict['instrument']
+                hdu.header['EPOCH   '] = float(self.infodict['phase_center_epoch'])
+        
+                for line in self.infodict['history'].splitlines():
+                    hdu.header.add_history(line)
+            
+                # ADD the ANTENNA table
+                staxof = NP.zeros(self.infodict['Nants_telescope'])
+        
+                # 0 specifies alt-az, 6 would specify a phased array
+                mntsta = NP.zeros(self.infodict['Nants_telescope'])
+        
+                # beware, X can mean just about anything
+                poltya = NP.full((self.infodict['Nants_telescope']), 'X', dtype=NP.object_)
+                polaa = [90.0] + NP.zeros(self.infodict['Nants_telescope'])
+                poltyb = NP.full((self.infodict['Nants_telescope']), 'Y', dtype=NP.object_)
+                polab = [0.0] + NP.zeros(self.infodict['Nants_telescope'])
+        
+                col1 = fits.Column(name='ANNAME', format='8A',
+                                   array=self.infodict['antenna_names'])
+                col2 = fits.Column(name='STABXYZ', format='3D',
+                                   array=self.infodict['antenna_positions'])
+                # convert to 1-indexed from 0-indexed indicies
+                col3 = fits.Column(name='NOSTA', format='1J',
+                                   array=self.infodict['antenna_numbers'] + 1)
+                col4 = fits.Column(name='MNTSTA', format='1J', array=mntsta)
+                col5 = fits.Column(name='STAXOF', format='1E', array=staxof)
+                col6 = fits.Column(name='POLTYA', format='1A', array=poltya)
+                col7 = fits.Column(name='POLAA', format='1E', array=polaa)
+                # col8 = fits.Column(name='POLCALA', format='3E', array=polcala)
+                col9 = fits.Column(name='POLTYB', format='1A', array=poltyb)
+                col10 = fits.Column(name='POLAB', format='1E', array=polab)
+                # col11 = fits.Column(name='POLCALB', format='3E', array=polcalb)
+                # note ORBPARM is technically required, but we didn't put it in
+        
+                cols = fits.ColDefs([col1, col2, col3, col4, col5, col6, col7, col9, col10])
+                ant_hdu = fits.BinTableHDU.from_columns(cols)
+                ant_hdu.header['EXTNAME'] = 'AIPS AN'
+                ant_hdu.header['EXTVER'] = 1
+
+                # write XYZ coordinates if not already defined
+                ant_hdu.header['ARRAYX'] = self.infodict['telescope_location'][0]
+                ant_hdu.header['ARRAYY'] = self.infodict['telescope_location'][1]
+                ant_hdu.header['ARRAYZ'] = self.infodict['telescope_location'][2]
+                ant_hdu.header['FRAME'] = 'ITRF'
+                ant_hdu.header['GSTIA0'] = self.infodict['gst0']
+                ant_hdu.header['FREQ'] = self.infodict['freq_array'][0, 0]
+                ant_hdu.header['RDATE'] = self.infodict['rdate']
+                ant_hdu.header['UT1UTC'] = self.infodict['dut1']
+        
+                ant_hdu.header['TIMSYS'] = self.infodict['timesys']
+                if self.infodict['timesys'] == 'IAT':
+                    warnings.warn('This file has an "IAT" time system. Files of '
+                                  'this type are not properly supported')
+                ant_hdu.header['ARRNAM'] = self.infodict['telescope_name']
+                ant_hdu.header['NO_IF'] = self.infodict['Nspws']
+                ant_hdu.header['DEGPDY'] = self.infodict['earth_omega']
+                # ant_hdu.header['IATUTC'] = 35.
+        
+                # set mandatory parameters which are not supported by this object
+                # (or that we just don't understand)
+                ant_hdu.header['NUMORB'] = 0
+        
+                # note: Bart had this set to 3. We've set it 0 after aips 117. -jph
+                ant_hdu.header['NOPCAL'] = 0
+        
+                ant_hdu.header['POLTYPE'] = 'X-Y LIN'
+        
+                # note: we do not support the concept of "frequency setups"
+                # -- lists of spws given in a SU table.
+                ant_hdu.header['FREQID'] = -1
+        
+                # if there are offsets in images, this could be the culprit
+                ant_hdu.header['POLARX'] = 0.0
+                ant_hdu.header['POLARY'] = 0.0
+        
+                ant_hdu.header['DATUTC'] = 0  # ONLY UTC SUPPORTED
+        
+                # we always output right handed coordinates
+                ant_hdu.header['XYZHAND'] = 'RIGHT'
+        
+                # ADD the FQ table
+                # skipping for now and limiting to a single spw
+        
+                # write the file
+                hdulist = fits.HDUList(hdus=[hdu, ant_hdu])
+                hdulist.writeto(outfile, clobber=overwrite)
+            except Exception as xption2:
+                print xption2
+                raise IOError('Could not write to UVFITS file')
+            else:
+                write_successful = True
+                print 'Data successfully written using in-house uvfits writer to {0}'.format(outfile)
+                return
+
+#################################################################################
+    
