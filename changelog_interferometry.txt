@@ -1,5 +1,18 @@
-From 00d4bea (master):
-=====================
+From 6408d47 (data-url):
+=======================
+
+(*) Add scripts/setup_prisim_data.py to git repo
+
+In scripts/setup_prisim_data.py,
+
+(*) Add verbose functionality
+
+In prisim/examples/ioparms/data_setup_parms.yaml,
+
+(*) Add verbose keyword
+
+From 00d4bea (data-url):
+=======================
 
 (*) Remove package data from git repo
 

@@ -68,4 +68,8 @@ cleanup     :
                             # Otherwise full path to the 
                             # file must be specified
 
+verbose     : true
+                            # boolean value specifying if progress
+                            # and diagnostic messages are to be
+                            # printed. Default=true
 
