@@ -1,3 +1,8 @@
+From 00d4bea (master):
+=====================
+
+(*) Remove package data from git repo
+
 From 6403d2b (master):
 =====================
 
