@@ -1,3 +1,13 @@
+From 6403d2b (master):
+=====================
+
+(*) Add setup_prisim_data.py to scripts/ folder
+(*) Add data_setup_parms.yaml to prisim/examples/ioparms/ folder
+
+In setup.py,
+
+(*) Add *.py files to scripts
+
 From d2af20c (master):
 =====================
 

@@ -1,0 +1,71 @@
+##### IMPORTANT INFORMATION #####
+##### DO NOT MODIFY THIS FILE #####
+##### MAKE A COPY OF THIS FILE AND CUSTOMIZE #####
+
+download    :
+
+    action      : true
+                            # Action decides whether to download
+                            # (default=true) or not (false). If
+                            # set to true, downloads from the
+                            # URL specified below
+
+    url         : null
+                            # URL of PRISim data. If set to null
+                            # (default), the default URL in script
+                            # setup_prisim_data.py will be used.
+                            # Otherwise full URL must be specified
+
+    fname       : null
+                            # Filename for downloaded data.
+                            # If set to null (default), it will
+                            # be downloaded to the folder in
+                            # which PRISim is installed under
+                            # the name prisim_data.tar.gz
+                            # Otherwise full path to the output
+                            # file must be specified
+
+extract     :
+
+    action      : true
+                            # Action decides whether to extract
+                            # (default=true) or not (false) the
+                            # tar.gz file. If set to true, extracts
+                            # from the URL specified below
+
+    fname       : null
+                            # Filename for gzipped data
+                            # If set to null (default), it will
+                            # be searched in the folder in
+                            # which PRISim is installed under
+                            # the name prisim_data.tar.gz
+                            # Otherwise full path to the 
+                            # file must be specified
+
+    dir         : null
+                            # Directory name under which the
+                            # extracted contents will go. If
+                            # set to null (default), it will
+                            # extracted in the folder under
+                            # which PRISim is installed.
+                            # Otherwise full path to the file
+                            # must be specified
+
+cleanup     :
+
+    action      : true
+                            # Action decides whether to cleanup
+                            # (default=true) or not (false)
+                            # If set to true, cleans up the file 
+                            # specified below
+
+    fname       : null
+                            # Filename to be cleaned up. 
+                            # If set to null (default), it will
+                            # be searched in the folder in
+                            # which PRISim is installed under
+                            # the name prisim_data.tar.gz
+                            # Otherwise full path to the 
+                            # file must be specified
+
+
