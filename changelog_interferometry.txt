@@ -1,3 +1,12 @@
+From 937c112 (data-url):
+=======================
+
+(*) Remove obsolete script from scripts folder
+
+In scripts/setup_prisim_data.py,
+
+(*) Update URL to download PRISim data from
+
 From 6408d47 (data-url):
 =======================
 
