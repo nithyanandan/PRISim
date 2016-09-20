@@ -1,3 +1,40 @@
+From 937c112 (data-url):
+=======================
+
+(*) Remove obsolete script from scripts folder
+
+In scripts/setup_prisim_data.py,
+
+(*) Update URL to download PRISim data from
+
+From 6408d47 (data-url):
+=======================
+
+(*) Add scripts/setup_prisim_data.py to git repo
+
+In scripts/setup_prisim_data.py,
+
+(*) Add verbose functionality
+
+In prisim/examples/ioparms/data_setup_parms.yaml,
+
+(*) Add verbose keyword
+
+From 00d4bea (data-url):
+=======================
+
+(*) Remove package data from git repo
+
+From 6403d2b (master):
+=====================
+
+(*) Add setup_prisim_data.py to scripts/ folder
+(*) Add data_setup_parms.yaml to prisim/examples/ioparms/ folder
+
+In setup.py,
+
+(*) Add *.py files to scripts
+
 From d2af20c (master):
 =====================
 
