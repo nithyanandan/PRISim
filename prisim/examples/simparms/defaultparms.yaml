@@ -691,39 +691,6 @@ processing:
                                 # dynamically set to 90% of
                                 # available memory in the system
 
-    n_bl_chunks     : 1
-                                # Upper limit on number of baseline
-                                # chunks to be processed. Will be
-                                # used to split data for parallel
-                                # processing
-
-    bl_chunk_size   : 30
-                                # Baseline chunk size. Will be used
-                                # in a single process during parallel
-                                # processing
-
-    bl_chunk        : null
-                                # Baseline chunk indices to process.
-                                # null means process all chunks.
-                                # Should be given as a list
-
-    n_freq_chunks   : 2
-                                # Upper limit on number of frequency
-                                # chunks to be processed. Will be
-                                # used to split data for parallel
-                                # processing
-
-    freq_chunk_size : 128
-                                # Frequency chunk size (in number of
-                                # channels). Will be used
-                                # in a single process during parallel
-                                # processing
-
-    freq_chunk      : null
-                                # Frequency chunk indices to process.
-                                # null means process all chunks.
-                                # Should be given as a list
-
     n_bins_blo      : 4
                                 # Number of bins in baseline
                                 # orientation

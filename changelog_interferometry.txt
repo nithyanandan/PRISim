@@ -1,3 +1,16 @@
+From 47e531b (memory_set):
+=========================
+
+In scripts/run_prisim.py,
+
+(*) Remove commented lines on earlier chunking procedures for
+parallelization which are now obsolete since they have been replaced
+with automatic chunking
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Remove earlier inputs on chunking which are now obsolete
+
 From 5ae8b8e (memory_set):
 =========================
 

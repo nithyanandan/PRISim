@@ -204,12 +204,6 @@ else:
     raise TypeError('Usable memory must be specified as a scalar numeric value')
 
 n_bins_baseline_orientation = parms['processing']['n_bins_blo']
-# baseline_chunk_size = parms['processing']['bl_chunk_size']
-# bl_chunk = parms['processing']['bl_chunk']
-# n_bl_chunks = parms['processing']['n_bl_chunks']
-# frequency_chunk_size = parms['processing']['freq_chunk_size']
-# freq_chunk = parms['processing']['freq_chunk']
-# n_freq_chunks = parms['processing']['n_freq_chunks']
 n_sky_sectors = parms['processing']['n_sky_sectors']
 bpass_shape = parms['processing']['bpass_shape']
 ant_bpass_file = parms['processing']['ant_bpass_file']
@@ -970,7 +964,6 @@ if use_HI_monopole:
     count_uniq_bll = count_uniq_bll[sortind]
 
 total_baselines = bl_length.size
-# baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
 
 try:
     labels = bl_label.tolist()
@@ -983,12 +976,6 @@ try:
 except NameError:
     ids = range(bl.shape[0])
     
-# if bl_chunk is None:
-#     bl_chunk = range(len(baseline_bin_indices))
-# if n_bl_chunks is None:
-#     n_bl_chunks = len(bl_chunk)
-# bl_chunk = bl_chunk[:n_bl_chunks]
-
 if not isinstance(mpi_key, str):
     raise TypeError('MPI key must be a string')
 if mpi_key not in ['src', 'bl', 'freq']:
@@ -1022,13 +1009,6 @@ bandpass_shape = 1.0*NP.ones(nchan)
 chans = (freq + (NP.arange(nchan) - 0.5 * nchan) * freq_resolution)/ 1e9 # in GHz
 oversampling_factor = 1.0 + f_pad
 bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(nchan, freq_resolution/1e3)
-
-# frequency_bin_indices = range(0,nchan,frequency_chunk_size)
-# if freq_chunk is None:
-#     freq_chunk = range(len(frequency_bin_indices))
-# if n_freq_chunks is None:
-#     n_freq_chunks = len(freq_chunk)
-# freq_chunk = freq_chunk[:n_freq_chunks]
 
 flagged_edge_channels = []
 pfb_str = ''
