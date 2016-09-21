@@ -341,7 +341,7 @@ beam    :
                                 # If set to 'custom' then the full path
                                 # to the file must be specified
 
-    filefmt         : 'HDF5'
+    filefmt         : 'FITS'
                                 # File format for external beam file.
                                 # Accepted values are 'HDF5' and 'FITS'
 

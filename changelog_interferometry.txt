@@ -1,3 +1,10 @@
+From 54bdf62 (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Change default file format of external beam to 'FITS' from 'HDF5'
+
 From 5d7eca0 (memory_set):
 =========================
 
