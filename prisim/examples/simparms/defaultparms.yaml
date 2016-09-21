@@ -579,6 +579,20 @@ fgparm   :
                                 # and'HI_fluctuations' (HI fluctuations
                                 # with the global mean signal removed)
 
+    fsky            : null
+                                # fraction of sky covered by the sky
+                                # model. This is only to determine
+                                # memory requirements and allocation.
+                                # If this is unknown, set it to null
+                                # and it will be conservatively assumed
+                                # that all of the sky model will be
+                                # utilized in every simulation. If it
+                                # is known to be an all-sky model, set
+                                # it to 1.0. Values between 0.0 and 1.0
+                                # are accepted. At each instant of the
+                                # simulation, only roughly half of the
+                                # can be involved at most
+
     epoch           : '2000'
                                 # Epoch of the coordinates of the
                                 # foreground model or EoR signal
@@ -667,6 +681,15 @@ catalog  :
 ########## Processing setup ##########
 
 processing:
+
+    memuse          : null
+                                # Total memory (GB) not to be exceeded
+                                # by all processes put together. If
+                                # to null (default) or if it exceeds
+                                # 90% of the available memory at the
+                                # start of the simulation, it will be
+                                # dynamically set to 90% of
+                                # available memory in the system
 
     n_bl_chunks     : 1
                                 # Upper limit on number of baseline
