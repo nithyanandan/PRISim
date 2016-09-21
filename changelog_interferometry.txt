@@ -1,3 +1,10 @@
+From 5d7eca0 (memory_set):
+=========================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Remove earlier input nproc which was obsolete
+
 From 47e531b (memory_set):
 =========================
 

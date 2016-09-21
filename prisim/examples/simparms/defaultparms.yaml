@@ -760,10 +760,6 @@ processing:
 
 pp       :
 
-    nproc           : 16
-                                # Number of parallel processes.
-                                # 1 means serial processing.
-
     key             : 'freq'
                                 # Split the data by 'bl' (baselines),
                                 # 'src' (sources) or 'freq' (frequency),
