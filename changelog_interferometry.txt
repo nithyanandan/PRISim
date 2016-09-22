@@ -1,3 +1,11 @@
+From 43cc0e5 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Rearrange chunk allotment to processes for more equal
+distribution of chunk loads to parallel processes
+
 From 54bdf62 (master):
 =====================
 

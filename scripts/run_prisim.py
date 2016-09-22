@@ -1692,6 +1692,7 @@ elif mpi_on_freq:
     n_freq_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(freq_chunk)/nproc
     if len(freq_chunk) % nproc > 0:
         n_freq_chunk_per_rank[:len(freq_chunk)%nproc] += 1
+    n_freq_chunk_per_rank = n_freq_chunk_per_rank[::-1] # Reverse for more equal distribution of chunk sizes over processes
     cumm_freq_chunks = NP.concatenate(([0], NP.cumsum(n_freq_chunk_per_rank)))
 else:
     baseline_chunk_size = int(NP.floor(1.0 * nbl / n_chunks))
@@ -1706,6 +1707,7 @@ else:
     n_bl_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(bl_chunk)/nproc
     if len(bl_chunk) % nproc > 0:
         n_bl_chunk_per_rank[:len(bl_chunk)%nproc] += 1
+    n_bl_chunk_per_rank = n_bl_chunk_per_rank[::-1] # Reverse for more equal distribution of chunk sizes over processes
     cumm_bl_chunks = NP.concatenate(([0], NP.cumsum(n_bl_chunk_per_rank)))
 
 # Create organized directory structure
