@@ -1,3 +1,18 @@
+From af186b5 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Fix bug in saving the correct file under the attribute
+simparms_file. Earlier it was metafile but now it is corrected to be
+parmsfile
+
+In prisim/delay_spectrum.py,
+
+(*) Make adjustments in extracting external beam information in
+member function beam3Dvol() of class DelayPowerSpectrum
+(*) Update import of modules
+
 From 364d36f (master):
 =====================
 

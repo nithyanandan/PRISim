@@ -17,9 +17,12 @@ from astroutils import DSP_modules as DSP
 from astroutils import mathops as OPS
 from astroutils import geometry as GEOM
 from astroutils import lookup_operations as LKP
-import primary_beams as PB
-import interferometry as RI
-import baseline_delay_horizon as DLY
+import prisim
+from prisim import primary_beams as PB
+from prisim import interferometry as RI
+from prisim import baseline_delay_horizon as DLY
+
+prisim_path = prisim.__path__[0]+'/'
 
 cosmo100 = CP.FlatLambdaCDM(H0=100.0, Om0=0.27)  # Using H0 = 100 km/s/Mpc
 
@@ -2764,7 +2767,7 @@ class DelayPowerSpectrum(object):
         self.bl = self.ds.ia.baselines
         self.bl_length = self.ds.ia.baseline_lengths
         self.df = self.ds.df
-        self.f0 = self.f[self.f.size/2]
+        self.f0 = self.f[int(self.f.size/2)]
         self.wl0 = FCNST.c / self.f0
         self.z = CNST.rest_freq_HI / self.f0 - 1
         self.bw = self.df * self.f.size
@@ -2992,14 +2995,23 @@ class DelayPowerSpectrum(object):
             beam_chromaticity = beam_info['chromatic']
             if use_external_beam:
                 beam_file = beam_info['file']
+                if beam_info['filefmt'].lower() in ['hdf5', 'fits']:
+                    beam_filefmt = beam_info['filefmt']
+                else:
+                    raise ValueError('Invalid beam file format specified')
+                if beam_info['filepathtype'] == 'default':
+                    beam_file = prisim_path+'data/beams/' + beam_file
                 beam_pol = beam_info['pol']
                 beam_id = beam_info['identifier']
                 select_beam_freq = beam_info['select_freq']
                 if select_beam_freq is None:
                     select_beam_freq = self.f0
                 pbeam_spec_interp_method = beam_info['spec_interp']
-                extbeam = fits.getdata(beam_file, extname='BEAM_{0}'.format(beam_pol))
-                beam_freqs = 1e6 * fits.getdata(beam_file, extname='FREQS_{0}'.format(beam_pol))
+                if beam_filefmt.lower() == 'fits':
+                    extbeam = fits.getdata(beam_file, extname='BEAM_{0}'.format(beam_pol))
+                    beam_freqs = fits.getdata(beam_file, extname='FREQS_{0}'.format(beam_pol))
+                else:
+                    raise ValueError('The external beam file format is currently not supported.')
                 extbeam = extbeam.reshape(-1,beam_freqs.size)
                 beam_nside = HP.npix2nside(extbeam.shape[0])
                 if beam_nside < nside:

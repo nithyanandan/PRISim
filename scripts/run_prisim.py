@@ -2201,7 +2201,7 @@ if rank == 0:
                 progress.update(i+1)
             progress.finish()
 
-        simvis.simparms_file = metafile
+        simvis.simparms_file = parmsfile
         ref_point = {'coords': pc_coords, 'location': NP.asarray(pc).reshape(1,-1)}
         simvis.rotate_visibilities(ref_point, do_delay_transform=do_delay_transform, verbose=True)
         if do_delay_transform:
