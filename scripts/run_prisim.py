@@ -1,6 +1,6 @@
 #!python
 
-import os, pwd, errno
+import os, subprocess, pwd, errno
 from mpi4py import MPI
 import yaml
 import argparse
@@ -260,6 +260,21 @@ if save_to_uvfits:
         raise ValueError('Invalid method specified for saving to UVFITS format')
 plots = parms['plots']
 diagnosis_parms = parms['diagnosis']
+tint = diagnosis_parms['refresh_interval']
+if tint is None:
+    tint = 2.0
+elif not isinstance(tint, (int, float)):
+    raise TypeError('Refresh interval must be a scalar number')
+else:
+    if tint <= 0.0:
+        tint = 2.0
+
+pid = os.getpid()
+pids = comm.gather(pid, root=0)
+
+if rank == 0:
+    cmd = ' '.join(['xterm', '-e', 'prisim_memory_monitor.py', '-p', ' '.join(map(str, pids)), '-t', '{0:.1f}'.format(tint), '&'])
+    subprocess.call([cmd], shell=True)
 
 project_dir = project + '/'
 try:
