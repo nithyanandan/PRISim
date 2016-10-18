@@ -9,7 +9,7 @@ import prisim
 
 prisim_path = prisim.__path__[0]+'/'
 tarfilename = 'prisim_data.tar.gz'
-url_default = 'https://www.dropbox.com/s/jrzpifyq0cpqxi6/prisim_data.tar.gz?dl=1'
+url_default = 'https://www.dropbox.com/s/7y9go1bzjfa0rkv/prisim_data.tar.gz?dl=1'
 
 def download(url=None, outfile=None, verbose=True):
     if url is None:

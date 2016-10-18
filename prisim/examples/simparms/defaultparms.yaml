@@ -344,7 +344,7 @@ beam    :
                                 # If set to 'custom' then the full path
                                 # to the file must be specified
 
-    filefmt         : 'HDF5'
+    filefmt         : 'FITS'
                                 # File format for external beam file.
                                 # Accepted values are 'HDF5' and 'FITS'
 
@@ -584,6 +584,20 @@ fgparm   :
                                 # and'HI_fluctuations' (HI fluctuations
                                 # with the global mean signal removed)
 
+    fsky            : null
+                                # fraction of sky covered by the sky
+                                # model. This is only to determine
+                                # memory requirements and allocation.
+                                # If this is unknown, set it to null
+                                # and it will be conservatively assumed
+                                # that all of the sky model will be
+                                # utilized in every simulation. If it
+                                # is known to be an all-sky model, set
+                                # it to 1.0. Values between 0.0 and 1.0
+                                # are accepted. At each instant of the
+                                # simulation, only roughly half of the
+                                # can be involved at most
+
     epoch           : '2000'
                                 # Epoch of the coordinates of the
                                 # foreground model or EoR signal
@@ -674,41 +688,14 @@ catalog  :
 
 processing:
 
-    n_bl_chunks     : 1
-                                # Upper limit on number of baseline
-                                # chunks to be processed. Will be
-                                # used to split data for parallel
-                                # processing
-                                #NB: This number is redundant with uvmax, 
-                                # and is best left as null.
-
-
-    bl_chunk_size   : 30
-                                # Baseline chunk size. Will be used
-                                # in a single process during parallel
-                                # processing
-
-    bl_chunk        : null
-                                # Baseline chunk indices to process.
-                                # null means process all chunks.
-                                # Should be given as a list eg [1,3,4]
-
-    n_freq_chunks   : 2
-                                # Upper limit on number of frequency
-                                # chunks to be processed. Will be
-                                # used to split data for parallel
-                                # processing
-
-    freq_chunk_size : 128
-                                # Frequency chunk size (in number of
-                                # channels). Will be used
-                                # in a single process during parallel
-                                # processing
-
-    freq_chunk      : null
-                                # Frequency chunk indices to process.
-                                # null means process all chunks.
-                                # Should be given as a list
+    memuse          : null
+                                # Total memory (GB) not to be exceeded
+                                # by all processes put together. If
+                                # to null (default) or if it exceeds
+                                # 90% of the available memory at the
+                                # start of the simulation, it will be
+                                # dynamically set to 90% of
+                                # available memory in the system
 
     n_bins_blo      : 4
                                 # Number of bins in baseline
@@ -789,11 +776,6 @@ processing:
 ########## Parallel processing setup #########
 
 pp       :
-
-    nproc           : 1
-                                # used with multiprocessing, set on cmd line for mpi
-                                # Number of parallel processes.
-                                # 1 means serial processing.
 
     key             : 'freq'
                                 # Split the data by 'bl' (baselines),
@@ -882,6 +864,12 @@ plots    : false
 ########## Diagnosis parameters ###########
 
 diagnosis   :
+
+    refresh_interval: null
+                                # Refresh interval (in seconds)
+                                # to monitor CPU and memory usage.
+                                # If set to null (default), this
+                                # will be set to 2 seconds
 
     wait_after_run  : true
                                 # If true, keep python shell open

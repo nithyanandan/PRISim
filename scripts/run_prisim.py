@@ -1,6 +1,6 @@
 #!python
 
-import os, pwd, errno
+import os, subprocess, pwd, errno
 from mpi4py import MPI
 import yaml
 import argparse
@@ -21,6 +21,7 @@ import datetime as DT
 import time 
 import progressbar as PGB
 import healpy as HP
+import psutil 
 from astroutils import MPI_modules as my_MPI
 from astroutils import geometry as GEOM
 from astroutils import catalog as SM
@@ -189,13 +190,20 @@ pointing_file = parms['pointing']['file']
 # pointing_info = parms['pointing']['initial']
 pointing_drift_init = parms['pointing']['drift_init']
 pointing_track_init = parms['pointing']['track_init']
+memuse = parms['processing']['memuse']
+memory_available = psutil.virtual_memory().available # in Bytes
+if memuse is None:
+    memuse = 0.9 * memory_available
+elif isinstance(memuse, (int,float)):
+    memuse = NP.abs(float(memuse)) # now in GB
+    if memuse * 2**30 > 0.9 * memory_available:
+        memuse = 0.9 * memory_available # now converted to bytes
+    else:
+        memuse = memuse * 2**30 # now converted to bytes
+else:
+    raise TypeError('Usable memory must be specified as a scalar numeric value')
+
 n_bins_baseline_orientation = parms['processing']['n_bins_blo']
-baseline_chunk_size = parms['processing']['bl_chunk_size']
-bl_chunk = parms['processing']['bl_chunk']
-n_bl_chunks = parms['processing']['n_bl_chunks']
-frequency_chunk_size = parms['processing']['freq_chunk_size']
-freq_chunk = parms['processing']['freq_chunk']
-n_freq_chunks = parms['processing']['n_freq_chunks']
 n_sky_sectors = parms['processing']['n_sky_sectors']
 bpass_shape = parms['processing']['bpass_shape']
 ant_bpass_file = parms['processing']['ant_bpass_file']
@@ -213,6 +221,7 @@ bp_flag_repeat = parms['flags']['bp_flag_repeat']
 n_edge_flag = NP.asarray(parms['flags']['n_edge_flag']).reshape(-1)
 flag_repeat_edge_channels = parms['flags']['flag_repeat_edge_channels']
 fg_str = parms['fgparm']['model']
+fsky = parms['fgparm']['fsky']
 fgcat_epoch = parms['fgparm']['epoch']
 nside = parms['fgparm']['nside']
 flux_unit = parms['fgparm']['flux_unit']
@@ -251,6 +260,21 @@ if save_to_uvfits:
         raise ValueError('Invalid method specified for saving to UVFITS format')
 plots = parms['plots']
 diagnosis_parms = parms['diagnosis']
+tint = diagnosis_parms['refresh_interval']
+if tint is None:
+    tint = 2.0
+elif not isinstance(tint, (int, float)):
+    raise TypeError('Refresh interval must be a scalar number')
+else:
+    if tint <= 0.0:
+        tint = 2.0
+
+pid = os.getpid()
+pids = comm.gather(pid, root=0)
+
+if rank == 0:
+    cmd = ' '.join(['xterm', '-e', 'prisim_memory_monitor.py', '-p', ' '.join(map(str, pids)), '-t', '{0:.1f}'.format(tint), '&'])
+    subprocess.call([cmd], shell=True)
 
 project_dir = project + '/'
 try:
@@ -956,7 +980,6 @@ if use_HI_monopole:
     count_uniq_bll = count_uniq_bll[sortind]
 
 total_baselines = bl_length.size
-baseline_bin_indices = range(0,total_baselines,baseline_chunk_size)
 
 try:
     labels = bl_label.tolist()
@@ -969,12 +992,6 @@ try:
 except NameError:
     ids = range(bl.shape[0])
     
-if bl_chunk is None:
-    bl_chunk = range(len(baseline_bin_indices))
-if n_bl_chunks is None:
-    n_bl_chunks = len(bl_chunk)
-bl_chunk = bl_chunk[:n_bl_chunks]
-
 if not isinstance(mpi_key, str):
     raise TypeError('MPI key must be a string')
 if mpi_key not in ['src', 'bl', 'freq']:
@@ -1008,13 +1025,6 @@ bandpass_shape = 1.0*NP.ones(nchan)
 chans = (freq + (NP.arange(nchan) - 0.5 * nchan) * freq_resolution)/ 1e9 # in GHz
 oversampling_factor = 1.0 + f_pad
 bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(nchan, freq_resolution/1e3)
-
-frequency_bin_indices = range(0,nchan,frequency_chunk_size)
-if freq_chunk is None:
-    freq_chunk = range(len(frequency_bin_indices))
-if n_freq_chunks is None:
-    n_freq_chunks = len(freq_chunk)
-freq_chunk = freq_chunk[:n_freq_chunks]
 
 flagged_edge_channels = []
 pfb_str = ''
@@ -1657,6 +1667,65 @@ elif use_custom:
     # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
+# Set up chunking for parallelization
+
+nsrc = skymod.location.shape[0]
+if fsky is None:
+    usable_fsky = 1.0
+elif isinstance(fsky, (int, float)):
+    fsky = float(fsky)
+    usable_fsky = NP.clip(0.5/fsky, 0.5, 1.0)
+else:
+    raise TypeError('Input fsky must be a scalar number')
+npol = 1
+nbl = total_baselines
+size_DFT_matrix = (usable_fsky * nsrc) * nchan * nbl * npol
+if memsave: # 64 bits per complex sample (single precision)
+    nbytes_per_complex_sample = 8.0
+else: # 128 bits per complex sample (double precision)
+    nbytes_per_complex_sample = 16.0
+
+memory_DFT_matrix = size_DFT_matrix * nbytes_per_complex_sample
+memory_DFT_matrix_per_process = memory_DFT_matrix / nproc
+memory_use_per_process = float(memuse) / nproc
+n_chunks_per_process = NP.ceil(memory_DFT_matrix/memuse)
+n_chunks = NP.ceil(nproc * n_chunks_per_process)
+if mpi_on_src:
+    src_chunk_size = int(NP.floor(1.0 * nchan / n_chunks))
+    src_bin_indices = range(0, nsrc, src_chunk_size)
+    src_chunk = range(len(src_bin_indices))
+    n_src_chunks = len(src_bin_indices)
+elif mpi_on_freq:
+    frequency_chunk_size = int(NP.floor(1.0 * nchan / n_chunks))
+    frequency_bin_indices = range(0, nchan, frequency_chunk_size)
+    if frequency_bin_indices[-1] == nchan-1:
+        if frequency_chunk_size > 2:
+            frequency_bin_indices[-1] -= 1
+        else:
+            raise IndexError('Chunking has run into a weird indexing problem. Rechunking is necessaray. Try changing number of parallel processes and amount of usable memory. Usually reducing either one of these should help avoind this problem.')
+    freq_chunk = range(len(frequency_bin_indices))
+    n_freq_chunks = len(frequency_bin_indices)
+    n_freq_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(freq_chunk)/nproc
+    if len(freq_chunk) % nproc > 0:
+        n_freq_chunk_per_rank[:len(freq_chunk)%nproc] += 1
+    n_freq_chunk_per_rank = n_freq_chunk_per_rank[::-1] # Reverse for more equal distribution of chunk sizes over processes
+    cumm_freq_chunks = NP.concatenate(([0], NP.cumsum(n_freq_chunk_per_rank)))
+else:
+    baseline_chunk_size = int(NP.floor(1.0 * nbl / n_chunks))
+    baseline_bin_indices = range(0, nbl, baseline_chunk_size)
+    if baseline_bin_indices[-1] == nchan-1:
+        if baseline_chunk_size > 2:
+            baseline_bin_indices[-1] -= 1
+        else:
+            raise IndexError('Chunking has run into a weird indexing problem. Rechunking is necessaray. Try changing number of parallel processes and amount of usable memory. Usually reducing either one of these should help avoind this problem.')
+    bl_chunk = range(len(baseline_bin_indices))
+    n_bl_chunks = len(baseline_bin_indices)
+    n_bl_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(bl_chunk)/nproc
+    if len(bl_chunk) % nproc > 0:
+        n_bl_chunk_per_rank[:len(bl_chunk)%nproc] += 1
+    n_bl_chunk_per_rank = n_bl_chunk_per_rank[::-1] # Reverse for more equal distribution of chunk sizes over processes
+    cumm_bl_chunks = NP.concatenate(([0], NP.cumsum(n_bl_chunk_per_rank)))
+
 # Create organized directory structure
 
 timestamps_JD = NP.asarray(timestamps_JD)
@@ -1760,11 +1829,6 @@ if mpi_on_src: # MPI based on source multiplexing
             # comm.Send([ia.skyvis_freq, ia.skyvis_freq.size, MPI.DOUBLE_COMPLEX])
 
 elif mpi_on_freq: # MPI based on frequency multiplexing
-
-    n_freq_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(freq_chunk)/nproc
-    if len(freq_chunk) % nproc > 0:
-        n_freq_chunk_per_rank[:len(freq_chunk)%nproc] += 1
-    cumm_freq_chunks = NP.concatenate(([0], NP.cumsum(n_freq_chunk_per_rank)))
 
     for k in range(n_sky_sectors):
         if n_sky_sectors == 1:
@@ -1946,11 +2010,6 @@ else: # MPI based on baseline multiplexing
         process_sequence = comm.allreduce(process_sequence)
 
     else: # impose equal volume per process
-        n_bl_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(bl_chunk)/nproc
-        if len(bl_chunk) % nproc > 0:
-            n_bl_chunk_per_rank[:len(bl_chunk)%nproc] += 1
-        cumm_bl_chunks = NP.concatenate(([0], NP.cumsum(n_bl_chunk_per_rank)))
-
         ptb_str = str(DT.datetime.now())
 
         for k in range(n_sky_sectors):
@@ -2158,7 +2217,7 @@ if rank == 0:
                 progress.update(i+1)
             progress.finish()
 
-        simvis.simparms_file = metafile
+        simvis.simparms_file = parmsfile
         ref_point = {'coords': pc_coords, 'location': NP.asarray(pc).reshape(1,-1)}
         simvis.rotate_visibilities(ref_point, do_delay_transform=do_delay_transform, verbose=True)
         if do_delay_transform:

@@ -1,3 +1,91 @@
+From 29c1cef (live-memusage):
+============================
+
+In scripts/,
+
+(*) Add script prisim_memory_monitor.py to git repo to monitor CPU
+and memory usage live
+
+In scripts/run_prisim.py,
+
+(*) Add option to monitor CPU and memory usage live
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add option to monitor CPU and memory usage live
+
+From af186b5 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Fix bug in saving the correct file under the attribute
+simparms_file. Earlier it was metafile but now it is corrected to be
+parmsfile
+
+In prisim/delay_spectrum.py,
+
+(*) Make adjustments in extracting external beam information in
+member function beam3Dvol() of class DelayPowerSpectrum
+(*) Update import of modules
+
+From 364d36f (master):
+=====================
+
+In scripts/setup_prisim_data.py,
+
+(*) Update URL to download PRISim data from
+
+From 43cc0e5 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Rearrange chunk allotment to processes for more equal
+distribution of chunk loads to parallel processes
+
+From 54bdf62 (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Change default file format of external beam to 'FITS' from 'HDF5'
+
+From 5d7eca0 (memory_set):
+=========================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Remove earlier input nproc which was obsolete
+
+From 47e531b (memory_set):
+=========================
+
+In scripts/run_prisim.py,
+
+(*) Remove commented lines on earlier chunking procedures for
+parallelization which are now obsolete since they have been replaced
+with automatic chunking
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Remove earlier inputs on chunking which are now obsolete
+
+From 5ae8b8e (memory_set):
+=========================
+
+In scripts/run_prisim.py,
+
+(*) Read sky fraction parameter fsky and perform chunking for
+parallelization
+(*) Perform automatic chunking for parallelization
+(*) Comment out earlier chunking procedures
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add option to input usable memory
+(*) Add option to indicate the sky coverage of the foreground model
+
 From 937c112 (data-url):
 =======================
 
