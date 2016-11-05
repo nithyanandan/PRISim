@@ -1,3 +1,15 @@
+From 17e9e05 (bl-gradient):
+==========================
+
+In prisim/examples/simparms/defaultsparms.yaml,
+
+(*) Value of Tsys set to default of null
+
+In scripts/run_prisim.py,
+
+(*) Accept Tsys value directly if provided and replace it for Tant
+and Trx info
+
 From 8774052 (bl-gradient):
 ==========================
 

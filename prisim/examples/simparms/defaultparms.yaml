@@ -90,7 +90,7 @@ telescope:
                                 # frequency
                                 # Tsys = Trx + Tant * (f/f0)^alpha
 
-    Tsys            : 220.0
+    Tsys            : null
                                 # System temperature (in K)
 
 ########## Antenna layout #########
