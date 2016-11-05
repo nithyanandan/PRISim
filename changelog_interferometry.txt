@@ -1,3 +1,13 @@
+From 8774052 (bl-gradient):
+==========================
+
+In prisim/interferometry.py,
+
+(*) In member function concatenate() of class InterferometerArray,
+concatenate attribute gradient
+(*) In member function observe() of class InterferometerArray, fix
+concatenation of attribute gradient 
+
 From 63a105f (bl-gradient):
 ==========================
 

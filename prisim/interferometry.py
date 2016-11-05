@@ -2172,6 +2172,7 @@ class InterferometerArray(object):
 
                         if key == 'gradients':
                             for gradkey in grp:
+                                self.gradient_mode = gradkey
                                 self.gradient[gradkey] = grp[gradkey].value
                                 
             except IOError: # Check if a FITS file is available
@@ -3072,7 +3073,7 @@ class InterferometerArray(object):
         else:
             self.skyvis_freq = NP.dstack((self.skyvis_freq, skyvis[:,:,NP.newaxis]))
             if gradient_mode.lower() == 'baseline':
-                self.gradient[gradient_mode] = NP.stack((self.gradient[gradient_mode], skyvis_gradient[:,:,:,NP.newaxis]), axis=3)
+                self.gradient[gradient_mode] = NP.concatenate((self.gradient[gradient_mode], skyvis_gradient[:,:,:,NP.newaxis]), axis=3)
 
         self.timestamp = self.timestamp + [timestamp]
         self.t_acc = self.t_acc + [t_acc]
@@ -4066,6 +4067,9 @@ class InterferometerArray(object):
         self.bp = NP.concatenate(tuple([elem.bp for elem in loo]), axis=axis)
         self.bp_wts = NP.concatenate(tuple([elem.bp_wts for elem in loo]), axis=axis)
         self.Tsys = NP.concatenate(tuple([elem.Tsys for elem in loo]), axis=axis)
+        if self.gradient_mode is not None:
+            self.gradient[self.gradient_mode] = NP.concatenate(tuple([elem.gradient[self.gradient_mode] for elem in loo]), axis=axis+1)
+
         if not self.Tsysinfo:
             for elem in loo:
                 if elem.Tsysinfo:
