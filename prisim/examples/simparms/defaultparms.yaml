@@ -687,7 +687,8 @@ processing:
                                 # visibilities as usual. Otherwise,
                                 # estimate visibility gradients as a
                                 # function of variations of quantities
-                                # as specified in the string.
+                                # as specified in the string as well
+                                # the usual visibilities.
                                 # Currently accepted value is
                                 # 'baseline'. Plan to also add options
                                 # for 'skypos' and 'frequency'

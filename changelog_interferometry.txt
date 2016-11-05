@@ -1,3 +1,22 @@
+From c26aff5 (bl-gradient):
+==========================
+
+In prisim/interferometry.py,
+
+(*) In member function observe() of class InterferometerArray, if
+input gradeint_mode is passed, gradients are computed in addition to
+usual visibilities. If not, visibilities are computed as usual and
+not gradients. Update docstrings of member function and class
+accordingly.
+(*) Remove conditional clauses in member functions generate_noise()
+and add_noise() of class InterferometerArray to not depend on
+attribute gradient_mode
+
+In prisim/examples/simparms/defaultsparms.yaml,
+
+(*) Update description of input option gradient_mode under
+'processing' keys
+
 From a307bce (bl-gradient):
 ==========================
 
