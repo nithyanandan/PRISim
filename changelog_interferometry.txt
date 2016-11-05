@@ -1,3 +1,12 @@
+From a307bce (bl-gradient):
+==========================
+
+In prisim/interferometry.py,
+
+(*) Add conditional clauses in member functions generate_noise()
+and add_noise() in class InterferometerArray to execute only if
+attribute gradient_mode is set to None
+
 From 2f034be (master):
 =====================
 

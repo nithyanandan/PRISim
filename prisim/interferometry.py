@@ -3352,24 +3352,25 @@ class InterferometerArray(object):
         -------------------------------------------------------------------------
         """
 
-        eff_Q = self.eff_Q
-        A_eff = self.A_eff
-        t_acc = NP.asarray(self.t_acc)
-
-        if len(eff_Q.shape) == 2:
-            eff_Q = eff_Q[:,:,NP.newaxis]
-        if len(A_eff.shape) == 2:
-            A_eff = A_eff[:,:,NP.newaxis]
-        t_acc = t_acc[NP.newaxis,NP.newaxis,:]
-
-        if (self.flux_unit == 'JY') or (self.flux_unit == 'jy') or (self.flux_unit == 'Jy'):
-            self.vis_rms_freq = 2.0 * FCNST.k / NP.sqrt(2.0*t_acc*self.freq_resolution) * (self.Tsys/A_eff/eff_Q) / CNST.Jy
-        elif (self.flux_unit == 'K') or (self.flux_unit == 'k'):
-            self.vis_rms_freq = 1 / NP.sqrt(2.0*t_acc*self.freq_resolution) * self.Tsys/eff_Q
-        else:
-            raise ValueError('Flux density units can only be in Jy or K.')
-
-        self.vis_noise_freq = self.vis_rms_freq / NP.sqrt(2.0) * (NP.random.randn(self.baselines.shape[0], self.channels.size, len(self.timestamp)) + 1j * NP.random.randn(self.baselines.shape[0], self.channels.size, len(self.timestamp))) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts
+        if self.gradient_mode is None:
+            eff_Q = self.eff_Q
+            A_eff = self.A_eff
+            t_acc = NP.asarray(self.t_acc)
+    
+            if len(eff_Q.shape) == 2:
+                eff_Q = eff_Q[:,:,NP.newaxis]
+            if len(A_eff.shape) == 2:
+                A_eff = A_eff[:,:,NP.newaxis]
+            t_acc = t_acc[NP.newaxis,NP.newaxis,:]
+    
+            if (self.flux_unit == 'JY') or (self.flux_unit == 'jy') or (self.flux_unit == 'Jy'):
+                self.vis_rms_freq = 2.0 * FCNST.k / NP.sqrt(2.0*t_acc*self.freq_resolution) * (self.Tsys/A_eff/eff_Q) / CNST.Jy
+            elif (self.flux_unit == 'K') or (self.flux_unit == 'k'):
+                self.vis_rms_freq = 1 / NP.sqrt(2.0*t_acc*self.freq_resolution) * self.Tsys/eff_Q
+            else:
+                raise ValueError('Flux density units can only be in Jy or K.')
+    
+            self.vis_noise_freq = self.vis_rms_freq / NP.sqrt(2.0) * (NP.random.randn(self.baselines.shape[0], self.channels.size, len(self.timestamp)) + 1j * NP.random.randn(self.baselines.shape[0], self.channels.size, len(self.timestamp))) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts
 
     #############################################################################
 
@@ -3382,7 +3383,8 @@ class InterferometerArray(object):
         -------------------------------------------------------------------------
         """
         
-        self.vis_freq = self.skyvis_freq + self.vis_noise_freq
+        if self.gradient_mode is None:
+            self.vis_freq = self.skyvis_freq + self.vis_noise_freq
 
     #############################################################################
 
