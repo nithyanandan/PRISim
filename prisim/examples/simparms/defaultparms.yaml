@@ -682,6 +682,16 @@ catalog  :
 
 processing:
 
+    gradient_mode   : null
+                                # If set to null (default), simulate
+                                # visibilities as usual. Otherwise,
+                                # estimate visibility gradients as a
+                                # function of variations of quantities
+                                # as specified in the string.
+                                # Currently accepted value is
+                                # 'baseline'. Plan to also add options
+                                # for 'skypos' and 'frequency'
+
     memuse          : null
                                 # Total memory (GB) not to be exceeded
                                 # by all processes put together. If
@@ -700,10 +710,10 @@ processing:
 
     bpass_shape     : 'bhw'
                                 # Bandpass shape for tapering window
-                                # before delay transform. Accepted values are
-                                # 'rect' (rectangular), 'bnw'
-                                # (Blackman-Nuttall window), and 'bhw'
-                                # (Blackman-Harris window)
+                                # before delay transform. Accepted 
+                                # values are 'rect' (rectangular), 
+                                # 'bnw' (Blackman-Nuttall window), and 
+                                # 'bhw' (Blackman-Harris window)
 
     ant_bpass_file  : null
                                 # '/data3/t_nithyanandan/project_HERA/newGainfiltered.npz'

@@ -1663,6 +1663,24 @@ class InterferometerArray(object):
 
     n_acc       [scalar] Number of accumulations
 
+    gradient_mode
+                [string] If set to None, visibilities will be simulated as 
+                usual. If set to string, visibility gradients will be simulated
+                instead with respect to the quantity specified in the string. 
+                Currently accepted value is 'baseline'. Plan to incorporate
+                gradients with respect to 'skypos' and 'frequency' as well
+                in the future.
+
+    gradient    [dictionary] If gradient_mode is set to None, it is an empty 
+                dictionary. If gradient_mode is not None, this quantity holds
+                the gradient under the key specified by gradient_mode. 
+                Currently, supports 'baseline' key. Other gradients will be 
+                supported in future. It contains the following keys and values.
+                If gradient_mode == 'baseline':
+                'baseline'  [numpy array] Visibility gradients with respect to
+                            baseline vector. Complex numpy array of shape
+                            3 x nbl x nchan x nts
+
     obs_catalog_indices
                 [list of lists] Each element in the top list corresponds to a
                 timestamp. Inside each top list is a list of indices of sources
@@ -1950,7 +1968,7 @@ class InterferometerArray(object):
         pointing_center, skyvis_freq, skyvis_lag, timestamp, t_acc, Tsys, 
         Tsysinfo, vis_freq, vis_lag, t_obs, n_acc, vis_noise_freq, 
         vis_noise_lag, vis_rms_freq, geometric_delays, projected_baselines, 
-        simparms_file, layout
+        simparms_file, layout, gradient, gradient_mode
 
         Read docstring of class InterferometerArray for details on these
         attributes.
@@ -2476,6 +2494,8 @@ class InterferometerArray(object):
         self.skyvis_freq = None
         # self.pb = None
         self.vis_noise_freq = None
+        self.gradient_mode = None
+        self.gradient = {}
 
         if (freq_scale is None) or (freq_scale == 'Hz') or (freq_scale == 'hz'):
             self.channels = NP.asarray(channels)
@@ -2575,7 +2595,7 @@ class InterferometerArray(object):
     def observe(self, timestamp, Tsysinfo, bandpass, pointing_center, skymodel,
                 t_acc, pb_info=None, brightness_units=None, bpcorrect=None,
                 roi_info=None, roi_radius=None, roi_center=None, lst=None,
-                memsave=False):
+                gradient_mode=None, memsave=False):
 
         """
         -------------------------------------------------------------------------
@@ -2650,6 +2670,10 @@ class InterferometerArray(object):
 
         Keyword Inputs:
 
+        roi_info     [instance of class ROI_parameters] It consists of indices
+                     in the polskymodel object, polarized beams for different
+                     baseline types for every time stamp that will be simulated
+
         roi_radius   [scalar] Radius of the region of interest (degrees) inside 
                      which sources are to be observed. Default = 90 degrees, 
                      which is the entire horizon.
@@ -2659,6 +2683,17 @@ class InterferometerArray(object):
                      and 'zenith'. If set to None, it defaults to 'zenith'. 
 
         lst          [scalar] LST (in degrees) associated with the timestamp
+
+        gradient_mode
+                     [string] If set to None, visibilities will be simulated as 
+                     usual. If set to string, visibility gradients will be 
+                     simulated instead with respect to the quantity specified 
+                     in the string. Currently accepted value is 'baseline'. 
+                     Plan to incorporate gradients with respect to 'skypos' 
+                     and 'frequency' as well in the future.
+
+        memsave      [boolean] If set to True, enforce computations in single
+                     precision, otherwise enforce double precision (default)
         ------------------------------------------------------------------------
         """
 
@@ -2916,7 +2951,7 @@ class InterferometerArray(object):
 
                 vis_wts = NP.ones_like(projected_spatial_frequencies)
                 # vis_wts = NP.exp(-0.5 * (projected_spatial_frequencies/src_sigma_spatial_frequencies)**2)
-                vis_wts = NP.exp(-0.5 * (projected_spatial_frequencies/src_sigma_spatial_frequencies[:,:,NP.newaxis])**2)
+                vis_wts = NP.exp(-0.5 * (projected_spatial_frequencies/src_sigma_spatial_frequencies[:,:,NP.newaxis])**2) # nsrc x nbl x nchan
             
             if memsave:
                 pbfluxes = pbfluxes.astype(NP.float32, copy=False)
@@ -2926,63 +2961,127 @@ class InterferometerArray(object):
             else:
                 self.geometric_delays = self.geometric_delays + [geometric_delays]
 
-            if memsave:
-                skyvis = NP.zeros((self.baselines.shape[0], self.channels.size), dtype=NP.complex64)
-                memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 4.0 * 2 # bytes, 4 bytes per float, factor 2 is because the phase involves complex values
-            else:
-                skyvis = NP.zeros((self.baselines.shape[0], self.channels.size), dtype=NP.complex_)
-                memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 8.0 * 2 # bytes, 8 bytes per float, factor 2 is because the phase involves complex values
-
             # memory_available = psutil.phymem_usage().available
             memory_available = psutil.virtual_memory().available
-            if float(memory_available) > memory_required:
+
+            if gradient_mode is None:
                 if memsave:
-                    phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float32) *  (self.geometric_delays[-1][:,:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64)
-                    if vis_wts is not None:
-                        # phase_matrix *= vis_wts[:,:,NP.newaxis]
-                        phase_matrix *= vis_wts
-                    skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * phase_matrix, axis=0) # Don't apply bandpass here
+                    skyvis = NP.zeros((self.baselines.shape[0], self.channels.size), dtype=NP.complex64)
+                    memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 4.0 * 2 # bytes, 4 bytes per float, factor 2 is because the phase involves complex values
                 else:
-                    phase_matrix = 2.0 * NP.pi * (self.geometric_delays[-1][:,:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.reshape(1,1,-1)
-                    if vis_wts is not None:
-                        # skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts[:,:,NP.newaxis], axis=0) # Don't apply bandpass here
-                        skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts, axis=0) # Don't apply bandpass here                        
+                    skyvis = NP.zeros((self.baselines.shape[0], self.channels.size), dtype=NP.complex_)
+                    memory_required = len(m2) * self.channels.size * self.baselines.shape[0] * 8.0 * 2 # bytes, 8 bytes per float, factor 2 is because the phase involves complex values
+    
+                if float(memory_available) > memory_required:
+                    if memsave:
+                        phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float32) *  (self.geometric_delays[-1][:,:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64)
+                        if vis_wts is not None:
+                            # phase_matrix *= vis_wts[:,:,NP.newaxis]
+                            phase_matrix *= vis_wts
+                        skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * phase_matrix, axis=0) # Don't apply bandpass here
                     else:
-                        skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix), axis=0) # Don't apply bandpass here    
-            else:
-                print '\t\tDetecting memory shortage. Serializing over sky direction.'
-                downsize_factor = NP.ceil(memory_required/float(memory_available))
-                n_src_stepsize = int(len(m2)/downsize_factor)
-                src_indices = range(0,len(m2),n_src_stepsize)
-                if memsave:
-                    print '\t\tEnforcing single precision computations.'
-                    for i in xrange(len(src_indices)):
-                        phase_matrix = NP.exp(NP.asarray(-1j * 2.0 * NP.pi).astype(NP.complex64) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32) - pc_delay_offsets.astype(NP.float32).reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64, copy=False)
+                        phase_matrix = 2.0 * NP.pi * (self.geometric_delays[-1][:,:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.reshape(1,1,-1)
                         if vis_wts is not None:
-                            phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,:].astype(NP.float32)
-                            # phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32)
-                            
-                        phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float32)
-                        skyvis += NP.sum(phase_matrix, axis=0)
+                            # skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts[:,:,NP.newaxis], axis=0) # Don't apply bandpass here
+                            skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts, axis=0) # Don't apply bandpass here                        
+                        else:
+                            skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix), axis=0) # Don't apply bandpass here    
                 else:
-                    for i in xrange(len(src_indices)):
-                        phase_matrix = NP.exp(NP.asarray(-1j * 2.0 * NP.pi) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis] - pc_delay_offsets.reshape(1,-1,1)) * self.channels.reshape(1,1,-1))
-                        if vis_wts is not None:
-                            phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,:].astype(NP.float32)
-                            # phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32)
-                            
-                        phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float32)
-                        skyvis += NP.sum(phase_matrix, axis=0)
+                    print '\t\tDetecting memory shortage. Serializing over sky direction.'
+                    downsize_factor = NP.ceil(memory_required/float(memory_available))
+                    n_src_stepsize = int(len(m2)/downsize_factor)
+                    src_indices = range(0,len(m2),n_src_stepsize)
+                    if memsave:
+                        print '\t\tEnforcing single precision computations.'
+                        for i in xrange(len(src_indices)):
+                            phase_matrix = NP.exp(NP.asarray(-1j * 2.0 * NP.pi).astype(NP.complex64) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32) - pc_delay_offsets.astype(NP.float32).reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64, copy=False)
+                            if vis_wts is not None:
+                                phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,:].astype(NP.float32)
+                                # phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32)
+                                
+                            phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float32)
+                            skyvis += NP.sum(phase_matrix, axis=0)
+                    else:
+                        for i in xrange(len(src_indices)):
+                            phase_matrix = NP.exp(NP.asarray(-1j * 2.0 * NP.pi).astype(NP.complex128) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float64) - pc_delay_offsets.astype(NP.float64).reshape(1,-1,1)) * self.channels.astype(NP.float64).reshape(1,1,-1)).astype(NP.complex128, copy=False)
+                            if vis_wts is not None:
+                                phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,:].astype(NP.float64)
+                                # phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32)
+                                
+                            phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float64)
+                            skyvis += NP.sum(phase_matrix, axis=0)
+            else:
+                if not isinstance(gradient_mode, str):
+                    raise TypeError('Input gradient_mode must be a string')
+                if gradient_mode.lower() not in ['baseline', 'skypos', 'frequency']:
+                    raise ValueError('Invalid value specified in input gradient_mode')
+                if self.gradient_mode is None:
+                    self.gradient_mode = gradient_mode
+                if gradient_mode.lower() == 'baseline':
+                    if memsave:
+                        skyvis_gradient = NP.zeros((3, self.baselines.shape[0], self.channels.size), dtype=NP.complex64)
+                        memory_required = 3 * len(m2) * self.channels.size * self.baselines.shape[0] * 4.0 * 2 # bytes, 4 bytes per float, factor 2 is because the phase involves complex values, factor 3 because of three vector components of the gradient
+                    else:
+                        skyvis_gradient = NP.zeros((3, self.baselines.shape[0], self.channels.size), dtype=NP.complex_)
+                        memory_required = 3 * len(m2) * self.channels.size * self.baselines.shape[0] * 8.0 * 2 # bytes, 8 bytes per float, factor 2 is because the phase involves complex values, factor 3 because of three vector components of the gradient
+        
+                    if float(memory_available) > memory_required:
+                        if memsave:
+                            phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.complex64) *  (self.geometric_delays[-1][:,:,NP.newaxis].astype(NP.float32) - pc_delay_offsets.astype(NP.float32).reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64)
+                            if vis_wts is not None:
+                                # phase_matrix *= vis_wts[:,:,NP.newaxis]
+                                phase_matrix *= vis_wts
+                            skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float32) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * phase_matrix[:,NP.newaxis,:,:], axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
+                        else:
+                            phase_matrix = 2.0 * NP.pi * (self.geometric_delays[-1][:,:,NP.newaxis].astype(NP.float64) - pc_delay_offsets.astype(NP.float64).reshape(1,-1,1)) * self.channels.astype(NP.float64).reshape(1,1,-1)
+                            if vis_wts is not None:
+                                # skyvis_gradient = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts[:,:,NP.newaxis], axis=0) # Don't apply bandpass here
+                                skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * NP.exp(-1j*phase_matrix[:,NP.newaxis,:,:]) * vis_wts[:,NP.newaxis,:,:], axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
+                            else:
+                                skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * NP.exp(-1j*phase_matrix[:,NP.newaxis,:,:]), axis=0) # Don't apply bandpass here    
+                    else:
+                        print '\t\tDetecting memory shortage. Serializing over sky direction.'
+                        downsize_factor = NP.ceil(memory_required/float(memory_available))
+                        n_src_stepsize = int(len(m2)/downsize_factor)
+                        src_indices = range(0,len(m2),n_src_stepsize)
+                        if memsave:
+                            print '\t\tEnforcing single precision computations.'
+                            for i in xrange(len(src_indices)):
+                                phase_matrix = NP.exp(NP.asarray(-1j * 2.0 * NP.pi).astype(NP.complex64) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32) - pc_delay_offsets.astype(NP.float32).reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64, copy=False)
+                                if vis_wts is not None:
+                                    phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,:].astype(NP.float32)
+                                    # phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32)
+                                    
+                                phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float32)
+                                skyvis_gradient += NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float32) * phase_matrix[:,NP.newaxis,:,:], axis=0)
+                        else:
+                            for i in xrange(len(src_indices)):
+                                phase_matrix = NP.exp(NP.asarray(-1j * 2.0 * NP.pi).astype(NP.complex128) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float64) - pc_delay_offsets.astype(NP.float64).reshape(1,-1,1)) * self.channels.astype(NP.float64).reshape(1,1,-1))
+                                if vis_wts is not None:
+                                    phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,:].astype(NP.float64)
+                                    # phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32)
+                                    
+                                phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float64)
+                                skyvis_gradient += NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * phase_matrix[:,NP.newaxis,:,:], axis=0)
 
             self.obs_catalog_indices = self.obs_catalog_indices + [m2]
         else:
-            print 'No sources found in the catalog within matching radius. Simply populating the observed visibilities with noise.'
-            skyvis = NP.zeros( (self.baselines.shape[0], self.channels.size) )
+            print 'No sources found in the catalog within matching radius. Simply populating the observed visibilities and/or gradients with noise.'
+            if gradient_mode is None:
+                skyvis = NP.zeros( (self.baselines.shape[0], self.channels.size) )
+            elif gradient_mode.lower() == 'baseline':
+                skyvis_gradient = NP.zeros( (3, self.baselines.shape[0], self.channels.size) )
 
-        if self.timestamp == []:
-            self.skyvis_freq = skyvis[:,:,NP.newaxis]
+        if gradient_mode is None:
+            if self.timestamp == []:
+                self.skyvis_freq = skyvis[:,:,NP.newaxis]
+            else:
+                self.skyvis_freq = NP.dstack((self.skyvis_freq, skyvis[:,:,NP.newaxis]))
         else:
-            self.skyvis_freq = NP.dstack((self.skyvis_freq, skyvis[:,:,NP.newaxis]))
+            if self.timestamp == []:
+                self.gradient[gradient_mode] = skyvis_gradient[:,:,:,NP.newaxis]
+            else:
+                self.gradient[gradient_mode] = NP.stack((self.gradient[gradient_mode], skyvis_gradient[:,:,:,NP.newaxis]), axis=3)
 
         self.timestamp = self.timestamp + [timestamp]
         self.t_acc = self.t_acc + [t_acc]

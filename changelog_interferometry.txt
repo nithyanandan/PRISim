@@ -1,3 +1,29 @@
+From 2f034be (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add an option called 'gradient_mode' under 'processing'
+parameters to process visibility gradients
+
+In prisim/interferometry.py,
+
+(*) Add attributes gradient and gradient_mode in __init__() member
+function of class InterferometerArray. Update class and member
+function docstring accordingly
+(*) Add input keyword gradient_mode in member function observe()
+of class InterferometerArray. Add capability in this member function
+to compute visibility gradients with respect to baseline vector.
+Update member function docstring accordingly
+(*) Update docstring of member function observe() of class
+InterferometerArray for other inputs whose descriptions were missing
+earlier, namely, roi_info, and memsave
+
+In scripts/run_prisim.py,
+
+(*) Add option to read in gradient_mode and pass it in calls to
+observe() member function of class InterferometerArray
+
 From 29c1cef (live-memusage):
 ============================
 

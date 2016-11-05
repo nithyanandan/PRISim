@@ -190,6 +190,14 @@ pointing_file = parms['pointing']['file']
 # pointing_info = parms['pointing']['initial']
 pointing_drift_init = parms['pointing']['drift_init']
 pointing_track_init = parms['pointing']['track_init']
+gradient_mode = parms['processing']['gradient_mode']
+if gradient_mode is not None:
+    if not isinstance(gradient_mode, str):
+        raise TypeError('gradient_mode must be a string')
+    if gradient_mode.lower() not in ['baseline', 'skypos', 'grequency']:
+        raise ValueError('Invalid value specified for gradient_mode')
+    if gradient_mode.lower() != 'baseline':
+        raise ValueError('Specified gradient_mode not supported currently')
 memuse = parms['processing']['memuse']
 memory_available = psutil.virtual_memory().available # in Bytes
 if memuse is None:
@@ -1678,7 +1686,13 @@ else:
     raise TypeError('Input fsky must be a scalar number')
 npol = 1
 nbl = total_baselines
-size_DFT_matrix = (usable_fsky * nsrc) * nchan * nbl * npol
+if gradient_mode is not None:
+    if gradient_mode.lower() == 'baseline':
+        size_DFT_matrix = (usable_fsky * nsrc) * nchan * nbl * npol * 3
+    else:
+        raise ValueError('Specified gradient_mode is currently not supported')
+else:
+    size_DFT_matrix = (usable_fsky * nsrc) * nchan * nbl * npol
 if memsave: # 64 bits per complex sample (single precision)
     nbytes_per_complex_sample = 8.0
 else: # 128 bits per complex sample (double precision)
@@ -1701,7 +1715,7 @@ elif mpi_on_freq:
         if frequency_chunk_size > 2:
             frequency_bin_indices[-1] -= 1
         else:
-            raise IndexError('Chunking has run into a weird indexing problem. Rechunking is necessaray. Try changing number of parallel processes and amount of usable memory. Usually reducing either one of these should help avoind this problem.')
+            raise IndexError('Chunking has run into a weird indexing problem. Rechunking is necessaray. Try changing number of parallel processes and amount of usable memory. Usually reducing either one of these should help avoid this problem.')
     freq_chunk = range(len(frequency_bin_indices))
     n_freq_chunks = len(frequency_bin_indices)
     n_freq_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(freq_chunk)/nproc
@@ -1802,7 +1816,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ts = time.time()
             if j == 0:
                 ts0 = ts
-            ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+            ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
             te = time.time()
             # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
             progress.update(j+1)
@@ -1934,7 +1948,8 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 if j == 0:
                     ts0 = ts
               
-                ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+                if rank == 1: PDB.set_trace()
+                ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
                 te = time.time()
                 # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                 progress.update(j+1)
@@ -1988,7 +2003,7 @@ else: # MPI based on baseline multiplexing
                     ts = time.time()
                     if j == 0:
                         ts0 = ts
-                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
                     te = time.time()
                     # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                     progress.update(j+1)
@@ -2142,7 +2157,7 @@ else: # MPI based on baseline multiplexing
                     if j == 0:
                         ts0 = ts
                   
-                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
                     te = time.time()
                     # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                     progress.update(j+1)
