@@ -1,3 +1,13 @@
+From 63a105f (bl-gradient):
+==========================
+
+In prisim/interferometry.py,
+
+(*) In member function save() of class InterferometerArray, save
+gradient attribute information
+(*) In member function __init__() of class InterferometerArray, read
+gradient attribute information from saved files
+
 From c26aff5 (bl-gradient):
 ==========================
 

@@ -2009,11 +2009,15 @@ class InterferometerArray(object):
                     self.vis_lag = None
                     self.skyvis_lag = None
                     self.vis_noise_lag = None
-                    for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'layout', 'instrument', 'visibilities']:
+                    self.gradient_mode = None
+                    self.gradient = {}
+                    for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'layout', 'instrument', 'visibilities', 'gradients']:
                         try:
                             grp = fileobj[key]
                         except KeyError:
-                            if key != 'simparms':
+                            if key == 'gradients':
+                                pass
+                            elif key != 'simparms':
                                 raise KeyError('Key {0} not found in init_file'.format(key))
                         if key == 'header':
                             self.flux_unit = grp['flux_unit'].value
@@ -2135,6 +2139,7 @@ class InterferometerArray(object):
                                 self.baseline_coords = 'localenu'
                             if 'projected_baselines' in grp:
                                 self.projected_baselines = grp['projected_baselines'].value
+
                         if key == 'visibilities':
                             if 'freq_spectrum' in grp:
                                 subgrp = grp['freq_spectrum']
@@ -2164,6 +2169,11 @@ class InterferometerArray(object):
                                     self.skyvis_lag = subgrp['skyvis'].value
                                 if 'noise' in subgrp:
                                     self.vis_noise_lag = subgrp['noise'].value
+
+                        if key == 'gradients':
+                            for gradkey in grp:
+                                self.gradient[gradkey] = grp[gradkey].value
+                                
             except IOError: # Check if a FITS file is available
                 try:
                     hdulist = fits.open(init_file+'.fits')
@@ -2181,6 +2191,12 @@ class InterferometerArray(object):
                         warnings.warn('\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.')
                         # print '\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.'
     
+                try:
+                    self.gradient_mode = hdulist[0].header['gradient_mode']
+                except KeyError:
+                    self.gradient_mode = None
+                    self.gradient = {}
+
                 try:
                     self.freq_resolution = hdulist[0].header['freq_resolution']
                 except KeyError:
@@ -2369,6 +2385,14 @@ class InterferometerArray(object):
                 else:
                     raise KeyError('Extension named "REAL_FREQ_NOISE_VISIBILITY" not found in init_file.')
     
+                if self.gradient_mode is not None:
+                    self.gradient = {}
+                    if 'real_freq_sky_visibility_gradient_wrt_{0}'.format(self.gradient_mode) in extnames:
+                        self.gradient[self.gradient_mode] = hdulist['real_freq_sky_visibility_gradient_wrt_{0}'.format(self.gradient_mode)].data
+                        if 'imag_freq_sky_visibility_gradient_wrt_{0}'.format(self.gradient_mode) in extnames:
+                            self.gradient[self.gradient_mode] = self.gradient[self.gradient_mode].astype(NP.complex128)
+                            self.gradient[self.gradient_mode] += 1j * hdulist['imag_freq_sky_visibility_gradient_wrt_{0}'.format(self.gradient_mode)].data
+
                 if 'REAL_LAG_VISIBILITY' in extnames:
                     self.vis_lag = hdulist['real_lag_visibility'].data
                     if 'IMAG_LAG_VISIBILITY' in extnames:
@@ -4207,6 +4231,8 @@ class InterferometerArray(object):
                 hdulist[0].header['groundplane'] = (self.telescope['groundplane'], 'Ground plane height')
             if self.simparms_file is not None:
                 hdulist[0].header['simparms'] = (self.simparms_file, 'YAML file with simulation parameters')
+            if self.gradient_mode is not None:
+                hdulist[0].header['gradient_mode'] = (self.gradient_mode, 'Visibility Gradient Mode')
             hdulist[0].header['element_shape'] = (self.telescope['shape'], 'Antenna element shape')
             hdulist[0].header['element_size'] = (self.telescope['size'], 'Antenna element size')
             hdulist[0].header['element_ocoords'] = (self.telescope['ocoords'], 'Antenna element orientation coordinates')
@@ -4356,6 +4382,13 @@ class InterferometerArray(object):
                 if verbose:
                     print '\tCreated extensions for real and imaginary parts of visibility noise frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_noise_freq.shape)
     
+            if self.gradient_mode is not None:
+                for gradkey in self.gradient:
+                    hdulist += [fits.ImageHDU(self.gradient[gradkey].real, name='real_freq_sky_visibility_gradient_wrt_{0}'.format(gradkey))]
+                    hdulist += [fits.ImageHDU(self.gradient[gradkey].imag, name='imag_freq_sky_visibility_gradient_wrt_{0}'.format(gradkey))]
+                    if verbose:
+                        print '\tCreated extensions for real and imaginary parts of gradient of sky visibility frequency spectrum wrt {0} of size {1[0]} x {1[1]} x {1[2]}'.format(gradkey, self.skyvis_freq.shape)
+
             hdulist += [fits.ImageHDU(self.bp, name='bandpass')]
             if verbose:
                 print '\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape)
@@ -4501,6 +4534,10 @@ class InterferometerArray(object):
                 if self.vis_noise_lag is not None:
                     vislags_group['noise'] = self.vis_noise_lag
                     vislags_group['noise'].attrs['units'] = 'Jy Hz'
+                if self.gradient_mode is not None:
+                    visgradient_group = fileobj.create_group('gradients')
+                    for gradkey in self.gradient:
+                        visgradient_group[gradkey] = self.gradient[gradkey]
         if verbose:
             print '\tInterferometer array information written successfully to file on disk:\n\t\t{0}\n'.format(filename)
 
