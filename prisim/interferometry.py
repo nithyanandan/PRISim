@@ -2146,11 +2146,13 @@ class InterferometerArray(object):
                                 if 'rms' in subgrp:
                                     self.vis_rms_freq = subgrp['rms'].value
                                 else:
-                                    raise KeyError('Key "rms" not found in init_file')
+                                    self.vis_rms_freq = None
+                                    # raise KeyError('Key "rms" not found in init_file')
                                 if 'vis' in subgrp:
                                     self.vis_freq = subgrp['vis'].value
                                 else:
-                                    raise KeyError('Key "vis" not found in init_file')
+                                    self.vis_freq = None
+                                    # raise KeyError('Key "vis" not found in init_file')
                                 if 'skyvis' in subgrp:
                                     self.skyvis_freq = subgrp['skyvis'].value
                                 else:
@@ -2158,7 +2160,8 @@ class InterferometerArray(object):
                                 if 'noise' in subgrp:
                                     self.vis_noise_freq = subgrp['noise'].value
                                 else:
-                                    raise KeyError('Key "noise" not found in init_file')
+                                    self.vis_noise_freq = None
+                                    # raise KeyError('Key "noise" not found in init_file')
                             else:
                                 raise KeyError('Key "freq_spectrum" not found in init_file')
                             if 'delay_spectrum' in grp:
@@ -2360,7 +2363,8 @@ class InterferometerArray(object):
                 if 'FREQ_CHANNEL_NOISE_RMS_VISIBILITY' in extnames:
                     self.vis_rms_freq = hdulist['freq_channel_noise_rms_visibility'].data
                 else:
-                    raise KeyError('Extension named "FREQ_CHANNEL_NOISE_RMS_VISIBILITY" not found in init_file.')
+                    self.vis_rms_freq = None
+                    # raise KeyError('Extension named "FREQ_CHANNEL_NOISE_RMS_VISIBILITY" not found in init_file.')
     
                 if 'REAL_FREQ_OBS_VISIBILITY' in extnames:
                     self.vis_freq = hdulist['real_freq_obs_visibility'].data
@@ -2368,7 +2372,8 @@ class InterferometerArray(object):
                         self.vis_freq = self.vis_freq.astype(NP.complex128)
                         self.vis_freq += 1j * hdulist['imag_freq_obs_visibility'].data
                 else:
-                    raise KeyError('Extension named "REAL_FREQ_OBS_VISIBILITY" not found in init_file.')
+                    self.vis_freq = None
+                    # raise KeyError('Extension named "REAL_FREQ_OBS_VISIBILITY" not found in init_file.')
     
                 if 'REAL_FREQ_SKY_VISIBILITY' in extnames:
                     self.skyvis_freq = hdulist['real_freq_sky_visibility'].data
@@ -2384,7 +2389,8 @@ class InterferometerArray(object):
                         self.vis_noise_freq = self.vis_noise_freq.astype(NP.complex128)
                         self.vis_noise_freq += 1j * hdulist['imag_freq_noise_visibility'].data
                 else:
-                    raise KeyError('Extension named "REAL_FREQ_NOISE_VISIBILITY" not found in init_file.')
+                    self.vis_noise_freq = None
+                    # raise KeyError('Extension named "REAL_FREQ_NOISE_VISIBILITY" not found in init_file.')
     
                 if self.gradient_mode is not None:
                     self.gradient = {}
@@ -4061,9 +4067,12 @@ class InterferometerArray(object):
             raise ValueError('Specified axis not found in the visibility data.')
 
         self.skyvis_freq = NP.concatenate(tuple([elem.skyvis_freq for elem in loo]), axis=axis)
-        self.vis_freq = NP.concatenate(tuple([elem.vis_freq for elem in loo]), axis=axis)
-        self.vis_noise_freq = NP.concatenate(tuple([elem.vis_noise_freq for elem in loo]), axis=axis)
-        self.vis_rms_freq  = NP.concatenate(tuple([elem.vis_rms_freq for elem in loo]), axis=axis)
+        if self.vis_freq is not None:
+            self.vis_freq = NP.concatenate(tuple([elem.vis_freq for elem in loo]), axis=axis)
+        if self.vis_noise_freq is not None:
+            self.vis_noise_freq = NP.concatenate(tuple([elem.vis_noise_freq for elem in loo]), axis=axis)
+        if self.vis_rms_freq is not None:
+            self.vis_rms_freq  = NP.concatenate(tuple([elem.vis_rms_freq for elem in loo]), axis=axis)
         self.bp = NP.concatenate(tuple([elem.bp for elem in loo]), axis=axis)
         self.bp_wts = NP.concatenate(tuple([elem.bp_wts for elem in loo]), axis=axis)
         self.Tsys = NP.concatenate(tuple([elem.Tsys for elem in loo]), axis=axis)
@@ -4391,7 +4400,7 @@ class InterferometerArray(object):
                     hdulist += [fits.ImageHDU(self.gradient[gradkey].real, name='real_freq_sky_visibility_gradient_wrt_{0}'.format(gradkey))]
                     hdulist += [fits.ImageHDU(self.gradient[gradkey].imag, name='imag_freq_sky_visibility_gradient_wrt_{0}'.format(gradkey))]
                     if verbose:
-                        print '\tCreated extensions for real and imaginary parts of gradient of sky visibility frequency spectrum wrt {0} of size {1[0]} x {1[1]} x {1[2]}'.format(gradkey, self.skyvis_freq.shape)
+                        print '\tCreated extensions for real and imaginary parts of gradient of sky visibility frequency spectrum wrt {0} of size {1[0]} x {1[1]} x {1[2]} x {1[3]}'.format(gradkey, self.gradient[gradkey].shape)
 
             hdulist += [fits.ImageHDU(self.bp, name='bandpass')]
             if verbose:
@@ -4546,7 +4555,10 @@ class InterferometerArray(object):
             print '\tInterferometer array information written successfully to file on disk:\n\t\t{0}\n'.format(filename)
 
         if npz:
-            NP.savez_compressed(outfile+'.npz', skyvis_freq=self.skyvis_freq, vis_freq=self.vis_freq, vis_noise_freq=self.vis_noise_freq, lst=self.lst, freq=self.channels, timestamp=self.timestamp, bl=self.baselines, bl_length=self.baseline_lengths)
+            if (self.vis_freq is not None) and (self.vis_noise_freq is not None):
+                NP.savez_compressed(outfile+'.npz', skyvis_freq=self.skyvis_freq, vis_freq=self.vis_freq, vis_noise_freq=self.vis_noise_freq, lst=self.lst, freq=self.channels, timestamp=self.timestamp, bl=self.baselines, bl_length=self.baseline_lengths)
+            else:
+                NP.savez_compressed(outfile+'.npz', skyvis_freq=self.skyvis_freq, lst=self.lst, freq=self.channels, timestamp=self.timestamp, bl=self.baselines, bl_length=self.baseline_lengths)
             if verbose:
                 print '\tInterferometer array information written successfully to NPZ file on disk:\n\t\t{0}\n'.format(outfile+'.npz')
 
@@ -4983,9 +4995,11 @@ class InterferometerData(object):
             if key == 'noiseless':
                 visibilities[key] = prisim_object.skyvis_freq.conj()
             if key == 'noisy':
-                visibilities[key] = prisim_object.vis_freq.conj()
+                if prisim_object.vis_freq is not None:
+                    visibilities[key] = prisim_object.vis_freq.conj()
             if key == 'noise':
-                visibilities[key] = prisim_object.vis_noise_freq.conj()
+                if prisim_object.vis_noise_freq is not None:
+                    visibilities[key] = prisim_object.vis_noise_freq.conj()
 
         self.infodict = {}
         self.infodict['Ntimes'] = prisim_object.n_acc
@@ -4996,7 +5010,8 @@ class InterferometerData(object):
         self.infodict['Nspws'] = 1
         self.infodict['data_array'] = {'noiseless': None, 'noisy': None, 'noise': None}
         for key in visibilities:
-            self.infodict['data_array'][key] = NP.transpose(NP.transpose(visibilities[key], (2,0,1)).reshape(self.infodict['Nblts'], self.infodict['Nfreqs'], self.infodict['Nspws'], self.infodict['Npols']), (0,2,1,3)) # (Nbls, Nfreqs, Ntimes) -> (Ntimes, Nbls, Nfreqs) -> (Nblts, Nfreqs, Nspws=1, Npols=1) -> (Nblts, Nspws=1, Nfreqs, Npols=1)
+            if visibilities[key] is not None:
+                self.infodict['data_array'][key] = NP.transpose(NP.transpose(visibilities[key], (2,0,1)).reshape(self.infodict['Nblts'], self.infodict['Nfreqs'], self.infodict['Nspws'], self.infodict['Npols']), (0,2,1,3)) # (Nbls, Nfreqs, Ntimes) -> (Ntimes, Nbls, Nfreqs) -> (Nblts, Nfreqs, Nspws=1, Npols=1) -> (Nblts, Nspws=1, Nfreqs, Npols=1)
         self.infodict['vis_units'] = 'Jy'
         self.infodict['nsample_array'] = NP.ones((self.infodict['Nblts'], self.infodict['Nspws'], self.infodict['Nfreqs'], self.infodict['Npols']))
         self.infodict['flag_array'] = NP.zeros((self.infodict['Nblts'], self.infodict['Nspws'], self.infodict['Nfreqs'], self.infodict['Npols']), dtype=NP.bool)

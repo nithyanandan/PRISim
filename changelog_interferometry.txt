@@ -1,3 +1,29 @@
+From a30fba8 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) In __init__() member function of class InterferometerArray, for
+initialization using init_file, check for presence of keys vis_freq,
+vis_noise_freq, and vis_rms_freq before initializing
+(*) In concatenate() member function of class InterferometerArray,
+check attributes vis_freq, vis_rms_freq and vis_noise_freq are not
+None before attempting to concatenate them
+(*) In save() member function of class InterferometerArray, check 
+attributes vis_freq, vis_rms_freq and vis_noise_freq are not None
+before attempting to save them in npz format, otherwise write only
+skyvis_freq in npz format
+(*) In __init__() member function of class InterferometerData, check 
+attributes vis_freq, and vis_noise_freq are not None before
+attempting to initialize them and also attribute under 'data_array'
+key
+
+In scripts/run_prisim.py,
+
+(*) Move calls to generate_noise() and add_noise() member functions
+of class InterferometerArray after concatenation from multiple
+processes
+
 From 17e9e05 (bl-gradient):
 ==========================
 

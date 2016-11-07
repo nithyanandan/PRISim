@@ -1832,8 +1832,8 @@ if mpi_on_src: # MPI based on source multiplexing
             te0 = time.time()
             print 'Time on process 0 was {0:.1f} seconds'.format(te0-ts0)
             ia.t_obs = t_obs
-            ia.generate_noise()
-            ia.add_noise()
+            # ia.generate_noise()
+            # ia.add_noise()
             ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
             outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
             ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
@@ -1957,8 +1957,8 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             te0 = time.time()
             print 'Process {0:0d} took {1:.1f} minutes to complete frequency chunk # {2:0d}'.format(rank, (te0-ts0)/60, freq_chunk[i])
             # ia.t_obs = t_obs
-            ia.generate_noise()
-            ia.add_noise()
+            # ia.generate_noise()
+            # ia.add_noise()
             # ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
             ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
             ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
@@ -2011,8 +2011,8 @@ else: # MPI based on baseline multiplexing
                 te0 = time.time()
                 print 'Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60, count)
                 ia.t_obs = t_obs
-                ia.generate_noise()
-                ia.add_noise()
+                # ia.generate_noise()
+                # ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
                 ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
         counter.free()
@@ -2165,8 +2165,8 @@ else: # MPI based on baseline multiplexing
                 te0 = time.time()
                 print 'Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60, bl_chunk[i])
                 ia.t_obs = t_obs
-                ia.generate_noise()
-                ia.add_noise()
+                # ia.generate_noise()
+                # ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
                 ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
                 ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
@@ -2230,6 +2230,8 @@ if rank == 0:
                 progress.update(i+1)
             progress.finish()
 
+        simvis.generate_noise()
+        simvis.add_noise()
         simvis.simparms_file = parmsfile
         ref_point = {'coords': pc_coords, 'location': NP.asarray(pc).reshape(1,-1)}
         simvis.rotate_visibilities(ref_point, do_delay_transform=do_delay_transform, verbose=True)
