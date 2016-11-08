@@ -131,8 +131,8 @@ if phased_array:
         raise TypeError('Filename containing phased array elements must be a string')
     if parms['phasedarray']['filepathtype'] == 'default':
         phased_elements_file = prisim_path+'data/phasedarray_layouts/'+phased_elements_file
-delayerr = parms['phasedarray']['delayerr']
-gainerr = parms['phasedarray']['gainerr']
+phasedarray_delayerr = parms['phasedarray']['delayerr']
+phasedarray_gainerr = parms['phasedarray']['gainerr']
 nrand = parms['phasedarray']['nrand']
 array_is_redundant = parms['array']['redundant']
 if not isinstance(array_is_redundant, bool):
@@ -181,6 +181,17 @@ if use_external_beam:
         select_beam_freq = freq
     pbeam_spec_interp_method = beam_info['spec_interp']
 beam_chromaticity = beam_info['chromatic']
+PDB.set_trace()
+gainparms = parms['gains']
+gaintable = None
+if gainparms['file'] is not None:
+    gaintable = {}
+    if not isinstance(gainparms['file'], str):
+        raise TypeError('Filename of instrument gains must be a string')
+    gainsfile = gainparms['file']
+    if gainparms['filepathtype'] == 'default':
+        gainsfile = prisim_path + 'data/gains/'+gainsfile
+    gaintable = RI.read_gaintable(gainsfile)
 avg_drifts = parms['snapshot']['avg_drifts']
 beam_switch = parms['snapshot']['beam_switch']
 pick_snapshots = parms['snapshot']['pick']
@@ -329,22 +340,22 @@ if element_shape != 'delta':
 if not isinstance(phased_array, bool):
     raise TypeError('phased_array specification must be boolean')
 
-if delayerr is None:
-    delayerr_str = ''
-    delayerr = 0.0
-elif delayerr < 0.0:
-    raise ValueError('delayerr must be non-negative.')
+if phasedarray_delayerr is None:
+    phasedarray_delayerr_str = ''
+    phasedarray_delayerr = 0.0
+elif phasedarray_delayerr < 0.0:
+    raise ValueError('phasedarray_delayerr must be non-negative.')
 else:
-    delayerr_str = 'derr_{0:.3f}ns'.format(delayerr)
-delayerr *= 1e-9
+    phasedarray_delayerr_str = 'derr_{0:.3f}ns'.format(phasedarray_delayerr)
+phasedarray_delayerr *= 1e-9
 
-if gainerr is None:
-    gainerr_str = ''
-    gainerr = 0.0
-elif gainerr < 0.0:
-    raise ValueError('gainerr must be non-negative.')
+if phasedarray_gainerr is None:
+    phasedarray_gainerr_str = ''
+    phasedarray_gainerr = 0.0
+elif phasedarray_gainerr < 0.0:
+    raise ValueError('phasedarray_gainerr must be non-negative.')
 else:
-    gainerr_str = '_gerr_{0:.2f}dB'.format(gainerr)
+    phasedarray_gainerr_str = '_gerr_{0:.2f}dB'.format(phasedarray_gainerr)
 
 if nrand is None:
     nrandom_str = ''
@@ -354,11 +365,11 @@ elif nrand < 1:
 else:
     nrandom_str = '_nrand_{0:0d}_'.format(nrand)
 
-if (delayerr_str == '') and (gainerr_str == ''):
+if (phasedarray_delayerr_str == '') and (phasedarray_gainerr_str == ''):
     nrand = 1
     nrandom_str = ''
 
-delaygain_err_str = delayerr_str + gainerr_str + nrandom_str
+phasedarray_delaygain_err_str = phasedarray_delayerr_str + phasedarray_gainerr_str + nrandom_str
 
 if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole'):
     element_size = 0.74
@@ -1809,8 +1820,8 @@ if mpi_on_src: # MPI based on source multiplexing
                 pbinfo['delays'] = delays[j,:]
                 if (telescope_id == 'mwa') or (phased_array):
                     # pbinfo['element_locs'] = element_locs
-                    pbinfo['delayerr'] = delayerr
-                    pbinfo['gainerr'] = gainerr
+                    pbinfo['delayerr'] = phasedarray_delayerr
+                    pbinfo['gainerr'] = phasedarray_gainerr
                     pbinfo['nrand'] = nrand
 
             ts = time.time()
@@ -1873,8 +1884,8 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                         
                     if (telescope_id == 'mwa') or (phased_array):
                         # pbinfo['element_locs'] = element_locs
-                        pbinfo['delayerr'] = delayerr
-                        pbinfo['gainerr'] = gainerr
+                        pbinfo['delayerr'] = phasedarray_delayerr
+                        pbinfo['gainerr'] = phasedarray_gainerr
                         pbinfo['nrand'] = nrand
                 else:
                     pbinfo['pointing_center'] = pointings_altaz[j,:]
@@ -1995,8 +2006,8 @@ else: # MPI based on baseline multiplexing
                         pbinfo['delays'] = delays[j,:]
                         if (telescope_id == 'mwa') or (phased_array):
                             # pbinfo['element_locs'] = element_locs
-                            pbinfo['delayerr'] = delayerr
-                            pbinfo['gainerr'] = gainerr
+                            pbinfo['delayerr'] = phasedarray_delayerr
+                            pbinfo['gainerr'] = phasedarray_gainerr
                             pbinfo['nrand'] = nrand
 
                     ts = time.time()
@@ -2055,8 +2066,8 @@ else: # MPI based on baseline multiplexing
                             
                         if (telescope_id == 'mwa') or (phased_array):
                             # pbinfo['element_locs'] = element_locs
-                            pbinfo['delayerr'] = delayerr
-                            pbinfo['gainerr'] = gainerr
+                            pbinfo['delayerr'] = phasedarray_delayerr
+                            pbinfo['gainerr'] = phasedarray_gainerr
                             pbinfo['nrand'] = nrand
                     else:
                         pbinfo['pointing_center'] = pointings_altaz[j,:]

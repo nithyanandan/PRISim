@@ -1,3 +1,23 @@
+From 30826aa (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Add function read_gaintable() to read from a file and load a
+dictionary containing gains specified in the file.
+
+In scripts/run_prisim.py,
+
+(*) Change variables relating to gain and delay errors in the phased
+array to make it explicit they refer to the phased array
+(*) Add option to read and load instrument gain table by calling the
+newly created function read_gaintable() in prisim/interferometry.py
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add options to include instrument gains in the simulations through
+a file
+
 From a30fba8 (master):
 =====================
 

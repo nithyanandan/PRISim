@@ -77,6 +77,210 @@ def _astropy_columns(cols, tabtype='BinTableHDU'):
 
 ################################################################################
 
+def read_gaintable(gainsfile):
+
+    """
+    ---------------------------------------------------------------------------
+    Read gain table from file and return
+
+    Input:
+
+    gainsfile   [string] Filename including the full path that contains the
+                instrument gains. It must be in HDF5 format. It must contain 
+                the following structure:
+                'antenna-based'     [dictionary] Contains antenna-based 
+                                    instrument gain information. It has the
+                                    following keys and values:
+                                    'ordering'  [list or numpy array] Three
+                                                element list of strings 
+                                                indicating the ordering of
+                                                axes - 'time', 'antenna', 
+                                                and 'frequency'. Must be
+                                                specified (no defaults)
+                                    'gains'     [scalar or numpy array] 
+                                                Complex antenna-based 
+                                                instrument gains. Must be 
+                                                of shape (nax1, nax2, nax3)
+                                                where ax1, ax2 and ax3 are
+                                                specified by the axes 
+                                                ordering under key 'ordering'.
+                                                If there is no variations in 
+                                                gains along an axis, then the
+                                                corresponding nax may be set
+                                                to 1 and the gains will be
+                                                replicated along that axis
+                                                using numpy array broadcasting.
+                                                For example, shapes (nax1,1,1),
+                                                (1,1,1), (1,nax2,nax3) are
+                                                acceptable. If specified as a
+                                                scalar, it will be replicated 
+                                                along all three axes, namely, 
+                                                'antenna', 'frequency' and 
+                                                'time'.
+                                    'antennas'  [None or list or numpy array] 
+                                                List or antenna labels that
+                                                correspond to the nax along
+                                                the 'antenna' axis. If the
+                                                nax=1 along the 'antenna' axis,
+                                                this may be set to None, else
+                                                it must be specified and must
+                                                match the nax. 
+                'baseline-based'    [dictionary] Contains baseline-based 
+                                    instrument gain information. It has the
+                                    following keys and values:
+                                    'ordering'  [list or numpy array] Three
+                                                element list of strings 
+                                                indicating the ordering of
+                                                axes - 'time', 'baseline', 
+                                                and 'frequency'. Must be
+                                                specified (no defaults)
+                                    'gains'     [scalar or numpy array] 
+                                                Complex baseline-based 
+                                                instrument gains. Must be 
+                                                of shape (nax1, nax2, nax3)
+                                                where ax1, ax2 and ax3 are
+                                                specified by the axes 
+                                                ordering under key 'ordering'.
+                                                If there is no variations in 
+                                                gains along an axis, then the
+                                                corresponding nax may be set
+                                                to 1 and the gains will be
+                                                replicated along that axis
+                                                using numpy array broadcasting.
+                                                For example, shapes (nax1,1,1),
+                                                (1,1,1), (1,nax2,nax3) are
+                                                acceptable. If specified as a
+                                                scalar, it will be replicated 
+                                                along all three axes, namely, 
+                                                'baseline', 'frequency' and 
+                                                'time'.
+                                    'baselines' [None or list or numpy array] 
+                                                List or baseline labels that
+                                                correspond to the nax along
+                                                the 'baseline' axis. If the
+                                                nax=1 along the 'baseline' axis
+                                                this may be set to None, else
+                                                it must be specified and must
+                                                match the nax. 
+
+    Output:
+
+    gaintable   [None or dictionary] If set to None, all antenna- and baseline-
+                based gains must be set to unity. If returned as dictionary, it
+                contains the loaded gains. It contains the following keys and 
+                values:
+                'antenna-based'     [None or dictionary] Contains antenna-based 
+                                    instrument gain information. If set to None, 
+                                    all antenna-based gains are set to unity. 
+                                    If returned as dictionary, it has the
+                                    following keys and values:
+                                    'gains'     [scalar or numpy array] 
+                                                Complex antenna-based 
+                                                instrument gains. Must be 
+                                                of shape (nant, nchan, nts)
+                                                If there is no variations in 
+                                                gains along an axis, then the
+                                                corresponding nax may be set
+                                                to 1 and the gains will be
+                                                replicated along that axis
+                                                using numpy array broadcasting.
+                                                For example, shapes (nant,1,1),
+                                                (1,1,1), (1,nchan,nts) are
+                                                acceptable. If specified as a
+                                                scalar, it will be replicated 
+                                                along all three axes, namely, 
+                                                'antenna', 'frequency' and 
+                                                'time'.
+                                    'antennas'  [None or list or numpy array] 
+                                                List or antenna labels that
+                                                correspond to nant along
+                                                the 'antenna' axis. If nant=1,
+                                                this may be set to None, else
+                                                it will be specified and will
+                                                match the nant. 
+                'baseline-based'    [None or dictionary] Contains baseline-based 
+                                    instrument gain information. If set to None, 
+                                    all baseline-based gains are set to unity. 
+                                    If returned as dictionary, it has the
+                                    following keys and values:
+                                    'gains'     [scalar or numpy array] 
+                                                Complex baseline-based 
+                                                instrument gains. Must be 
+                                                of shape (nbl, nchan, nts)
+                                                If there is no variations in 
+                                                gains along an axis, then the
+                                                corresponding nax may be set
+                                                to 1 and the gains will be
+                                                replicated along that axis
+                                                using numpy array broadcasting.
+                                                For example, shapes (nant,1,1),
+                                                (1,1,1), (1,nchan,nts) are
+                                                acceptable. If specified as a
+                                                scalar, it will be replicated 
+                                                along all three axes, namely, 
+                                                'baseline', 'frequency' and 
+                                                'time'.
+                                    'baselines' [None or list or numpy array] 
+                                                List or baseline labels that
+                                                correspond to nbl along
+                                                the 'baseline' axis. If nbl=1 
+                                                along the 'baseline' axis
+                                                this may be set to None, else
+                                                it will be specified and will
+                                                match nbl. 
+    ---------------------------------------------------------------------------
+    """
+
+    try:
+        with h5py.File(gainsfile, 'r') as fileobj:
+            for gainkey in ['antenna-based', 'baseline-based']:
+                try:
+                    grp = fileobj[gainkey]
+                    if isinstance(grp['gains'].value, (NP.float32, NP.float64, NP.complex64, NP.complex128)):
+                        gaintable[gainkey]['gains'] = NP.asarray(grp['gains'].value).reshape(1,1,1)
+                    elif isinstance(grp['gains'].value, NP.ndarray):
+                        if 'ordering' in grp:
+                            ordering = list(grp['ordering'].value)
+                        else:
+                            raise KeyError('Axes ordering for gains not specified')
+
+                        if len(ordering) != 3:
+                            raise ValueError('Ordering must contain three elements')
+                        elif ('time' not in ordering) or ('antenna' not in ordering) or ('frequency' not in ordering):
+                            raise ValueError('Required elements not found in ordering of instrument gains')
+                        else:
+                            if grp['gains'].value.ndim == 3:
+                                axes_order = [ordering.index(item) for item in ['antenna', 'frequency', 'time']]
+                                gaintable[gainkey] = {}
+                                gaintable[gainkey]['gains'] = NP.transpose(grp['gains'].value, axes=axes_order)
+                                gaintable[gainkey]['ordering'] = ['antenna', 'frequency', 'time']
+                                if gaintable[gainkey]['gains'].shape[0] > 1:
+                                    if 'antennas' not in grp:
+                                        raise KeyError('List of antennas not specified')
+                                    else:
+                                        if not isinstance(grp['antennas'].value, (list, NP.ndarray)):
+                                            raise TypeError('Antennas must be specified as a list or numpy array')
+                                        gaintable[gainkey]['antennas'] = NP.asarray(grp['antennas'].value).ravel()
+                                        if gaintable[gainkey]['antennas'].size != gaintable[gainkey]['gains'].shape[0]:
+                                            raise ValueError('List of antennas and the gains do not match in dimensions')
+                                else:
+                                    gaintable[gainkey]['antennas'] = None
+                            else:
+                                raise ValueError('Gains array must be three-dimensional. Use fake dimension if there is no variation along any particular axis.')
+                    else:
+                        warnings.warn('Invalid data type specified for {0} instrument gains. Proceeding with defaults (unity gains)'.format(gainkey))
+                except KeyError:
+                    warnings.warn('No info found on {0} instrument gains. Proceeding with defaults (unity gains)'.format(gainkey))
+    except IOError:
+        warnings.warn('Invalid file specified for instrument gains. Proceeding with defaults (unity gains)')
+        gaintable = None
+    if not gaintable:
+        gaintable = None
+    
+    return gaintable
+
+################################################################################
+
 def hexagon_generator(spacing, n_total=None, n_side=None, orientation=None, 
                       center=None):
     

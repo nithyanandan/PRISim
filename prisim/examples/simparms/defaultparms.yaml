@@ -454,6 +454,29 @@ obsparm  :
                                 # yyyy-mm-dd hh:mm:ss.s or 'JD' for
                                 # julian date format
                                 
+######### Instrument gains #########
+
+gains   :
+                                # Instrumental gains to be applied to
+                                # the simulated visibilities
+
+    file            : null 
+                                # HDF5 File containing complex 
+                                # instrument gains to be applied or
+                                # stored in the simulation. It should
+                                # contain two groups, one for antenna
+                                # gains and the other for baseline-
+                                # based gains
+
+    filepathtype    : 'default'
+                                # If set to 'default', only filename
+                                # should be specified in file and it
+                                # will be searched in the default 
+                                # instrument_gains folder
+                                # prisim/data/gains
+                                # If set to 'custom' then the full path
+                                # to the file must be specified
+                                
 ######### Pointing information #########
 
 pointing :                      # If pointing file is specified to be
