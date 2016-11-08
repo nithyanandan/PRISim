@@ -2453,6 +2453,10 @@ class InterferometerArray(object):
                                 self.gaintable[gainkey] = {}
                                 for subkey in grp[gainkey]:
                                     self.gaintable[gainkey][subkey] = grp[gainkey][subkey].value
+                                if not self.gaintable[gainkey]:
+                                    self.gaintable[gainkey] = None
+                            if not self.gaintable:
+                                self.gaintable = None
                                 
             except IOError: # Check if a FITS file is available
                 try:
@@ -2676,6 +2680,21 @@ class InterferometerArray(object):
                             self.gradient[self.gradient_mode] = self.gradient[self.gradient_mode].astype(NP.complex128)
                             self.gradient[self.gradient_mode] += 1j * hdulist['imag_freq_sky_visibility_gradient_wrt_{0}'.format(self.gradient_mode)].data
 
+                self.gaintable = {}
+                for gainkey in ['antenna-based', 'baseline-based']:
+                    self.gaintable[gainkey] = {}
+                    for subkey in [gainkey.split('-')[0]+'s', 'gains']:
+                        if subkey == 'gains':
+                            if '{0}_in_{1}_gains'.format(subkey, gainkey) in extnames:
+                                self.gaintable[gainkey][subkey] = hdulist['{0}_in_{1}_gains'.format(subkey, gainkey)]
+                        else:
+                            if '{0}_{1}_real'.format(gainkey, subkey) in extnames:
+                                self.gaintable[gainkey][subkey] = hdulist['{0}_{1}_real'.format(gainkey, subkey)].data +1j * hdulist['{0}_{1}_imag'.format(gainkey, subkey)].data
+                    if not self.gaintable[gainkey]:
+                        self.gaintable[gainkey] = None
+                if not self.gaintable:
+                    self.gaintable = None
+                                
                 if 'REAL_LAG_VISIBILITY' in extnames:
                     self.vis_lag = hdulist['real_lag_visibility'].data
                     if 'IMAG_LAG_VISIBILITY' in extnames:
@@ -4683,6 +4702,17 @@ class InterferometerArray(object):
                     if verbose:
                         print '\tCreated extensions for real and imaginary parts of gradient of sky visibility frequency spectrum wrt {0} of size {1[0]} x {1[1]} x {1[2]} x {1[3]}'.format(gradkey, self.gradient[gradkey].shape)
 
+            if self.gaintable is not None:
+                for gainkey in self.gaintable:
+                    if self.gaintable[gainkey] is not None:
+                        for subkey in self.gaintable[gainkey]:
+                            if self.gaintable[gainkey][subkey] is not None:
+                                if subkey == 'gains':
+                                    hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey].real, name='{0}_{1}_real'.format(gainkey, subkey))]
+                                    hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey].imag, name='{0}_{1}_imag'.format(gainkey, subkey))]
+                                else:
+                                    hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey], name='{0}_in_{1}_gains'.format(subkey, gainkey))]
+                
             hdulist += [fits.ImageHDU(self.bp, name='bandpass')]
             if verbose:
                 print '\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape)
@@ -4834,15 +4864,12 @@ class InterferometerArray(object):
                         visgradient_group[gradkey] = self.gradient[gradkey]
                 if self.gaintable is not None:
                     gains_group = fileobj.create_group('gaintable')
-                    for gainkey in ['antenna-based', 'baseline-based']:
-                        if gainkey in self.gaintable:
-                            if self.gaintable[gainkey] is not None:
-                                first_axis = gainkey.split('-')[0] + 's'
-                                gains_subgrp = gains_group.create_group(gainkey)
-                                for subkey in [first_axis, 'gains']:
-                                    if subkey in self.gaintable[gainkey]:
-                                        if self.gaintable[gainkey][subkey] is not None:
-                                            gains_subgrp[subkey] = self.gaintable[gainkey][subkey]
+                    for gainkey in self.gaintable:
+                        if self.gaintable[gainkey] is not None:
+                            gains_subgrp = gains_group.create_group(gainkey)
+                            for subkey in self.gaintable[gainkey]:
+                                if self.gaintable[gainkey][subkey] is not None:
+                                    gains_subgrp[subkey] = self.gaintable[gainkey][subkey]
                                     
         if verbose:
             print '\tInterferometer array information written successfully to file on disk:\n\t\t{0}\n'.format(filename)
