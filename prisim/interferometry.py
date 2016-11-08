@@ -2279,11 +2279,12 @@ class InterferometerArray(object):
                     self.vis_noise_lag = None
                     self.gradient_mode = None
                     self.gradient = {}
+                    self.gaintable = None
                     for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'layout', 'instrument', 'visibilities', 'gradients']:
                         try:
                             grp = fileobj[key]
                         except KeyError:
-                            if key == 'gradients':
+                            if key in ['gradients', 'gaintable']:
                                 pass
                             elif key != 'simparms':
                                 raise KeyError('Key {0} not found in init_file'.format(key))
@@ -2445,6 +2446,13 @@ class InterferometerArray(object):
                             for gradkey in grp:
                                 self.gradient_mode = gradkey
                                 self.gradient[gradkey] = grp[gradkey].value
+
+                        if key == 'gaintable':
+                            self.gaintable = {}
+                            for gainkey in grp:
+                                self.gaintable[gainkey] = {}
+                                for subkey in grp[gainkey]:
+                                    self.gaintable[gainkey][subkey] = grp[gainkey][subkey].value
                                 
             except IOError: # Check if a FITS file is available
                 try:
@@ -4824,6 +4832,18 @@ class InterferometerArray(object):
                     visgradient_group = fileobj.create_group('gradients')
                     for gradkey in self.gradient:
                         visgradient_group[gradkey] = self.gradient[gradkey]
+                if self.gaintable is not None:
+                    gains_group = fileobj.create_group('gaintable')
+                    for gainkey in ['antenna-based', 'baseline-based']:
+                        if gainkey in self.gaintable:
+                            if self.gaintable[gainkey] is not None:
+                                first_axis = gainkey.split('-')[0] + 's'
+                                gains_subgrp = gains_group.create_group(gainkey)
+                                for subkey in [first_axis, 'gains']:
+                                    if subkey in self.gaintable[gainkey]:
+                                        if self.gaintable[gainkey][subkey] is not None:
+                                            gains_subgrp[subkey] = self.gaintable[gainkey][subkey]
+                                    
         if verbose:
             print '\tInterferometer array information written successfully to file on disk:\n\t\t{0}\n'.format(filename)
 

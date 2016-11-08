@@ -1,3 +1,13 @@
+From ae2e92a (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Save gaintable attribute in save() member function of class
+InterferometerArray when saving in HDF5 format
+(*) Initialize gaintable attribute in __init__() member function of
+class InterferometerArray when loading from init_file in HDF5 format
+
 From d92cf16 (instrument-gains):
 ===============================
 
