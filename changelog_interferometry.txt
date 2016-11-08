@@ -1,3 +1,18 @@
+From d92cf16 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Add attribute gaintable to class InterferometerArray and
+initialize in __init__() member function from input parameters.
+Update class and member function docstrings accordingly.
+
+In scripts/run_prisim.py,
+
+(*) In calls to initialize an instance of class InterferometerArray
+using input parameters, include passing of parameter gaintable to
+initialize gaintable attribute
+
 From 30826aa (instrument-gains):
 ===============================
 
