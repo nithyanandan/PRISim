@@ -1,3 +1,11 @@
+From 7edad38 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Check for presence of attributes vis_freq and vis_noise_freq to
+have non-None values before rotating phase center on them
+
 From 34fab4e (instrument-gains):
 ===============================
 
