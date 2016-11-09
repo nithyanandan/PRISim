@@ -1,3 +1,12 @@
+From b5bd142 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Fix bugs in reading and extracting instrument gains in functions
+read_gaintable() and extract_gains().
+(*) Tested with an example gain table from an external file
+
 From e7282da (instrument-gains):
 ===============================
 

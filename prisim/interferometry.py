@@ -117,7 +117,7 @@ def read_gaintable(gainsfile):
                                                 along all three axes, namely, 
                                                 'antenna', 'frequency' and 
                                                 'time'.
-                                    'antennas'  [None or list or numpy array] 
+                                    'labels'    [None or list or numpy array] 
                                                 List or antenna labels that
                                                 correspond to the nax along
                                                 the 'antenna' axis. If the
@@ -154,7 +154,7 @@ def read_gaintable(gainsfile):
                                                 along all three axes, namely, 
                                                 'baseline', 'frequency' and 
                                                 'time'.
-                                    'baselines' [None or list or numpy array] 
+                                    'labels'    [None or list or numpy array] 
                                                 List or baseline labels that
                                                 correspond to the nax along
                                                 the 'baseline' axis. If the
@@ -191,7 +191,7 @@ def read_gaintable(gainsfile):
                                                 along all three axes, namely, 
                                                 'antenna', 'frequency' and 
                                                 'time'.
-                                    'antennas'  [None or list or numpy array] 
+                                    'labels'    [None or list or numpy array] 
                                                 List or antenna labels that
                                                 correspond to nant along
                                                 the 'antenna' axis. If nant=1,
@@ -220,7 +220,7 @@ def read_gaintable(gainsfile):
                                                 along all three axes, namely, 
                                                 'baseline', 'frequency' and 
                                                 'time'.
-                                    'baselines' [None or list or numpy array] 
+                                    'labels'    [None or list or numpy array] 
                                                 List or baseline labels that
                                                 correspond to nbl along
                                                 the 'baseline' axis. If nbl=1 
@@ -231,10 +231,12 @@ def read_gaintable(gainsfile):
     ---------------------------------------------------------------------------
     """
 
+    gaintable = {}
     try:
         with h5py.File(gainsfile, 'r') as fileobj:
             for gainkey in ['antenna-based', 'baseline-based']:
                 try:
+                    gaintable[gainkey] = {}
                     grp = fileobj[gainkey]
                     if isinstance(grp['gains'].value, (NP.float32, NP.float64, NP.complex64, NP.complex128)):
                         gaintable[gainkey]['gains'] = NP.asarray(grp['gains'].value).reshape(1,1,1)
@@ -246,25 +248,24 @@ def read_gaintable(gainsfile):
 
                         if len(ordering) != 3:
                             raise ValueError('Ordering must contain three elements')
-                        elif ('time' not in ordering) or ('antenna' not in ordering) or ('frequency' not in ordering):
+                        elif ('time' not in ordering) or (gainkey.split('-')[0] not in ordering) or ('frequency' not in ordering):
                             raise ValueError('Required elements not found in ordering of instrument gains')
                         else:
                             if grp['gains'].value.ndim == 3:
-                                axes_order = [ordering.index(item) for item in ['antenna', 'frequency', 'time']]
-                                gaintable[gainkey] = {}
+                                axes_order = [ordering.index(item) for item in [gainkey.split('-')[0], 'frequency', 'time']]
                                 gaintable[gainkey]['gains'] = NP.transpose(grp['gains'].value, axes=axes_order)
-                                gaintable[gainkey]['ordering'] = ['antenna', 'frequency', 'time']
+                                gaintable[gainkey]['ordering'] = [gainkey.split('-')[0], 'frequency', 'time']
                                 if gaintable[gainkey]['gains'].shape[0] > 1:
-                                    if 'antennas' not in grp:
-                                        raise KeyError('List of antennas not specified')
+                                    if 'labels' not in grp:
+                                        raise KeyError('List of labels not specified')
                                     else:
-                                        if not isinstance(grp['antennas'].value, (list, NP.ndarray)):
-                                            raise TypeError('Antennas must be specified as a list or numpy array')
-                                        gaintable[gainkey]['antennas'] = NP.asarray(grp['antennas'].value).ravel()
-                                        if gaintable[gainkey]['antennas'].size != gaintable[gainkey]['gains'].shape[0]:
-                                            raise ValueError('List of antennas and the gains do not match in dimensions')
+                                        if not isinstance(grp['labels'].value, (list, NP.ndarray)):
+                                            raise TypeError('Labels must be specified as a list or numpy array')
+                                        gaintable[gainkey]['labels'] = NP.asarray(grp['labels'].value).ravel()
+                                        if gaintable[gainkey]['labels'].size != gaintable[gainkey]['gains'].shape[0]:
+                                            raise ValueError('List of labels and the gains do not match in dimensions')
                                 else:
-                                    gaintable[gainkey]['antennas'] = None
+                                    gaintable[gainkey]['labels'] = None
                             else:
                                 raise ValueError('Gains array must be three-dimensional. Use fake dimension if there is no variation along any particular axis.')
                     else:
@@ -393,21 +394,20 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None):
                     freq_index = NP.arange(gains.shape[1])
                 elif isinstance(freq_index, (int,list,NP.ndarray)):
                     freq_index = NP.asarray(freq_index).ravel()
-                if NP.any(freq_index > gains.shape[1]):
+                if NP.any(freq_index >= gains.shape[1]):
                     raise IndexError('Input freq_index cannot exceed the frequency dimensions in the gain table')
                 if time_index is None:
                     time_index = NP.arange(gains.shape[2])
                 elif isinstance(time_index, (int,list,NP.ndarray)):
                     time_index = NP.asarray(time_index).ravel()
-                if NP.any(time_index > gains.shape[2]):
+                if NP.any(time_index >= gains.shape[2]):
                     raise IndexError('Input time_index cannot exceed the time dimensions in the gain table')
     
                 if gains.shape[0] == 1:
                     blgains = blgains * gains[:,freq_index,time_index].reshape(1,freq_index.size,time_index.size)
                 else:
-                    first_axis = gainkey.split('-')[0]+'s'
-                    labels = gaintable[gainkey][first_axis]
-                    if first_axis == 'antennas':
+                    labels = gaintable[gainkey]['labels']
+                    if gainkey == 'antenna-based':
                         sortind_labels = NP.argsort(labels)
                         sorted_labels = labels[sortind_labels]
                         ind1_in_sorted_labels = NP.searchsorted(sorted_labels, a1_labels)
@@ -422,19 +422,19 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None):
                             raise IndexError('Some antenna gains could not be found')
                         if NP.sum(mask2) > 0:
                             raise IndexError('Some antenna gains could not be found')
-                        blgains = blgains * gains[ind2,freq_index,time_index].reshape(ind2.size,freq_index.size,time_index.size) * gains[ind1,freq_index,time_index].conj().reshape(ind1.size,freq_index.size,time_index.size)
+                        blgains = blgains * gains[NP.ix_(ind2,freq_index,time_index)].reshape(ind2.size,freq_index.size,time_index.size) * gains[NP.ix_(ind1,freq_index,time_index)].conj().reshape(ind1.size,freq_index.size,time_index.size)
                     else:
-                        labels_conj = [tuple(reversed(label[i])) for label in labels]
+                        labels_conj = [tuple(reversed(label)) for label in labels]
                         labels_conj = NP.asarray(labels_conj, dtype=labels.dtype)
                         labels_conj_appended = NP.concatenate((labels, labels_conj), axis=0)
-                        gains_conj_appended = NP.concatenate((gains, gains.conj), axis=0)
+                        gains_conj_appended = NP.concatenate((gains, gains.conj()), axis=0)
                         sortind_labels = NP.argsort(labels_conj_appended)
-                        sorted_labels = labels[sortind_labels]
+                        sorted_labels = labels_conj_appended[sortind_labels]
                         ind_in_sorted_labels = NP.searchsorted(sorted_labels, bl_labels)
                         ii = NP.take(sortind_labels, ind_in_sorted_labels, mode='clip')
                         mask = labels_conj_appended[ii] != bl_labels
                         ind = NP.ma.array(ii, mask=mask)
-                        selected_gains = gains_conj_appended[ind.compressed(),freq_index,time_index]
+                        selected_gains = gains_conj_appended[NP.ix_(ind.compressed(),freq_index,time_index)]
                         if ind.compressed().size == 1:
                             selected_gains = selected_gains.reshape(NP.sum(~mask),freq_index.size,time_index.size)
                         blgains[~mask, ...] = blgains[~mask, ...] * selected_gains
@@ -2443,7 +2443,7 @@ class InterferometerArray(object):
                     self.gradient_mode = None
                     self.gradient = {}
                     self.gaintable = None
-                    for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'layout', 'instrument', 'visibilities', 'gradients']:
+                    for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'layout', 'instrument', 'visibilities', 'gradients', 'gaintable']:
                         try:
                             grp = fileobj[key]
                         except KeyError:
