@@ -1,3 +1,11 @@
+From 01434b5 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Add function extract_gains() (and docstring) to extract complex
+gains from gain table for specified baselines, frequencies and times.
+
 From 7edad38 (instrument-gains):
 ===============================
 
