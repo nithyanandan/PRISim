@@ -381,62 +381,63 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None):
     except NameError:
         raise NameError('Inputs gaintable and bl_labels must be specified')
 
-    a1_labels = bl_labels['A1']
-    a2_labels = bl_labels['A2']
-
     blgains = NP.asarray(1.0).reshape(1,1,1)
-    for gainkey in ['antenna-based', 'baseline-based']:
-        if gainkey in gaintable:
-            gains = gaintable[gainkey]['gains']
-            if freq_index is None:
-                freq_index = NP.arange(gains.shape[1])
-            elif isinstance(freq_index, (int,list,NP.ndarray)):
-                freq_index = NP.asarray(freq_index).ravel()
-            if NP.any(freq_index > gains.shape[1]):
-                raise IndexError('Input freq_index cannot exceed the frequency dimensions in the gain table')
-            if time_index is None:
-                time_index = NP.arange(gains.shape[2])
-            elif isinstance(time_index, (int,list,NP.ndarray)):
-                time_index = NP.asarray(time_index).ravel()
-            if NP.any(time_index > gains.shape[2]):
-                raise IndexError('Input time_index cannot exceed the time dimensions in the gain table')
 
-            if gains.shape[0] == 1:
-                blgains = blgains * gains[:,freq_index,time_index].reshape(1,freq_index.size,time_index.size)
-            else:
-                first_axis = gainkey.split('-')[0]+'s'
-                labels = gaintable[gainkey][first_axis]
-                if first_axis == 'antennas':
-                    sortind_labels = NP.argsort(labels)
-                    sorted_labels = labels[sortind_labels]
-                    ind1_in_sorted_labels = NP.searchsorted(sorted_labels, a1_labels)
-                    ind2_in_sorted_labels = NP.searchsorted(sorted_labels, a2_labels)
-                    i1 = NP.take(sortind_labels, ind1_in_sorted_labels, mode='clip')
-                    i2 = NP.take(sortind_labels, ind2_in_sorted_labels, mode='clip')
-                    mask1 = labels[i1] != a1_labels
-                    mask2 = labels[i2] != a2_labels
-                    ind1 = NP.ma.array(i1, mask=mask1)
-                    ind2 = NP.ma.array(i2, mask=mask2)
-                    if NP.sum(mask1) > 0:
-                        raise IndexError('Some antenna gains could not be found')
-                    if NP.sum(mask2) > 0:
-                        raise IndexError('Some antenna gains could not be found')
-                    blgains = blgains * gains[ind2,freq_index,time_index].reshape(ind2.size,freq_index.size,time_index.size) * gains[ind1,freq_index,time_index].conj().reshape(ind1.size,freq_index.size,time_index.size)
+    if gaintable is not None:
+        a1_labels = bl_labels['A1']
+        a2_labels = bl_labels['A2']
+        for gainkey in ['antenna-based', 'baseline-based']:
+            if gainkey in gaintable:
+                gains = gaintable[gainkey]['gains']
+                if freq_index is None:
+                    freq_index = NP.arange(gains.shape[1])
+                elif isinstance(freq_index, (int,list,NP.ndarray)):
+                    freq_index = NP.asarray(freq_index).ravel()
+                if NP.any(freq_index > gains.shape[1]):
+                    raise IndexError('Input freq_index cannot exceed the frequency dimensions in the gain table')
+                if time_index is None:
+                    time_index = NP.arange(gains.shape[2])
+                elif isinstance(time_index, (int,list,NP.ndarray)):
+                    time_index = NP.asarray(time_index).ravel()
+                if NP.any(time_index > gains.shape[2]):
+                    raise IndexError('Input time_index cannot exceed the time dimensions in the gain table')
+    
+                if gains.shape[0] == 1:
+                    blgains = blgains * gains[:,freq_index,time_index].reshape(1,freq_index.size,time_index.size)
                 else:
-                    labels_conj = [tuple(reversed(label[i])) for label in labels]
-                    labels_conj = NP.asarray(labels_conj, dtype=labels.dtype)
-                    labels_conj_appended = NP.concatenate((labels, labels_conj), axis=0)
-                    gains_conj_appended = NP.concatenate((gains, gains.conj), axis=0)
-                    sortind_labels = NP.argsort(labels_conj_appended)
-                    sorted_labels = labels[sortind_labels]
-                    ind_in_sorted_labels = NP.searchsorted(sorted_labels, bl_labels)
-                    ii = NP.take(sortind_labels, ind_in_sorted_labels, mode='clip')
-                    mask = labels_conj_appended[ii] != bl_labels
-                    ind = NP.ma.array(ii, mask=mask)
-                    selected_gains = gains_conj_appended[ind.compressed(),freq_index,time_index]
-                    if ind.compressed().size == 1:
-                        selected_gains = selected_gains.reshape(NP.sum(~mask),freq_index.size,time_index.size)
-                    blgains[~mask, ...] = blgains[~mask, ...] * selected_gains
+                    first_axis = gainkey.split('-')[0]+'s'
+                    labels = gaintable[gainkey][first_axis]
+                    if first_axis == 'antennas':
+                        sortind_labels = NP.argsort(labels)
+                        sorted_labels = labels[sortind_labels]
+                        ind1_in_sorted_labels = NP.searchsorted(sorted_labels, a1_labels)
+                        ind2_in_sorted_labels = NP.searchsorted(sorted_labels, a2_labels)
+                        i1 = NP.take(sortind_labels, ind1_in_sorted_labels, mode='clip')
+                        i2 = NP.take(sortind_labels, ind2_in_sorted_labels, mode='clip')
+                        mask1 = labels[i1] != a1_labels
+                        mask2 = labels[i2] != a2_labels
+                        ind1 = NP.ma.array(i1, mask=mask1)
+                        ind2 = NP.ma.array(i2, mask=mask2)
+                        if NP.sum(mask1) > 0:
+                            raise IndexError('Some antenna gains could not be found')
+                        if NP.sum(mask2) > 0:
+                            raise IndexError('Some antenna gains could not be found')
+                        blgains = blgains * gains[ind2,freq_index,time_index].reshape(ind2.size,freq_index.size,time_index.size) * gains[ind1,freq_index,time_index].conj().reshape(ind1.size,freq_index.size,time_index.size)
+                    else:
+                        labels_conj = [tuple(reversed(label[i])) for label in labels]
+                        labels_conj = NP.asarray(labels_conj, dtype=labels.dtype)
+                        labels_conj_appended = NP.concatenate((labels, labels_conj), axis=0)
+                        gains_conj_appended = NP.concatenate((gains, gains.conj), axis=0)
+                        sortind_labels = NP.argsort(labels_conj_appended)
+                        sorted_labels = labels[sortind_labels]
+                        ind_in_sorted_labels = NP.searchsorted(sorted_labels, bl_labels)
+                        ii = NP.take(sortind_labels, ind_in_sorted_labels, mode='clip')
+                        mask = labels_conj_appended[ii] != bl_labels
+                        ind = NP.ma.array(ii, mask=mask)
+                        selected_gains = gains_conj_appended[ind.compressed(),freq_index,time_index]
+                        if ind.compressed().size == 1:
+                            selected_gains = selected_gains.reshape(NP.sum(~mask),freq_index.size,time_index.size)
+                        blgains[~mask, ...] = blgains[~mask, ...] * selected_gains
 
     return blgains
 
@@ -2342,7 +2343,8 @@ class InterferometerArray(object):
                         system parameters which can be added to sky visibilities
                         
     add_noise()         Adds the thermal noise generated in member function 
-                        generate_noise() to the sky visibilities
+                        generate_noise() to the sky visibilities after 
+                        extracting and applying complex instrument gains
                         
     rotate_visibilities()
                         Centers the phase of visibilities around any given phase 
@@ -3837,11 +3839,13 @@ class InterferometerArray(object):
         """
         -------------------------------------------------------------------------
         Adds the thermal noise generated in member function generate_noise() to
-        the sky visibilities
+        the sky visibilities after extracting and applying complex instrument
+        gains
         -------------------------------------------------------------------------
         """
         
-        self.vis_freq = self.skyvis_freq + self.vis_noise_freq
+        gains = extract_gains(self.gaintable, self.labels, freq_index=None, time_index=None)
+        self.vis_freq = gains * self.skyvis_freq + self.vis_noise_freq
 
     #############################################################################
 
