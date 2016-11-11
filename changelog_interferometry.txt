@@ -1,3 +1,13 @@
+From c78d705 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Import astroutils module nonmathops
+(*) Replace lines of code inside function extract_gains() with calls
+to function find_list_in_list() in module nonmathops
+(*) Minor correction in docstring of function extract_gains()
+
 From b5bd142 (instrument-gains):
 ===============================
 

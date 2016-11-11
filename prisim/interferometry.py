@@ -19,6 +19,7 @@ from astroutils import constants as CNST
 from astroutils import DSP_modules as DSP
 from astroutils import catalog as SM
 from astroutils import lookup_operations as LKP
+from astroutils import nonmathops as NMO
 import baseline_delay_horizon as DLY
 import primary_beams as PB
 try:
@@ -316,7 +317,7 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None):
                                                 along all three axes, namely, 
                                                 'antenna', 'frequency' and 
                                                 'time'.
-                                    'antennas'  [None or list or numpy array] 
+                                    'labels'    [None or list or numpy array] 
                                                 List or antenna labels that
                                                 correspond to nant along
                                                 the 'antenna' axis. If nant=1,
@@ -345,7 +346,7 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None):
                                                 along all three axes, namely, 
                                                 'baseline', 'frequency' and 
                                                 'time'.
-                                    'baselines' [None or list or numpy array] 
+                                    'labels'    [None or list or numpy array] 
                                                 List or baseline labels that
                                                 correspond to nbl along
                                                 the 'baseline' axis. If nbl=1 
@@ -408,19 +409,11 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None):
                 else:
                     labels = gaintable[gainkey]['labels']
                     if gainkey == 'antenna-based':
-                        sortind_labels = NP.argsort(labels)
-                        sorted_labels = labels[sortind_labels]
-                        ind1_in_sorted_labels = NP.searchsorted(sorted_labels, a1_labels)
-                        ind2_in_sorted_labels = NP.searchsorted(sorted_labels, a2_labels)
-                        i1 = NP.take(sortind_labels, ind1_in_sorted_labels, mode='clip')
-                        i2 = NP.take(sortind_labels, ind2_in_sorted_labels, mode='clip')
-                        mask1 = labels[i1] != a1_labels
-                        mask2 = labels[i2] != a2_labels
-                        ind1 = NP.ma.array(i1, mask=mask1)
-                        ind2 = NP.ma.array(i2, mask=mask2)
-                        if NP.sum(mask1) > 0:
+                        ind1 = NMO.find_list_in_list(labels, a1_labels)
+                        ind2 = NMO.find_list_in_list(labels, a2_labels)
+                        if NP.sum(ind1.mask) > 0:
                             raise IndexError('Some antenna gains could not be found')
-                        if NP.sum(mask2) > 0:
+                        if NP.sum(ind2.mask) > 0:
                             raise IndexError('Some antenna gains could not be found')
                         blgains = blgains * gains[NP.ix_(ind2,freq_index,time_index)].reshape(ind2.size,freq_index.size,time_index.size) * gains[NP.ix_(ind1,freq_index,time_index)].conj().reshape(ind1.size,freq_index.size,time_index.size)
                     else:
@@ -428,16 +421,11 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None):
                         labels_conj = NP.asarray(labels_conj, dtype=labels.dtype)
                         labels_conj_appended = NP.concatenate((labels, labels_conj), axis=0)
                         gains_conj_appended = NP.concatenate((gains, gains.conj()), axis=0)
-                        sortind_labels = NP.argsort(labels_conj_appended)
-                        sorted_labels = labels_conj_appended[sortind_labels]
-                        ind_in_sorted_labels = NP.searchsorted(sorted_labels, bl_labels)
-                        ii = NP.take(sortind_labels, ind_in_sorted_labels, mode='clip')
-                        mask = labels_conj_appended[ii] != bl_labels
-                        ind = NP.ma.array(ii, mask=mask)
+                        ind = NMO.find_list_in_list(labels_conj_appended, bl_labels)
                         selected_gains = gains_conj_appended[NP.ix_(ind.compressed(),freq_index,time_index)]
                         if ind.compressed().size == 1:
-                            selected_gains = selected_gains.reshape(NP.sum(~mask),freq_index.size,time_index.size)
-                        blgains[~mask, ...] = blgains[~mask, ...] * selected_gains
+                            selected_gains = selected_gains.reshape(NP.sum(~ind.mask),freq_index.size,time_index.size)
+                        blgains[~ind.mask, ...] = blgains[~ind.mask, ...] * selected_gains
 
     return blgains
 
