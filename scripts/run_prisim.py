@@ -190,7 +190,7 @@ if gainparms['file'] is not None:
     gainsfile = gainparms['file']
     if gainparms['filepathtype'] == 'default':
         gainsfile = prisim_path + 'data/gains/'+gainsfile
-    gaintable = RI.read_gaintable(gainsfile)
+    gaintable = RI.read_gaintable(gainsfile, axes_order=['label', 'frequency', 'time'])
 avg_drifts = parms['snapshot']['avg_drifts']
 beam_switch = parms['snapshot']['beam_switch']
 pick_snapshots = parms['snapshot']['pick']

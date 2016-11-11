@@ -78,7 +78,7 @@ def _astropy_columns(cols, tabtype='BinTableHDU'):
 
 ################################################################################
 
-def read_gaintable(gainsfile):
+def read_gaintable(gainsfile, axes_order=None):
 
     """
     ---------------------------------------------------------------------------
@@ -164,6 +164,10 @@ def read_gaintable(gainsfile):
                                                 it must be specified and must
                                                 match the nax. 
 
+    axes_order  [None or list or numpy array] The gaintable which is read is 
+                stored in this axes ordering. If set to None, it will store in 
+                this order ['label', 'frequency', 'time']
+
     Output:
 
     gaintable   [None or dictionary] If set to None, all antenna- and baseline-
@@ -175,6 +179,12 @@ def read_gaintable(gainsfile):
                                     all antenna-based gains are set to unity. 
                                     If returned as dictionary, it has the
                                     following keys and values:
+                                    'ordering'  [list or numpy array] Three
+                                                element list of strings 
+                                                indicating the ordering of
+                                                axes - 'time', 'antenna', 
+                                                and 'frequency' as specified
+                                                in input axes_order
                                     'gains'     [scalar or numpy array] 
                                                 Complex antenna-based 
                                                 instrument gains. Must be 
@@ -204,6 +214,12 @@ def read_gaintable(gainsfile):
                                     all baseline-based gains are set to unity. 
                                     If returned as dictionary, it has the
                                     following keys and values:
+                                    'ordering'  [list or numpy array] Three
+                                                element list of strings 
+                                                indicating the ordering of
+                                                axes - 'time', 'baseline', 
+                                                and 'frequency' as specified
+                                                in input axes_order 
                                     'gains'     [scalar or numpy array] 
                                                 Complex baseline-based 
                                                 instrument gains. Must be 
@@ -232,6 +248,17 @@ def read_gaintable(gainsfile):
     ---------------------------------------------------------------------------
     """
 
+    if axes_order is None:
+        axes_order = ['label', 'frequency', 'time']
+    elif not isinstance(axes_order, (list, NP.ndarray)):
+        raise TypeError('axes_order must be a list')
+    else:
+        if len(axes_order) != 3:
+            raise ValueError('axes_order must be a three element list')
+        for orderkey in ['label', 'frequency', 'time']:
+            if orderkey not in axes_order:
+                raise ValueError('axes_order does not contain key "{0}"'.format(orderkey))
+
     gaintable = {}
     try:
         with h5py.File(gainsfile, 'r') as fileobj:
@@ -249,13 +276,13 @@ def read_gaintable(gainsfile):
 
                         if len(ordering) != 3:
                             raise ValueError('Ordering must contain three elements')
-                        elif ('time' not in ordering) or (gainkey.split('-')[0] not in ordering) or ('frequency' not in ordering):
+                        elif ('time' not in ordering) or ('label' not in ordering) or ('frequency' not in ordering):
                             raise ValueError('Required elements not found in ordering of instrument gains')
                         else:
                             if grp['gains'].value.ndim == 3:
-                                axes_order = [ordering.index(item) for item in [gainkey.split('-')[0], 'frequency', 'time']]
-                                gaintable[gainkey]['gains'] = NP.transpose(grp['gains'].value, axes=axes_order)
-                                gaintable[gainkey]['ordering'] = [gainkey.split('-')[0], 'frequency', 'time']
+                                # transpose_order = [ordering.index(item) for item in axes_order]
+                                transpose_order = NMO.find_list_in_list(ordering, axes_order)
+                                gaintable[gainkey]['gains'] = NP.transpose(grp['gains'].value, axes=transpose_order)
                                 if gaintable[gainkey]['gains'].shape[0] > 1:
                                     if 'labels' not in grp:
                                         raise KeyError('List of labels not specified')
@@ -271,6 +298,7 @@ def read_gaintable(gainsfile):
                                 raise ValueError('Gains array must be three-dimensional. Use fake dimension if there is no variation along any particular axis.')
                     else:
                         warnings.warn('Invalid data type specified for {0} instrument gains. Proceeding with defaults (unity gains)'.format(gainkey))
+                    gaintable[gainkey]['ordering'] = axes_order
                 except KeyError:
                     warnings.warn('No info found on {0} instrument gains. Proceeding with defaults (unity gains)'.format(gainkey))
     except IOError:
@@ -283,7 +311,8 @@ def read_gaintable(gainsfile):
 
 ################################################################################
 
-def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None):
+def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None,
+                  axes_order=None):
 
     """
     ---------------------------------------------------------------------------
@@ -371,6 +400,11 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None):
                 are to be extracted. If set to None, gains at all timesin the 
                 gain table will be extracted. 
 
+    axes_order  [None or list or numpy array] Axes ordering for extracted 
+                gains. It must contain the three elements 'label', 
+                'frequency', and 'time'. If set to None, it will be returned 
+                in the same order as in the input gaintable. 
+
     Outputs: 
 
     [numpy array] Complex gains of shape nbl x nchan x nts for the specified 
@@ -390,7 +424,14 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None):
         a2_labels = bl_labels['A2']
         for gainkey in ['antenna-based', 'baseline-based']:
             if gainkey in gaintable:
-                gains = gaintable[gainkey]['gains']
+                temp_axes_order = ['label', 'frequency', 'time']
+                inp_order = gaintable[gainkey]['ordering']
+                temp_transpose_order = NMO.find_list_in_list(inp_order, temp_axes_order)
+                if NP.all(inp_order == temp_axes_order):
+                    gains = NP.copy(gaintable[gainkey]['gains'])
+                else:
+                    gains = NP.transpose(NP.copy(gaintable[gainkey]['gains']), axes=temp_transpose_order)
+                
                 if freq_index is None:
                     freq_index = NP.arange(gains.shape[1])
                 elif isinstance(freq_index, (int,list,NP.ndarray)):
@@ -426,6 +467,19 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None):
                         if ind.compressed().size == 1:
                             selected_gains = selected_gains.reshape(NP.sum(~ind.mask),freq_index.size,time_index.size)
                         blgains[~ind.mask, ...] = blgains[~ind.mask, ...] * selected_gains
+                if axes_order is None:
+                    axes_order = inp_order
+                elif not isinstance(axes_order, (list, NP.ndarray)):
+                    raise TypeError('axes_order must be a list')
+                else:
+                    if len(axes_order) != 3:
+                        raise ValueError('axes_order must be a three element list')
+                    for orderkey in ['label', 'frequency', 'time']:
+                        if orderkey not in axes_order:
+                            raise ValueError('axes_order does not contain key "{0}"'.format(orderkey))
+
+                transpose_order = NMO.find_list_in_list(inp_order, axes_order)
+                blgains = NP.transpose(blgains, axes=transpose_order)
 
     return blgains
 
@@ -3832,7 +3886,7 @@ class InterferometerArray(object):
         -------------------------------------------------------------------------
         """
         
-        gains = extract_gains(self.gaintable, self.labels, freq_index=None, time_index=None)
+        gains = extract_gains(self.gaintable, self.labels, freq_index=None, time_index=None, axes_order=['label','frequency','time'])
         self.vis_freq = gains * self.skyvis_freq + self.vis_noise_freq
 
     #############################################################################

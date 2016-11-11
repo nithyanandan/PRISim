@@ -1,3 +1,19 @@
+From 48ee938 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Add input parameter axes_order in function read_gaintable().
+Update docstring accordingly
+(*) Add input parameter axes_order in function extract_gains().
+Update docstring accordingly
+(*) Include axes_order input in call to extract_gains() in member
+function add_noise() of class InterferometerArray
+
+In scripts/run_prisim.py,
+
+(*) Include axes_order input in reading gain table from input file
+
 From c78d705 (instrument-gains):
 ===============================
 
