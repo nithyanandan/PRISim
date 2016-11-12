@@ -1,3 +1,14 @@
+From 3940b9d (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Create class GainInfo along with docstring. Create member
+functions __init__(), read_gaintable(), eval_gains() and
+write_gaintable() along with respective docstrings
+(*) Minor change in function read_gaintable()
+(*) Minor changes to docstrings related to gain tables
+
 From 3686e90 (instrument-gains):
 ===============================
 
