@@ -1,3 +1,12 @@
+From 3686e90 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) In __init__() and save member functions of class
+InterferometerArray, save and initialize appropriate keys and values
+of gain table while using the FITS format
+
 From 48ee938 (instrument-gains):
 ===============================
 

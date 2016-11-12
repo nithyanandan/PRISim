@@ -2888,13 +2888,15 @@ class InterferometerArray(object):
                 self.gaintable = {}
                 for gainkey in ['antenna-based', 'baseline-based']:
                     self.gaintable[gainkey] = {}
-                    for subkey in [gainkey.split('-')[0]+'s', 'gains']:
-                        if subkey == 'gains':
+                    for subkey in ['labels', 'gains', 'ordering']:
+                        if subkey == 'labels':
                             if '{0}_in_{1}_gains'.format(subkey, gainkey) in extnames:
                                 self.gaintable[gainkey][subkey] = hdulist['{0}_in_{1}_gains'.format(subkey, gainkey)]
-                        else:
+                        elif subkey == 'gains':
                             if '{0}_{1}_real'.format(gainkey, subkey) in extnames:
                                 self.gaintable[gainkey][subkey] = hdulist['{0}_{1}_real'.format(gainkey, subkey)].data +1j * hdulist['{0}_{1}_imag'.format(gainkey, subkey)].data
+                        else:
+                            self.gaintable[gainkey][subkey] = hdulist['gains_axes_{0}'.format(subkey)].data
                     if not self.gaintable[gainkey]:
                         self.gaintable[gainkey] = None
                 if not self.gaintable:
@@ -4919,8 +4921,10 @@ class InterferometerArray(object):
                                 if subkey == 'gains':
                                     hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey].real, name='{0}_{1}_real'.format(gainkey, subkey))]
                                     hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey].imag, name='{0}_{1}_imag'.format(gainkey, subkey))]
-                                else:
+                                elif subkey == 'labels':
                                     hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey], name='{0}_in_{1}_gains'.format(subkey, gainkey))]
+                                else:
+                                    hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey], name='gains_axes_{0}'.format(subkey))]
                 
             hdulist += [fits.ImageHDU(self.bp, name='bandpass')]
             if verbose:
