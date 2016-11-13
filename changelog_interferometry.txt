@@ -1,3 +1,15 @@
+From b9b265e (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Create keys 'time' and 'frequency' under keys 'antenna-based' and
+'baseline-based' in attribute gaintable of class GainInfo. Update all
+docstrings accordingly
+(*) Change key 'labels' to 'label' under keys 'antenna-based' and
+'baseline-based' in attribute gaintable of class GainInfo. Update all
+docstrings accordingly
+
 From 3940b9d (instrument-gains):
 ===============================
 

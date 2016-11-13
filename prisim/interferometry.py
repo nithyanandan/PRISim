@@ -117,7 +117,7 @@ def read_gaintable(gainsfile, axes_order=None):
                                                 scalar, it will be replicated 
                                                 along all three axes, namely, 
                                                 'label', 'frequency' and 'time'
-                                    'labels'    [None or list or numpy array] 
+                                    'label'     [None or list or numpy array] 
                                                 List of antenna labels that
                                                 correspond to the nax along
                                                 the 'label' axis. If the
@@ -125,6 +125,24 @@ def read_gaintable(gainsfile, axes_order=None):
                                                 this may be set to None, else
                                                 it must be specified and must
                                                 match the nax. 
+                                    'frequency' [None or list or numpy array] 
+                                                Frequency channels that
+                                                correspond to the nax along
+                                                the 'frequency' axis. If the
+                                                nax=1 along the 'frequency' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the nax. 
+                                    'time'      [None or list or numpy array] 
+                                                Observation times that
+                                                correspond to the nax along
+                                                the 'time' axis. If the
+                                                nax=1 along the 'time' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the nax. It must be
+                                                a float and can be in seconds, 
+                                                hours, days, etc.
                 'baseline-based'    [dictionary] Contains baseline-based 
                                     instrument gain information. It has the
                                     following keys and values:
@@ -153,7 +171,7 @@ def read_gaintable(gainsfile, axes_order=None):
                                                 scalar, it will be replicated 
                                                 along all three axes, namely, 
                                                 'label', 'frequency' and 'time'
-                                    'labels'    [None or list or numpy array] 
+                                    'label'     [None or list or numpy array] 
                                                 List of baseline labels that
                                                 correspond to the nax along
                                                 the 'label' axis. If the
@@ -161,6 +179,24 @@ def read_gaintable(gainsfile, axes_order=None):
                                                 this may be set to None, else
                                                 it must be specified and must
                                                 match the nax. 
+                                    'frequency' [None or list or numpy array] 
+                                                Frequency channels that
+                                                correspond to the nax along
+                                                the 'frequency' axis. If the
+                                                nax=1 along the 'frequency' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the nax. 
+                                    'time'      [None or list or numpy array] 
+                                                Observation times that
+                                                correspond to the nax along
+                                                the 'time' axis. If the
+                                                nax=1 along the 'time' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the nax. It must be
+                                                a float and can be in seconds, 
+                                                hours, days, etc.
 
     axes_order  [None or list or numpy array] The gaintable which is read is 
                 stored in this axes ordering. If set to None, it will store in 
@@ -199,13 +235,31 @@ def read_gaintable(gainsfile, axes_order=None):
                                                 scalar, it will be replicated 
                                                 along all three axes, namely, 
                                                 'label', 'frequency' and 'time'
-                                    'labels'    [None or list or numpy array] 
+                                    'label'     [None or list or numpy array] 
                                                 List of antenna labels that
                                                 correspond to nant along
                                                 the 'label' axis. If nant=1,
                                                 this may be set to None, else
                                                 it will be specified and will
                                                 match the nant. 
+                                    'frequency' [None or list or numpy array] 
+                                                Frequency channels that
+                                                correspond to the nax along
+                                                the 'frequency' axis. If the
+                                                nchan=1 along the 'frequency' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the nchan. 
+                                    'time'      [None or list or numpy array] 
+                                                Observation times that
+                                                correspond to the nax along
+                                                the 'time' axis. If the
+                                                ntimes=1 along the 'time' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the ntimes. It will
+                                                be a float and in same units as
+                                                given in input
                 'baseline-based'    [None or dictionary] Contains baseline-based 
                                     instrument gain information. If set to None, 
                                     all baseline-based gains are set to unity. 
@@ -233,13 +287,31 @@ def read_gaintable(gainsfile, axes_order=None):
                                                 scalar, it will be replicated 
                                                 along all three axes, namely, 
                                                 'label', 'frequency' and 'time'
-                                    'labels'    [None or list or numpy array] 
+                                    'label'     [None or list or numpy array] 
                                                 List of baseline labels that
                                                 correspond to nbl along the
                                                 'label' axis. If nbl=1 along
                                                 the 'label' axis this may be 
                                                 set to None, else it will be 
                                                 specified and will match nbl. 
+                                    'frequency' [None or list or numpy array] 
+                                                Frequency channels that
+                                                correspond to the nax along
+                                                the 'frequency' axis. If the
+                                                nchan=1 along the 'frequency' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the nchan. 
+                                    'time'      [None or list or numpy array] 
+                                                Observation times that
+                                                correspond to the nax along
+                                                the 'time' axis. If the
+                                                ntimes=1 along the 'time' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the ntimes. It will
+                                                be a float and in same units as
+                                                given in input
     ---------------------------------------------------------------------------
     """
 
@@ -278,17 +350,30 @@ def read_gaintable(gainsfile, axes_order=None):
                                 # transpose_order = [ordering.index(item) for item in axes_order]
                                 transpose_order = NMO.find_list_in_list(ordering, axes_order)
                                 gaintable[gainkey]['gains'] = NP.transpose(grp['gains'].value, axes=transpose_order)
-                                if gaintable[gainkey]['gains'].shape[axes_order.index('label')] > 1:
-                                    if 'labels' not in grp:
-                                        raise KeyError('List of labels not specified')
+                                for subkey in ['time', 'label', 'frequency']:
+                                    if gaintable[gainkey]['gains'].shape[axes_order.index(subkey)] > 1:
+                                        if subkey not in grp:
+                                            raise KeyError('Key "{0}" not specified'.format(subkey))
+                                        else:
+                                            if not isinstance(grp[subkey].value, (list, NP.ndarray)):
+                                                raise TypeError('"{0} key must be specified as a list or numpy array'.format(subkey))
+                                            gaintable[gainkey][subkey] = NP.asarray(grp[subkey].value).ravel()
+                                            if gaintable[gainkey][subkey].size != gaintable[gainkey]['gains'].shape[axes_order.index(subkey)]:
+                                                raise ValueError('List of labels and the gains do not match in dimensions')
                                     else:
-                                        if not isinstance(grp['labels'].value, (list, NP.ndarray)):
-                                            raise TypeError('Labels must be specified as a list or numpy array')
-                                        gaintable[gainkey]['labels'] = NP.asarray(grp['labels'].value).ravel()
-                                        if gaintable[gainkey]['labels'].size != gaintable[gainkey]['gains'].shape[axes_order.index('label')]:
-                                            raise ValueError('List of labels and the gains do not match in dimensions')
-                                else:
-                                    gaintable[gainkey]['labels'] = None
+                                        gaintable[gainkey][subkey] = None
+
+                                # if gaintable[gainkey]['gains'].shape[axes_order.index('label')] > 1:
+                                #     if 'label' not in grp:
+                                #         raise KeyError('List of labels not specified')
+                                #     else:
+                                #         if not isinstance(grp['label'].value, (list, NP.ndarray)):
+                                #             raise TypeError('Labels must be specified as a list or numpy array')
+                                #         gaintable[gainkey]['label'] = NP.asarray(grp['label'].value).ravel()
+                                #         if gaintable[gainkey]['label'].size != gaintable[gainkey]['gains'].shape[axes_order.index('label')]:
+                                #             raise ValueError('List of labels and the gains do not match in dimensions')
+                                # else:
+                                #     gaintable[gainkey]['label'] = None
                             else:
                                 raise ValueError('Gains array must be three-dimensional. Use fake dimension if there is no variation along any particular axis.')
                     else:
@@ -347,13 +432,31 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None,
                                                 along all three axes, namely, 
                                                 'label', 'frequency' and 
                                                 'time'.
-                                    'labels'    [None or list or numpy array] 
+                                    'label'     [None or list or numpy array] 
                                                 List or antenna labels that
                                                 correspond to nant along
                                                 the 'label' axis. If nant=1,
                                                 this may be set to None, else
                                                 it will be specified and will
                                                 match the nant. 
+                                    'frequency' [None or list or numpy array] 
+                                                Frequency channels that
+                                                correspond to the nax along
+                                                the 'frequency' axis. If the
+                                                nchan=1 along the 'frequency' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the nchan 
+                                    'time'      [None or list or numpy array] 
+                                                Observation times that
+                                                correspond to the nax along
+                                                the 'time' axis. If the
+                                                ntimes=1 along the 'time' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the ntimes. It must 
+                                                be a float and can be in 
+                                                seconds, hours, days, etc.
                 'baseline-based'    [None or dictionary] Contains baseline-based 
                                     instrument gain information. If set to None, 
                                     all baseline-based gains are set to unity. 
@@ -382,7 +485,7 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None,
                                                 along all three axes, namely, 
                                                 'label', 'frequency' and 
                                                 'time'.
-                                    'labels'    [None or list or numpy array] 
+                                    'label'     [None or list or numpy array] 
                                                 List or baseline labels that
                                                 correspond to nbl along
                                                 the 'label' axis. If nbl=1 
@@ -390,6 +493,24 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None,
                                                 this may be set to None, else
                                                 it will be specified and will
                                                 match nbl. 
+                                    'frequency' [None or list or numpy array] 
+                                                Frequency channels that
+                                                correspond to the nax along
+                                                the 'frequency' axis. If the
+                                                nchan=1 along the 'frequency' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the nchan 
+                                    'time'      [None or list or numpy array] 
+                                                Observation times that
+                                                correspond to the nax along
+                                                the 'time' axis. If the
+                                                ntimes=1 along the 'time' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the ntimes. It must 
+                                                be a float and can be in 
+                                                seconds, hours, days, etc.
 
     bl_labels   [Numpy structured array tuples] Labels of antennas in the pair 
                 used to produce the baseline vector under fields 'A2' and 'A1' 
@@ -455,7 +576,7 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None,
                 if gains.shape[0] == 1:
                     blgains = blgains * gains[:,freq_index,time_index].reshape(1,freq_index.size,time_index.size)
                 else:
-                    labels = gaintable[gainkey]['labels']
+                    labels = gaintable[gainkey]['label']
                     if gainkey == 'antenna-based':
                         ind1 = NMO.find_list_in_list(labels, a1_labels)
                         ind2 = NMO.find_list_in_list(labels, a2_labels)
@@ -1262,7 +1383,7 @@ class GainInfo(object):
                                                 replicated along all three 
                                                 axes, namely, 'label', 
                                                 'frequency' and 'time'.
-                                    'labels'    [None or list or numpy 
+                                    'label'     [None or list or numpy 
                                                 array] List or antenna 
                                                 labels that correspond to 
                                                 nant along the 'label' axis. 
@@ -1270,6 +1391,24 @@ class GainInfo(object):
                                                 to None, else it will be 
                                                 specified and will match the 
                                                 nant. 
+                                    'frequency' [None or list or numpy array] 
+                                                Frequency channels that
+                                                correspond to the nax along
+                                                the 'frequency' axis. If the
+                                                nchan=1 along the 'frequency' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the nchan 
+                                    'time'      [None or list or numpy array] 
+                                                Observation times that
+                                                correspond to the nax along
+                                                the 'time' axis. If the
+                                                ntimes=1 along the 'time' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the ntimes. It must 
+                                                be a float and can be in 
+                                                seconds, hours, days, etc.
                 'baseline-based'    [None or dictionary] Contains baseline-
                                     based instrument gain information. If 
                                     set to None, all baseline-based gains 
@@ -1301,7 +1440,7 @@ class GainInfo(object):
                                                 replicated along all three 
                                                 axes, namely, 'label', 
                                                 'frequency' and 'time'.
-                                    'labels'    [None or list or numpy 
+                                    'label'     [None or list or numpy 
                                                 array] List or baseline 
                                                 labels that correspond to 
                                                 nbl along the 'label' axis. 
@@ -1309,6 +1448,24 @@ class GainInfo(object):
                                                 axis this may be set to 
                                                 None, else it will be 
                                                 specified and will match nbl 
+                                    'frequency' [None or list or numpy array] 
+                                                Frequency channels that
+                                                correspond to the nax along
+                                                the 'frequency' axis. If the
+                                                nchan=1 along the 'frequency' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the nchan 
+                                    'time'      [None or list or numpy array] 
+                                                Observation times that
+                                                correspond to the nax along
+                                                the 'time' axis. If the
+                                                ntimes=1 along the 'time' 
+                                                axis, this may be set to None, 
+                                                else it must be specified and 
+                                                must match the ntimes. It must 
+                                                be a float and can be in 
+                                                seconds, hours, days, etc.
 
     Member functions:
 
@@ -1374,7 +1531,7 @@ class GainInfo(object):
                                                     replicated along all three 
                                                     axes, namely, 'label', 
                                                     'frequency' and 'time'.
-                                        'labels'    [None or list or numpy array] 
+                                        'label'     [None or list or numpy array] 
                                                     List or antenna labels that
                                                     correspond to the nax along
                                                     the 'label' axis. If the
@@ -1382,6 +1539,26 @@ class GainInfo(object):
                                                     this may be set to None, else
                                                     it must be specified and must
                                                     match the nax. 
+                                        'frequency' [None or list or numpy 
+                                                    array] Frequency channels 
+                                                    that correspond to the 
+                                                    nax along the 'frequency' 
+                                                    axis. If the nax=1 along the 
+                                                    'frequency' axis, this may 
+                                                    be set to None, else it must 
+                                                    be specified and must match 
+                                                    the nax. 
+                                        'time'      [None or list or numpy 
+                                                    array] Observation times 
+                                                    that correspond to the nax 
+                                                    along the 'time' axis. If 
+                                                    the nax=1 along the 'time' 
+                                                    axis, this may be set to 
+                                                    None, else it must be 
+                                                    specified and must match the 
+                                                    nax. It must be a float and 
+                                                    can be in seconds, hours, 
+                                                    days, etc.
                     'baseline-based'    [dictionary] Contains baseline-based 
                                         instrument gain information. It has the
                                         following keys and values:
@@ -1412,7 +1589,7 @@ class GainInfo(object):
                                                     replicated along all three 
                                                     axes, namely, 'label', 
                                                     'frequency' and 'time'.
-                                        'labels'    [None or list or numpy 
+                                        'label'     [None or list or numpy 
                                                     array] List of baseline 
                                                     labels that correspond to 
                                                     the nax along the 'label' 
@@ -1421,6 +1598,26 @@ class GainInfo(object):
                                                     to None, else it must be 
                                                     specified and must match the 
                                                     nax. 
+                                        'frequency' [None or list or numpy 
+                                                    array] Frequency channels 
+                                                    that correspond to the 
+                                                    nax along the 'frequency' 
+                                                    axis. If the nax=1 along the 
+                                                    'frequency' axis, this may 
+                                                    be set to None, else it must 
+                                                    be specified and must match 
+                                                    the nax. 
+                                        'time'      [None or list or numpy 
+                                                    array] Observation times 
+                                                    that correspond to the nax 
+                                                    along the 'time' axis. If 
+                                                    the nax=1 along the 'time' 
+                                                    axis, this may be set to 
+                                                    None, else it must be 
+                                                    specified and must match the 
+                                                    nax. It must be a float and 
+                                                    can be in seconds, hours, 
+                                                    days, etc.
     
         axes_order  [None or list or numpy array] The gaintable which is read is 
                     stored in this axes ordering. If set to None, it will store 
@@ -1476,14 +1673,35 @@ class GainInfo(object):
                                                     replicated along all three 
                                                     axes, namely, 'label', 
                                                     'frequency' and 'time'.
-                                        'labels'    [None or list or numpy array] 
-                                                    List or antenna labels that
-                                                    correspond to the nax along
-                                                    the 'label' axis. If the
-                                                    nax=1 along the 'label' axis,
-                                                    this may be set to None, else
-                                                    it must be specified and must
-                                                    match the nax. 
+                                        'label'     [None or list or numpy 
+                                                    array] List or antenna 
+                                                    labels that correspond to 
+                                                    the nax along the 'label' 
+                                                    axis. If the nax=1 along the 
+                                                    'label' axis, this may be 
+                                                    set to None, else it must be 
+                                                    specified and must match the 
+                                                    nax. 
+                                        'frequency' [None or list or numpy 
+                                                    array] Frequency channels 
+                                                    that correspond to the nax 
+                                                    along the 'frequency' axis. 
+                                                    If the nax=1 along the 
+                                                    'frequency' axis, this may 
+                                                    be set to None, else it must 
+                                                    be specified and must match 
+                                                    the nax. 
+                                        'time'      [None or list or numpy 
+                                                    array] Observation times 
+                                                    that correspond to the nax 
+                                                    along the 'time' axis. If 
+                                                    the nax=1 along the 'time' 
+                                                    axis, this may be set to 
+                                                    None, else it must be 
+                                                    specified and must match the 
+                                                    nax. It must be a float and 
+                                                    can be in seconds, hours, 
+                                                    days, etc.
                     'baseline-based'    [dictionary] Contains baseline-based 
                                         instrument gain information. It has the
                                         following keys and values:
@@ -1514,7 +1732,7 @@ class GainInfo(object):
                                                     replicated along all three 
                                                     axes, namely, 'label', 
                                                     'frequency' and 'time'.
-                                        'labels'    [None or list or numpy 
+                                        'label'     [None or list or numpy 
                                                     array] List of baseline 
                                                     labels that correspond to 
                                                     the nax along the 'label' 
@@ -1523,6 +1741,26 @@ class GainInfo(object):
                                                     to None, else it must be 
                                                     specified and must match the 
                                                     nax. 
+                                        'frequency' [None or list or numpy 
+                                                    array] Frequency channels 
+                                                    that correspond to the nax 
+                                                    along the 'frequency' axis. 
+                                                    If the nax=1 along the 
+                                                    'frequency' axis, this may 
+                                                    be set to None, else it must 
+                                                    be specified and must match 
+                                                    the nax. 
+                                        'time'      [None or list or numpy 
+                                                    array] Observation times 
+                                                    that correspond to the nax 
+                                                    along the 'time' axis. If 
+                                                    the nax=1 along the 'time' 
+                                                    axis, this may be set to 
+                                                    None, else it must be 
+                                                    specified and must match the 
+                                                    nax. It must be a float and 
+                                                    can be in seconds, hours, 
+                                                    days, etc.
     
         axes_order  [None or list or numpy array] The gaintable which is read is 
                     stored in this axes ordering. If set to None, it will store 
@@ -1567,7 +1805,7 @@ class GainInfo(object):
                                                     replicated along all three 
                                                     axes, namely, 'label', 
                                                     'frequency' and 'time'.
-                                        'labels'    [None or list or numpy 
+                                        'label'     [None or list or numpy 
                                                     array] List or antenna 
                                                     labels that correspond to 
                                                     nant along the 'label' axis. 
@@ -1575,6 +1813,26 @@ class GainInfo(object):
                                                     to None, else it will be 
                                                     specified and will match the 
                                                     nant. 
+                                        'frequency' [None or list or numpy 
+                                                    array] Frequency channels 
+                                                    that correspond to the nax 
+                                                    along the 'frequency' axis. 
+                                                    If the nchan=1 along the 
+                                                    'frequency' axis, this may 
+                                                    be set to None, else it must 
+                                                    be specified and must match 
+                                                    the nchan. 
+                                        'time'      [None or list or numpy 
+                                                    array] Observation times 
+                                                    that correspond to the nax 
+                                                    along the 'time' axis. If 
+                                                    the ntimes=1 along the 
+                                                    'time' axis, this may be set 
+                                                    to None, else it must be 
+                                                    specified and must match the 
+                                                    ntimes. It will be a float 
+                                                    and in same units as given 
+                                                    in input
                     'baseline-based'    [None or dictionary] Contains baseline-
                                         based instrument gain information. If 
                                         set to None, all baseline-based gains 
@@ -1606,7 +1864,7 @@ class GainInfo(object):
                                                     replicated along all three 
                                                     axes, namely, 'label', 
                                                     'frequency' and 'time'.
-                                        'labels'    [None or list or numpy 
+                                        'label'     [None or list or numpy 
                                                     array] List or baseline 
                                                     labels that correspond to 
                                                     nbl along the 'label' axis. 
@@ -1614,6 +1872,26 @@ class GainInfo(object):
                                                     axis this may be set to 
                                                     None, else it will be 
                                                     specified and will match nbl 
+                                        'frequency' [None or list or numpy 
+                                                    array] Frequency channels 
+                                                    that correspond to the nax 
+                                                    along the 'frequency' axis. 
+                                                    If the nchan=1 along the 
+                                                    'frequency' axis, this may 
+                                                    be set to None, else it must 
+                                                    be specified and must match 
+                                                    the nchan. 
+                                        'time'      [None or list or numpy 
+                                                    array] Observation times 
+                                                    that correspond to the nax 
+                                                    along the 'time' axis. If 
+                                                    the ntimes=1 along the 
+                                                    'time' axis, this may be set 
+                                                    to None, else it must be 
+                                                    specified and must match the 
+                                                    ntimes. It will be a float 
+                                                    and in same units as given 
+                                                    in input
         ------------------------------------------------------------------------
         """
 
@@ -1672,7 +1950,7 @@ class GainInfo(object):
                                                     replicated along all three 
                                                     axes, namely, 'label', 
                                                     'frequency' and 'time'.
-                                        'labels'    [None or list or numpy 
+                                        'label'     [None or list or numpy 
                                                     array] List or antenna 
                                                     labels that correspond to 
                                                     nant along the 'label' 
@@ -1680,6 +1958,26 @@ class GainInfo(object):
                                                     set to None, else it will be 
                                                     specified and will match the 
                                                     nant. 
+                                        'frequency' [None or list or numpy 
+                                                    array] Frequency channels 
+                                                    that correspond to the nax 
+                                                    along the 'frequency' axis. 
+                                                    If the nchan=1 along the 
+                                                    'frequency' axis, this may 
+                                                    be set to None, else it must 
+                                                    be specified and must match 
+                                                    the nchan 
+                                        'time'      [None or list or numpy 
+                                                    array] Observation times 
+                                                    that correspond to the nax 
+                                                    along the 'time' axis. If 
+                                                    the ntimes=1 along the 
+                                                    'time' axis, this may be set 
+                                                    to None, else it must be 
+                                                    specified and must match the 
+                                                    ntimes. It must be a float 
+                                                    and can be in seconds, 
+                                                    hours, days, etc.
                     'baseline-based'    [None or dictionary] Contains baseline-
                                         based instrument gain information. If 
                                         set to None, all baseline-based gains 
@@ -1710,7 +2008,7 @@ class GainInfo(object):
                                                     replicated along all three 
                                                     axes, namely, 'label', 
                                                     'frequency' and 'time'.
-                                        'labels'    [None or list or numpy 
+                                        'label'     [None or list or numpy 
                                                     array] List or baseline 
                                                     labels that correspond to 
                                                     nbl along the 'label' 
@@ -1718,6 +2016,26 @@ class GainInfo(object):
                                                     'label' axis this may be 
                                                     set to None, else it will be 
                                                     specified and will match nbl. 
+                                        'frequency' [None or list or numpy 
+                                                    array] Frequency channels 
+                                                    that correspond to the nax 
+                                                    along the 'frequency' axis. 
+                                                    If the nchan=1 along the 
+                                                    'frequency' axis, this may 
+                                                    be set to None, else it must 
+                                                    be specified and must match 
+                                                    the nchan 
+                                        'time'      [None or list or numpy 
+                                                    array] Observation times 
+                                                    that correspond to the nax 
+                                                    along the 'time' axis. If 
+                                                    the ntimes=1 along the 
+                                                    'time' axis, this may be set 
+                                                    to None, else it must be 
+                                                    specified and must match the 
+                                                    ntimes. It must be a float 
+                                                    and can be in seconds, 
+                                                    hours, days, etc.
     
         bl_labels   [Numpy structured array tuples] Labels of antennas in the 
                     pair used to produce the baseline vector under fields 'A2' 
@@ -2740,7 +3058,7 @@ class InterferometerArray(object):
                                                 along all three axes, namely, 
                                                 'label', 'frequency' and 
                                                 'time'.
-                                    'labels'    [None or list or numpy array] 
+                                    'label'     [None or list or numpy array] 
                                                 List or antenna labels that
                                                 correspond to nant along
                                                 the 'label' axis. If nant=1,
@@ -2774,7 +3092,7 @@ class InterferometerArray(object):
                                                 along all three axes, namely, 
                                                 'label', 'frequency' and 
                                                 'time'.
-                                    'labels'    [None or list or numpy array] 
+                                    'label'     [None or list or numpy array] 
                                                 List or baseline labels that
                                                 correspond to nbl along
                                                 the 'label' axis. If nbl=1 
@@ -3536,8 +3854,8 @@ class InterferometerArray(object):
                 self.gaintable = {}
                 for gainkey in ['antenna-based', 'baseline-based']:
                     self.gaintable[gainkey] = {}
-                    for subkey in ['labels', 'gains', 'ordering']:
-                        if subkey == 'labels':
+                    for subkey in ['label', 'gains', 'ordering']:
+                        if subkey == 'label':
                             if '{0}_in_{1}_gains'.format(subkey, gainkey) in extnames:
                                 self.gaintable[gainkey][subkey] = hdulist['{0}_in_{1}_gains'.format(subkey, gainkey)]
                         elif subkey == 'gains':
