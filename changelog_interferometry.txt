@@ -1,3 +1,12 @@
+From 81c63c4 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Include some more type checking in read_gaintable() and member
+function write_gaintable() of class GainInfo
+(*) Remove some commented lines
+
 From b9b265e (instrument-gains):
 ===============================
 

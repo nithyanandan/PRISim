@@ -347,33 +347,22 @@ def read_gaintable(gainsfile, axes_order=None):
                             raise ValueError('Required elements not found in ordering of instrument gains')
                         else:
                             if grp['gains'].value.ndim == 3:
-                                # transpose_order = [ordering.index(item) for item in axes_order]
                                 transpose_order = NMO.find_list_in_list(ordering, axes_order)
                                 gaintable[gainkey]['gains'] = NP.transpose(grp['gains'].value, axes=transpose_order)
                                 for subkey in ['time', 'label', 'frequency']:
-                                    if gaintable[gainkey]['gains'].shape[axes_order.index(subkey)] > 1:
-                                        if subkey not in grp:
-                                            raise KeyError('Key "{0}" not specified'.format(subkey))
-                                        else:
-                                            if not isinstance(grp[subkey].value, (list, NP.ndarray)):
-                                                raise TypeError('"{0} key must be specified as a list or numpy array'.format(subkey))
-                                            gaintable[gainkey][subkey] = NP.asarray(grp[subkey].value).ravel()
-                                            if gaintable[gainkey][subkey].size != gaintable[gainkey]['gains'].shape[axes_order.index(subkey)]:
-                                                raise ValueError('List of labels and the gains do not match in dimensions')
+                                    gaintable[gainkey][subkey] = None
+                                    if isinstance(grp[subkey].value, NP.ndarray):
+                                        if gaintable[gainkey]['gains'].shape[axes_order.index(subkey)] > 1:
+                                            if subkey not in grp:
+                                                raise KeyError('Key "{0}" not specified'.format(subkey))
+                                            else:
+                                                if not isinstance(grp[subkey].value, (list, NP.ndarray)):
+                                                    raise TypeError('"{0} key must be specified as a list or numpy array'.format(subkey))
+                                                gaintable[gainkey][subkey] = NP.asarray(grp[subkey].value).ravel()
+                                                if gaintable[gainkey][subkey].size != gaintable[gainkey]['gains'].shape[axes_order.index(subkey)]:
+                                                    raise ValueError('List of labels and the gains do not match in dimensions')
                                     else:
-                                        gaintable[gainkey][subkey] = None
-
-                                # if gaintable[gainkey]['gains'].shape[axes_order.index('label')] > 1:
-                                #     if 'label' not in grp:
-                                #         raise KeyError('List of labels not specified')
-                                #     else:
-                                #         if not isinstance(grp['label'].value, (list, NP.ndarray)):
-                                #             raise TypeError('Labels must be specified as a list or numpy array')
-                                #         gaintable[gainkey]['label'] = NP.asarray(grp['label'].value).ravel()
-                                #         if gaintable[gainkey]['label'].size != gaintable[gainkey]['gains'].shape[axes_order.index('label')]:
-                                #             raise ValueError('List of labels and the gains do not match in dimensions')
-                                # else:
-                                #     gaintable[gainkey]['label'] = None
+                                        raise TypeError('Value of key "{0}" in {1} gains must be a numpy array'.format(subkey, gainkey))
                             else:
                                 raise ValueError('Gains array must be three-dimensional. Use fake dimension if there is no variation along any particular axis.')
                     else:
@@ -2166,7 +2155,8 @@ class GainInfo(object):
                         elif subkey == 'ordering':
                             dset = grp.create_dataset(subkey, data=axes_order)
                         else:
-                            dset = grp.create_dataset(subkey, data=self.gaintable[gainkey][subkey])
+                            if isinstance(self.gaintable[gainkey][subkey], NP.ndarray):
+                                dset = grp.create_dataset(subkey, data=self.gaintable[gainkey][subkey])
 
 #################################################################################
 
