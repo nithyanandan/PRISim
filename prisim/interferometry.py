@@ -3020,19 +3020,22 @@ class InterferometerArray(object):
                         # phase_matrix *= vis_wts[:,:,NP.newaxis]
                         phase_matrix *= vis_wts
                     skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * phase_matrix, axis=0) # SUM(nsrc x nbl x nchan, axis=0) = nbl x nchan
-                    if gradient_mode.lower() == 'baseline':
-                        skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float32) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * phase_matrix[:,NP.newaxis,:,:], axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
+                    if gradient_mode is not None:
+                        if gradient_mode.lower() == 'baseline':
+                            skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float32) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * phase_matrix[:,NP.newaxis,:,:], axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
                 else:
                     phase_matrix = 2.0 * NP.pi * (self.geometric_delays[-1][:,:,NP.newaxis].astype(NP.float64) - pc_delay_offsets.astype(NP.float64).reshape(1,-1,1)) * self.channels.astype(NP.float64).reshape(1,1,-1)
                     if vis_wts is not None:
                         # skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts[:,:,NP.newaxis], axis=0) # Don't apply bandpass here
                         skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts, axis=0) # SUM(nsrc x nbl x nchan, axis=0) = nbl x nchan
-                        if gradient_mode.lower() == 'baseline':
-                            skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * NP.exp(-1j*phase_matrix[:,NP.newaxis,:,:]) * vis_wts[:,NP.newaxis,:,:], axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
+                        if gradient_mode is not None:
+                            if gradient_mode.lower() == 'baseline':
+                                skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * NP.exp(-1j*phase_matrix[:,NP.newaxis,:,:]) * vis_wts[:,NP.newaxis,:,:], axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
                     else:
                         skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix), axis=0) # SUM(nsrc x nbl x nchan, axis=0) = nbl x nchan
-                        if gradient_mode.lower() == 'baseline':
-                            skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * NP.exp(-1j*phase_matrix[:,NP.newaxis,:,:]), axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
+                        if gradient_mode is not None:
+                            if gradient_mode.lower() == 'baseline':
+                                skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * NP.exp(-1j*phase_matrix[:,NP.newaxis,:,:]), axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
             else:
                 print '\t\tDetecting memory shortage. Serializing over sky direction.'
                 downsize_factor = NP.ceil(memory_required/float(memory_available))
@@ -3048,8 +3051,9 @@ class InterferometerArray(object):
                             
                         phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float32)
                         skyvis += NP.sum(phase_matrix, axis=0)
-                        if gradient_mode.lower() == 'baseline':
-                            skyvis_gradient += NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float32) * phase_matrix[:,NP.newaxis,:,:], axis=0)
+                        if gradient_mode is not None:
+                            if gradient_mode.lower() == 'baseline':
+                                skyvis_gradient += NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float32) * phase_matrix[:,NP.newaxis,:,:], axis=0)
                 else:
                     for i in xrange(len(src_indices)):
                         phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float64) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float64) - pc_delay_offsets.astype(NP.float64).reshape(1,-1,1)) * self.channels.astype(NP.float64).reshape(1,1,-1)).astype(NP.complex128, copy=False)
@@ -3058,22 +3062,26 @@ class InterferometerArray(object):
                             
                         phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float64)
                         skyvis += NP.sum(phase_matrix, axis=0)
-                        if gradient_mode.lower() == 'baseline':
-                            skyvis_gradient += NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * phase_matrix[:,NP.newaxis,:,:], axis=0)
+                        if gradient_mode is not None:
+                            if gradient_mode.lower() == 'baseline':
+                                skyvis_gradient += NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * phase_matrix[:,NP.newaxis,:,:], axis=0)
             self.obs_catalog_indices = self.obs_catalog_indices + [m2]
         else:
             print 'No sources found in the catalog within matching radius. Simply populating the observed visibilities and/or gradients with noise.'
-            if gradient_mode.lower() == 'baseline':
-                skyvis_gradient = NP.zeros( (3, self.baselines.shape[0], self.channels.size), dtype=datatype)
+            if gradient_mode is not None:
+                if gradient_mode.lower() == 'baseline':
+                    skyvis_gradient = NP.zeros( (3, self.baselines.shape[0], self.channels.size), dtype=datatype)
 
         if self.timestamp == []:
             self.skyvis_freq = skyvis[:,:,NP.newaxis]
-            if gradient_mode.lower() == 'baseline':
-                self.gradient[gradient_mode] = skyvis_gradient[:,:,:,NP.newaxis]
+            if gradient_mode is not None:
+                if gradient_mode.lower() == 'baseline':
+                    self.gradient[gradient_mode] = skyvis_gradient[:,:,:,NP.newaxis]
         else:
             self.skyvis_freq = NP.dstack((self.skyvis_freq, skyvis[:,:,NP.newaxis]))
-            if gradient_mode.lower() == 'baseline':
-                self.gradient[gradient_mode] = NP.concatenate((self.gradient[gradient_mode], skyvis_gradient[:,:,:,NP.newaxis]), axis=3)
+            if gradient_mode is not None:
+                if gradient_mode.lower() == 'baseline':
+                    self.gradient[gradient_mode] = NP.concatenate((self.gradient[gradient_mode], skyvis_gradient[:,:,:,NP.newaxis]), axis=3)
 
         self.timestamp = self.timestamp + [timestamp]
         self.t_acc = self.t_acc + [t_acc]

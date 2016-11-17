@@ -1,3 +1,11 @@
+From a30fba8 (bl-gradient):
+==========================
+
+In prisim/interferometry.py,
+
+(*) Type check for input gradient_mode in observe() member function
+of class InterferometerArray. 
+
 From 17e9e05 (bl-gradient):
 ==========================
 
