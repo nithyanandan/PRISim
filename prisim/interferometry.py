@@ -3636,79 +3636,8 @@ class InterferometerArray(object):
 
     n_acc       [scalar] Number of accumulations
 
-    gaintable   [None or dictionary] If set to None, all antenna- and baseline-
-                based gains must be set to unity. If returned as dictionary, it
-                contains the loaded gains. It contains the following keys and 
-                values:
-                'antenna-based'     [None or dictionary] Contains antenna-based 
-                                    instrument gain information. If set to None, 
-                                    all antenna-based gains are set to unity. 
-                                    If returned as dictionary, it has the
-                                    following keys and values:
-                                    'ordering'  [list or numpy array] Three
-                                                element list of strings 
-                                                indicating the ordering of
-                                                axes - 'time', 'label', 
-                                                and 'frequency'. 
-                                    'gains'     [scalar or numpy array] 
-                                                Complex antenna-based 
-                                                instrument gains. Must be 
-                                                of shape (nant, nchan, nts)
-                                                If there is no variations in 
-                                                gains along an axis, then the
-                                                corresponding nax may be set
-                                                to 1 and the gains will be
-                                                replicated along that axis
-                                                using numpy array broadcasting.
-                                                For example, shapes (nant,1,1),
-                                                (1,1,1), (1,nchan,nts) are
-                                                acceptable. If specified as a
-                                                scalar, it will be replicated 
-                                                along all three axes, namely, 
-                                                'label', 'frequency' and 
-                                                'time'.
-                                    'label'     [None or list or numpy array] 
-                                                List or antenna labels that
-                                                correspond to nant along
-                                                the 'label' axis. If nant=1,
-                                                this may be set to None, else
-                                                it will be specified and will
-                                                match the nant. 
-                'baseline-based'    [None or dictionary] Contains baseline-based 
-                                    instrument gain information. If set to None, 
-                                    all baseline-based gains are set to unity. 
-                                    If returned as dictionary, it has the
-                                    following keys and values:
-                                    'ordering'  [list or numpy array] Three
-                                                element list of strings 
-                                                indicating the ordering of
-                                                axes - 'time', 'label', 
-                                                and 'frequency'. 
-                                    'gains'     [scalar or numpy array] 
-                                                Complex baseline-based 
-                                                instrument gains. Must be 
-                                                of shape (nbl, nchan, nts)
-                                                If there is no variations in 
-                                                gains along an axis, then the
-                                                corresponding nax may be set
-                                                to 1 and the gains will be
-                                                replicated along that axis
-                                                using numpy array broadcasting.
-                                                For example, shapes (nant,1,1),
-                                                (1,1,1), (1,nchan,nts) are
-                                                acceptable. If specified as a
-                                                scalar, it will be replicated 
-                                                along all three axes, namely, 
-                                                'label', 'frequency' and 
-                                                'time'.
-                                    'label'     [None or list or numpy array] 
-                                                List or baseline labels that
-                                                correspond to nbl along
-                                                the 'label' axis. If nbl=1 
-                                                along the 'label' axis
-                                                this may be set to None, else
-                                                it will be specified and will
-                                                match nbl. 
+    gaininfo    [None or instance of class GainInfo] Instance of class 
+                Gaininfo. If set to None, default gains assumed to be unity.
 
     gradient_mode
                 [string] If set to None, visibilities will be simulated as 
@@ -4002,7 +3931,7 @@ class InterferometerArray(object):
                  latitude=34.0790, longitude=0.0, skycoords='radec',
                  A_eff=NP.pi*(25.0/2)**2, pointing_coords='hadec',
                  layout=None, baseline_coords='localenu', freq_scale=None, 
-                 gaintable=None, init_file=None, simparms_file=None):
+                 gaininfo=None, init_file=None, simparms_file=None):
         
         """
         ------------------------------------------------------------------------
@@ -4016,7 +3945,7 @@ class InterferometerArray(object):
         pointing_center, skyvis_freq, skyvis_lag, timestamp, t_acc, Tsys, 
         Tsysinfo, vis_freq, vis_lag, t_obs, n_acc, vis_noise_freq, 
         vis_noise_lag, vis_rms_freq, geometric_delays, projected_baselines, 
-        simparms_file, layout, gradient, gradient_mode, gaintable
+        simparms_file, layout, gradient, gradient_mode, gaininfo
 
         Read docstring of class InterferometerArray for details on these
         attributes.
@@ -4059,12 +3988,13 @@ class InterferometerArray(object):
                     self.vis_noise_lag = None
                     self.gradient_mode = None
                     self.gradient = {}
-                    self.gaintable = None
-                    for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'layout', 'instrument', 'visibilities', 'gradients', 'gaintable']:
+                    # self.gaintable = None
+                    self.gaininfo = None
+                    for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'layout', 'instrument', 'visibilities', 'gradients', 'gaininfo']:
                         try:
                             grp = fileobj[key]
                         except KeyError:
-                            if key in ['gradients', 'gaintable']:
+                            if key in ['gradients', 'gaininfo']:
                                 pass
                             elif key != 'simparms':
                                 raise KeyError('Key {0} not found in init_file'.format(key))
@@ -4227,17 +4157,20 @@ class InterferometerArray(object):
                                 self.gradient_mode = gradkey
                                 self.gradient[gradkey] = grp[gradkey].value
 
-                        if key == 'gaintable':
-                            self.gaintable = {}
-                            for gainkey in grp:
-                                self.gaintable[gainkey] = {}
-                                for subkey in grp[gainkey]:
-                                    self.gaintable[gainkey][subkey] = grp[gainkey][subkey].value
-                                if not self.gaintable[gainkey]:
-                                    self.gaintable[gainkey] = None
-                            if not self.gaintable:
-                                self.gaintable = None
-                                
+                        # if key == 'gaintable':
+                        #     self.gaintable = {}
+                        #     for gainkey in grp:
+                        #         self.gaintable[gainkey] = {}
+                        #         for subkey in grp[gainkey]:
+                        #             self.gaintable[gainkey][subkey] = grp[gainkey][subkey].value
+                        #         if not self.gaintable[gainkey]:
+                        #             self.gaintable[gainkey] = None
+                        #     if not self.gaintable:
+                        #         self.gaintable = None
+
+                        if key == 'gaininfo':
+                            self.gaininfo = GainInfo(init_file=grp['gainsfile'])
+
             except IOError: # Check if a FITS file is available
                 try:
                     hdulist = fits.open(init_file+'.fits')
@@ -4460,23 +4393,31 @@ class InterferometerArray(object):
                             self.gradient[self.gradient_mode] = self.gradient[self.gradient_mode].astype(NP.complex128)
                             self.gradient[self.gradient_mode] += 1j * hdulist['imag_freq_sky_visibility_gradient_wrt_{0}'.format(self.gradient_mode)].data
 
-                self.gaintable = {}
-                for gainkey in ['antenna-based', 'baseline-based']:
-                    self.gaintable[gainkey] = {}
-                    for subkey in ['label', 'gains', 'ordering']:
-                        if subkey == 'label':
-                            if '{0}_in_{1}_gains'.format(subkey, gainkey) in extnames:
-                                self.gaintable[gainkey][subkey] = hdulist['{0}_in_{1}_gains'.format(subkey, gainkey)]
-                        elif subkey == 'gains':
-                            if '{0}_{1}_real'.format(gainkey, subkey) in extnames:
-                                self.gaintable[gainkey][subkey] = hdulist['{0}_{1}_real'.format(gainkey, subkey)].data +1j * hdulist['{0}_{1}_imag'.format(gainkey, subkey)].data
-                        else:
-                            self.gaintable[gainkey][subkey] = hdulist['gains_axes_{0}'.format(subkey)].data
-                    if not self.gaintable[gainkey]:
-                        self.gaintable[gainkey] = None
-                if not self.gaintable:
-                    self.gaintable = None
-                                
+                # self.gaintable = {}
+                # for gainkey in ['antenna-based', 'baseline-based']:
+                #     self.gaintable[gainkey] = {}
+                #     for subkey in ['label', 'gains', 'ordering']:
+                #         if subkey == 'label':
+                #             if '{0}_in_{1}_gains'.format(subkey, gainkey) in extnames:
+                #                 self.gaintable[gainkey][subkey] = hdulist['{0}_in_{1}_gains'.format(subkey, gainkey)]
+                #         elif subkey == 'gains':
+                #             if '{0}_{1}_real'.format(gainkey, subkey) in extnames:
+                #                 self.gaintable[gainkey][subkey] = hdulist['{0}_{1}_real'.format(gainkey, subkey)].data +1j * hdulist['{0}_{1}_imag'.format(gainkey, subkey)].data
+                #         else:
+                #             self.gaintable[gainkey][subkey] = hdulist['gains_axes_{0}'.format(subkey)].data
+                #     if not self.gaintable[gainkey]:
+                #         self.gaintable[gainkey] = None
+                # if not self.gaintable:
+                #     self.gaintable = None
+
+                try:
+                    gainsfile = hdulist[0].header['gainsfile']
+                except KeyError:
+                    print '\tKeyword "gainsfile" not found in header. Assuming default unity gains.'
+                    self.gaininfo = None
+                else:
+                    self.gaininfo = GainInfo(init_file=gainsfile, axes_order=['label', 'frequency', 'time'])
+
                 if 'REAL_LAG_VISIBILITY' in extnames:
                     self.vis_lag = hdulist['real_lag_visibility'].data
                     if 'IMAG_LAG_VISIBILITY' in extnames:
@@ -4604,11 +4545,16 @@ class InterferometerArray(object):
         self.vis_noise_freq = None
         self.gradient_mode = None
         self.gradient = {}
-        self.gaintable = None
-        if gaintable is not None:
-            if not isinstance(gaintable, dict):
-                raise TypeError('Input parameter gaintable must be a dictionary')
-            self.gaintable = gaintable
+        # self.gaintable = None
+        # if gaintable is not None:
+        #     if not isinstance(gaintable, dict):
+        #         raise TypeError('Input parameter gaintable must be a dictionary')
+        #     self.gaintable = gaintable
+        self.gaininfo = None
+        if gaininfo is not None:
+            if not isinstance(gaininfo, GainInfo):
+                raise TypeError('Input gaininfo must be an instance of class GainInfo')
+            self.gaininfo = gaininfo
 
         if (freq_scale is None) or (freq_scale == 'Hz') or (freq_scale == 'hz'):
             self.channels = NP.asarray(channels)

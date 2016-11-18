@@ -1,3 +1,19 @@
+From cc9240e (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Introduce attribute gaininfo in place of gaintable in member
+function __init__() of class InterferometerArray. Change member
+function and class docstrings accordingly. Earlier attribute
+gaintable was a dictionary but gaininfo is an instance of class
+GainInfo
+
+In scripts/run_prisim.py,
+
+(*) Change references from gaintable to gaininfo which is used to
+initialize instances of class InterferometerArray
+
 From 5031131 (instrument-gains):
 ===============================
 
