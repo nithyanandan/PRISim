@@ -1,3 +1,28 @@
+From 5031131 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Add and initialize attributes interpfuncs and splinefuncs along
+with docstrings in member function __init__() of class GainInfo
+(*) Add member function interpolator() along with docstring in class
+GainInfo. It sets up interpolation functions in attribute interpfuncs
+using scipy.interpolate.interp1d and scipy.interpolate.interp2d.
+Update class docstring accordingly
+(*) Add member function splinator() along with docstring in class
+GainInfo. It sets up spline-based interpolation functions in attribute 
+splinefuncs using scipy.interpolate.UnivariateSpline and
+scipy.interpolate.RectBivariateSpline. Update class docstring
+accordingly
+(*) Add member function interpolate_gains() with docstring under class
+GainInfo. It evaluates gains for specified baselines, frequencies and
+times using the attribute interpfuncs. Update class docstring
+accordingly
+(*) Add member function spline_gains() with docstring under class
+GainInfo. It evaluates gains for specified baselines, frequencies and
+times using the attribute splinefuncs. Update class docstring
+accordingly
+
 From 81c63c4 (instrument-gains):
 ===============================
 

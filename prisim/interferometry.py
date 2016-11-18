@@ -1,9 +1,11 @@
 from __future__ import division
 import numpy as NP
 import scipy.constants as FCNST
+from scipy import interpolate
 import datetime as DT
 import progressbar as PGB
 import os
+import copy
 import astropy 
 from astropy.io import fits
 from astropy.coordinates import SkyCoord
@@ -1456,6 +1458,55 @@ class GainInfo(object):
                                                 be a float and can be in 
                                                 seconds, hours, days, etc.
 
+    interpfuncs [dictionary] Determined in member function interpolator(). 
+                Contains interpolation information under two keys, namely, 
+                'antenna-based' and 'baseline-based'. Under each of these keys 
+                is another dictionary with the following keys and values:
+                'dims'      [numpy array of strings] Contains the axes labels
+                            of the interpolated axes for antenna or baseline 
+                            labels. It could contain a single element ['time'], 
+                            of ['frequency'] indicating 1D splines along that
+                            axis or contain two elements 'time' and 'frequency'
+                            indicating 2D splines. 1D splines will have been
+                            obtained with scipy.interpolate.interp1d while
+                            2D splines obtained with scipy.interpolate.interp2d
+                'interp'    [numpy recArray] Holds the interpolation functions
+                            (instances of scipy.interpolate.interp1d or 
+                            scipy.interpolate.interp2d depending on the value
+                            under 'dims' key) for each antenna or baseline
+                            label. It is of size nbl. Each entry in this 
+                            numpy recArray has two fields, 'real' for 
+                            interpolation of real part and 'imag' for the
+                            imaginary part. If it is a one element recarray, 
+                            then it applies to all antennas and baselines
+                Member function interpolate_gains() uses this attribute to 
+                return interpolated gains
+                         
+    splinefuncs [dictionary] Determined in member function splinator(). 
+                Contains spline information under two keys, namely, 
+                'antenna-based' and 'baseline-based'. Under each of these keys 
+                is another dictionary with the following keys and values:
+                'dims'      [numpy array of strings] Contains the axes labels
+                            of the interpolated axes for antenna or baseline 
+                            labels. It could contain a single element ['time'], 
+                            of ['frequency'] indicating 1D splines along that
+                            axis or contain two elements 'time' and 'frequency'
+                            indicating 2D splines. 1D splines will have been
+                            obtained with scipy.interpolate.UnivariateSpline 
+                            while 2D splines obtained with 
+                            scipy.interpolate.RectBivariateSpline
+                'interp'    [numpy recArray] Holds the spline functions
+                            (instances of scipy.interpolate.UnivariateSpline or 
+                            scipy.interpolate.RectBivariateSpline depending on 
+                            the value under 'dims' key) for each antenna or 
+                            baseline label. It is of size nbl. Each entry in 
+                            this numpy recArray has two fields, 'real' for 
+                            interpolation of real part and 'imag' for the
+                            imaginary part. If it is a one element recarray, 
+                            then it applies to all antennas and baselines.
+                Member function spline_gains() uses this attribute to return
+                spline-interpolated gains
+
     Member functions:
 
     __init__()  Initialize an instance of class GainInfo from a file
@@ -1467,6 +1518,23 @@ class GainInfo(object):
     eval_gains()
                 Extract complex instrument gains for given baselines from the 
                 gain table 
+
+    interpolator()
+                Sets up interpolation functions and stores them in the 
+                attribute interpfuncs. Better alternative is to use splinator()
+
+    splinator() Sets up spline functions and stores them in the attribute 
+                splinefuncs. Better alternative to interpolator()
+
+    interpolate_gains()
+                Interpolate at the specified baselines for the given 
+                frequencies and times using attribute interpfuncs. Better 
+                alternative is to use spline_gains()
+
+    spline_gains()
+                Evaluate spline at the specified baselines for the given 
+                frequencies and times using attribute splinefuncs. Better 
+                alternative to interpolate_gains()
 
     write_gaintable()
                 Write gain table with specified axes ordering to external file 
@@ -1481,7 +1549,7 @@ class GainInfo(object):
         Initialize an instance of class GainInfo from a file
 
         Attributes initialized are: 
-        gaintable
+        gaintable, interpfuncs, splinefuncs
 
         Read docstring of class GainInfo for details on these attributes
 
@@ -1615,8 +1683,12 @@ class GainInfo(object):
         """
     
         self.gaintable = None
+        self.interpfuncs = {key: None for key in ['antenna-based', 'baseline-based']}
+        self.splinefuncs = {key: None for key in ['antenna-based', 'baseline-based']}
         if init_file is not None:
             self.gaintable = self.read_gaintable(init_file, axes_order=axes_order, action='return')
+        self.interpolator()
+        self.splinator(smoothness=None)
 
     #############################################################################
 
@@ -1755,9 +1827,9 @@ class GainInfo(object):
                     stored in this axes ordering. If set to None, it will store 
                     in this order ['label', 'frequency', 'time']
 
-        action      [string] If set to 'store' (the gain table will be stored as 
-                    attribute in addition to being returned). If set to 'return'
-                    the gain table will be returned.
+        action      [string] If set to 'store' (default), the gain table will 
+                    be stored as attribute in addition to being returned. If set 
+                    to 'return' the gain table will be returned.
     
         Output:
     
@@ -1895,6 +1967,553 @@ class GainInfo(object):
             self.gaintable = gaintable
         return gaintable
 
+    #############################################################################
+
+    def interpolator(self, kind='linear'):
+
+        """
+        ------------------------------------------------------------------------
+        Sets up interpolation functions and stores them in the attribute
+        interpfuncs. Better alternative is to use splinator()
+        
+        Inputs:
+        
+        kind    [string] Type of interpolation. Accepted values are
+                'linear' (default), 'cubic' or 'quintic'. See documentation
+                of scipy.interpolate.interp1d and scipy.interpolate.interp2d
+                for details
+        ------------------------------------------------------------------------
+        """
+
+        kind = kind.lower()
+        if kind not in ['linear', 'cubic', 'quintic']:
+            raise ValueError('Specified kind of interpolation invalid')
+
+        if self.gaintable is not None:
+            for gainkey in self.gaintable:
+                if self.gaintable[gainkey] is not None:
+                    self.interpfuncs[gainkey] = None
+                    if self.gaintable[gainkey]['gains'] is not None:
+                        if isinstance(self.gaintable[gainkey]['gains'], NP.ndarray):
+                            if self.gaintable[gainkey]['gains'].ndim != 3:
+                                raise ValueError('Gains must be a 3D numpy array')
+                            # if self.gaintable[gainkey]['gains'].size > 1:
+                            if (self.gaintable[gainkey]['gains'].shape[self.gaintable[gainkey]['ordering'].index('frequency')] > 1) or (self.gaintable[gainkey]['gains'].shape[self.gaintable[gainkey]['ordering'].index('time')] > 1):
+                                temp_axes_order = ['label', 'frequency', 'time']
+                                inp_order = self.gaintable[gainkey]['ordering']
+                                temp_transpose_order = NMO.find_list_in_list(inp_order, temp_axes_order)
+                                if NP.all(inp_order == temp_axes_order):
+                                    gains = NP.copy(self.gaintable[gainkey]['gains'])
+                                else:
+                                    gains = NP.transpose(NP.copy(self.gaintable[gainkey]['gains']), axes=temp_transpose_order)
+                                dims = []
+                                for ax in NP.arange(1,3):
+                                    if gains.shape[ax] > 1:
+                                        dims += [temp_axes_order[ax]]
+                                dims = NP.asarray(dims)
+                                interpf = []
+                                for labelind in xrange(gains.shape[0]):
+                                    if dims.size == 1:
+                                        interpf_real = interpolate.interp1d(self.gaintable[gainkey][dims[0]], gains[labelind,:,:].real.ravel(), kind=kind, bounds_error=True)
+                                        interpf_imag = interpolate.interp1d(self.gaintable[gainkey][dims[0]], gains[labelind,:,:].imag.ravel(), kind=kind, bounds_error=True)
+                                    else:
+                                        interpf_real = interpolate.interp2d(self.gaintable[gainkey]['time'], self.gaintable[gainkey]['frequency'], gains[labelind,:,:].real, kind=kind, bounds_error=True)
+                                        interpf_imag = interpolate.interp2d(self.gaintable[gainkey]['time'], self.gaintable[gainkey]['frequency'], gains[labelind,:,:].imag, kind=kind, bounds_error=True)
+                                    interpf += [(copy.copy(interpf_real), copy.copy(interpf_imag))]
+                                self.interpfuncs[gainkey] = {'interp': NP.asarray(interpf, dtype=[('real', NP.object), ('imag', NP.object)]), 'dims': dims}
+                                        
+    ############################################################################
+
+    def splinator(self, smoothness=None):
+
+        """
+        -----------------------------------------------------------------------
+        Sets up spline functions and stores them in the attribute splinefuncs.
+        Better alternative to interpolator()
+        
+        Inputs:
+        
+        smoothness  [integer or float] Smoothness of spline interpolation. Must
+                    be positive. If set to None (default), it will set equal to 
+                    the number of samples using which the spline functions are
+                    estimated. Read documentation of 
+                    scipy.interpolate.UnivariateSpline and 
+                    scipy.interpolate.RectBivariateSpline for more details
+        -----------------------------------------------------------------------
+        """
+        if smoothness is not None:
+            if not isinstance(smoothness, (int,float)):
+                raise TypeError('Input smoothness must be a scalar')
+            if smoothness <= 0.0:
+                raise ValueError('Input smoothness must be a positive number')
+
+        if self.gaintable is not None:
+            for gainkey in self.gaintable:
+                if self.gaintable[gainkey] is not None:
+                    self.splinefuncs[gainkey] = None
+                    if self.gaintable[gainkey]['gains'] is not None:
+                        if isinstance(self.gaintable[gainkey]['gains'], NP.ndarray):
+                            if self.gaintable[gainkey]['gains'].ndim != 3:
+                                raise ValueError('Gains must be a 3D numpy array')
+                            # if self.gaintable[gainkey]['gains'].size > 1:
+                            if (self.gaintable[gainkey]['gains'].shape[self.gaintable[gainkey]['ordering'].index('frequency')] > 1) or (self.gaintable[gainkey]['gains'].shape[self.gaintable[gainkey]['ordering'].index('time')] > 1):
+                                temp_axes_order = ['label', 'frequency', 'time']
+                                inp_order = self.gaintable[gainkey]['ordering']
+                                temp_transpose_order = NMO.find_list_in_list(inp_order, temp_axes_order)
+                                if NP.all(inp_order == temp_axes_order):
+                                    gains = NP.copy(self.gaintable[gainkey]['gains'])
+                                else:
+                                    gains = NP.transpose(NP.copy(self.gaintable[gainkey]['gains']), axes=temp_transpose_order)
+                                dims = []
+                                for ax in NP.arange(1,3):
+                                    if gains.shape[ax] > 1:
+                                        dims += [temp_axes_order[ax]]
+                                dims = NP.asarray(dims)
+                                interpf = []
+                                for labelind in xrange(gains.shape[0]):
+                                    if dims.size == 1:
+                                        if smoothness is None:
+                                            smoothness = self.gaintable[gainkey][dims[0]].size
+                                        interpf_real = interpolate.UnivariateSpline(self.gaintable[gainkey][dims[0]], gains[labelind,:,:].real.ravel(), s=smoothness, ext='raise')
+                                        interpf_imag = interpolate.UnivariateSpline(self.gaintable[gainkey][dims[0]], gains[labelind,:,:].imag.ravel(), s=smoothness, ext='raise')
+                                    else:
+                                        if smoothness is None:
+                                            smoothness = gains.shape[1]*gains.shape[2]
+                                        interpf_real = interpolate.RectBivariateSpline(self.gaintable[gainkey]['time'], self.gaintable[gainkey]['frequency'], gains[labelind,:,:].real.T, bbox=[self.gaintable[gainkey]['time'].min(), self.gaintable[gainkey]['time'].max(), self.gaintable[gainkey]['frequency'].min(), self.gaintable[gainkey]['frequency'].max()], s=smoothness)
+                                        interpf_imag = interpolate.RectBivariateSpline(self.gaintable[gainkey]['time'], self.gaintable[gainkey]['frequency'], gains[labelind,:,:].imag.T, bbox=[self.gaintable[gainkey]['time'].min(), self.gaintable[gainkey]['time'].max(), self.gaintable[gainkey]['frequency'].min(), self.gaintable[gainkey]['frequency'].max()], s=smoothness)
+                                    interpf += [(copy.copy(interpf_real), copy.copy(interpf_imag))]
+                                self.splinefuncs[gainkey] = {'interp': NP.asarray(interpf, dtype=[('real', NP.object), ('imag', NP.object)]), 'dims': dims}
+                                        
+    #############################################################################
+    
+    def interpolate_gains(self, bl_labels, freqs=None, times=None,
+                          axes_order=None):
+
+        """
+        ------------------------------------------------------------------------
+        Interpolate at the specified baselines for the given frequencies and
+        times using attribute interpfuncs. Better alternative is to use
+        spline_gains()
+        
+        Inputs:
+        
+        bl_labels   [Numpy structured array tuples] Labels of antennas in the 
+                    pair used to produce the baseline vector under fields 'A2' 
+                    and 'A1' for second and first antenna respectively. The 
+                    baseline vector is obtained by position of antennas under 
+                    'A2' minus position of antennas under 'A1'. The array is of 
+                    size nbl
+        
+        freqs       [None or numpy array] Array of frequencies at which the 
+                    gains are to be interpolated using the attribute 
+                    interpfuncs. If set to None (default), all frequencies in 
+                    the gaintable are assumed. The specified frequencies must 
+                    always lie within the range which was used in creating the 
+                    interpolation functions, otherwise an exception will be 
+                    raised. The array is of size nchan
+        
+        times       [None or numpy array] Array of times at which the gains
+                    are to be interpolated using the attribute interpfuncs. If 
+                    set to None (default), all times in the gaintable are
+                    assumed. The specified times must always lie within the
+                    range which was used in creating the interpolation 
+                    functions, otherwise an exception will be raised. The 
+                    array is of size nts
+        
+        axes_order  [None or list or numpy array] Axes ordering for extracted 
+                    gains. It must contain the three elements 'label', 
+                    'frequency', and 'time'. If set to None, it will be 
+                    returned in the same order as in the input gaintable.
+        
+        Outputs:
+        
+        [numpy array] Complex gains of shape nbl x nchan x nts for the 
+        specified baselines, frequencies and times.
+        ------------------------------------------------------------------------
+        """
+        try:
+            bl_labels
+        except NameError:
+            raise NameError('Input bl_labels must be specified')
+
+        blgains = NP.asarray(1.0).reshape(1,1,1)
+        if self.gaintable is not None:
+            a1_labels = bl_labels['A1']
+            a2_labels = bl_labels['A2']
+            for key in ['antenna-based', 'baseline-based']:
+                if self.interpfuncs[key] is not None:
+                    labels = self.gaintable[key]['label']
+                    if freqs is None:
+                        if self.gaintable[key]['frequency'] is not None:
+                            freqs = self.gaintable[key]['frequency']
+                    elif isinstance(freqs, (int,list,NP.ndarray)):
+                        freqs = NP.asarray(freqs).ravel()
+                    else:
+                        raise TypeError('Input freqs must be a scalar, list or numpy array')
+
+                    if times is None:
+                        if self.gaintable[key]['time'] is not None:
+                            times = self.gaintable[key]['time']
+                    elif isinstance(times, (int,list,NP.ndarray)):
+                        times = NP.asarray(times).ravel()
+                    else:
+                        raise TypeError('Input times must be a scalar, list or numpy array')
+
+                    if self.gaintable[key]['frequency'] is not None:
+                        ib_freq_index = NP.logical_and(freqs <= NP.amax(self.gaintable[key]['frequency']), freqs >= NP.amin(self.gaintable[key]['frequency']))
+                        oobl_freq_index = freqs < NP.amin(self.gaintable[key]['frequency'])
+                        oobr_freq_index = freqs > NP.amax(self.gaintable[key]['frequency'])
+                        oob_freq_index = NP.logical_not(ib_freq_index)
+                        if NP.any(oob_freq_index):
+                            raise ValueError('One or more of the frequencies outside interpolation range')
+                    else:
+                        if freqs is not None:
+                            ib_freq_index = NP.ones(freqs.size, dtype=NP.bool)
+                            oob_freq_index = NP.zeros(freqs.size, dtype=NP.bool)
+                            oobl_freq_index = NP.zeros(freqs.size, dtype=NP.bool)
+                            oobr_freq_index = NP.zeros(freqs.size, dtype=NP.bool)
+                        else:
+                            ib_freq_index = None
+                            oob_freq_index = None
+
+                    if self.gaintable[key]['time'] is not None:
+                        ib_time_index = NP.logical_and(times <= NP.amax(self.gaintable[key]['time']), times >= NP.amin(self.gaintable[key]['time']))
+                        oobl_time_index = times < NP.amin(self.gaintable[key]['time'])
+                        oobr_time_index = times > NP.amax(self.gaintable[key]['time'])
+                        oob_time_index = NP.logical_not(ib_time_index)
+                        if NP.any(oob_time_index):
+                            raise ValueError('One or more of the times outside interpolation range')
+                    else:
+                        if times is not None:
+                            ib_time_index = NP.ones(times.size, dtype=NP.bool)
+                            oob_time_index = NP.zeros(times.size, dtype=NP.bool)
+                            oobl_time_index = NP.zeros(times.size, dtype=NP.bool)
+                            oobr_time_index = NP.zeros(times.size, dtype=NP.bool)
+                        else:
+                            ib_time_index = None
+                            oob_time_index = None
+
+                    if isinstance(self.interpfuncs[key], dict):
+                        if 'dims' not in self.interpfuncs[key]:
+                            raise KeyError('Key "dims" not found in attribute interpfuncs[{0}]'.format(key))
+                        if not isinstance(self.interpfuncs[key]['dims'], NP.ndarray):
+                            raise TypeError('Key "dims" in attribute interpfuncs[{0}] must contain a numpy array'.format(key))
+
+                        if self.interpfuncs[key]['dims'].size == 1:
+                            if self.interpfuncs[key]['dims'][0] == 'time':
+                                ntimes = ib_time_index.size
+                                if freqs is None:
+                                    nchan = 1
+                                else:
+                                    nchan = ib_freq_index.size
+                                inp = times[ib_time_index]
+                            else:
+                                nchan = ib_freq_index.size
+                                if times is None:
+                                    ntimes = 1
+                                else:
+                                    ntimes = ib_time_index.size
+                                inp = freqs[ib_freq_index]
+                        else:
+                            inp_times = times[ib_time_index]
+                            inp_freqs = freqs[ib_freq_index]
+                            ntimes = ib_time_index.size
+                            nchan = ib_freq_index.size
+                                
+                        if key == 'antenna-based':
+                            ind1 = NMO.find_list_in_list(labels, a1_labels)
+                            ind2 = NMO.find_list_in_list(labels, a2_labels)
+                            if NP.sum(ind1.mask) > 0:
+                                raise IndexError('Some antenna gains could not be found')
+                            if NP.sum(ind2.mask) > 0:
+                                raise IndexError('Some antenna gains could not be found')
+                            g1_conj = None
+                            g2 = None
+                            for i in xrange(ind1.size):
+                                if self.interpfuncs[key]['dims'].size == 1:
+                                    if g1_conj is None:
+                                        g1_conj = (self.interpfuncs[key]['interp']['real'][ind1[i]](inp) - 1j * self.interpfuncs[key]['interp']['imag'][ind1[i]](inp)).reshape(1,nchan,ntimes)
+                                        g2 = (self.interpfuncs[key]['interp']['real'][ind2[i]](inp) + 1j * self.interpfuncs[key]['interp']['imag'][ind2[i]](inp)).reshape(1,nchan,ntimes)
+                                    else:
+                                        g1_conj = NP.concatenate((g1_conj, (self.interpfuncs[key]['interp']['real'][ind1[i]](inp) - 1j * self.interpfuncs[key]['interp']['imag'][ind1[i]](inp)).reshape(1,nchan,ntimes)), axis=0)
+                                        g2 = NP.concatenate((g2, (self.interpfuncs[key]['interp']['real'][ind2[i]](inp) + 1j * self.interpfuncs[key]['interp']['imag'][ind2[i]](inp)).reshape(1,nchan,ntimes)), axis=0)
+                                else:
+                                    if g1_conj is None:
+                                        g1_conj = (self.interpfuncs[key]['interp']['real'][ind1[i]](inp_times,inp_freqs) - 1j * self.interpfuncs[key]['interp']['imag'][ind1[i]](inp_times,inp_freqs)).reshape(1,nchan,ntimes)
+                                        g2 = (self.interpfuncs[key]['interp']['real'][ind2[i]](inp_times,inp_freqs) + 1j * self.interpfuncs[key]['interp']['imag'][ind2[i]](inp_times,inp_freqs)).reshape(1,nchan,ntimes)
+                                    else:
+                                        g1_conj = NP.concatenate((g1_conj, (self.interpfuncs[key]['interp']['real'][ind1[i]](inp_times,inp_freqs) - 1j * self.interpfuncs[key]['interp']['imag'][ind1[i]](inp_times,inp_freqs)).reshape(1,nchan,ntimes)), axis=0)
+                                        g2 = NP.concatenate((g2, (self.interpfuncs[key]['interp']['real'][ind2[i]](inp_times,inp_freqs) + 1j * self.interpfuncs[key]['interp']['imag'][ind2[i]](inp_times,inp_freqs)).reshape(1,nchan,ntimes)), axis=0)
+                                    
+                            blgains = blgains * g1_conj * g2 * NP.ones((1,nchan,ntimes), dtype=NP.complex)
+                        else:
+                            g12 = None
+                            for labelind,label in enumerate(bl_labels):
+                                if label in labels:
+                                    ind = NP.where(self.gaintable[key]['label'] == label)[0]
+                                    if self.interpfuncs[key]['dims'].size == 1:
+                                        if g12 is None:
+                                            g12 = (self.interpfuncs[key]['interp']['real'][ind[0]](inp) + 1j * self.interpfuncs[key]['interp']['imag'][ind[0]](inp)).reshape(1,nchan,ntimes)
+                                        else:
+                                            g12 = NP.concatenate((g12, (self.interpfuncs[key]['interp']['real'][ind[0]](inp) + 1j * self.interpfuncs[key]['interp']['imag'][ind[0]](inp)).reshape(1,nchan,ntimes)), axis=0)
+                                    else:
+                                        if g12 is None:
+                                            g12 = (self.interpfuncs[key]['interp']['real'][ind[0]](inp_times,inp_freqs) + 1j * self.interpfuncs[key]['interp']['imag'][ind[0]](inp_times,inp_freqs)).reshape(1,nchan,ntimes)
+                                        else:
+                                            g12 = NP.concatenate((g12, (self.interpfuncs[key]['interp']['real'][ind[0]](inp_times,inp_freqs) + 1j * self.interpfuncs[key]['interp']['imag'][ind[0]](inp_times,inp_freqs)).reshape(1,nchan,ntimes)), axis=0)
+                                elif NP.asarray([tuple(reversed(label))], dtype=bl_labels.dtype)[0] in labels:
+                                    ind = NP.where(labels == NP.asarray([tuple(reversed(label))], dtype=bl_labels.dtype)[0])[0]
+                                    if self.interpfuncs[key]['dims'].size == 1:
+                                        if g12 is None:
+                                            g12 = (self.interpfuncs[key]['interp']['real'][ind[0]](inp) - 1j * self.interpfuncs[key]['interp']['imag'][ind[0]](inp)).reshape(1,nchan,ntimes)
+                                        else:
+                                            g12 = NP.concatenate((g12, (self.interpfuncs[key]['interp']['real'][ind[0]](inp) - 1j * self.interpfuncs[key]['interp']['imag'][ind[0]](inp)).reshape(1,nchan,ntimes)), axis=0)
+                                    else:
+                                        if g12 is None:
+                                            g12 = (self.interpfuncs[key]['interp']['real'][ind[0]](inp_times,inp_freqs) - 1j * self.interpfuncs[key]['interp']['imag'][ind[0]](inp_times,inp_freqs)).reshape(1,nchan,ntimes)
+                                        else:
+                                            g12 = NP.concatenate((g12, (self.interpfuncs[key]['interp']['real'][ind[0]](inp_times,inp_freqs) - 1j * self.interpfuncs[key]['interp']['imag'][ind[0]](inp_times,inp_freqs)).reshape(1,nchan,ntimes)), axis=0)
+                                else:
+                                    if g12 is None:
+                                        g12 = NP.ones((1,nchan,ntimes), dtype=NP.complex)
+                                    else:
+                                        g12 = NP.concatenate((g12, NP.ones((1,nchan,ntimes), dtype=NP.complex)), axis=0)
+                            blgains = blgains * g12 * NP.ones((1,nchan,ntimes), dtype=NP.complex)
+
+        interp_axes_order = ['label', 'frequency', 'time']
+        if axes_order is None:
+            axes_order = self.gaintable['antenna-based']['ordering']
+        elif not isinstance(axes_order, (list, NP.ndarray)):
+            raise TypeError('axes_order must be a list')
+        else:
+            if len(axes_order) != 3:
+                raise ValueError('axes_order must be a three element list')
+            for orderkey in ['label', 'frequency', 'time']:
+                if orderkey not in axes_order:
+                    raise ValueError('axes_order does not contain key "{0}"'.format(orderkey))
+
+        transpose_order = NMO.find_list_in_list(interp_axes_order, axes_order)
+        blgains = NP.transpose(blgains, axes=transpose_order)
+
+        return blgains
+                                        
+    #############################################################################
+    
+    def spline_gains(self, bl_labels, freqs=None, times=None, axes_order=None):
+
+        """
+        ------------------------------------------------------------------------
+        Evaluate spline at the specified baselines for the given frequencies and
+        times using attribute splinefuncs. Better alternative to 
+        interpolate_gains()
+        
+        Inputs:
+        
+        bl_labels   [Numpy structured array tuples] Labels of antennas in the 
+                    pair used to produce the baseline vector under fields 'A2' 
+                    and 'A1' for second and first antenna respectively. The 
+                    baseline vector is obtained by position of antennas under 
+                    'A2' minus position of antennas under 'A1'. The array is of 
+                    size nbl
+        
+        freqs       [None or numpy array] Array of frequencies at which the 
+                    gains are to be interpolated using the attribute 
+                    splinefuncs. If set to None (default), all frequencies in 
+                    the gaintable are assumed. The specified frequencies must 
+                    always lie within the range which was used in creating the 
+                    interpolation functions, otherwise an exception will be 
+                    raised. The array is of size nchan
+        
+        times       [None or numpy array] Array of times at which the gains
+                    are to be interpolated using the attribute splinefuncs. If 
+                    set to None (default), all times in the gaintable are
+                    assumed. The specified times must always lie within the
+                    range which was used in creating the interpolation 
+                    functions, otherwise an exception will be raised. The array 
+                    is of size nts
+        
+        axes_order  [None or list or numpy array] Axes ordering for extracted 
+                    gains. It must contain the three elements 'label', 
+                    'frequency', and 'time'. If set to None, it will be 
+                    returned in the same order as in the input gaintable.
+        
+        Outputs:
+        
+        [numpy array] Complex gains of shape nbl x nchan x nts for the specified 
+        baselines, frequencies and times.
+        ---------------------------------------------------------------------------
+        """
+
+        try:
+            bl_labels
+        except NameError:
+            raise NameError('Input bl_labels must be specified')
+
+        blgains = NP.asarray(1.0).reshape(1,1,1)
+        if self.gaintable is not None:
+            a1_labels = bl_labels['A1']
+            a2_labels = bl_labels['A2']
+            for key in ['antenna-based', 'baseline-based']:
+                if self.splinefuncs[key] is not None:
+                    labels = self.gaintable[key]['label']
+                    if freqs is None:
+                        if self.gaintable[key]['frequency'] is not None:
+                            freqs = self.gaintable[key]['frequency']
+                    elif isinstance(freqs, (int,list,NP.ndarray)):
+                        freqs = NP.asarray(freqs).ravel()
+                    else:
+                        raise TypeError('Input freqs must be a scalar, list or numpy array')
+
+                    if times is None:
+                        if self.gaintable[key]['time'] is not None:
+                            times = self.gaintable[key]['time']
+                    elif isinstance(times, (int,list,NP.ndarray)):
+                        times = NP.asarray(times).ravel()
+                    else:
+                        raise TypeError('Input times must be a scalar, list or numpy array')
+
+                    if self.gaintable[key]['frequency'] is not None:
+                        ib_freq_index = NP.logical_and(freqs <= NP.amax(self.gaintable[key]['frequency']), freqs >= NP.amin(self.gaintable[key]['frequency']))
+                        oobl_freq_index = freqs < NP.amin(self.gaintable[key]['frequency'])
+                        oobr_freq_index = freqs > NP.amax(self.gaintable[key]['frequency'])
+                        oob_freq_index = NP.logical_not(ib_freq_index)
+                        if NP.any(oob_freq_index):
+                            raise ValueError('One or more of the frequencies outside interpolation range')
+                    else:
+                        if freqs is not None:
+                            ib_freq_index = NP.ones(freqs.size, dtype=NP.bool)
+                            oob_freq_index = NP.zeros(freqs.size, dtype=NP.bool)
+                            oobl_freq_index = NP.zeros(freqs.size, dtype=NP.bool)
+                            oobr_freq_index = NP.zeros(freqs.size, dtype=NP.bool)
+                        else:
+                            ib_freq_index = None
+                            oob_freq_index = None
+
+                    if self.gaintable[key]['time'] is not None:
+                        ib_time_index = NP.logical_and(times <= NP.amax(self.gaintable[key]['time']), times >= NP.amin(self.gaintable[key]['time']))
+                        oobl_time_index = times < NP.amin(self.gaintable[key]['time'])
+                        oobr_time_index = times > NP.amax(self.gaintable[key]['time'])
+                        oob_time_index = NP.logical_not(ib_time_index)
+                        if NP.any(oob_time_index):
+                            raise ValueError('One or more of the times outside interpolation range')
+                    else:
+                        if times is not None:
+                            ib_time_index = NP.ones(times.size, dtype=NP.bool)
+                            oob_time_index = NP.zeros(times.size, dtype=NP.bool)
+                            oobl_time_index = NP.zeros(times.size, dtype=NP.bool)
+                            oobr_time_index = NP.zeros(times.size, dtype=NP.bool)
+                        else:
+                            ib_time_index = None
+                            oob_time_index = None
+
+                    if isinstance(self.splinefuncs[key], dict):
+                        if 'dims' not in self.splinefuncs[key]:
+                            raise KeyError('Key "dims" not found in attribute splinefuncs[{0}]'.format(key))
+                        if not isinstance(self.splinefuncs[key]['dims'], NP.ndarray):
+                            raise TypeError('Key "dims" in attribute splinefuncs[{0}] must contain a numpy array'.format(key))
+
+                        if self.splinefuncs[key]['dims'].size == 1:
+                            if self.splinefuncs[key]['dims'][0] == 'time':
+                                ntimes = ib_time_index.size
+                                if freqs is None:
+                                    nchan = 1
+                                else:
+                                    nchan = ib_freq_index.size
+                                inp = times[ib_time_index]
+                            else:
+                                nchan = ib_freq_index.size
+                                if times is None:
+                                    ntimes = 1
+                                else:
+                                    ntimes = ib_time_index.size
+                                inp = freqs[ib_freq_index]
+                        else:
+                            inp_times = times[ib_time_index]
+                            inp_freqs = freqs[ib_freq_index]
+                            ntimes = ib_time_index.size
+                            nchan = ib_freq_index.size
+                                
+                        tgrid, fgrid = NP.meshgrid(inp_times, inp_freqs)
+                        tvec = tgrid.ravel()
+                        fvec = fgrid.ravel()
+
+                        if key == 'antenna-based':
+                            ind1 = NMO.find_list_in_list(labels, a1_labels)
+                            ind2 = NMO.find_list_in_list(labels, a2_labels)
+                            if NP.sum(ind1.mask) > 0:
+                                raise IndexError('Some antenna gains could not be found')
+                            if NP.sum(ind2.mask) > 0:
+                                raise IndexError('Some antenna gains could not be found')
+                            g1_conj = None
+                            g2 = None
+                            for i in xrange(ind1.size):
+                                if self.splinefuncs[key]['dims'].size == 1:
+                                    if g1_conj is None:
+                                        g1_conj = (self.splinefuncs[key]['interp']['real'][ind1[i]](inp) - 1j * self.splinefuncs[key]['interp']['imag'][ind1[i]](inp)).reshape(1,nchan,ntimes)
+                                        g2 = (self.splinefuncs[key]['interp']['real'][ind2[i]](inp) + 1j * self.splinefuncs[key]['interp']['imag'][ind2[i]](inp)).reshape(1,nchan,ntimes)
+                                    else:
+                                        g1_conj = NP.concatenate((g1_conj, (self.splinefuncs[key]['interp']['real'][ind1[i]](inp) - 1j * self.splinefuncs[key]['interp']['imag'][ind1[i]](inp)).reshape(1,nchan,ntimes)), axis=0)
+                                        g2 = NP.concatenate((g2, (self.splinefuncs[key]['interp']['real'][ind2[i]](inp) + 1j * self.splinefuncs[key]['interp']['imag'][ind2[i]](inp)).reshape(1,nchan,ntimes)), axis=0)
+                                else:
+                                    if g1_conj is None:
+                                        g1_conj = (self.splinefuncs[key]['interp']['real'][ind1[i]].ev(tvec,fvec) - 1j * self.splinefuncs[key]['interp']['imag'][ind1[i]].ev(tvec,fvec)).reshape(1,nchan,ntimes)
+                                        g2 = (self.splinefuncs[key]['interp']['real'][ind2[i]].ev(tvec,fvec) + 1j * self.splinefuncs[key]['interp']['imag'][ind2[i]].ev(tvec,fvec)).reshape(1,nchan,ntimes)
+                                    else:
+                                        g1_conj = NP.concatenate((g1_conj, (self.splinefuncs[key]['interp']['real'][ind1[i]].ev(tvec,fvec) - 1j * self.splinefuncs[key]['interp']['imag'][ind1[i]].ev(tvec,fvec)).reshape(1,nchan,ntimes)), axis=0)
+                                        g2 = NP.concatenate((g2, (self.splinefuncs[key]['interp']['real'][ind2[i]].ev(tvec,fvec) + 1j * self.splinefuncs[key]['interp']['imag'][ind2[i]].ev(tvec,fvec)).reshape(1,nchan,ntimes)), axis=0)
+                                    
+                            blgains = blgains * g1_conj * g2 * NP.ones((1,nchan,ntimes), dtype=NP.complex)
+                        else:
+                            g12 = None
+                            for labelind,label in enumerate(bl_labels):
+                                if label in labels:
+                                    ind = NP.where(self.gaintable[key]['label'] == label)[0]
+                                    if self.splinefuncs[key]['dims'].size == 1:
+                                        if g12 is None:
+                                            g12 = (self.splinefuncs[key]['interp']['real'][ind[0]](inp) + 1j * self.splinefuncs[key]['interp']['imag'][ind[0]](inp)).reshape(1,nchan,ntimes)
+                                        else:
+                                            g12 = NP.concatenate((g12, (self.splinefuncs[key]['interp']['real'][ind[0]](inp) + 1j * self.splinefuncs[key]['interp']['imag'][ind[0]](inp)).reshape(1,nchan,ntimes)), axis=0)
+                                    else:
+                                        if g12 is None:
+                                            g12 = (self.splinefuncs[key]['interp']['real'][ind[0]].ev(tvec,fvec) + 1j * self.splinefuncs[key]['interp']['imag'][ind[0]].ev(tvec,fvec)).reshape(1,nchan,ntimes)
+                                        else:
+                                            g12 = NP.concatenate((g12, (self.splinefuncs[key]['interp']['real'][ind[0]].ev(tvec,fvec) + 1j * self.splinefuncs[key]['interp']['imag'][ind[0]].ev(tvec,fvec)).reshape(1,nchan,ntimes)), axis=0)
+                                elif NP.asarray([tuple(reversed(label))], dtype=bl_labels.dtype)[0] in labels:
+                                    ind = NP.where(labels == NP.asarray([tuple(reversed(label))], dtype=bl_labels.dtype)[0])[0]
+                                    if self.splinefuncs[key]['dims'].size == 1:
+                                        if g12 is None:
+                                            g12 = (self.splinefuncs[key]['interp']['real'][ind[0]](inp) - 1j * self.splinefuncs[key]['interp']['imag'][ind[0]](inp)).reshape(1,nchan,ntimes)
+                                        else:
+                                            g12 = NP.concatenate((g12, (self.splinefuncs[key]['interp']['real'][ind[0]](inp) - 1j * self.splinefuncs[key]['interp']['imag'][ind[0]](inp)).reshape(1,nchan,ntimes)), axis=0)
+                                    else:
+                                        if g12 is None:
+                                            g12 = (self.splinefuncs[key]['interp']['real'][ind[0]].ev(tvec,fvec) - 1j * self.splinefuncs[key]['interp']['imag'][ind[0]].ev(tvec,fvec)).reshape(1,nchan,ntimes)
+                                        else:
+                                            g12 = NP.concatenate((g12, (self.splinefuncs[key]['interp']['real'][ind[0]].ev(tvec,fvec) - 1j * self.splinefuncs[key]['interp']['imag'][ind[0]].ev(tvec,fvec)).reshape(1,nchan,ntimes)), axis=0)
+                                else:
+                                    if g12 is None:
+                                        g12 = NP.ones((1,nchan,ntimes), dtype=NP.complex)
+                                    else:
+                                        g12 = NP.concatenate((g12, NP.ones((1,nchan,ntimes), dtype=NP.complex)), axis=0)
+                            blgains = blgains * g12 * NP.ones((1,nchan,ntimes), dtype=NP.complex)
+
+        interp_axes_order = ['label', 'frequency', 'time']
+        if axes_order is None:
+            axes_order = self.gaintable['antenna-based']['ordering']
+        elif not isinstance(axes_order, (list, NP.ndarray)):
+            raise TypeError('axes_order must be a list')
+        else:
+            if len(axes_order) != 3:
+                raise ValueError('axes_order must be a three element list')
+            for orderkey in ['label', 'frequency', 'time']:
+                if orderkey not in axes_order:
+                    raise ValueError('axes_order does not contain key "{0}"'.format(orderkey))
+
+        transpose_order = NMO.find_list_in_list(interp_axes_order, axes_order)
+        blgains = NP.transpose(blgains, axes=transpose_order)
+
+        return blgains
+                                        
     #############################################################################
 
     def eval_gains(self, bl_labels, freq_index=None, time_index=None,
