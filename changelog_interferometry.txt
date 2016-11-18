@@ -1,3 +1,12 @@
+From bbf14b3 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) In member function save() of class InterferometerArray, write
+attribute gaininfo using its member function write_gaintable() from
+class GainInfo as a HDF5 file
+
 From cc9240e (instrument-gains):
 ===============================
 

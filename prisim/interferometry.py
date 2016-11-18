@@ -6278,6 +6278,8 @@ class InterferometerArray(object):
                 hdulist[0].header['simparms'] = (self.simparms_file, 'YAML file with simulation parameters')
             if self.gradient_mode is not None:
                 hdulist[0].header['gradient_mode'] = (self.gradient_mode, 'Visibility Gradient Mode')
+            if self.gaininfo is not None:
+                hdulist[0].header['gainsfile'] = (outfile+'.gains.hdf5', 'Gains File')
             hdulist[0].header['element_shape'] = (self.telescope['shape'], 'Antenna element shape')
             hdulist[0].header['element_size'] = (self.telescope['size'], 'Antenna element size')
             hdulist[0].header['element_ocoords'] = (self.telescope['ocoords'], 'Antenna element orientation coordinates')
@@ -6434,19 +6436,19 @@ class InterferometerArray(object):
                     if verbose:
                         print '\tCreated extensions for real and imaginary parts of gradient of sky visibility frequency spectrum wrt {0} of size {1[0]} x {1[1]} x {1[2]} x {1[3]}'.format(gradkey, self.gradient[gradkey].shape)
 
-            if self.gaintable is not None:
-                for gainkey in self.gaintable:
-                    if self.gaintable[gainkey] is not None:
-                        for subkey in self.gaintable[gainkey]:
-                            if self.gaintable[gainkey][subkey] is not None:
-                                if subkey == 'gains':
-                                    hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey].real, name='{0}_{1}_real'.format(gainkey, subkey))]
-                                    hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey].imag, name='{0}_{1}_imag'.format(gainkey, subkey))]
-                                elif subkey == 'labels':
-                                    hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey], name='{0}_in_{1}_gains'.format(subkey, gainkey))]
-                                else:
-                                    hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey], name='gains_axes_{0}'.format(subkey))]
-                
+            # if self.gaintable is not None:
+            #     for gainkey in self.gaintable:
+            #         if self.gaintable[gainkey] is not None:
+            #             for subkey in self.gaintable[gainkey]:
+            #                 if self.gaintable[gainkey][subkey] is not None:
+            #                     if subkey == 'gains':
+            #                         hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey].real, name='{0}_{1}_real'.format(gainkey, subkey))]
+            #                         hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey].imag, name='{0}_{1}_imag'.format(gainkey, subkey))]
+            #                     elif subkey == 'labels':
+            #                         hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey], name='{0}_in_{1}_gains'.format(subkey, gainkey))]
+            #                     else:
+            #                         hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey], name='gains_axes_{0}'.format(subkey))]
+
             hdulist += [fits.ImageHDU(self.bp, name='bandpass')]
             if verbose:
                 print '\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape)
@@ -6482,6 +6484,9 @@ class InterferometerArray(object):
                 print '\tNow writing FITS file to disk...'
             hdu = fits.HDUList(hdulist)
             hdu.writeto(filename, clobber=overwrite)
+            if self.gaininfo is not None:
+                self.gaininfo.write_gaintable(outfile+'.gains.hdf5')
+
         elif fmt.lower() == 'hdf5':
             if overwrite:
                 write_str = 'w'
@@ -6596,14 +6601,18 @@ class InterferometerArray(object):
                     visgradient_group = fileobj.create_group('gradients')
                     for gradkey in self.gradient:
                         visgradient_group[gradkey] = self.gradient[gradkey]
-                if self.gaintable is not None:
-                    gains_group = fileobj.create_group('gaintable')
-                    for gainkey in self.gaintable:
-                        if self.gaintable[gainkey] is not None:
-                            gains_subgrp = gains_group.create_group(gainkey)
-                            for subkey in self.gaintable[gainkey]:
-                                if self.gaintable[gainkey][subkey] is not None:
-                                    gains_subgrp[subkey] = self.gaintable[gainkey][subkey]
+                # if self.gaintable is not None:
+                #     gains_group = fileobj.create_group('gaintable')
+                #     for gainkey in self.gaintable:
+                #         if self.gaintable[gainkey] is not None:
+                #             gains_subgrp = gains_group.create_group(gainkey)
+                #             for subkey in self.gaintable[gainkey]:
+                #                 if self.gaintable[gainkey][subkey] is not None:
+                #                     gains_subgrp[subkey] = self.gaintable[gainkey][subkey]
+                if self.gaininfo is not None:
+                    gains_group = fileobj.create('gaininfo')
+                    gains_group['gainsfile'] = outfile+'.gains.hdf5'
+                    self.gaininfo.write_gaintable(gains_group['gainsfile'])
                                     
         if verbose:
             print '\tInterferometer array information written successfully to file on disk:\n\t\t{0}\n'.format(filename)
