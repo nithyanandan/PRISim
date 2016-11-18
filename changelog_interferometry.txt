@@ -1,3 +1,11 @@
+From 2ba94de (bl-gradient):
+==========================
+
+In prisim/interferometry.py,
+
+(*) Check gradient key in __init__() member function of class
+InterferometerArray
+
 From a30fba8 (bl-gradient):
 ==========================
 

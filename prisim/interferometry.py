@@ -2171,9 +2171,10 @@ class InterferometerArray(object):
                                     self.vis_noise_lag = subgrp['noise'].value
 
                         if key == 'gradients':
-                            for gradkey in grp:
-                                self.gradient_mode = gradkey
-                                self.gradient[gradkey] = grp[gradkey].value
+                            if key in fileobj:
+                                for gradkey in grp:
+                                    self.gradient_mode = gradkey
+                                    self.gradient[gradkey] = grp[gradkey].value
                                 
             except IOError: # Check if a FITS file is available
                 try:
