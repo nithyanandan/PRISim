@@ -5409,7 +5409,8 @@ class InterferometerArray(object):
         -------------------------------------------------------------------------
         """
         
-        gains = extract_gains(self.gaintable, self.labels, freq_index=None, time_index=None, axes_order=['label','frequency','time'])
+        # gains = extract_gains(self.gaintable, self.labels, freq_index=None, time_index=None, axes_order=['label','frequency','time'])
+        gains = self.gaininfo.spline_gains(self.labels, freqs=self.channels, times=NP.asarray(self.timestamp))
         self.vis_freq = gains * self.skyvis_freq + self.vis_noise_freq
 
     #############################################################################

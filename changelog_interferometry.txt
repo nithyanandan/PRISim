@@ -1,3 +1,12 @@
+From cb109a4 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Estimate instrument gains in member function add_noise() of class
+InterferometerArray using spline_gains() member function of class
+GainInfo of attribute gaininfo 
+
 From bbf14b3 (instrument-gains):
 ===============================
 
