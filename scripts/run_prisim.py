@@ -2216,6 +2216,8 @@ if rank == 0:
                 if cleanup:
                     if os.path.isfile(blchunk_infile+'.'+savefmt.lower()):
                         os.remove(blchunk_infile+'.'+savefmt.lower())
+                    if os.path.isfile(blchunk_infile+'.gains.hdf5'):
+                        os.remove(blchunk_infile+'.gains.hdf5')
                     
                 progress.update(i+1)
             progress.finish()
@@ -2238,6 +2240,8 @@ if rank == 0:
                 if cleanup:
                     if os.path.isfile(freqchunk_infile+'.'+savefmt.lower()):
                         os.remove(freqchunk_infile+'.'+savefmt.lower())
+                    if os.path.isfile(freqchunk_infile+'.gains.hdf5'):
+                        os.remove(freqchunk_infile+'.gains.hdf5')
                     
                 progress.update(i+1)
             progress.finish()

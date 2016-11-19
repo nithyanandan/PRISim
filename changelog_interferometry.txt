@@ -1,3 +1,17 @@
+From a1a1dbd (instrument-gains), 4434d67 (master):
+=================================================
+
+(*) Bring changes in master onto instrument-gains branch
+
+In prisim/interferometry.py,
+
+(*) In __init__() member function of class InterferometerArray, fix
+bugs in reading gaintable to initializ eattribute gaininfo
+
+In scripts/run_prisim.py,
+
+(*) Cleanup intermediate saved gain tables
+
 From 39e8f23 (instrument-gains):
 ===============================
 
@@ -245,6 +259,22 @@ In scripts/run_prisim.py,
 (*) Move calls to generate_noise() and add_noise() member functions
 of class InterferometerArray after concatenation from multiple
 processes
+
+From 2ba94de (bl-gradient):
+==========================
+
+In prisim/interferometry.py,
+
+(*) Check gradient key in __init__() member function of class
+InterferometerArray
+
+From a30fba8 (bl-gradient):
+==========================
+
+In prisim/interferometry.py,
+
+(*) Type check for input gradient_mode in observe() member function
+of class InterferometerArray. 
 
 From 17e9e05 (bl-gradient):
 ==========================
