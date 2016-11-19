@@ -1,3 +1,22 @@
+From 4434d67(santoshmh-master):
+==============================
+
+In prisim/interferometry.py,
+
+(*) Add a new subroutine "rect_generator" to generate a 
+rectangular array layout
+
+In scripts/run_prisim.py,
+
+(*) Add an option "HIRAX-1024" in the IF loop checking 
+the keyword array_layout.
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add "HIRAX-1024" in the list of accepted default values 
+for 'layout' under 'array' (Antenna Layout)
+(*) Add latitude and longitude for HIRAX
+
 From 2ba94de (bl-gradient):
 ==========================
 

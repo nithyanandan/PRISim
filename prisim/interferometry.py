@@ -213,6 +213,120 @@ def hexagon_generator(spacing, n_total=None, n_side=None, orientation=None,
 
 ################################################################################
 
+def rect_generator(spacing, n_side, orientation=None, center=None):
+
+    """
+    ------------------------------------------------------------------------
+    Generate a grid of baseline locations filling a rectangular array. 
+    Primarily intended for HIRAX experiment.
+
+    Inputs:
+    
+    spacing      [2-element list or numpy array] positive integers specifying 
+    		 the spacing between antennas. Must be specified, no default.
+
+    n_side       [2-element list or numpy array] positive integers specifying 
+    		 the number of antennas on each side of the rectangular array. 
+    		 Atleast one value should be specified, no default.
+
+    orientation  [scalar] counter-clockwise angle (in degrees) by which the 
+                 principal axis of the rectangular array is to be rotated. 
+                 Default = None (means 0 degrees)
+
+    center       [2-element list or numpy array] specifies the center of the
+                 array. Must be in the same units as spacing. The rectangular
+                 array will be centered on this position.
+
+    Outputs:
+
+    Two element tuple with these elements in the following order:
+
+    xy           [2-column array] x- and y-locations. x is in the first
+                 column, y is in the second column. Number of xy-locations
+                 is equal to the number of rows which is equal to n_total
+
+    id           [numpy array of string] unique antenna identifier. Numbers
+                 from 0 to n_antennas-1 in string format.
+
+    Notes: 
+
+    ------------------------------------------------------------------------
+    """
+    try:
+        spacing
+    except NameError:
+        raise NameError('No spacing provided.')
+
+    if spacing is not None:
+        if not isinstance(spacing, (int, float, list, NP.ndarray)):
+            raise TypeError('spacing must be a scalar or list/numpy array')
+        spacing = NP.asarray(spacing)
+        if spacing.size < 2:
+            spacing = NP.resize(spacing,(1,2))
+        if NP.all(NP.less_equal(spacing,NP.zeros((1,2)))):
+            raise ValueError('spacing must be positive')
+
+    if orientation is not None:
+        if not isinstance(orientation, (int,float)):
+            raise TypeError('orientation must be a scalar')
+
+    if center is not None:
+        if not isinstance(center, (list, NP.ndarray)):
+            raise TypeError('center must be a list or numpy array')
+        center = NP.asarray(center)
+        if center.size != 2:
+            raise ValueError('center should be a 2-element vector')
+        center = center.reshape(1,-1)
+
+    if n_side is None:
+        raise NameError('Atleast one value of n_side must be provided')
+    else:
+        if not isinstance(n_side,  (int, float, list, NP.ndarray)):
+            raise TypeError('n_side must be a scalar or list/numpy array')
+        n_side = NP.asarray(n_side)
+        if n_side.size < 2:
+            n_side = NP.resize(n_side,(1,2))
+        if NP.all(NP.less_equal(n_side,NP.zeros((1,2)))):
+            raise ValueError('n_side must be positive')
+	
+	n_total = NP.prod(n_side, dtype=NP.uint8)
+	xn,yn = NP.hsplit(n_side,2)
+	xn = NP.asscalar(xn)
+	yn = NP.asscalar(yn)
+
+	xs,ys = NP.hsplit(spacing,2)
+	xs = NP.asscalar(xs)
+	ys = NP.asscalar(ys)
+
+	n_total = xn*yn
+
+	x = NP.linspace(0, xn-1, xn)
+	x = x - NP.mean(x)
+	x = x*xs
+
+	y = NP.linspace(0, yn-1, yn)
+	y = y - NP.mean(y)
+	y = y*ys
+
+	xv, yv = NP.meshgrid(x,y)
+
+	xy = NP.hstack((xv.reshape(-1,1),yv.reshape(-1,1)))
+
+    if len(xy) != n_total:
+        raise ValueError('Sizes of x- and y-locations do not agree with n_total')
+
+    if orientation is not None:   # Perform any rotation
+ 	angle = NP.radians(orientation)
+ 	rot_matrix = NP.asarray([[NP.cos(angle), -NP.sin(angle)], [NP.sin(angle), NP.cos(angle)]])
+ 	xy = NP.dot(xy, rot_matrix.T)
+
+    if center is not None:   # Shift the center
+        xy += center
+
+    return (NP.asarray(xy), map(str, range(n_total)))
+
+################################################################################
+
 def circular_antenna_array(antsize, minR, maxR=None):
 
     """
