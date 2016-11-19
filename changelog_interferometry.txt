@@ -1,3 +1,12 @@
+From d3fc57d (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) In member function add_noise() of class InterferometerArray,
+evaluate instrument gains after sufficient checks for inbound values
+(*) Remove obsolete commented lines
+
 From a1a1dbd (instrument-gains), 4434d67 (master):
 =================================================
 

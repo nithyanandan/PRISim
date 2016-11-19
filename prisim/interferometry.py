@@ -2378,7 +2378,7 @@ class GainInfo(object):
                         oobr_freq_index = freqs > NP.amax(self.gaintable[key]['frequency'])
                         oob_freq_index = NP.logical_not(ib_freq_index)
                         if NP.any(oob_freq_index):
-                            raise ValueError('One or more of the frequencies outside interpolation range')
+                            raise IndexError('One or more of the frequencies outside interpolation range')
                     else:
                         if freqs is not None:
                             ib_freq_index = NP.ones(freqs.size, dtype=NP.bool)
@@ -2395,7 +2395,7 @@ class GainInfo(object):
                         oobr_time_index = times > NP.amax(self.gaintable[key]['time'])
                         oob_time_index = NP.logical_not(ib_time_index)
                         if NP.any(oob_time_index):
-                            raise ValueError('One or more of the times outside interpolation range')
+                            raise IndexError('One or more of the times outside interpolation range')
                     else:
                         if times is not None:
                             ib_time_index = NP.ones(times.size, dtype=NP.bool)
@@ -3988,7 +3988,6 @@ class InterferometerArray(object):
                     self.vis_noise_lag = None
                     self.gradient_mode = None
                     self.gradient = {}
-                    # self.gaintable = None
                     self.gaininfo = None
                     for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'layout', 'instrument', 'visibilities', 'gradients', 'gaininfo']:
                         try:
@@ -4024,8 +4023,6 @@ class InterferometerArray(object):
                                 self.layout['ids'] = grp['ids'].value
                             else:
                                 raise KeyError('Layout antenna ids is missing')
-                            # for subkey in grp:
-                            #     self.layout[subkey] = grp[subkey].value
                         if key == 'antenna_element':
                             if 'shape' in grp:
                                 self.telescope['shape'] = grp['shape'].value
@@ -4131,7 +4128,6 @@ class InterferometerArray(object):
                                     self.vis_freq = subgrp['vis'].value
                                 else:
                                     self.vis_freq = None
-                                    # raise KeyError('Key "vis" not found in init_file')
                                 if 'skyvis' in subgrp:
                                     self.skyvis_freq = subgrp['skyvis'].value
                                 else:
@@ -4140,7 +4136,6 @@ class InterferometerArray(object):
                                     self.vis_noise_freq = subgrp['noise'].value
                                 else:
                                     self.vis_noise_freq = None
-                                    # raise KeyError('Key "noise" not found in init_file')
                             else:
                                 raise KeyError('Key "freq_spectrum" not found in init_file')
                             if 'delay_spectrum' in grp:
@@ -4157,17 +4152,6 @@ class InterferometerArray(object):
                                 for gradkey in grp:
                                     self.gradient_mode = gradkey
                                     self.gradient[gradkey] = grp[gradkey].value
-
-                        # if key == 'gaintable':
-                        #     self.gaintable = {}
-                        #     for gainkey in grp:
-                        #         self.gaintable[gainkey] = {}
-                        #         for subkey in grp[gainkey]:
-                        #             self.gaintable[gainkey][subkey] = grp[gainkey][subkey].value
-                        #         if not self.gaintable[gainkey]:
-                        #             self.gaintable[gainkey] = None
-                        #     if not self.gaintable:
-                        #         self.gaintable = None
 
                         if key == 'gaininfo':
                             if key in fileobj:
@@ -4188,7 +4172,6 @@ class InterferometerArray(object):
                         self.simparms_file = hdulist[0].header['simparms']
                     else:
                         warnings.warn('\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.')
-                        # print '\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.'
     
                 try:
                     self.gradient_mode = hdulist[0].header['gradient_mode']
@@ -4359,7 +4342,6 @@ class InterferometerArray(object):
                     self.vis_rms_freq = hdulist['freq_channel_noise_rms_visibility'].data
                 else:
                     self.vis_rms_freq = None
-                    # raise KeyError('Extension named "FREQ_CHANNEL_NOISE_RMS_VISIBILITY" not found in init_file.')
     
                 if 'REAL_FREQ_OBS_VISIBILITY' in extnames:
                     self.vis_freq = hdulist['real_freq_obs_visibility'].data
@@ -4368,7 +4350,6 @@ class InterferometerArray(object):
                         self.vis_freq += 1j * hdulist['imag_freq_obs_visibility'].data
                 else:
                     self.vis_freq = None
-                    # raise KeyError('Extension named "REAL_FREQ_OBS_VISIBILITY" not found in init_file.')
     
                 if 'REAL_FREQ_SKY_VISIBILITY' in extnames:
                     self.skyvis_freq = hdulist['real_freq_sky_visibility'].data
@@ -4385,7 +4366,6 @@ class InterferometerArray(object):
                         self.vis_noise_freq += 1j * hdulist['imag_freq_noise_visibility'].data
                 else:
                     self.vis_noise_freq = None
-                    # raise KeyError('Extension named "REAL_FREQ_NOISE_VISIBILITY" not found in init_file.')
     
                 if self.gradient_mode is not None:
                     self.gradient = {}
@@ -4394,23 +4374,6 @@ class InterferometerArray(object):
                         if 'imag_freq_sky_visibility_gradient_wrt_{0}'.format(self.gradient_mode) in extnames:
                             self.gradient[self.gradient_mode] = self.gradient[self.gradient_mode].astype(NP.complex128)
                             self.gradient[self.gradient_mode] += 1j * hdulist['imag_freq_sky_visibility_gradient_wrt_{0}'.format(self.gradient_mode)].data
-
-                # self.gaintable = {}
-                # for gainkey in ['antenna-based', 'baseline-based']:
-                #     self.gaintable[gainkey] = {}
-                #     for subkey in ['label', 'gains', 'ordering']:
-                #         if subkey == 'label':
-                #             if '{0}_in_{1}_gains'.format(subkey, gainkey) in extnames:
-                #                 self.gaintable[gainkey][subkey] = hdulist['{0}_in_{1}_gains'.format(subkey, gainkey)]
-                #         elif subkey == 'gains':
-                #             if '{0}_{1}_real'.format(gainkey, subkey) in extnames:
-                #                 self.gaintable[gainkey][subkey] = hdulist['{0}_{1}_real'.format(gainkey, subkey)].data +1j * hdulist['{0}_{1}_imag'.format(gainkey, subkey)].data
-                #         else:
-                #             self.gaintable[gainkey][subkey] = hdulist['gains_axes_{0}'.format(subkey)].data
-                #     if not self.gaintable[gainkey]:
-                #         self.gaintable[gainkey] = None
-                # if not self.gaintable:
-                #     self.gaintable = None
 
                 try:
                     gainsfile = hdulist[0].header['gainsfile']
@@ -4485,7 +4448,6 @@ class InterferometerArray(object):
             self.simparms_file = simparms_file
         else:
             warnings.warn('\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.')
-            # print '\tInvalid specification found in input simparms_file for simulation parameters file. Proceeding with None as default.'
 
         if isinstance(telescope, dict):
             self.telescope = telescope
@@ -4543,15 +4505,9 @@ class InterferometerArray(object):
         self.longitude = longitude
         self.vis_freq = None
         self.skyvis_freq = None
-        # self.pb = None
         self.vis_noise_freq = None
         self.gradient_mode = None
         self.gradient = {}
-        # self.gaintable = None
-        # if gaintable is not None:
-        #     if not isinstance(gaintable, dict):
-        #         raise TypeError('Input parameter gaintable must be a dictionary')
-        #     self.gaintable = gaintable
         self.gaininfo = None
         if gaininfo is not None:
             if not isinstance(gaininfo, GainInfo):
@@ -5419,8 +5375,15 @@ class InterferometerArray(object):
         -------------------------------------------------------------------------
         """
         
-        # gains = extract_gains(self.gaintable, self.labels, freq_index=None, time_index=None, axes_order=['label','frequency','time'])
-        gains = self.gaininfo.spline_gains(self.labels, freqs=self.channels, times=NP.asarray(self.timestamp))
+        try:
+            gains = self.gaininfo.spline_gains(self.labels, freqs=self.channels, times=NP.asarray(self.timestamp))
+        except IndexError:
+            try:
+                gains = self.gaininfo.spline_gains(self.labels, freqs=self.channels, times=NP.asarray(self.timestamp)-self.timestamp[0])
+            except IndexError:
+                print 'Interpolation requested outside valid range. Proceeding with default unity gains'
+                gains = 1.0
+                
         self.vis_freq = gains * self.skyvis_freq + self.vis_noise_freq
 
     #############################################################################
@@ -6447,19 +6410,6 @@ class InterferometerArray(object):
                     if verbose:
                         print '\tCreated extensions for real and imaginary parts of gradient of sky visibility frequency spectrum wrt {0} of size {1[0]} x {1[1]} x {1[2]} x {1[3]}'.format(gradkey, self.gradient[gradkey].shape)
 
-            # if self.gaintable is not None:
-            #     for gainkey in self.gaintable:
-            #         if self.gaintable[gainkey] is not None:
-            #             for subkey in self.gaintable[gainkey]:
-            #                 if self.gaintable[gainkey][subkey] is not None:
-            #                     if subkey == 'gains':
-            #                         hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey].real, name='{0}_{1}_real'.format(gainkey, subkey))]
-            #                         hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey].imag, name='{0}_{1}_imag'.format(gainkey, subkey))]
-            #                     elif subkey == 'labels':
-            #                         hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey], name='{0}_in_{1}_gains'.format(subkey, gainkey))]
-            #                     else:
-            #                         hdulist += [fits.ImageHDU(self.gaintable[gainkey][subkey], name='gains_axes_{0}'.format(subkey))]
-
             hdulist += [fits.ImageHDU(self.bp, name='bandpass')]
             if verbose:
                 print '\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape)
@@ -6612,14 +6562,6 @@ class InterferometerArray(object):
                     visgradient_group = fileobj.create_group('gradients')
                     for gradkey in self.gradient:
                         visgradient_group[gradkey] = self.gradient[gradkey]
-                # if self.gaintable is not None:
-                #     gains_group = fileobj.create_group('gaintable')
-                #     for gainkey in self.gaintable:
-                #         if self.gaintable[gainkey] is not None:
-                #             gains_subgrp = gains_group.create_group(gainkey)
-                #             for subkey in self.gaintable[gainkey]:
-                #                 if self.gaintable[gainkey][subkey] is not None:
-                #                     gains_subgrp[subkey] = self.gaintable[gainkey][subkey]
                 if self.gaininfo is not None:
                     gains_group = fileobj.create_group('gaininfo')
                     gains_group['gainsfile'] = outfile+'.gains.hdf5'
