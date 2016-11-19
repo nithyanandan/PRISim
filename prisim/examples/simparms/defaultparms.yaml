@@ -466,7 +466,8 @@ gains   :
                                 # stored in the simulation. It should
                                 # contain two groups, one for antenna
                                 # gains and the other for baseline-
-                                # based gains
+                                # based gains. If set to null, unity
+                                # gains assumed
 
     filepathtype    : 'default'
                                 # If set to 'default', only filename

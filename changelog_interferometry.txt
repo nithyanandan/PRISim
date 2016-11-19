@@ -1,3 +1,10 @@
+From 39e8f23 (instrument-gains):
+===============================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Make minor change in describing gains file parameter
+
 From cb109a4 (instrument-gains):
 ===============================
 
