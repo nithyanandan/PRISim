@@ -1,3 +1,8 @@
+From e291075 (santoshmh-master), e1ab039 (master):
+=================================================
+
+(*) Merge branch santoshmh-master onto master branch
+
 From 17f0d7d (instrument-gains):
 ===============================
 
@@ -287,6 +292,40 @@ In scripts/run_prisim.py,
 (*) Move calls to generate_noise() and add_noise() member functions
 of class InterferometerArray after concatenation from multiple
 processes
+
+From 15959c1 (santoshmh-master):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Rename rect_generator() to rectangle_generator()
+
+In scripts/run_prisim.py,
+
+(*) Rename call to rect_generator() with rectangle_generator()
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Cosmetic formatting changes
+
+From 4434d67 (santoshmh-master):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Add a new subroutine "rect_generator" to generate a 
+rectangular array layout
+
+In scripts/run_prisim.py,
+
+(*) Add an option "HIRAX-1024" in the IF loop checking 
+the keyword array_layout.
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add "HIRAX-1024" in the list of accepted default values 
+for 'layout' under 'array' (Antenna Layout)
+(*) Add latitude and longitude for HIRAX
 
 From 2ba94de (bl-gradient):
 ==========================
