@@ -1,5 +1,20 @@
-From 4434d67(santoshmh-master):
-==============================
+From 15959c1 (santoshmh-master):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Rename rect_generator() to rectangle_generator()
+
+In scripts/run_prisim.py,
+
+(*) Rename call to rect_generator() with rectangle_generator()
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Cosmetic formatting changes
+
+From 4434d67 (santoshmh-master):
+===============================
 
 In prisim/interferometry.py,
 

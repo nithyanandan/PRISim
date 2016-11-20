@@ -573,7 +573,7 @@ else:
     elif array_layout == 'HERA-331':
         ant_locs, ant_label = RI.hexagon_generator(14.6, n_total=331)
     elif array_layout == 'HIRAX-1024':
-        ant_locs, ant_label = RI.rect_generator(7, n_side=32)
+        ant_locs, ant_label = RI.rectangle_generator(7, n_side=32)
     elif array_layout == 'CIRC':
         ant_locs, ant_label = RI.circular_antenna_array(element_size, minR, maxR=maxR)
     ant_label = NP.asarray(ant_label)

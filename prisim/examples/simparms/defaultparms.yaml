@@ -66,8 +66,8 @@ telescope:
                                 # Longitude of observatory (in degrees)
                                 # Default (null) implies 0.0 degrees
                                 # corresponding to GMT.
-                                # -107.6184 for VLA, +116.670815 for MWA
-                                # +21.4278 for PAPER and HERA,
+                                # -107.6184 for VLA, +116.670815 for 
+                                # MWA, +21.4278 for PAPER and HERA,
                                 # +74.0497 for GMRT,
                                 # +116.7644482 for SKA-Low
                                 # +27.684722 for HIRAX
@@ -119,7 +119,8 @@ array   :                       # Parameters 'file' and 'layout'
                                 # 'HERA-7', 'HERA-19', 'HERA-37',
                                 # 'HERA-61', 'HERA-91', 'HERA-127',
                                 # 'HERA-169', 'HERA-217', 'HERA-271',
-                                # 'HERA-331', 'HIRAX-1024','CIRC', or null
+                                # 'HERA-331', 'HIRAX-1024','CIRC', or
+                                # null
 
     file            : null
                                 # File containing antenna locations
@@ -330,10 +331,10 @@ beam    :
                                 # antenna beam. Used only if
                                 # use_external is set to true.
                                 # Specify only filename if filepathtype
-                                # is set to 'default', otherwise specify
-                                # full path to the file. A format
-                                # specification for the file contents is
-                                # under development
+                                # is set to 'default', otherwise 
+                                # specify full path to the file. A 
+                                # format specification for the file 
+                                # contents is under development
 
     filepathtype    : 'default'
                                 # If set to 'default', only filename
@@ -410,19 +411,19 @@ bandpass :
 
     pfb_file        :           # File containing PFB coefficients.
                                 # Applicable only is pfb_method is
-                                # set to non-null value. If pfb_filepath
-                                # is set to 'default' specify only the
-                                # filename and it will be located in the
-                                # default folder under the PRISim package,
-                                # namely, data/bandpass but if pfb_filepath
-                                # is set to 'custom' then the full path
-                                # must be specified
+                                # set to non-null value. If 
+                                # pfb_filepath is set to 'default' 
+                                # specify only the filename and it 
+                                # will be located in the default 
+                                # folder under the PRISim package, 
+                                # namely, data/bandpass but if 
+                                # pfb_filepath is set to 'custom'
+                                # then the full path must be specified
 
                       'MWA_pfb_512x8.fits'
-                                # Just filename assuming default relative
-                                # path
-                      # '/path/to/PFBfile'
-                                # Full path to filename
+                                # Just filename assuming default 
+                                # relative path or full path to
+                                # filename like '/path/to/PFBfile'
 
 ########## Observation setup ##########
 
@@ -433,8 +434,8 @@ obsparm  :
 
     obs_mode        : 'drift'  
                                 # Observing mode. Accepted values are
-                                # 'drift', 'track', 'dns', 'lstbin', and 
-                                # 'custom' or null (default)
+                                # 'drift', 'track', 'dns', 'lstbin', 
+                                # and 'custom' or null (default)
 
     t_obs           : null      
                                 # Duration of observation (in seconds)
@@ -472,31 +473,34 @@ pointing :                      # If pointing file is specified to be
                                 # development
 
     drift_init :
-                                # Applies in case of initializing pointing
-                                # information for drift scan mode
+                                # Applies in case of initializing 
+                                # pointing information for drift scan
+                                # mode
 
         alt         : null
-                                # Altitude of telescope pointing (degrees)
+                                # Altitude of telescope pointing
+                                # (degrees)
 
         az          : null
-                                # Azimuth of telescope pointing (degrees)
+                                # Azimuth of telescope pointing
+                                # (degrees)
 
         ha          : 0.0
                                 # Hour angle of telescope pointing
                                 # (degrees). Only one of the Alt-Az or
-                                # HA-Dec pairs must be specified and the
-                                # other pair must be set to null
+                                # HA-Dec pairs must be specified and 
+                                # the other pair must be set to null
 
         dec         : -30.7224
                                 # Declination of telescope pointing
                                 # (degrees). Only one of the Alt-Az or
-                                # HA-Dec pairs must be specified and the
-                                # other pair must be set to null
+                                # HA-Dec pairs must be specified and 
+                                # the other pair must be set to null
 
         lst         : 0.0
                                 # LST at start of observation (hours).
-                                # The epoch is assumed to be the date of
-                                # observation
+                                # The epoch is assumed to be the date 
+                                # of observation
 
     track_init :
 
@@ -572,14 +576,15 @@ fgparm   :
                                 # 'dsm' (diffuse emission), 'asm' (both
                                 # point sources and diffuse emission),
                                 # 'sumss' (SUMSS catalog), nvss (NVSS
-                                # catalog), 'mss' (Molonglo Sky Survey),
-                                # 'gleam' (GLEAM catalog), 'custom' (user-
-                                # defined catalog), 'usm' (uniform
-                                # sky model), 'mwacs' (MWACS catalog),
-                                # 'HI_monopole' (global EoR), HI_cube
-                                # (HI cube from external simulations), 
-                                # and'HI_fluctuations' (HI fluctuations
-                                # with the global mean signal removed)
+                                # catalog), 'mss' (Molonglo Sky 
+                                # Survey), 'gleam' (GLEAM catalog), 
+                                # 'custom' (user-defined catalog), 
+                                # 'usm' (uniform sky model), 'mwacs' 
+                                # (MWACS catalog), 'HI_monopole' (global 
+                                # EoR), HI_cube (HI cube from external 
+                                # simulations), and 'HI_fluctuations' 
+                                # (HI fluctuations with the global mean
+                                # signal removed)
 
     fsky            : null
                                 # fraction of sky covered by the sky
@@ -600,9 +605,9 @@ fgparm   :
                                 # foreground model or EoR signal
 
     nside           : 256
-                                # Healpix nside parameter for foreground
-                                # model input map. Accepted values are
-                                # valid nside values
+                                # Healpix nside parameter for 
+                                # foreground model input map. Accepted 
+                                # values are valid nside values
 
     flux_unit       : 'K'
                                 # Units of flux or flux density.
@@ -656,7 +661,8 @@ catalog  :
 
     DSM_file_prefix : 'gsmdata'
                       # '/path/to/gsmdata'
-                                # Diffuse Sky Model map file name prefix
+                                # Diffuse Sky Model map file name
+                                # prefix
 
     SUMSS_file      : 'sumsscat.Mar-11-2008.txt'
                       # '/path/to/SUMSScatalogFile.txt'
@@ -722,9 +728,9 @@ processing:
                                 # '/data3/t_nithyanandan/project_HERA/newGainfiltered.npz'
                                 # '/data3/t_nithyanandan/project_HERA/specGainfiltered.npz'
                                 # '/data3/t_nithyanandan/project_HERA/steepGainfiltered.npz'                                
-                                # Antenna bandpass file (.npz) which will be
-                                # stored in multiplication to that 
-                                # specified in bpass_shape
+                                # Antenna bandpass file (.npz) which 
+                                # will be stored in multiplication to 
+                                # that specified in bpass_shape
                                 
     f_pad           : 1.0
                                 # frequency padding fraction for
@@ -775,8 +781,8 @@ pp       :
 
     key             : 'freq'
                                 # Split the data by 'bl' (baselines),
-                                # 'src' (sources) or 'freq' (frequency),
-                                # for parallel processing
+                                # 'src' (sources) or 'freq' 
+                                # (frequency), for parallel processing
 
     eqvol           : true
                                 # if set to true, load is split equally

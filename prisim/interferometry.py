@@ -213,7 +213,7 @@ def hexagon_generator(spacing, n_total=None, n_side=None, orientation=None,
 
 ################################################################################
 
-def rect_generator(spacing, n_side, orientation=None, center=None):
+def rectangle_generator(spacing, n_side, orientation=None, center=None):
 
     """
     ------------------------------------------------------------------------
