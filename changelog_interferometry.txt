@@ -1,3 +1,14 @@
+From 17f0d7d (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Update add_noise() member function of class InterferometerArray
+to call spline_gains() or nearest_gains() member functions
+depending on exceptions raised, if any
+(*) Update docstrings of eval_gains() and nearest_gains() member
+functions of class InterferometerArray
+
 From 43fec54 (instrument-gains):
 ===============================
 

@@ -5393,7 +5393,10 @@ class InterferometerArray(object):
                 try:
                     gains = self.gaininfo.spline_gains(self.labels, freqs=self.channels, times=NP.asarray(self.timestamp)-self.timestamp[0])
                 except IndexError:
-                    warnings.warn('Interpolation requested outside valid range. Proceeding with default unity gains')
+                    try:
+                        gains = self.gaininfo.nearest_gains(self.labels, freqs=self.channels, times=NP.asarray(self.timestamp))
+                    except:
+                        warnings.warn('Interpolation and nearest neighbour logic failed. Proceeding with default unity gains')
         else:
             warnings.warn('Gain table absent. Proceeding with default unity gains')
                 
