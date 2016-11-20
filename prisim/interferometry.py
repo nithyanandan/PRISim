@@ -1536,6 +1536,10 @@ class GainInfo(object):
                 frequencies and times using attribute splinefuncs. Better 
                 alternative to interpolate_gains()
 
+    nearest_gains()
+                Extract complex instrument gains for given baselines from the 
+                gain table determined by nearest neighbor logic
+
     write_gaintable()
                 Write gain table with specified axes ordering to external file 
                 in HDF5 format
@@ -2515,6 +2519,132 @@ class GainInfo(object):
         return blgains
                                         
     #############################################################################
+    
+    def nearest_gains(self, bl_labels, freqs=None, times=None, axes_order=None):
+
+        """
+        ------------------------------------------------------------------------
+        Extract complex instrument gains for given baselines from the gain table
+        determined by nearest neighbor logic
+    
+        Inputs:
+    
+        bl_labels   [Numpy structured array tuples] Labels of antennas in the 
+                    pair used to produce the baseline vector under fields 'A2' 
+                    and 'A1' for second and first antenna respectively. The 
+                    baseline vector is obtained by position of antennas under 
+                    'A2' minus position of antennas under 'A1'
+    
+        freqs       [None or numpy array] Array of frequencies at which the 
+                    gains are to be interpolated using the attribute 
+                    splinefuncs. If set to None (default), all frequencies in 
+                    the gaintable are assumed. The specified frequencies must 
+                    always lie within the range which was used in creating the 
+                    interpolation functions, otherwise an exception will be 
+                    raised. The array is of size nchan
+        
+        times       [None or numpy array] Array of times at which the gains
+                    are to be interpolated using the attribute splinefuncs. If 
+                    set to None (default), all times in the gaintable are
+                    assumed. The specified times must always lie within the
+                    range which was used in creating the interpolation 
+                    functions, otherwise an exception will be raised. The array 
+                    is of size nts
+        
+        axes_order  [None or list or numpy array] Axes ordering for extracted 
+                    gains. It must contain the three elements 'label', 
+                    'frequency', and 'time'. If set to None, it will be 
+                    returned in the same order as in the input gaintable. 
+    
+        Outputs: 
+    
+        [numpy array] Complex gains of shape nbl x nchan x nts for the specified 
+        baselines, frequencies and times.
+        ------------------------------------------------------------------------
+        """
+
+        try:
+            bl_labels
+        except NameError:
+            raise NameError('Input bl_labels must be specified')
+
+        blgains = NP.asarray(1.0).reshape(1,1,1)
+        if self.gaintable is not None:
+            a1_labels = bl_labels['A1']
+            a2_labels = bl_labels['A2']
+            for gainkey in ['antenna-based', 'baseline-based']:
+                if gainkey in self.gaintable:
+                    temp_axes_order = ['label', 'frequency', 'time']
+                    inp_order = self.gaintable[gainkey]['ordering']
+                    temp_transpose_order = NMO.find_list_in_list(inp_order, temp_axes_order)
+                    if NP.all(inp_order == temp_axes_order):
+                        gains = NP.copy(self.gaintable[gainkey]['gains'])
+                    else:
+                        gains = NP.transpose(NP.copy(self.gaintable[gainkey]['gains']), axes=temp_transpose_order)
+    
+                    freqs_to_search = copy.copy(freqs)
+                    if freqs_to_search is None:
+                        freqs_to_search = copy.copy(self.gaintable[gainkey]['frequency'])
+                        
+                    if freqs_to_search is not None:
+                        if self.gaintable[gainkey]['frequency'] is not None:
+                            inpind, refind_freqs, distNN= LKP.find_1NN(self.gaintable[gainkey]['frequency'].reshape(-1,1), freqs_to_search.reshape(-1,1), remove_oob=True)
+                        else:
+                            refind_freqs = None
+                    if refind_freqs is None:
+                        refind_freqs = NP.arange(gains.shape[1])
+    
+                    times_to_search = copy.copy(times)
+                    if times_to_search is None:
+                        times_to_search = copy.copy(self.gaintable[gainkey]['time'])
+                        
+                    if times_to_search is not None:
+                        if self.gaintable[gainkey]['time'] is not None:
+                            inpind, refind_times, distNN = LKP.find_1NN(self.gaintable[gainkey]['time'].reshape(-1,1), times_to_search.reshape(-1,1), remove_oob=True)
+                        else:
+                            refind_times = None
+                    if refind_times is None:
+                        refind_times = NP.arange(gains.shape[2])
+    
+                    if gains.shape[0] == 1:
+                        blgains = blgains * gains[:,refind_freqs,refind_times].reshape(1,refind_freqs.size,refind_times.size)
+                    else:
+                        labels = self.gaintable[gainkey]['label']
+                        if gainkey == 'antenna-based':
+                            ind1 = NMO.find_list_in_list(labels, a1_labels)
+                            ind2 = NMO.find_list_in_list(labels, a2_labels)
+                            if NP.sum(ind1.mask) > 0:
+                                raise IndexError('Some antenna gains could not be found')
+                            if NP.sum(ind2.mask) > 0:
+                                raise IndexError('Some antenna gains could not be found')
+                            blgains = blgains * gains[NP.ix_(ind2,refind_freqs,refind_times)].reshape(ind2.size,refind_freqs.size,refind_times.size) * gains[NP.ix_(ind1,refind_freqs,refind_times)].conj().reshape(ind1.size,refind_freqs.size,refind_times.size)
+                        else:
+                            labels_conj = [tuple(reversed(label)) for label in labels]
+                            labels_conj = NP.asarray(labels_conj, dtype=labels.dtype)
+                            labels_conj_appended = NP.concatenate((labels, labels_conj), axis=0)
+                            gains_conj_appended = NP.concatenate((gains, gains.conj()), axis=0)
+                            ind = NMO.find_list_in_list(labels_conj_appended, bl_labels)
+                            selected_gains = gains_conj_appended[NP.ix_(ind.compressed(),refind_freqs,refind_times)]
+                            if ind.compressed().size == 1:
+                                selected_gains = selected_gains.reshape(NP.sum(~ind.mask),refind_freqs.size,refind_times.size)
+                            blgains[~ind.mask, ...] = blgains[~ind.mask, ...] * selected_gains
+                    if axes_order is None:
+                        axes_order = inp_order
+                    elif not isinstance(axes_order, (list, NP.ndarray)):
+                        raise TypeError('axes_order must be a list')
+                    else:
+                        if len(axes_order) != 3:
+                            raise ValueError('axes_order must be a three element list')
+                        for orderkey in ['label', 'frequency', 'time']:
+                            if orderkey not in axes_order:
+                                raise ValueError('axes_order does not contain key "{0}"'.format(orderkey))
+    
+                    transpose_order = NMO.find_list_in_list(inp_order, axes_order)
+                    blgains = NP.transpose(blgains, axes=transpose_order)
+    
+        return blgains
+
+    #############################################################################
 
     def eval_gains(self, bl_labels, freq_index=None, time_index=None,
                    axes_order=None):
@@ -2524,126 +2654,6 @@ class GainInfo(object):
         Extract complex instrument gains for given baselines from the gain table 
     
         Inputs:
-    
-        gaintable   [None or dictionary] If set to None, all antenna- and 
-                    baseline-based gains must be set to unity. If returned as 
-                    dictionary, it contains the loaded gains. It contains the 
-                    following keys and values:
-                    'antenna-based'     [None or dictionary] Contains antenna-
-                                        based instrument gain information. If 
-                                        set to None, all antenna-based gains are 
-                                        set to unity. If returned as dictionary, 
-                                        it has the following keys and values:
-                                        'ordering'  [list or numpy array] Three
-                                                    element list of strings 
-                                                    indicating the ordering of
-                                                    axes - 'time', 'label', 
-                                                    and 'frequency'. Must be
-                                                    specified (no defaults)
-                                        'gains'     [scalar or numpy array] 
-                                                    Complex antenna-based 
-                                                    instrument gains. Must be 
-                                                    of shape (nant, nchan, nts)
-                                                    If there is no variations in 
-                                                    gains along an axis, then 
-                                                    the corresponding nax may be 
-                                                    set to 1 and the gains will 
-                                                    be replicated along that 
-                                                    axis using numpy array 
-                                                    broadcasting. For example, 
-                                                    shapes (nant,1,1), (1,1,1), 
-                                                    (1,nchan,nts) are 
-                                                    acceptable. If specified as 
-                                                    a scalar, it will be 
-                                                    replicated along all three 
-                                                    axes, namely, 'label', 
-                                                    'frequency' and 'time'.
-                                        'label'     [None or list or numpy 
-                                                    array] List or antenna 
-                                                    labels that correspond to 
-                                                    nant along the 'label' 
-                                                    axis. If nant=1, this may be 
-                                                    set to None, else it will be 
-                                                    specified and will match the 
-                                                    nant. 
-                                        'frequency' [None or list or numpy 
-                                                    array] Frequency channels 
-                                                    that correspond to the nax 
-                                                    along the 'frequency' axis. 
-                                                    If the nchan=1 along the 
-                                                    'frequency' axis, this may 
-                                                    be set to None, else it must 
-                                                    be specified and must match 
-                                                    the nchan 
-                                        'time'      [None or list or numpy 
-                                                    array] Observation times 
-                                                    that correspond to the nax 
-                                                    along the 'time' axis. If 
-                                                    the ntimes=1 along the 
-                                                    'time' axis, this may be set 
-                                                    to None, else it must be 
-                                                    specified and must match the 
-                                                    ntimes. It must be a float 
-                                                    and can be in seconds, 
-                                                    hours, days, etc.
-                    'baseline-based'    [None or dictionary] Contains baseline-
-                                        based instrument gain information. If 
-                                        set to None, all baseline-based gains 
-                                        are set to unity. If returned as 
-                                        dictionary, it has the following keys 
-                                        and values:
-                                        'ordering'  [list or numpy array] Three
-                                                    element list of strings 
-                                                    indicating the ordering of
-                                                    axes - 'time', 'label', 
-                                                    and 'frequency'. Must be
-                                                    specified (no defaults)
-                                        'gains'     [scalar or numpy array] 
-                                                    Complex baseline-based 
-                                                    instrument gains. Must be 
-                                                    of shape (nbl, nchan, nts)
-                                                    If there is no variations in 
-                                                    gains along an axis, then 
-                                                    the corresponding nax may be 
-                                                    set to 1 and the gains will 
-                                                    be replicated along that 
-                                                    axis using numpy array 
-                                                    broadcasting. For example, 
-                                                    shapes (nant,1,1), (1,1,1), 
-                                                    (1,nchan,nts) are 
-                                                    acceptable. If specified as 
-                                                    a scalar, it will be 
-                                                    replicated along all three 
-                                                    axes, namely, 'label', 
-                                                    'frequency' and 'time'.
-                                        'label'     [None or list or numpy 
-                                                    array] List or baseline 
-                                                    labels that correspond to 
-                                                    nbl along the 'label' 
-                                                    axis. If nbl=1 along the 
-                                                    'label' axis this may be 
-                                                    set to None, else it will be 
-                                                    specified and will match nbl. 
-                                        'frequency' [None or list or numpy 
-                                                    array] Frequency channels 
-                                                    that correspond to the nax 
-                                                    along the 'frequency' axis. 
-                                                    If the nchan=1 along the 
-                                                    'frequency' axis, this may 
-                                                    be set to None, else it must 
-                                                    be specified and must match 
-                                                    the nchan 
-                                        'time'      [None or list or numpy 
-                                                    array] Observation times 
-                                                    that correspond to the nax 
-                                                    along the 'time' axis. If 
-                                                    the ntimes=1 along the 
-                                                    'time' axis, this may be set 
-                                                    to None, else it must be 
-                                                    specified and must match the 
-                                                    ntimes. It must be a float 
-                                                    and can be in seconds, 
-                                                    hours, days, etc.
     
         bl_labels   [Numpy structured array tuples] Labels of antennas in the 
                     pair used to produce the baseline vector under fields 'A2' 
@@ -5375,14 +5385,17 @@ class InterferometerArray(object):
         -------------------------------------------------------------------------
         """
         
-        try:
-            gains = self.gaininfo.spline_gains(self.labels, freqs=self.channels, times=NP.asarray(self.timestamp))
-        except IndexError:
+        gains = 1.0
+        if self.gaininfo is not None:
             try:
-                gains = self.gaininfo.spline_gains(self.labels, freqs=self.channels, times=NP.asarray(self.timestamp)-self.timestamp[0])
+                gains = self.gaininfo.spline_gains(self.labels, freqs=self.channels, times=NP.asarray(self.timestamp))
             except IndexError:
-                print 'Interpolation requested outside valid range. Proceeding with default unity gains'
-                gains = 1.0
+                try:
+                    gains = self.gaininfo.spline_gains(self.labels, freqs=self.channels, times=NP.asarray(self.timestamp)-self.timestamp[0])
+                except IndexError:
+                    warnings.warn('Interpolation requested outside valid range. Proceeding with default unity gains')
+        else:
+            warnings.warn('Gain table absent. Proceeding with default unity gains')
                 
         self.vis_freq = gains * self.skyvis_freq + self.vis_noise_freq
 
