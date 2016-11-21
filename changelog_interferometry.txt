@@ -1,3 +1,30 @@
+From b389537 (PAPER):
+====================
+
+In prisim/primary_beams.py,
+
+(*) Allow presets for element size when telescope id is set to
+'hirax' and 'paper' in addition to existing ones in function
+primary_beam_generator(). Update docstring accordingly
+(*) Update docstring of telescope dictionary
+
+In scripts/run_prisim.py,
+
+(*) Allow option to set telescope id to 'paper' and 'hirax' and load
+corresponding preset values for element size and shape
+(*) Rename earlier option 'paper_dipole' to 'paper'
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Allow option to set telescope id to 'paper' and 'hirax' and load
+corresponding preset values for element size and shape
+(*) Rename earlier option 'paper_dipole' to 'paper'
+
+In prisim/interferometry.py,
+
+(*) Update docstring of dictionary input and attribute telescope to
+include 'paper', 'hirax' and 'chime' options
+
 From 6efc096 (PAPER):
 ====================
 

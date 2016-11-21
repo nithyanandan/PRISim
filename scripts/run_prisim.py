@@ -324,7 +324,7 @@ except OSError as exception:
     else:
         raise
 
-if telescope_id not in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'custom', 'paper_dipole', 'mwa_tools']:
+if telescope_id not in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'custom', 'paper', 'mwa_tools', 'hirax', 'chime']:
     raise ValueError('Invalid telescope specified')
 
 if element_shape is None:
@@ -376,6 +376,9 @@ if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole'):
     element_size = 0.74
     element_shape = 'dipole'
     if telescope_id == 'mwa': phased_array = True
+elif telescope_id == 'paper':
+    element_size = 2.0
+    element_shape = 'dipole'
 elif telescope_id == 'vla':
     element_size = 25.0
     element_shape = 'dish'
@@ -384,6 +387,9 @@ elif telescope_id == 'gmrt':
     element_shape = 'dish'
 elif telescope_id == 'hera':
     element_size = 14.0
+    element_shape = 'dish'
+elif telescope_id == 'hirax':
+    element_size = 6.0
     element_shape = 'dish'
 elif telescope_id == 'custom':
     if element_shape != 'delta':
@@ -612,7 +618,7 @@ ant_id_orig = NP.copy(ant_id)
 layout_info = {'positions': ant_locs_orig, 'labels': ant_label_orig, 'ids': ant_id_orig, 'coords': 'ENU'}
 
 telescope = {}
-if telescope_id in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'mwa_tools']:
+if telescope_id in ['mwa', 'vla', 'gmrt', 'hera', 'paper', 'mwa_dipole', 'mwa_tools', 'hirax', 'chime']:
     telescope['id'] = telescope_id
 telescope['shape'] = element_shape
 telescope['size'] = element_size
