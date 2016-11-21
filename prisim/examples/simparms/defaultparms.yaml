@@ -119,8 +119,8 @@ array   :                       # Parameters 'file' and 'layout'
                                 # 'HERA-7', 'HERA-19', 'HERA-37',
                                 # 'HERA-61', 'HERA-91', 'HERA-127',
                                 # 'HERA-169', 'HERA-217', 'HERA-271',
-                                # 'HERA-331', 'HIRAX-1024','CIRC', or
-                                # null
+                                # 'HERA-331', 'PAPER-64', 'PAPER-128',
+                                # 'HIRAX-1024','CIRC', or null
 
     file            : null
                                 # File containing antenna locations

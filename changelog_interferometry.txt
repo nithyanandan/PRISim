@@ -1,3 +1,18 @@
+From 6efc096 (PAPER):
+====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add option to enter PAPER-64 and PAPER-128 antenna layouts
+
+In scripts/run_prisim.py,
+
+(*) Modify to accept PAPER-64 and PAPER-128 layouts
+
+In prisim/interferometry.py,
+
+(*) Minor changes in docstring of function rectangle_generator()
+
 From e291075 (santoshmh-master), e1ab039 (master):
 =================================================
 

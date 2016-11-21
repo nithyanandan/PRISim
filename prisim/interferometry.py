@@ -745,7 +745,7 @@ def rectangle_generator(spacing, n_side, orientation=None, center=None):
     """
     ------------------------------------------------------------------------
     Generate a grid of baseline locations filling a rectangular array. 
-    Primarily intended for HIRAX experiment.
+    Primarily intended for HIRAX, CHIME and PAPER experiments
 
     Inputs:
     
