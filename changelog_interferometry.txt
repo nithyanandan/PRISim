@@ -1,3 +1,15 @@
+From 4821cde (PAPER):
+====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Update PAPER-128 to PAPER-112
+
+In scripts/run_prisim.py,
+
+(*) Update PAPER-128 to PAPER-112
+(*) Change x-spacing for PAPER-112 to 15m from 30m
+
 From b389537 (PAPER):
 ====================
 
