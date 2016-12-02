@@ -1,3 +1,488 @@
+From 4821cde (PAPER):
+====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Update PAPER-128 to PAPER-112
+
+In scripts/run_prisim.py,
+
+(*) Update PAPER-128 to PAPER-112
+(*) Change x-spacing for PAPER-112 to 15m from 30m
+
+From b389537 (PAPER):
+====================
+
+In prisim/primary_beams.py,
+
+(*) Allow presets for element size when telescope id is set to
+'hirax' and 'paper' in addition to existing ones in function
+primary_beam_generator(). Update docstring accordingly
+(*) Update docstring of telescope dictionary
+
+In scripts/run_prisim.py,
+
+(*) Allow option to set telescope id to 'paper' and 'hirax' and load
+corresponding preset values for element size and shape
+(*) Rename earlier option 'paper_dipole' to 'paper'
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Allow option to set telescope id to 'paper' and 'hirax' and load
+corresponding preset values for element size and shape
+(*) Rename earlier option 'paper_dipole' to 'paper'
+
+In prisim/interferometry.py,
+
+(*) Update docstring of dictionary input and attribute telescope to
+include 'paper', 'hirax' and 'chime' options
+
+From 6efc096 (PAPER):
+====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add option to enter PAPER-64 and PAPER-128 antenna layouts
+
+In scripts/run_prisim.py,
+
+(*) Modify to accept PAPER-64 and PAPER-128 layouts
+
+In prisim/interferometry.py,
+
+(*) Minor changes in docstring of function rectangle_generator()
+
+From e291075 (santoshmh-master), e1ab039 (master):
+=================================================
+
+(*) Merge branch santoshmh-master onto master branch
+
+From 17f0d7d (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Update add_noise() member function of class InterferometerArray
+to call spline_gains() or nearest_gains() member functions
+depending on exceptions raised, if any
+(*) Update docstrings of eval_gains() and nearest_gains() member
+functions of class InterferometerArray
+
+From 43fec54 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Add member function nearest_gains() along with docstring under
+class InterferometerArray. Update class docstring accordingly
+
+From d3fc57d (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) In member function add_noise() of class InterferometerArray,
+evaluate instrument gains after sufficient checks for inbound values
+(*) Remove obsolete commented lines
+
+From a1a1dbd (instrument-gains), 4434d67 (master):
+=================================================
+
+(*) Bring changes in master onto instrument-gains branch
+
+In prisim/interferometry.py,
+
+(*) In __init__() member function of class InterferometerArray, fix
+bugs in reading gaintable to initializ eattribute gaininfo
+
+In scripts/run_prisim.py,
+
+(*) Cleanup intermediate saved gain tables
+
+From 39e8f23 (instrument-gains):
+===============================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Make minor change in describing gains file parameter
+
+From cb109a4 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Estimate instrument gains in member function add_noise() of class
+InterferometerArray using spline_gains() member function of class
+GainInfo of attribute gaininfo 
+
+From bbf14b3 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) In member function save() of class InterferometerArray, write
+attribute gaininfo using its member function write_gaintable() from
+class GainInfo as a HDF5 file
+
+From cc9240e (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Introduce attribute gaininfo in place of gaintable in member
+function __init__() of class InterferometerArray. Change member
+function and class docstrings accordingly. Earlier attribute
+gaintable was a dictionary but gaininfo is an instance of class
+GainInfo
+
+In scripts/run_prisim.py,
+
+(*) Change references from gaintable to gaininfo which is used to
+initialize instances of class InterferometerArray
+
+From 5031131 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Add and initialize attributes interpfuncs and splinefuncs along
+with docstrings in member function __init__() of class GainInfo
+(*) Add member function interpolator() along with docstring in class
+GainInfo. It sets up interpolation functions in attribute interpfuncs
+using scipy.interpolate.interp1d and scipy.interpolate.interp2d.
+Update class docstring accordingly
+(*) Add member function splinator() along with docstring in class
+GainInfo. It sets up spline-based interpolation functions in attribute 
+splinefuncs using scipy.interpolate.UnivariateSpline and
+scipy.interpolate.RectBivariateSpline. Update class docstring
+accordingly
+(*) Add member function interpolate_gains() with docstring under class
+GainInfo. It evaluates gains for specified baselines, frequencies and
+times using the attribute interpfuncs. Update class docstring
+accordingly
+(*) Add member function spline_gains() with docstring under class
+GainInfo. It evaluates gains for specified baselines, frequencies and
+times using the attribute splinefuncs. Update class docstring
+accordingly
+
+From 81c63c4 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Include some more type checking in read_gaintable() and member
+function write_gaintable() of class GainInfo
+(*) Remove some commented lines
+
+From b9b265e (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Create keys 'time' and 'frequency' under keys 'antenna-based' and
+'baseline-based' in attribute gaintable of class GainInfo. Update all
+docstrings accordingly
+(*) Change key 'labels' to 'label' under keys 'antenna-based' and
+'baseline-based' in attribute gaintable of class GainInfo. Update all
+docstrings accordingly
+
+From 3940b9d (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Create class GainInfo along with docstring. Create member
+functions __init__(), read_gaintable(), eval_gains() and
+write_gaintable() along with respective docstrings
+(*) Minor change in function read_gaintable()
+(*) Minor changes to docstrings related to gain tables
+
+From 3686e90 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) In __init__() and save member functions of class
+InterferometerArray, save and initialize appropriate keys and values
+of gain table while using the FITS format
+
+From 48ee938 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Add input parameter axes_order in function read_gaintable().
+Update docstring accordingly
+(*) Add input parameter axes_order in function extract_gains().
+Update docstring accordingly
+(*) Include axes_order input in call to extract_gains() in member
+function add_noise() of class InterferometerArray
+
+In scripts/run_prisim.py,
+
+(*) Include axes_order input in reading gain table from input file
+
+From c78d705 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Import astroutils module nonmathops
+(*) Replace lines of code inside function extract_gains() with calls
+to function find_list_in_list() in module nonmathops
+(*) Minor correction in docstring of function extract_gains()
+
+From b5bd142 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Fix bugs in reading and extracting instrument gains in functions
+read_gaintable() and extract_gains().
+(*) Tested with an example gain table from an external file
+
+From e7282da (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Extract and apply gains in determining attribute vis_freq in
+member function add_noise() of class InterferometerArray. Update
+docstring of member function and class accordingly
+
+From 01434b5 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Add function extract_gains() (and docstring) to extract complex
+gains from gain table for specified baselines, frequencies and times.
+
+From 7edad38 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Check for presence of attributes vis_freq and vis_noise_freq to
+have non-None values before rotating phase center on them
+
+From 34fab4e (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Save gaintable attribute in save() member function of class
+InterferometerArray when saving in FITS format
+(*) Initialize gaintable attribute in __init__() member function of
+class InterferometerArray when loading from init_file in FITS format
+
+From ae2e92a (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Save gaintable attribute in save() member function of class
+InterferometerArray when saving in HDF5 format
+(*) Initialize gaintable attribute in __init__() member function of
+class InterferometerArray when loading from init_file in HDF5 format
+
+From d92cf16 (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Add attribute gaintable to class InterferometerArray and
+initialize in __init__() member function from input parameters.
+Update class and member function docstrings accordingly.
+
+In scripts/run_prisim.py,
+
+(*) In calls to initialize an instance of class InterferometerArray
+using input parameters, include passing of parameter gaintable to
+initialize gaintable attribute
+
+From 30826aa (instrument-gains):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Add function read_gaintable() to read from a file and load a
+dictionary containing gains specified in the file.
+
+In scripts/run_prisim.py,
+
+(*) Change variables relating to gain and delay errors in the phased
+array to make it explicit they refer to the phased array
+(*) Add option to read and load instrument gain table by calling the
+newly created function read_gaintable() in prisim/interferometry.py
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add options to include instrument gains in the simulations through
+a file
+
+From a30fba8 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) In __init__() member function of class InterferometerArray, for
+initialization using init_file, check for presence of keys vis_freq,
+vis_noise_freq, and vis_rms_freq before initializing
+(*) In concatenate() member function of class InterferometerArray,
+check attributes vis_freq, vis_rms_freq and vis_noise_freq are not
+None before attempting to concatenate them
+(*) In save() member function of class InterferometerArray, check 
+attributes vis_freq, vis_rms_freq and vis_noise_freq are not None
+before attempting to save them in npz format, otherwise write only
+skyvis_freq in npz format
+(*) In __init__() member function of class InterferometerData, check 
+attributes vis_freq, and vis_noise_freq are not None before
+attempting to initialize them and also attribute under 'data_array'
+key
+
+In scripts/run_prisim.py,
+
+(*) Move calls to generate_noise() and add_noise() member functions
+of class InterferometerArray after concatenation from multiple
+processes
+
+From 15959c1 (santoshmh-master):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Rename rect_generator() to rectangle_generator()
+
+In scripts/run_prisim.py,
+
+(*) Rename call to rect_generator() with rectangle_generator()
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Cosmetic formatting changes
+
+From 4434d67 (santoshmh-master):
+===============================
+
+In prisim/interferometry.py,
+
+(*) Add a new subroutine "rect_generator" to generate a 
+rectangular array layout
+
+In scripts/run_prisim.py,
+
+(*) Add an option "HIRAX-1024" in the IF loop checking 
+the keyword array_layout.
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add "HIRAX-1024" in the list of accepted default values 
+for 'layout' under 'array' (Antenna Layout)
+(*) Add latitude and longitude for HIRAX
+
+From 2ba94de (bl-gradient):
+==========================
+
+In prisim/interferometry.py,
+
+(*) Check gradient key in __init__() member function of class
+InterferometerArray
+
+From a30fba8 (bl-gradient):
+==========================
+
+In prisim/interferometry.py,
+
+(*) Type check for input gradient_mode in observe() member function
+of class InterferometerArray. 
+
+From 17e9e05 (bl-gradient):
+==========================
+
+In prisim/examples/simparms/defaultsparms.yaml,
+
+(*) Value of Tsys set to default of null
+
+In scripts/run_prisim.py,
+
+(*) Accept Tsys value directly if provided and replace it for Tant
+and Trx info
+
+From 8774052 (bl-gradient):
+==========================
+
+In prisim/interferometry.py,
+
+(*) In member function concatenate() of class InterferometerArray,
+concatenate attribute gradient
+(*) In member function observe() of class InterferometerArray, fix
+concatenation of attribute gradient 
+
+From 63a105f (bl-gradient):
+==========================
+
+In prisim/interferometry.py,
+
+(*) In member function save() of class InterferometerArray, save
+gradient attribute information
+(*) In member function __init__() of class InterferometerArray, read
+gradient attribute information from saved files
+
+From c26aff5 (bl-gradient):
+==========================
+
+In prisim/interferometry.py,
+
+(*) In member function observe() of class InterferometerArray, if
+input gradeint_mode is passed, gradients are computed in addition to
+usual visibilities. If not, visibilities are computed as usual and
+not gradients. Update docstrings of member function and class
+accordingly.
+(*) Remove conditional clauses in member functions generate_noise()
+and add_noise() of class InterferometerArray to not depend on
+attribute gradient_mode
+
+In prisim/examples/simparms/defaultsparms.yaml,
+
+(*) Update description of input option gradient_mode under
+'processing' keys
+
+From a307bce (bl-gradient):
+==========================
+
+In prisim/interferometry.py,
+
+(*) Add conditional clauses in member functions generate_noise()
+and add_noise() in class InterferometerArray to execute only if
+attribute gradient_mode is set to None
+
+From 2f034be (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add an option called 'gradient_mode' under 'processing'
+parameters to process visibility gradients
+
+In prisim/interferometry.py,
+
+(*) Add attributes gradient and gradient_mode in __init__() member
+function of class InterferometerArray. Update class and member
+function docstring accordingly
+(*) Add input keyword gradient_mode in member function observe()
+of class InterferometerArray. Add capability in this member function
+to compute visibility gradients with respect to baseline vector.
+Update member function docstring accordingly
+(*) Update docstring of member function observe() of class
+InterferometerArray for other inputs whose descriptions were missing
+earlier, namely, roi_info, and memsave
+
+In scripts/run_prisim.py,
+
+(*) Add option to read in gradient_mode and pass it in calls to
+observe() member function of class InterferometerArray
+
 From 29c1cef (live-memusage):
 ============================
 

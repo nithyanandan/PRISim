@@ -102,11 +102,12 @@ Trx = parms['telescope']['Trx']
 Tant_freqref = parms['telescope']['Tant_freqref']
 Tant_ref = parms['telescope']['Tant_ref']
 Tant_spindex = parms['telescope']['Tant_spindex']
-Tsysinfo = {'Trx': Trx, 'Tant':{'f0': Tant_freqref, 'spindex': Tant_spindex, 'T0': Tant_ref}, 'Tnet': None}
-# Tsys = parms['telescope']['Tsys']
+Tsys = parms['telescope']['Tsys']
+Tsysinfo = {'Trx': Trx, 'Tant':{'f0': Tant_freqref, 'spindex': Tant_spindex, 'T0': Tant_ref}, 'Tnet': Tsys}
 A_eff = parms['telescope']['A_eff']
 latitude = parms['telescope']['latitude']
 longitude = parms['telescope']['longitude']
+altitude = parms['telescope']['altitude']
 if longitude is None:
     longitude = 0.0
 pfb_method = parms['bandpass']['pfb_method']
@@ -131,8 +132,8 @@ if phased_array:
         raise TypeError('Filename containing phased array elements must be a string')
     if parms['phasedarray']['filepathtype'] == 'default':
         phased_elements_file = prisim_path+'data/phasedarray_layouts/'+phased_elements_file
-delayerr = parms['phasedarray']['delayerr']
-gainerr = parms['phasedarray']['gainerr']
+phasedarray_delayerr = parms['phasedarray']['delayerr']
+phasedarray_gainerr = parms['phasedarray']['gainerr']
 nrand = parms['phasedarray']['nrand']
 array_is_redundant = parms['array']['redundant']
 if not isinstance(array_is_redundant, bool):
@@ -181,6 +182,18 @@ if use_external_beam:
         select_beam_freq = freq
     pbeam_spec_interp_method = beam_info['spec_interp']
 beam_chromaticity = beam_info['chromatic']
+gainparms = parms['gains']
+# gaintable = None
+gaininfo = None
+if gainparms['file'] is not None:
+    gaintable = {}
+    if not isinstance(gainparms['file'], str):
+        raise TypeError('Filename of instrument gains must be a string')
+    gainsfile = gainparms['file']
+    if gainparms['filepathtype'] == 'default':
+        gainsfile = prisim_path + 'data/gains/'+gainsfile
+    gaininfo = RI.GainInfo(init_file=gainsfile, axes_order=['label', 'frequency', 'time'])
+    # gaintable = RI.read_gaintable(gainsfile, axes_order=['label', 'frequency', 'time'])
 avg_drifts = parms['snapshot']['avg_drifts']
 beam_switch = parms['snapshot']['beam_switch']
 pick_snapshots = parms['snapshot']['pick']
@@ -190,6 +203,14 @@ pointing_file = parms['pointing']['file']
 # pointing_info = parms['pointing']['initial']
 pointing_drift_init = parms['pointing']['drift_init']
 pointing_track_init = parms['pointing']['track_init']
+gradient_mode = parms['processing']['gradient_mode']
+if gradient_mode is not None:
+    if not isinstance(gradient_mode, str):
+        raise TypeError('gradient_mode must be a string')
+    if gradient_mode.lower() not in ['baseline', 'skypos', 'grequency']:
+        raise ValueError('Invalid value specified for gradient_mode')
+    if gradient_mode.lower() != 'baseline':
+        raise ValueError('Specified gradient_mode not supported currently')
 memuse = parms['processing']['memuse']
 memory_available = psutil.virtual_memory().available # in Bytes
 if memuse is None:
@@ -304,7 +325,7 @@ except OSError as exception:
     else:
         raise
 
-if telescope_id not in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'custom', 'paper_dipole', 'mwa_tools']:
+if telescope_id not in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'custom', 'paper', 'mwa_tools', 'hirax', 'chime']:
     raise ValueError('Invalid telescope specified')
 
 if element_shape is None:
@@ -321,22 +342,22 @@ if element_shape != 'delta':
 if not isinstance(phased_array, bool):
     raise TypeError('phased_array specification must be boolean')
 
-if delayerr is None:
-    delayerr_str = ''
-    delayerr = 0.0
-elif delayerr < 0.0:
-    raise ValueError('delayerr must be non-negative.')
+if phasedarray_delayerr is None:
+    phasedarray_delayerr_str = ''
+    phasedarray_delayerr = 0.0
+elif phasedarray_delayerr < 0.0:
+    raise ValueError('phasedarray_delayerr must be non-negative.')
 else:
-    delayerr_str = 'derr_{0:.3f}ns'.format(delayerr)
-delayerr *= 1e-9
+    phasedarray_delayerr_str = 'derr_{0:.3f}ns'.format(phasedarray_delayerr)
+phasedarray_delayerr *= 1e-9
 
-if gainerr is None:
-    gainerr_str = ''
-    gainerr = 0.0
-elif gainerr < 0.0:
-    raise ValueError('gainerr must be non-negative.')
+if phasedarray_gainerr is None:
+    phasedarray_gainerr_str = ''
+    phasedarray_gainerr = 0.0
+elif phasedarray_gainerr < 0.0:
+    raise ValueError('phasedarray_gainerr must be non-negative.')
 else:
-    gainerr_str = '_gerr_{0:.2f}dB'.format(gainerr)
+    phasedarray_gainerr_str = '_gerr_{0:.2f}dB'.format(phasedarray_gainerr)
 
 if nrand is None:
     nrandom_str = ''
@@ -346,16 +367,19 @@ elif nrand < 1:
 else:
     nrandom_str = '_nrand_{0:0d}_'.format(nrand)
 
-if (delayerr_str == '') and (gainerr_str == ''):
+if (phasedarray_delayerr_str == '') and (phasedarray_gainerr_str == ''):
     nrand = 1
     nrandom_str = ''
 
-delaygain_err_str = delayerr_str + gainerr_str + nrandom_str
+phasedarray_delaygain_err_str = phasedarray_delayerr_str + phasedarray_gainerr_str + nrandom_str
 
 if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole'):
     element_size = 0.74
     element_shape = 'dipole'
     if telescope_id == 'mwa': phased_array = True
+elif telescope_id == 'paper':
+    element_size = 2.0
+    element_shape = 'dipole'
 elif telescope_id == 'vla':
     element_size = 25.0
     element_shape = 'dish'
@@ -364,6 +388,9 @@ elif telescope_id == 'gmrt':
     element_shape = 'dish'
 elif telescope_id == 'hera':
     element_size = 14.0
+    element_shape = 'dish'
+elif telescope_id == 'hirax':
+    element_size = 6.0
     element_shape = 'dish'
 elif telescope_id == 'custom':
     if element_shape != 'delta':
@@ -537,7 +564,7 @@ if antenna_file is not None:
 
     ant_locs = NP.hstack((east.reshape(-1,1), north.reshape(-1,1), elev.reshape(-1,1)))
 else:
-    if array_layout not in ['MWA-128T', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331', 'CIRC']:
+    if array_layout not in ['MWA-128T', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331', 'PAPER-64', 'PAPER-112', 'HIRAX-1024', 'CIRC']:
         raise ValueError('Invalid array layout specified')
 
     if array_layout == 'MWA-128T':
@@ -564,6 +591,12 @@ else:
         ant_locs, ant_label = RI.hexagon_generator(14.6, n_total=271)
     elif array_layout == 'HERA-331':
         ant_locs, ant_label = RI.hexagon_generator(14.6, n_total=331)
+    elif array_layout == 'PAPER-64':
+        ant_locs, ant_label = RI.rectangle_generator([30.0, 4.0], [8, 8])
+    elif array_layout == 'PAPER-112':
+        ant_locs, ant_label = RI.rectangle_generator([15.0, 4.0], [16, 7])
+    elif array_layout == 'HIRAX-1024':
+        ant_locs, ant_label = RI.rectangle_generator(7.0, n_side=32)
     elif array_layout == 'CIRC':
         ant_locs, ant_label = RI.circular_antenna_array(element_size, minR, maxR=maxR)
     ant_label = NP.asarray(ant_label)
@@ -586,7 +619,7 @@ ant_id_orig = NP.copy(ant_id)
 layout_info = {'positions': ant_locs_orig, 'labels': ant_label_orig, 'ids': ant_id_orig, 'coords': 'ENU'}
 
 telescope = {}
-if telescope_id in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'mwa_tools']:
+if telescope_id in ['mwa', 'vla', 'gmrt', 'hera', 'paper', 'mwa_dipole', 'mwa_tools', 'hirax', 'chime']:
     telescope['id'] = telescope_id
 telescope['shape'] = element_shape
 telescope['size'] = element_size
@@ -595,6 +628,7 @@ telescope['ocoords'] = element_ocoords
 telescope['groundplane'] = ground_plane
 telescope['latitude'] = latitude
 telescope['longitude'] = longitude
+telescope['altitude'] = altitude
 
 if A_eff is None:
     if (telescope['shape'] == 'dipole') or (telescope['shape'] == 'delta'):
@@ -1679,7 +1713,13 @@ else:
     raise TypeError('Input fsky must be a scalar number')
 npol = 1
 nbl = total_baselines
-size_DFT_matrix = (usable_fsky * nsrc) * nchan * nbl * npol
+if gradient_mode is not None:
+    if gradient_mode.lower() == 'baseline':
+        size_DFT_matrix = (usable_fsky * nsrc) * nchan * nbl * npol * 3
+    else:
+        raise ValueError('Specified gradient_mode is currently not supported')
+else:
+    size_DFT_matrix = (usable_fsky * nsrc) * nchan * nbl * npol
 if memsave: # 64 bits per complex sample (single precision)
     nbytes_per_complex_sample = 8.0
 else: # 128 bits per complex sample (double precision)
@@ -1702,7 +1742,7 @@ elif mpi_on_freq:
         if frequency_chunk_size > 2:
             frequency_bin_indices[-1] -= 1
         else:
-            raise IndexError('Chunking has run into a weird indexing problem. Rechunking is necessaray. Try changing number of parallel processes and amount of usable memory. Usually reducing either one of these should help avoind this problem.')
+            raise IndexError('Chunking has run into a weird indexing problem. Rechunking is necessaray. Try changing number of parallel processes and amount of usable memory. Usually reducing either one of these should help avoid this problem.')
     freq_chunk = range(len(frequency_bin_indices))
     n_freq_chunks = len(frequency_bin_indices)
     n_freq_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(freq_chunk)/nproc
@@ -1778,7 +1818,7 @@ if mpi_on_src: # MPI based on source multiplexing
     for i in range(len(bl_chunk)):
         print 'Working on baseline chunk # {0:0d} ...'.format(bl_chunk[i])
 
-        ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec')    
+        ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo)
 
         progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
         for j in range(n_acc):
@@ -1796,14 +1836,14 @@ if mpi_on_src: # MPI based on source multiplexing
                 pbinfo['delays'] = delays[j,:]
                 if (telescope_id == 'mwa') or (phased_array):
                     # pbinfo['element_locs'] = element_locs
-                    pbinfo['delayerr'] = delayerr
-                    pbinfo['gainerr'] = gainerr
+                    pbinfo['delayerr'] = phasedarray_delayerr
+                    pbinfo['gainerr'] = phasedarray_gainerr
                     pbinfo['nrand'] = nrand
 
             ts = time.time()
             if j == 0:
                 ts0 = ts
-            ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+            ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
             te = time.time()
             # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
             progress.update(j+1)
@@ -1819,8 +1859,8 @@ if mpi_on_src: # MPI based on source multiplexing
             te0 = time.time()
             print 'Time on process 0 was {0:.1f} seconds'.format(te0-ts0)
             ia.t_obs = t_obs
-            ia.generate_noise()
-            ia.add_noise()
+            # ia.generate_noise()
+            # ia.add_noise()
             ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
             outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
             ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
@@ -1860,8 +1900,8 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                         
                     if (telescope_id == 'mwa') or (phased_array):
                         # pbinfo['element_locs'] = element_locs
-                        pbinfo['delayerr'] = delayerr
-                        pbinfo['gainerr'] = gainerr
+                        pbinfo['delayerr'] = phasedarray_delayerr
+                        pbinfo['gainerr'] = phasedarray_gainerr
                         pbinfo['nrand'] = nrand
                 else:
                     pbinfo['pointing_center'] = pointings_altaz[j,:]
@@ -1918,7 +1958,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             f0_chunk = chans[freq_chunk[i]*frequency_chunk_size] + NP.floor(0.5*nchan_chunk) * freq_resolution / 1e9
             bw_chunk_str = '{0:0d}x{1:.1f}_kHz'.format(nchan_chunk, freq_resolution/1e3)
             outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
-            ia = RI.InterferometerArray(labels, bl, chans_chunk, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec')
+            ia = RI.InterferometerArray(labels, bl, chans_chunk, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo)
             
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
             for j in range(n_acc):
@@ -1935,7 +1975,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 if j == 0:
                     ts0 = ts
               
-                ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+                ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
                 te = time.time()
                 # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                 progress.update(j+1)
@@ -1944,8 +1984,8 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             te0 = time.time()
             print 'Process {0:0d} took {1:.1f} minutes to complete frequency chunk # {2:0d}'.format(rank, (te0-ts0)/60, freq_chunk[i])
             # ia.t_obs = t_obs
-            ia.generate_noise()
-            ia.add_noise()
+            # ia.generate_noise()
+            # ia.add_noise()
             # ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
             ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
             ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
@@ -1967,7 +2007,7 @@ else: # MPI based on baseline multiplexing
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, count)
 
                 outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(count)
-                ia = RI.InterferometerArray(labels[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec')        
+                ia = RI.InterferometerArray(labels[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo)        
 
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
                 for j in range(n_acc):
@@ -1982,14 +2022,14 @@ else: # MPI based on baseline multiplexing
                         pbinfo['delays'] = delays[j,:]
                         if (telescope_id == 'mwa') or (phased_array):
                             # pbinfo['element_locs'] = element_locs
-                            pbinfo['delayerr'] = delayerr
-                            pbinfo['gainerr'] = gainerr
+                            pbinfo['delayerr'] = phasedarray_delayerr
+                            pbinfo['gainerr'] = phasedarray_gainerr
                             pbinfo['nrand'] = nrand
 
                     ts = time.time()
                     if j == 0:
                         ts0 = ts
-                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
                     te = time.time()
                     # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                     progress.update(j+1)
@@ -1998,8 +2038,8 @@ else: # MPI based on baseline multiplexing
                 te0 = time.time()
                 print 'Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60, count)
                 ia.t_obs = t_obs
-                ia.generate_noise()
-                ia.add_noise()
+                # ia.generate_noise()
+                # ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
                 ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
         counter.free()
@@ -2042,8 +2082,8 @@ else: # MPI based on baseline multiplexing
                             
                         if (telescope_id == 'mwa') or (phased_array):
                             # pbinfo['element_locs'] = element_locs
-                            pbinfo['delayerr'] = delayerr
-                            pbinfo['gainerr'] = gainerr
+                            pbinfo['delayerr'] = phasedarray_delayerr
+                            pbinfo['gainerr'] = phasedarray_gainerr
                             pbinfo['nrand'] = nrand
                     else:
                         pbinfo['pointing_center'] = pointings_altaz[j,:]
@@ -2127,7 +2167,7 @@ else: # MPI based on baseline multiplexing
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i])
         
                 outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
-                ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec')
+                ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo)
                 
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
                 for j in range(n_acc):
@@ -2143,7 +2183,7 @@ else: # MPI based on baseline multiplexing
                     if j == 0:
                         ts0 = ts
                   
-                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], memsave=memsave)
+                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
                     te = time.time()
                     # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                     progress.update(j+1)
@@ -2152,8 +2192,8 @@ else: # MPI based on baseline multiplexing
                 te0 = time.time()
                 print 'Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60, bl_chunk[i])
                 ia.t_obs = t_obs
-                ia.generate_noise()
-                ia.add_noise()
+                # ia.generate_noise()
+                # ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
                 ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
                 ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
@@ -2191,6 +2231,8 @@ if rank == 0:
                 if cleanup:
                     if os.path.isfile(blchunk_infile+'.'+savefmt.lower()):
                         os.remove(blchunk_infile+'.'+savefmt.lower())
+                    if os.path.isfile(blchunk_infile+'.gains.hdf5'):
+                        os.remove(blchunk_infile+'.gains.hdf5')
                     
                 progress.update(i+1)
             progress.finish()
@@ -2213,10 +2255,14 @@ if rank == 0:
                 if cleanup:
                     if os.path.isfile(freqchunk_infile+'.'+savefmt.lower()):
                         os.remove(freqchunk_infile+'.'+savefmt.lower())
+                    if os.path.isfile(freqchunk_infile+'.gains.hdf5'):
+                        os.remove(freqchunk_infile+'.gains.hdf5')
                     
                 progress.update(i+1)
             progress.finish()
 
+        simvis.generate_noise()
+        simvis.add_noise()
         simvis.simparms_file = parmsfile
         ref_point = {'coords': pc_coords, 'location': NP.asarray(pc).reshape(1,-1)}
         simvis.rotate_visibilities(ref_point, do_delay_transform=do_delay_transform, verbose=True)

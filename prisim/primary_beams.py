@@ -14,10 +14,10 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
     """
     -----------------------------------------------------------------------------
     A wrapper for estimating the power patterns of different telescopes such as
-    the VLA, GMRT, MWA, HERA, etc. For the VLA and GMRT, polynomial power 
-    patterns are estimated as specified in AIPS task PBCOR. For MWA, it is based 
-    on theoretical expressions for dipole (element) pattern multiplied with the 
-    array pattern of isotropic radiators.
+    the VLA, GMRT, MWA, HERA, PAPER, HIRAX, CHIME, etc. For the VLA and GMRT, 
+    polynomial power patterns are estimated as specified in AIPS task PBCOR. For 
+    MWA, it is based on theoretical expressions for dipole (element) pattern 
+    multiplied with the array pattern of isotropic radiators.
 
     Inputs:
 
@@ -37,7 +37,8 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 and values:
                 'id'          [string] If set, will ignore the other keys and use
                               telescope details for known telescopes. Accepted 
-                              values are 'mwa', 'vla', 'gmrt', and 'hera'.
+                              values are 'mwa', 'vla', 'gmrt', 'hera', 'paper', 
+                              'hirax', and 'chime' 
                 'shape'       [string] Shape of antenna element. Accepted values
                               are 'dipole', 'delta', 'dish', 'rect' and 'square'. 
                               Will be ignored if key 'id' is set. 'delta' denotes 
@@ -233,8 +234,12 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 pb = VLA_primary_beam_PBCOR(angles, frequency/1e9, 'degrees')
             elif telescope['id'] == 'gmrt':
                 pb = GMRT_primary_beam(angles, frequency/1e9, 'degrees')
-        elif telescope['id'] == 'hera':
-            pb = airy_disk_pattern(14.0, skypos, frequency, skyunits=skyunits,
+        elif (telescope['id'] == 'hera') or (telescope['id'] == 'hirax'):
+            if telescope['id'] == 'hera':
+                dish_dia = 14.0
+            else:
+                dish_dia = 6.0
+            pb = airy_disk_pattern(dish_dia, skypos, frequency, skyunits=skyunits,
                                    peak=1.0, pointing_center=telescope['orientation'], 
                                    pointing_coords=telescope['ocoords'],
                                    gaussian=False, power=True, small_angle_tol=1e-10)
@@ -310,7 +315,11 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 pb = NP.mean(NP.abs(ep * irap)**2, axis=2) # Power pattern is square of the field pattern
             else:
                 raise ValueError('skyunits must be in Alt-Az or direction cosine coordinates for MWA.')
-        elif telescope['id'] == 'mwa_dipole':
+        elif (telescope['id'] == 'mwa_dipole') or (telescope['id'] == 'paper'):
+            if telescope['id'] == 'mwa_dipole':
+                dipole_size = 0.74
+            else:
+                dipole_size = 2.0
             if (skyunits == 'altaz') or (skyunits == 'dircos'):
                 if ('orientation' in telescope) and ('ocoords' in telescope):
                     orientation = NP.asarray(telescope['orientation']).reshape(1,-1)
@@ -329,7 +338,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                     ocoords = 'dircos'
                     orientation = NP.asarray([1.0, 0.0, 0.0]).reshape(1,-1)
 
-                ep = dipole_field_pattern(0.74, skypos, dipole_coords=ocoords,
+                ep = dipole_field_pattern(dipole_size, skypos, dipole_coords=ocoords,
                                           dipole_orientation=orientation,
                                           skycoords=skyunits, wavelength=FCNST.c/frequency, 
                                           short_dipole_approx=short_dipole_approx,
