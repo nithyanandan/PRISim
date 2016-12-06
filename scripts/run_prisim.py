@@ -245,6 +245,11 @@ fsky = parms['fgparm']['fsky']
 fgcat_epoch = parms['fgparm']['epoch']
 nside = parms['fgparm']['nside']
 flux_unit = parms['fgparm']['flux_unit']
+fluxcut_min = parms['fgparm']['flux_min']
+fluxcut_max = parms['fgparm']['flux_max']
+fluxcut_freq = parms['fgparm']['fluxcut_reffreq']
+if fluxcut_min is None:
+    fluxcut_min = 0.0
 spindex = parms['fgparm']['spindex']
 spindex_rms = parms['fgparm']['spindex_rms']
 spindex_seed = parms['fgparm']['spindex_seed']
@@ -1056,6 +1061,10 @@ bandpass_shape = 1.0*NP.ones(nchan)
 chans = (freq + (NP.arange(nchan) - 0.5 * nchan) * freq_resolution)/ 1e9 # in GHz
 oversampling_factor = 1.0 + f_pad
 bandpass_str = '{0:0d}x{1:.1f}_kHz'.format(nchan, freq_resolution/1e3)
+if fluxcut_freq is None:
+    fluxcut_freq = freq
+else:
+    fluxcut_freq = NP.float(fluxcut_freq)
 
 flagged_edge_channels = []
 pfb_str = ''
@@ -1479,32 +1488,37 @@ elif use_CSM:
     fpa = fpa[PS_ind]
     dmajax = dmajax[PS_ind]
     dminax = dminax[PS_ind]
-    bright_source_ind = fint >= 10.0 * (freq_SUMSS*1e9/freq)**spindex_SUMSS
-    ra_deg_SUMSS = ra_deg_SUMSS[bright_source_ind]
-    dec_deg_SUMSS = dec_deg_SUMSS[bright_source_ind]
-    fint = fint[bright_source_ind]
-    fmajax = fmajax[bright_source_ind]
-    fminax = fminax[bright_source_ind]
-    fpa = fpa[bright_source_ind]
-    dmajax = dmajax[bright_source_ind]
-    dminax = dminax[bright_source_ind]
-    spindex_SUMSS = spindex_SUMSS[bright_source_ind]
-    valid_ind = NP.logical_and(fmajax > 0.0, fminax > 0.0)
-    ra_deg_SUMSS = ra_deg_SUMSS[valid_ind]
-    dec_deg_SUMSS = dec_deg_SUMSS[valid_ind]
-    fint = fint[valid_ind]
-    fmajax = fmajax[valid_ind]
-    fminax = fminax[valid_ind]
-    fpa = fpa[valid_ind]
-    spindex_SUMSS = spindex_SUMSS[valid_ind]
-    freq_catalog = freq_SUMSS*1e9 + NP.zeros(fint.size)
-    catlabel = NP.repeat('SUMSS', fint.size)
-    ra_deg = ra_deg_SUMSS + 0.0
-    dec_deg = dec_deg_SUMSS
-    spindex = spindex_SUMSS
-    majax = fmajax/3.6e3
-    minax = fminax/3.6e3
-    fluxes = fint + 0.0
+    if fluxcut_max is None:
+        select_SUMSS_source_ind = fint >= fluxcut_min * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS
+    else:
+        select_SUMSS_source_ind = NP.logical_and(fint >= fluxcut_min * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS, fint <= fluxcut_max * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS)
+    if NP.sum(select_SUMSS_source_ind) > 0:
+        # select_SUMSS_source_ind = fint >= 10.0 * (freq_SUMSS*1e9/freq)**spindex_SUMSS
+        ra_deg_SUMSS = ra_deg_SUMSS[select_SUMSS_source_ind]
+        dec_deg_SUMSS = dec_deg_SUMSS[select_SUMSS_source_ind]
+        fint = fint[select_SUMSS_source_ind]
+        fmajax = fmajax[select_SUMSS_source_ind]
+        fminax = fminax[select_SUMSS_source_ind]
+        fpa = fpa[select_SUMSS_source_ind]
+        dmajax = dmajax[select_SUMSS_source_ind]
+        dminax = dminax[select_SUMSS_source_ind]
+        spindex_SUMSS = spindex_SUMSS[select_SUMSS_source_ind]
+        valid_ind = NP.logical_and(fmajax > 0.0, fminax > 0.0)
+        ra_deg_SUMSS = ra_deg_SUMSS[valid_ind]
+        dec_deg_SUMSS = dec_deg_SUMSS[valid_ind]
+        fint = fint[valid_ind]
+        fmajax = fmajax[valid_ind]
+        fminax = fminax[valid_ind]
+        fpa = fpa[valid_ind]
+        spindex_SUMSS = spindex_SUMSS[valid_ind]
+        freq_catalog = freq_SUMSS*1e9 + NP.zeros(fint.size)
+        catlabel = NP.repeat('SUMSS', fint.size)
+        ra_deg = ra_deg_SUMSS + 0.0
+        dec_deg = dec_deg_SUMSS
+        spindex = spindex_SUMSS
+        majax = fmajax/3.6e3
+        minax = fminax/3.6e3
+        fluxes = fint + 0.0
     freq_NVSS = 1.4 # in GHz
     hdulist = fits.open(NVSS_file)
     ra_deg_NVSS = hdulist[1].data['RA(2000)']
@@ -1523,18 +1537,37 @@ elif use_CSM:
     not_in_SUMSS_ind = dec_deg_NVSS > -30.0
     # not_in_SUMSS_ind = NP.logical_and(dec_deg_NVSS > -30.0, dec_deg_NVSS <= min(90.0, latitude+90.0))
     
-    bright_source_ind = nvss_fpeak >= 10.0 * (freq_NVSS*1e9/freq)**(spindex_NVSS)
+    if fluxcut_max is None:
+        select_source_ind = nvss_fpeak >= fluxcut_min * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS
+    else:
+        select_source_ind = NP.logical_and(nvss_fpeak >= fluxcut_min * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS, nvss_fpeak <= fluxcut_max * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS)
+    if NP.sum(select_source_ind) == 0:
+        raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
+    # select_source_ind = nvss_fpeak >= 10.0 * (freq_NVSS*1e9/freq)**(spindex_NVSS)
     PS_ind = NP.sqrt(nvss_majax**2-(0.75/60.0)**2) < 14.0/3.6e3
-    count_valid = NP.sum(NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind))
-    nvss_fpeak = nvss_fpeak[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]
-    freq_catalog = NP.concatenate((freq_catalog, freq_NVSS*1e9 + NP.zeros(count_valid)))
-    catlabel = NP.concatenate((catlabel, NP.repeat('NVSS',count_valid)))
-    ra_deg = NP.concatenate((ra_deg, ra_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
-    dec_deg = NP.concatenate((dec_deg, dec_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
-    spindex = NP.concatenate((spindex, spindex_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
-    majax = NP.concatenate((majax, nvss_majax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
-    minax = NP.concatenate((minax, nvss_minax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
-    fluxes = NP.concatenate((fluxes, nvss_fpeak))
+    count_valid = NP.sum(NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind))
+    if count_valid > 0:
+        nvss_fpeak = nvss_fpeak[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
+        if NP.sum(select_SUMSS_source_ind) > 0: 
+            freq_catalog = NP.concatenate((freq_catalog, freq_NVSS*1e9 + NP.zeros(count_valid)))
+            catlabel = NP.concatenate((catlabel, NP.repeat('NVSS',count_valid)))
+            ra_deg = NP.concatenate((ra_deg, ra_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]))
+            dec_deg = NP.concatenate((dec_deg, dec_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]))
+            spindex = NP.concatenate((spindex, spindex_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]))
+            majax = NP.concatenate((majax, nvss_majax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]))
+            minax = NP.concatenate((minax, nvss_minax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]))
+            fluxes = NP.concatenate((fluxes, nvss_fpeak))
+        else:
+            freq_catalog = freq_NVSS*1e9 + NP.zeros(count_valid)
+            catlabel = NP.repeat('NVSS',count_valid)
+            ra_deg = ra_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
+            dec_deg = dec_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
+            spindex = spindex_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
+            majax = nvss_majax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
+            minax = nvss_minax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
+            fluxes = nvss_fpeak
+    elif NP.sum(select_SUMSS_source_ind) == 0:
+        raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
 
     spec_type = 'func'
     spec_parms = {}
@@ -1573,15 +1606,21 @@ elif use_SUMSS:
     fpa = fpa[PS_ind]
     dmajax = dmajax[PS_ind]
     dminax = dminax[PS_ind]
-    bright_source_ind = fint >= 1.0
-    ra_deg = ra_deg[bright_source_ind]
-    dec_deg = dec_deg[bright_source_ind]
-    fint = fint[bright_source_ind]
-    fmajax = fmajax[bright_source_ind]
-    fminax = fminax[bright_source_ind]
-    fpa = fpa[bright_source_ind]
-    dmajax = dmajax[bright_source_ind]
-    dminax = dminax[bright_source_ind]
+    if fluxcut_max is None:
+        select_source_ind = fint >= fluxcut_min * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS
+    else:
+        select_source_ind = NP.logical_and(fint >= fluxcut_min * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS, fint <= fluxcut_max * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS)
+    if NP.sum(select_source_ind) == 0:
+        raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
+    # select_source_ind = fint >= 1.0
+    ra_deg = ra_deg[select_source_ind]
+    dec_deg = dec_deg[select_source_ind]
+    fint = fint[select_source_ind]
+    fmajax = fmajax[select_source_ind]
+    fminax = fminax[select_source_ind]
+    fpa = fpa[select_source_ind]
+    dmajax = dmajax[select_source_ind]
+    dminax = dminax[select_source_ind]
     valid_ind = NP.logical_and(fmajax > 0.0, fminax > 0.0)
     ra_deg = ra_deg[valid_ind]
     dec_deg = dec_deg[valid_ind]
@@ -1634,9 +1673,15 @@ elif use_GLEAM:
         NP.random.seed(2*spindex_seed)
         spindex_GLEAM = spindex + spindex_rms * NP.random.randn(gleam_fint.size)
 
-    bright_source_ind = gleam_fint >= 10.0 * (freq_GLEAM*1e9/freq)**spindex_GLEAM
+    if fluxcut_max is None:
+        select_source_ind = gleam_fint >= fluxcut_min * (freq_GLEAM*1e9/fluxcut_freq)**spindex_GLEAM
+    else:
+        select_source_ind = NP.logical_and(gleam_fint >= fluxcut_min * (freq_GLEAM*1e9/fluxcut_freq)**spindex_GLEAM, gleam_fint <= fluxcut_max * (freq_GLEAM*1e9/fluxcut_freq)**spindex_GLEAM)
+    if NP.sum(select_source_ind) == 0:
+        raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
+    # bright_source_ind = gleam_fint >= 10.0 * (freq_GLEAM*1e9/freq)**spindex_GLEAM
     PS_ind = gleam_majax * gleam_minax <= 1.1 * gleam_psf_majax * gleam_psf_minax
-    valid_ind = NP.logical_and(bright_source_ind, PS_ind)
+    valid_ind = NP.logical_and(select_source_ind, PS_ind)
     ra_deg_GLEAM = ra_deg_GLEAM[valid_ind]
     dec_deg_GLEAM = dec_deg_GLEAM[valid_ind]
     gleam_fint = gleam_fint[valid_ind]
@@ -1680,7 +1725,22 @@ elif use_custom:
     freq_custom = 0.185 # in GHz
     freq_catalog = freq_custom * 1e9 + NP.zeros(fint.size)
     catlabel = NP.repeat('custom', fint.size)
-
+    if fluxcut_max is None:
+        select_source_ind = fint >= fluxcut_min * (freq_custom*1e9/fluxcut_freq)**spindex_custom
+    else:
+        select_source_ind = NP.logical_and(fint >= fluxcut_min * (freq_custom*1e9/fluxcut_freq)**spindex_custom, fint <= fluxcut_max * (freq_custom*1e9/fluxcut_freq)**spindex_custom)
+    if NP.sum(select_source_ind) == 0:
+        raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
+    ra_deg = ra_deg[select_source_ind]
+    dec_deg = dec_deg[select_source_ind]
+    fint = fint[select_source_ind]
+    spindex = spindex[select_source_ind]
+    majax = majax[select_source_ind]
+    minax = minax[select_source_ind]
+    pa = pa[select_source_ind]
+    freq_catalog = freq_catalog[select_source_ind]
+    catlabel = catlabel[select_source_ind]
+    
     spec_type = 'func'
     spec_parms = {}
     # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)

@@ -639,6 +639,34 @@ fgparm   :
                                 # temperature in K or 'Jy' for flux
                                 # density in Jy
 
+    flux_min  : 10.0
+                                # Flux density lower limit (Jy) to be 
+                                # applied to 'csm', 'mwacs', 'gleam',
+                                # and 'custom' catalogs. If set to
+                                # null, source with lowest flux
+                                # density in the catalog is
+                                # simulated. This parameter does not
+                                # apply to diffuse model. The
+                                # reference frequency is specified in
+                                # fluxcut_reffreq
+
+    flux_max  : null
+                                # Flux density upper limit (Jy) to be 
+                                # applied to 'csm', 'mwacs', 'gleam',
+                                # and 'custom' catalogs. If set to
+                                # null, source with lowest flux
+                                # density in the catalog is
+                                # simulated. This parameter does not
+                                # apply to diffuse model. The
+                                # reference frequency is specified in
+                                # fluxcut_reffreq
+                                
+    fluxcut_reffreq : null
+                                # The reference frequency at which
+                                # the flux thresholds are applicable.
+                                # If set to null, it will default to
+                                # 'freq' parameter in bandpass setup
+
     spindex         : -0.83
                                 # Spectral indices of point sources
 

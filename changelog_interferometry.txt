@@ -1,3 +1,15 @@
+From 6d245f2 (flux-cut):
+=======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add parameters to add flux thresholds on foreground models
+involving point sources
+
+In scripts/run_prisim.py,
+
+(*) Apply flux thresolds in point source catalogs
+
 From 4821cde (PAPER):
 ====================
 
