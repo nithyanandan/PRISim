@@ -1,3 +1,10 @@
+From 1a60afc (flux-cut):
+=======================
+
+In scripts/run_prisim.py,
+
+(*) Apply flux thresholds when foreground catalog is custom
+
 From 0c39ecf (flux-cut):
 =======================
 

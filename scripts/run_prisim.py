@@ -1740,9 +1740,9 @@ elif use_custom:
     freq_catalog = freq_custom * 1e9 + NP.zeros(fint.size)
     catlabel = NP.repeat('custom', fint.size)
     if fluxcut_max is None:
-        select_source_ind = fint >= fluxcut_min * (freq_custom*1e9/fluxcut_freq)**spindex_custom
+        select_source_ind = fint >= fluxcut_min * (freq_custom*1e9/fluxcut_freq)**spindex
     else:
-        select_source_ind = NP.logical_and(fint >= fluxcut_min * (freq_custom*1e9/fluxcut_freq)**spindex_custom, fint <= fluxcut_max * (freq_custom*1e9/fluxcut_freq)**spindex_custom)
+        select_source_ind = NP.logical_and(fint >= fluxcut_min * (freq_custom*1e9/fluxcut_freq)**spindex, fint <= fluxcut_max * (freq_custom*1e9/fluxcut_freq)**spindex)
     if NP.sum(select_source_ind) == 0:
         raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
     ra_deg = ra_deg[select_source_ind]
