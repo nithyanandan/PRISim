@@ -3008,6 +3008,8 @@ class ROI_parameters(object):
                               a real value)
                 'longitude'   [scalar] specifies latitude of the telescope site
                               (in degrees). Default = 0 (GMT)
+                'altitude'    [scalar] Specifies altitude of the telescope site
+                              (in m) above the surface of the Earth. Default=0m
                 'pol'         [string] specifies polarization when using
                               MWA_Tools for primary beam computation. Value of 
                               key 'id' in attribute dictionary telescope must be
@@ -3142,6 +3144,11 @@ class ROI_parameters(object):
                     self.telescope['longitude'] = hdulist[0].header['longitude']
                 else:
                     self.telescope['longitude'] = 0.0
+
+                if 'altitude' in hdulist[0].header:
+                    self.telescope['altitude'] = hdulist[0].header['altitude']
+                else:
+                    self.telescope['altitude'] = 0.0
                     
                 try:
                     self.telescope['shape'] = hdulist[0].header['element_shape']
@@ -3390,8 +3397,12 @@ class ROI_parameters(object):
                               (in degrees). Default = None, otherwise should 
                               equal the value specified during initialization 
                               of the instance
-                'longitude'   [scalar] specifies latitude of the telescope site
+                'longitude'   [scalar] specifies longitude of the telescope site
                               (in degrees). Default = None, otherwise should 
+                              equal the value specified during initialization 
+                              of the instance
+                'altitude'    [scalar] specifies altitude of the telescope site
+                              (in m). Default = None, otherwise should 
                               equal the value specified during initialization 
                               of the instance
                 'pol'         [string] specifies polarization when using
@@ -3637,6 +3648,8 @@ class ROI_parameters(object):
         if self.telescope['latitude'] is not None:
             hdulist[0].header['latitude'] = (self.telescope['latitude'], 'Latitude (in degrees)')
         hdulist[0].header['longitude'] = (self.telescope['longitude'], 'Longitude (in degrees)')
+        if self.telescope['altitude'] is not None:
+            hdulist[0].header['altitude'] = (self.telescope['altitude'], 'Altitude (in m)')
         if self.telescope['groundplane'] is not None:
             hdulist[0].header['ground_plane'] = (self.telescope['groundplane'], 'Antenna element height above ground plane [m]')
             if 'ground_modify' in self.telescope:
@@ -3757,6 +3770,9 @@ class InterferometerArray(object):
 
     latitude    [Scalar] Latitude of the interferometer's location. Default
                 is 34.0790 degrees North corresponding to that of the VLA.
+
+    altitude    [Scalar] Altitude of the interferometer's location. Default
+                is 0 m.
 
     lst         [list] List of LST (in degrees) for each timestamp
 
@@ -4055,10 +4071,11 @@ class InterferometerArray(object):
     """
 
     def __init__(self, labels, baselines, channels, telescope=None, eff_Q=0.89,
-                 latitude=34.0790, longitude=0.0, skycoords='radec',
-                 A_eff=NP.pi*(25.0/2)**2, pointing_coords='hadec',
-                 layout=None, baseline_coords='localenu', freq_scale=None, 
-                 gaininfo=None, init_file=None, simparms_file=None):
+                 latitude=34.0790, longitude=0.0, altitude=0.0, 
+                 skycoords='radec', A_eff=NP.pi*(25.0/2)**2, 
+                 pointing_coords='hadec', layout=None, 
+                 baseline_coords='localenu', freq_scale=None, gaininfo=None,
+                 init_file=None, simparms_file=None):
         
         """
         ------------------------------------------------------------------------
@@ -4066,13 +4083,14 @@ class InterferometerArray(object):
         multi-element interferometer.
 
         Class attributes initialized are:
-        labels, baselines, channels, telescope, latitude, longitude, skycoords, 
-        eff_Q, A_eff, pointing_coords, baseline_coords, baseline_lengths, 
-        channels, bp, bp_wts, freq_resolution, lags, lst, obs_catalog_indices, 
-        pointing_center, skyvis_freq, skyvis_lag, timestamp, t_acc, Tsys, 
-        Tsysinfo, vis_freq, vis_lag, t_obs, n_acc, vis_noise_freq, 
-        vis_noise_lag, vis_rms_freq, geometric_delays, projected_baselines, 
-        simparms_file, layout, gradient, gradient_mode, gaininfo
+        labels, baselines, channels, telescope, latitude, longitude, altitude, 
+        skycoords, eff_Q, A_eff, pointing_coords, baseline_coords, 
+        baseline_lengths, channels, bp, bp_wts, freq_resolution, lags, lst, 
+        obs_catalog_indices, pointing_center, skyvis_freq, skyvis_lag, 
+        timestamp, t_acc, Tsys, Tsysinfo, vis_freq, vis_lag, t_obs, n_acc, 
+        vis_noise_freq, vis_noise_lag, vis_rms_freq, geometric_delays, 
+        projected_baselines, simparms_file, layout, gradient, gradient_mode, 
+        gaininfo
 
         Read docstring of class InterferometerArray for details on these
         attributes.
@@ -4101,6 +4119,7 @@ class InterferometerArray(object):
                     self.simparms_file = None
                     self.latitude = 0.0
                     self.longitude = 0.0
+                    self.altitude = 0.0
                     self.skycoords = 'radec'
                     self.flux_unit = 'JY'
                     self.telescope = {}
@@ -4131,6 +4150,8 @@ class InterferometerArray(object):
                                 self.latitude = grp['latitude'].value
                             if 'longitude' in grp:
                                 self.longitude = grp['longitude'].value
+                            if 'altitude' in grp:
+                                self.latitude = grp['altitude'].value
                             if 'id' in grp:
                                 self.telescope['id'] = grp['id'].value
                         if key == 'layout':
@@ -4324,6 +4345,11 @@ class InterferometerArray(object):
                     print '\tKeyword "longitude" not found in header. Assuming 0.0 degrees for attribute longitude.'
                     self.longitude = 0.0
                     
+                try:
+                    self.altitude = hdulist[0].header['altitude']
+                except KeyError:
+                    print '\tKeyword "altitude" not found in header. Assuming 0m for attribute altitude.'
+                    self.altitude = 0.0
                 self.telescope = {}
                 if 'telescope' in hdulist[0].header:
                     self.telescope['id'] = hdulist[0].header['telescope']
@@ -4630,6 +4656,7 @@ class InterferometerArray(object):
 
         self.latitude = latitude
         self.longitude = longitude
+        self.altitude = altitude
         self.vis_freq = None
         self.skyvis_freq = None
         self.vis_noise_freq = None
@@ -6372,6 +6399,7 @@ class InterferometerArray(object):
             hdulist += [fits.PrimaryHDU()]
             hdulist[0].header['latitude'] = (self.latitude, 'Latitude of interferometer')
             hdulist[0].header['longitude'] = (self.longitude, 'Longitude of interferometer')        
+            hdulist[0].header['altitude'] = (self.altitude, 'Altitude of interferometer')        
             hdulist[0].header['baseline_coords'] = (self.baseline_coords, 'Baseline coordinate system')
             hdulist[0].header['freq_resolution'] = (self.freq_resolution, 'Frequency Resolution (Hz)')
             hdulist[0].header['pointing_coords'] = (self.pointing_coords, 'Pointing coordinate system')
@@ -6592,8 +6620,10 @@ class InterferometerArray(object):
                 tlscp_group = fileobj.create_group('telescope_parms')
                 tlscp_group['latitude'] = self.latitude
                 tlscp_group['longitude'] = self.longitude
+                tlscp_group['altitude'] = self.altitude
                 tlscp_group['latitude'].attrs['units'] = 'deg'
                 tlscp_group['longitude'].attrs['units'] = 'deg'
+                tlscp_group['altitude'].attrs['units'] = 'm'
                 if 'id' in self.telescope:
                     tlscp_group['id'] = self.telescope['id']
                 spec_group = fileobj.create_group('spectral_info')
@@ -7259,7 +7289,7 @@ class InterferometerData(object):
         else:
             self.infodict['telescope_name'] = prisim_object.telescope['id']
         self.infodict['instrument'] = self.infodict['telescope_name']
-        self.infodict['telescope_location'] = NP.asarray([prisim_object.latitude, prisim_object.longitude, 0.0])
+        self.infodict['telescope_location'] = NP.asarray([prisim_object.latitude, prisim_object.longitude, prisim_object.altitude])
         self.infodict['history'] = 'PRISim'
 
         self.infodict['phase_center_epoch'] = 2000.0
@@ -7610,7 +7640,8 @@ class InterferometerData(object):
                 ant_hdu.header['ARRAYX'] = self.infodict['telescope_location'][0]
                 ant_hdu.header['ARRAYY'] = self.infodict['telescope_location'][1]
                 ant_hdu.header['ARRAYZ'] = self.infodict['telescope_location'][2]
-                ant_hdu.header['FRAME'] = 'ITRF'
+                # ant_hdu.header['FRAME'] = 'ITRF'
+                ant_hdu.header['FRAME'] = None
                 ant_hdu.header['GSTIA0'] = self.infodict['gst0']
                 ant_hdu.header['FREQ'] = self.infodict['freq_array'][0, 0]
                 ant_hdu.header['RDATE'] = self.infodict['rdate']

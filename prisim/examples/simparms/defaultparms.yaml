@@ -72,6 +72,10 @@ telescope:
                                 # +116.7644482 for SKA-Low
                                 # +27.684722 for HIRAX
 
+    altitude        : 0.0
+                                # Specify altitude in meters.
+                                # Default = 0
+
     A_eff           : 154
                                 # Effective area of antenna element
                                 # in m^2
@@ -590,7 +594,7 @@ snapshot :                      # Parameters below are mutually
                                 # Consider all snapshots if set to
                                 # true. Default = false
 
-######### Foreground model ##########
+######### Sky model ##########
 
 fgparm   :
 
@@ -668,7 +672,8 @@ fgparm   :
                                 # 'freq' parameter in bandpass setup
 
     spindex         : -0.83
-                                # Spectral indices of point sources
+                                # Default spectral index to use if
+                                # none is found in catalog
 
     spindex_rms     : 0.0
                                 # rms in distribution of spectral
@@ -767,7 +772,9 @@ processing:
                                 # orientation
 
     n_sky_sectors   : 1
-                                # Number of sky sectors
+                                # Number of sky sectors.
+                                # Produces this many seperate outputs 
+                                # one for each sky sector
 
     bpass_shape     : 'bhw'
                                 # Bandpass shape for tapering window
@@ -790,13 +797,16 @@ processing:
 
     coarse_channel_width : 16
                                 # Coarse channel width in number of
-                                # fine channels. Used only is PFB
-                                # settings are to be used
+                                # fine channels. Used only if PFB 
+                                # (MWA-like passband) settings are to
+                                # be used. 
 
     bp_correct      : true
                                 # Correct bandpass shape if set to
                                 # true. Do not correct if set to
-                                # false
+                                # false. In other words, false 
+                                # applies the passband, true gives
+                                # a flat passband
 
     noise_bp_correct : false
                                 # Bandpass correction for Tsys if

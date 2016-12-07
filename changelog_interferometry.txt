@@ -1,3 +1,26 @@
+From 1edd7a9 (mkolopanis-master):
+================================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add parameter 'altitude' for telescope altitude under Telescope
+Information
+
+In prisim/interferometry.py,
+
+(*) Add attribute altitude to class InterferometerArray. Update
+class docstring accordingly
+(*) Initialize, read and write altitude attribute of class
+InterferometerArray
+(*) While writing UVFITS, replace frame to None instead of 'ITRF'
+since the telescope parameters are already in lat, lon, alt
+coordinates instead of x, y, z
+
+In scripts/run_prisim.py,
+
+(*) Read and set telescope altitude parameter and pass it to
+initialize instances of class InterferometerArray
+
 From 6c2896d (phasing):
 ======================
 
