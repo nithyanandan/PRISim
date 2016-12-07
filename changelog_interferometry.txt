@@ -1,3 +1,17 @@
+From 6c2896d (phasing):
+======================
+
+In scripts/run_prisim.py,
+
+(*) Accommodate specific or default phasing for writing into UVFITS
+format
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Update parameter phase_center under Save format to accept null
+as default (pointing center in ra, dec of first accumulation) or
+specific ra, dec values
+
 From 1a60afc (flux-cut):
 =======================
 

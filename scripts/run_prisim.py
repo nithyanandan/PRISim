@@ -2345,7 +2345,24 @@ if rank == 0:
 
         uvfits_parms = None
         if save_to_uvfits:
-            uvfits_ref_point = {'location': NP.asarray(save_formats['phase_center']).reshape(1,-1), 'coords': 'radec'}
+            if save_formats['phase_center'] is None:
+                phase_center = simvis.pointing_center[0,:].reshape(1,-1)
+                phase_center_coords = simvis.pointing_coords
+                if phase_center_coords == 'dircos':
+                    phase_center = GEOM.dircos2altaz(phase_center, units='degrees')
+                    phase_center_coords = 'altaz'
+                if phase_center_coords == 'altaz':
+                    phase_center = GEOM.altaz2hadec(phase_center, simvis.latitude, units='degrees')
+                    phase_center_coords = 'hadec'
+                if phase_center_coords == 'hadec':
+                    phase_center = NP.hstack((simvis.lst[0]-phase_center[0,0], phase_center[0,1]))
+                    phase_center_coords = 'radec'
+                if phase_center_coords != 'radec':
+                    raise ValueError('Invalid phase center coordinate system')
+                    
+                uvfits_ref_point = {'location': phase_center.reshape(1,-1), 'coords': 'radec'}
+            else:
+                uvfits_ref_point = {'location': NP.asarray(save_formats['phase_center']).reshape(1,-1), 'coords': 'radec'}
             uvfits_parms = {'ref_point': uvfits_ref_point, 'method': save_formats['uvfits_method']}
             simvis.write_uvfits(consolidated_outfile, uvfits_parms=uvfits_parms, overwrite=True)
 

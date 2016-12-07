@@ -899,8 +899,12 @@ save_formats :
                                 # first and if it fails, tries the
                                 # 'uvfits' method
 
-    phase_center    : [0.0, -30.7224]
-                                # Phase center [ra, dec] (in degrees)
+    phase_center    : null
+                                # Phase center either set to null
+                                # (default) in which case defaults
+                                # to the pointing center of the
+                                # first accumulation in 'radec' or
+                                # must be set to [ra, dec] (degrees)
                                 # to phase the visibilities to before
                                 # writing in UVFITS format. This will
                                 # apply only to UVFITS file and not
