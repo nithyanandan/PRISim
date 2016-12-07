@@ -1585,6 +1585,7 @@ elif use_CSM:
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
 elif use_SUMSS:
+    freq_SUMSS = 0.843 # in GHz
     catalog = NP.loadtxt(SUMSS_file, usecols=(0,1,2,3,4,5,10,12,13,14,15,16))
     ra_deg = 15.0 * (catalog[:,0] + catalog[:,1]/60.0 + catalog[:,2]/3.6e3)
     dec_dd = NP.loadtxt(SUMSS_file, usecols=(3,), dtype="|S3")
@@ -1601,6 +1602,11 @@ elif use_SUMSS:
     ra_deg = ra_deg[PS_ind]
     dec_deg = dec_deg[PS_ind]
     fint = catalog[PS_ind,6] * 1e-3
+    if spindex_seed is None:
+        spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
+    else:
+        NP.random.seed(spindex_seed)
+        spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
     fmajax = fmajax[PS_ind]
     fminax = fminax[PS_ind]
     fpa = fpa[PS_ind]
@@ -1621,6 +1627,7 @@ elif use_SUMSS:
     fpa = fpa[select_source_ind]
     dmajax = dmajax[select_source_ind]
     dminax = dminax[select_source_ind]
+    spindex_SUMSS = spindex_SUMSS[select_source_ind]
     valid_ind = NP.logical_and(fmajax > 0.0, fminax > 0.0)
     ra_deg = ra_deg[valid_ind]
     dec_deg = dec_deg[valid_ind]
@@ -1628,12 +1635,19 @@ elif use_SUMSS:
     fmajax = fmajax[valid_ind]
     fminax = fminax[valid_ind]
     fpa = fpa[valid_ind]
+    spindex_SUMSS = spindex_SUMSS[valid_ind]
     freq_catalog = 0.843 # in GHz
-    if spindex_seed is None:
-        spindex = -0.83 + spindex_rms * NP.random.randn(fint.size)
-    else:
-        NP.random.seed(spindex_seed)
-        spindex = -0.83 + spindex_rms * NP.random.randn(fint.size)
+    catlabel = NP.repeat('SUMSS', fint.size)
+    spindex = spindex_SUMSS
+    majax = fmajax/3.6e3
+    minax = fminax/3.6e3
+    fluxes = fint + 0.0
+    
+    # if spindex_seed is None:
+    #     spindex = -0.83 + spindex_rms * NP.random.randn(fint.size)
+    # else:
+    #     NP.random.seed(spindex_seed)
+    #     spindex = -0.83 + spindex_rms * NP.random.randn(fint.size)
 
     spec_type = 'func'
     spec_parms = {}
@@ -1642,7 +1656,7 @@ elif use_SUMSS:
     spec_parms['power-law-index'] = spindex
     # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
     spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
-    spec_parms['flux-scale'] = fluxes
+    spec_parms['flux-scale'] = fint
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
     spec_parms['freq-width'] = 1.0e-3 + NP.zeros(ra_deg.size)
     flux_unit = 'Jy'
