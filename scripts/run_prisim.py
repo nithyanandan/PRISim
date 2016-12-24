@@ -926,7 +926,7 @@ bl = NP.copy(bl_orig)
 bl_label = NP.copy(bl_label_orig)
 bl_id = NP.copy(bl_id_orig)
 if array_is_redundant:
-    bl, select_bl_ind, bl_count = RI.uniq_baselines(bl)
+    bl, select_bl_ind, bl_count, _allinds = RI.uniq_baselines(bl)
     bl_label = bl_label[select_bl_ind]
     bl_id = bl_id[select_bl_ind]
 bl_length = NP.sqrt(NP.sum(bl**2, axis=1))

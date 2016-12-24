@@ -1142,13 +1142,19 @@ def uniq_baselines(baseline_locations, redundant=None):
 
     Output:
 
-    3-element tuple with the selected baselines, their indices in the input,
-    and their count. The first element of this tuple is a 3-column numpy array 
+    4-element tuple with the selected baselines, their unique indices in the 
+    input, their count and the indices of all occurences of each unique 
+    baseline. The first element of this tuple is a 3-column numpy array 
     which is a subset of baseline_locations containing the requested type of 
-    baselines. The second element of the tuple contains the count of these 
-    selected baselines. In case of redundant and unique baselines, the order 
-    of repeated baselines does not matter and any one of those baselines could 
-    be returned without preserving the order.
+    baselines. The second element of the tuple contains the selected indices 
+    of the input array from which the first element in the tuple is determined
+    relative to the input array. The third element of the tuple contains the 
+    count of these selected baselines. In case of redundant and unique 
+    baselines, the order of repeated baselines does not matter and any one of 
+    those baselines could be returned without preserving the order. The fourth
+    element in the tuple contains a list of lists where each element in the
+    top level list corresponds to a unique baseline and consists of indices
+    of all occurrences of input baselines redundant with this unique baseline 
     ---------------------------------------------------------------------------
     """
 
@@ -1201,7 +1207,8 @@ def uniq_baselines(baseline_locations, redundant=None):
             retind = ind[NP.asarray(redn_ind)]
             counts = NP.asarray(counts)
             
-    return (baseline_locations[retind,:], retind, counts)
+    allinds_where_found = NMO.find_all_occurrences_list1_in_list2(invind[retind], invind)
+    return (baseline_locations[retind,:], retind, counts, allinds_where_found)
 
 #################################################################################
 
@@ -4035,6 +4042,13 @@ class InterferometerArray(object):
                         generate_noise() to the sky visibilities after 
                         extracting and applying complex instrument gains
                         
+    duplicate_measurements()
+                        Duplicate visibilities based on redundant baselines 
+                        specified. This saves time when compared to simulating 
+                        visibilities over redundant baselines. Thus, it is more 
+                        efficient to simulate unique baselines and duplicate 
+                        measurements for redundant baselines
+
     rotate_visibilities()
                         Centers the phase of visibilities around any given phase 
                         center. Project baseline vectors with respect to a 
@@ -5545,6 +5559,74 @@ class InterferometerArray(object):
             warnings.warn('Gain table absent. Proceeding with default unity gains')
                 
         self.vis_freq = gains * self.skyvis_freq + self.vis_noise_freq
+
+    #############################################################################
+
+    def duplicate_measurements(self, blgroups):
+
+        """
+        -------------------------------------------------------------------------
+        Duplicate visibilities based on redundant baselines specified. This saves
+        time when compared to simulating visibilities over redundant baselines.
+        Thus, it is more efficient to simulate unique baselines and duplicate
+        measurements for redundant baselines
+
+        Inputs:
+
+        blgroups    [dictionary] Dictionary of baseline groups where the keys are
+                    tuples containing baseline labels. Under each key is a numpy
+                    recarray of baseline labels that are redundant and fall under 
+                    the baseline label key. Any number of sets of redundant 
+                    measurements can be duplicated in this depending on the 
+                    baseline label keys and recarrays specified here. It results
+                    in updating attributes where a new number of baselines are 
+                    formed from original baselines and new redundant baselines.
+        -------------------------------------------------------------------------
+        """
+
+        if not isinstance(blgroups, dict):
+            raise TypeError('Input blgroups must be a dictionary')
+
+        label_keys = NP.asarray(blgroups.keys(), dtype=self.labels.dtype)
+        for label_key in label_keys:
+            if label_key not in self.labels:
+                if NP.asarray([tuple(reversed(label_key))], dtype=self.labels.dtype)[0] not in self.labels:
+                    raise KeyError('Input label {0} not found in attribute labels'.format(label_key))
+                else:
+                    label_key = NP.asarray([tuple(reversed(label_key))], dtype=self.labels.dtype)[0]
+            if label_key not in blgroups[tuple(label_key)]:
+                blgroups[label_key] += [label_key]
+
+        uniq_inplabels = []
+        num_list = []
+        for label in self.labels:
+            if label in label_keys:
+                num_list += [blgroups[tuple(label)].size]
+                for lbl in blgroups[tuple(label)]:
+                    if tuple(lbl) not in uniq_inplabels:
+                        uniq_inplabels += [tuple(lbl)]
+                    else:
+                        raise ValueError('Label {0} repeated in more than one baseline group'.format(lbl))
+            else:
+                num_list += [1]
+                uniq_inplabels += [tuple(label)]
+        if len(num_list) != len(self.labels):
+            raise ValueError('Fatal error in counting and matching labels in input blgroups')
+        if self.skyvis_freq is not None:
+            self.skyvis_freq = NP.repeat(self.skyvis_freq, num_list, axis=0)
+        if self.gradient_mode is not None:
+            self.gradient[self.gradient_mode] = NP.repeat(self.gradient[self.gradient_mode], num_list, axis=1)
+        self.labels = NP.asarray(uniq_inplabels, dtype=self.labels.dtype)
+        self.baselines = NP.repeat(self.baselines, num_list, axis=0)
+        self.baseline_lengths = NP.repeat(self.baseline_lengths, num_list)
+        if self.Tsys.shape[0] > 1:
+            self.Tsys = NP.repeat(self.Tsys, num_list, axis=0)
+        if self.eff_Q.shape[0] > 1:
+            self.eff_Q = NP.repeat(self.eff_Q, num_list, axis=0)
+        if self.A_eff.shape[0] > 1:
+            self.A_eff = NP.repeat(self.A_eff, num_list, axis=0)
+        self.generate_noise()
+        self.add_noise()
 
     #############################################################################
 

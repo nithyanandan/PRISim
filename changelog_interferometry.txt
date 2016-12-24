@@ -1,3 +1,19 @@
+From 060086e (antpos):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Add member function duplicate_measurements() along with docstring
+under class InterferometerArray. Update class docstring accordingly
+(*) Update output of function uniq_baselines() to return the indices
+of all occurrences of searched values. Update docstring accordingly
+
+In scripts/run_prisim.py,
+
+(*) Update call to uniq_baselines() to accommodate for changes made
+in uniq_baselines() on account of new function
+find_all_occurrences_list1_in_list2() in astroutils/nonmathops.py
+
 From 1edd7a9 (mkolopanis-master):
 ================================
 
