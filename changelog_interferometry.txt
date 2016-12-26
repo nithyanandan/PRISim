@@ -1,3 +1,11 @@
+From 5cea670 (antpos):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Add member function apply_gradients() along with docstring under
+class InterferometerArray. Update class docstring accordingly
+
 From 060086e (antpos):
 =====================
 

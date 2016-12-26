@@ -4042,6 +4042,9 @@ class InterferometerArray(object):
                         generate_noise() to the sky visibilities after 
                         extracting and applying complex instrument gains
                         
+    apply_gradients()   Apply the perturbations in combination with the 
+                        gradients to determine perturbed visibilities
+
     duplicate_measurements()
                         Duplicate visibilities based on redundant baselines 
                         specified. This saves time when compared to simulating 
@@ -5559,6 +5562,93 @@ class InterferometerArray(object):
             warnings.warn('Gain table absent. Proceeding with default unity gains')
                 
         self.vis_freq = gains * self.skyvis_freq + self.vis_noise_freq
+
+    #############################################################################
+
+    def apply_gradients(self, gradient_mode=None, perturbations=None):
+
+        """
+        -------------------------------------------------------------------------
+        Apply the perturbations in combination with the gradients to determine
+        perturbed visibilities
+
+        Inputs:
+
+        perturbations   [dictionary] Contains perturbations on one of the 
+                        following quantities (specified as keys):
+                        'baseline'  [numpy array] nseed x 3 x nbl baseline 
+                                    perturbations (in same units as attribute 
+                                    baselines). The first dimension denotes the 
+                                    number of realizations, the second denotes
+                                    the x-, y- and z-axes and the third 
+                                    denotes the number of baselines. 
+        
+        gradient_mode   [string] Specifies the quantity on which perturbations
+                        are provided and perturbed visibilities to be computed.
+                        This string must be one of the keys in the input 
+                        dictionary perturbations and must be found in the
+                        attribute gradient_mode and gradient. Currently 
+                        accepted values are 'baseline'
+
+        Output:
+
+        Perturbed visibilities as a nbl x nchan x ntimes complex array
+        -------------------------------------------------------------------------
+        """
+
+        if gradient_mode is None:
+            gradient_mode = self.gradient_mode
+
+        if perturbations is None:
+            perturbations = {gradient_mode: NP.zeros((1,1,1))}
+
+        if self.gradient_mode is None:
+            raise AttributeError('No gradient attribute found')
+        else:
+            if not self.gradient:
+                raise AttributeError('No gradient attribute found')
+
+        if not isinstance(perturbations, dict):
+            raise TypeError('Input perturbations must be a dictionary')
+
+        if not isinstance(gradient_mode, str):
+            raise TypeError('Input gradient_mode must be a string')
+
+        if gradient_mode not in ['baseline']:
+            raise KeyError('Specified gradient mode {0} not currently supported'.format(gradient_mode))
+
+        if gradient_mode not in perturbations:
+            raise KeyError('{0} key not found in input perturbations'.format(gradient_key))
+
+        if gradient_mode != self.gradient_mode:
+            raise ValueError('Specified gradient mode {0} not found in attribute'.format(gradient_mode))
+
+        if not isinstance(perturbations[gradient_mode], NP.ndarray):
+            raise TypeError('Perturbations must be specified as a numpy array')
+
+        if perturbations[gradient_mode].ndim == 2:
+            perturbations[gradient_mode] = perturbations[gradient_mode][NP.newaxis,...]
+        elif perturbations[gradient_mode].ndim != 3:
+            raise ValueError('Perturbations must be a two- or three-dimensional array')
+
+        if perturbations[gradient_mode].shape[2] != self.gradient[self.gradient_mode].shape[1]:
+            raise ValueError('Number of {0} perturbations not equal to that in the gradient attribute'.format(gradient_mode))
+
+        if perturbations[gradient_mode].shape[1] == 1:
+            warnings.warn('Only {0}-dimensional coordinates specified. Proceeding with zero perturbations in other coordinate axes.'.format(perturbations[gradient_mode].shape[1]))
+            perturbations[gradient_mode] = NP.hstack((perturbations[gradient_mode], NP.zeros((perturbations[gradient_mode].shape[0],2,perturbations[gradient_mode].shape[2])))) # nseed x 3 x nbl
+        elif perturbations[gradient_mode].shape[1] == 2:
+            warnings.warn('Only {0}-dimensional coordinates specified. Proceeding with zero perturbations in other coordinate axes.'.format(perturbations[gradient_mode].shape[1])) 
+            perturbations[gradient_mode] = NP.hstack((perturbations[gradient_mode], NP.zeros((perturbations[gradient_mode].shape[0],1,perturbations[gradient_mode].shape[2])))) # nseed x 3 x nbl
+        elif perturbations[gradient_mode].shape[1] > 3:
+            warnings.warn('{0}-dimensional coordinates specified. Proceeding with only the first three dimensions of coordinate axes.'.format(3))
+            perturbations[gradient_mode] = perturbations[gradient_mode][:,:3,:] # nseed x 3 x nbl
+
+        wl = FCNST.c / self.channels
+        if gradient_mode == 'baseline':
+            delta_skyvis_freq = -1j * 2.0 * NP.pi / wl.reshape(1,1,-1,1) * NP.sum(perturbations[gradient_mode][...,NP.newaxis,NP.newaxis] * self.gradient[gradient_mode][NP.newaxis,...], axis=1) # nseed x nbl x nchan x ntimes
+            
+        return delta_skyvis_freq
 
     #############################################################################
 
