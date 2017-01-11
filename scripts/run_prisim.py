@@ -1,6 +1,6 @@
 #!python
 
-import os, subprocess, pwd, errno
+import os, shutil, subprocess, pwd, errno
 from mpi4py import MPI
 import yaml
 import argparse
@@ -239,6 +239,13 @@ noise_bandpass_correct = parms['processing']['noise_bp_correct']
 do_delay_transform = parms['processing']['delay_transform']
 memsave = parms['processing']['memsave']
 cleanup = parms['processing']['cleanup']
+if not isinstance(cleanup, (bool,int)):
+    raise TypeError('cleanup parameter must be an integer or boolean')
+else:
+    if isinstance(cleanup, bool):
+        cleanup = int(cleanup)
+    if (cleanup < 0) or (cleanup > 3):
+        raise ValueError('Value of cleanup parameter outside bounds')
 flag_chan = NP.asarray(parms['flags']['flag_chan']).reshape(-1)
 bp_flag_repeat = parms['flags']['bp_flag_repeat']
 n_edge_flag = NP.asarray(parms['flags']['n_edge_flag']).reshape(-1)
@@ -1878,13 +1885,14 @@ except OSError as exception:
     else:
         raise
     
-try:
-    os.makedirs(rootdir+project_dir+simid+skymod_dir, 0755)
-except OSError as exception:
-    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+skymod_dir):
-        pass
-    else:
-        raise
+if cleanup < 3:
+    try:
+        os.makedirs(rootdir+project_dir+simid+skymod_dir, 0755)
+    except OSError as exception:
+        if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+skymod_dir):
+            pass
+        else:
+            raise
     
 ## Set up the observing run
 
@@ -2304,7 +2312,7 @@ if rank == 0:
                     simvis_next = RI.InterferometerArray(None, None, None, init_file=blchunk_infile)
                     simvis.concatenate(simvis_next, axis=0)
     
-                if cleanup:
+                if cleanup >= 1:
                     if os.path.isfile(blchunk_infile+'.'+savefmt.lower()):
                         os.remove(blchunk_infile+'.'+savefmt.lower())
                     if os.path.isfile(blchunk_infile+'.gains.hdf5'):
@@ -2328,7 +2336,7 @@ if rank == 0:
                     simvis_next = RI.InterferometerArray(None, None, None, init_file=freqchunk_infile)    
                     simvis.concatenate(simvis_next, axis=1)
     
-                if cleanup:
+                if cleanup > 1:
                     if os.path.isfile(freqchunk_infile+'.'+savefmt.lower()):
                         os.remove(freqchunk_infile+'.'+savefmt.lower())
                     if os.path.isfile(freqchunk_infile+'.gains.hdf5'):
@@ -2371,10 +2379,13 @@ if rank == 0:
             uvfits_parms = {'ref_point': uvfits_ref_point, 'method': save_formats['uvfits_method']}
             simvis.write_uvfits(consolidated_outfile, uvfits_parms=uvfits_parms, overwrite=True)
 
-    skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel'
-    if fg_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:
-        skymod.save(skymod_file, fileformat='hdf5')
-        # skymod.save(skymod_file, fileformat='ascii')
+    if cleanup < 3:
+        skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel'
+        if fg_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:
+            skymod.save(skymod_file, fileformat='hdf5')
+    if cleanup >= 2:
+        dir_to_be_removed = rootdir+project_dir+simid+roi_dir
+        shutil.rmtree(dir_to_be_removed, ignore_errors=True)
             
 print 'Process {0} has completed.'.format(rank)
 if diagnosis_parms['wait_after_run']:
