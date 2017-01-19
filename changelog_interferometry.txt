@@ -1,3 +1,8 @@
+From b362026 (antpos), 354f11c (cleanup):
+========================================
+
+(*) Merge cleanup branch onto antpos branch
+
 From 5cea670 (antpos):
 =====================
 
@@ -21,6 +26,19 @@ In scripts/run_prisim.py,
 (*) Update call to uniq_baselines() to accommodate for changes made
 in uniq_baselines() on account of new function
 find_all_occurrences_list1_in_list2() in astroutils/nonmathops.py
+
+From 060086e (cleanup):
+======================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Make cleanup parameter an integer in the range 0-3 for different
+levels of cleanup instead of boolean
+
+In scripts/run_prisim.py,
+
+(*) Update cleanup of intermediate files based on the new usage of
+cleanup parameter
 
 From 1edd7a9 (mkolopanis-master):
 ================================
