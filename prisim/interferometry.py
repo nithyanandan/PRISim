@@ -5592,7 +5592,7 @@ class InterferometerArray(object):
 
         Output:
 
-        Perturbed visibilities as a nbl x nchan x ntimes complex array
+        Perturbed visibilities as a nseed x nbl x nchan x ntimes complex array
         -------------------------------------------------------------------------
         """
 

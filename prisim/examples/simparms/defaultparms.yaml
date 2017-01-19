@@ -413,7 +413,8 @@ bandpass :
                                 # 'custom' then the full path is
                                 # specified in pfb_file
 
-    pfb_file        :           # File containing PFB coefficients.
+    pfb_file        : 'MWA_pfb_512x8.fits'
+                                # File containing PFB coefficients.
                                 # Applicable only is pfb_method is
                                 # set to non-null value. If 
                                 # pfb_filepath is set to 'default' 
@@ -423,8 +424,6 @@ bandpass :
                                 # namely, data/bandpass but if 
                                 # pfb_filepath is set to 'custom'
                                 # then the full path must be specified
-
-                      'MWA_pfb_512x8.fits'
                                 # Just filename assuming default 
                                 # relative path or full path to
                                 # filename like '/path/to/PFBfile'
@@ -643,7 +642,7 @@ fgparm   :
                                 # temperature in K or 'Jy' for flux
                                 # density in Jy
 
-    flux_min  : 10.0
+    flux_min        : 10.0
                                 # Flux density lower limit (Jy) to be 
                                 # applied to 'csm', 'mwacs', 'gleam',
                                 # and 'custom' catalogs. If set to
@@ -654,7 +653,7 @@ fgparm   :
                                 # reference frequency is specified in
                                 # fluxcut_reffreq
 
-    flux_max  : null
+    flux_max        : null
                                 # Flux density upper limit (Jy) to be 
                                 # applied to 'csm', 'mwacs', 'gleam',
                                 # and 'custom' catalogs. If set to
@@ -737,7 +736,7 @@ catalog  :
                       # '/path/to/GLEAMcatalogFile.fits'
                                 # GLEAM catalog file
 
-    custom_file         : 'custom_catalog.txt'
+    custom_file     : 'custom_catalog.txt'
                       # '/path/to/custom_catalog.txt'
                                 # User defined catalog. See
                                 # prisim/data/catalogs/custom_catalog.txt
@@ -808,7 +807,7 @@ processing:
                                 # applies the passband, true gives
                                 # a flat passband
 
-    noise_bp_correct : false
+    noise_bp_correct: false
                                 # Bandpass correction for Tsys if
                                 # set to true, no correction if set
                                 # to false
@@ -936,7 +935,7 @@ save_formats :
 
 ########## Create plots ##########
 
-plots    : false
+plots       : false
                                 # If true, create relevant plots
 
 ########## Diagnosis parameters ###########

@@ -1,3 +1,10 @@
+From 73c017a (antpos):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Minor changes in formatting
+
 From b362026 (antpos), 354f11c (cleanup):
 ========================================
 
