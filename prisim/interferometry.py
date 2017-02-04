@@ -5581,7 +5581,8 @@ class InterferometerArray(object):
                                     baselines). The first dimension denotes the 
                                     number of realizations, the second denotes
                                     the x-, y- and z-axes and the third 
-                                    denotes the number of baselines. 
+                                    denotes the number of baselines. It can also
+                                    handle arrays of shapes (n1, n2, ..., 3, nbl)
         
         gradient_mode   [string] Specifies the quantity on which perturbations
                         are provided and perturbed visibilities to be computed.
@@ -5592,7 +5593,8 @@ class InterferometerArray(object):
 
         Output:
 
-        Perturbed visibilities as a nseed x nbl x nchan x ntimes complex array
+        Perturbed visibilities as a n1 x n2 x ... x nbl x nchan x ntimes 
+        complex array
         -------------------------------------------------------------------------
         """
 
@@ -5628,8 +5630,12 @@ class InterferometerArray(object):
 
         if perturbations[gradient_mode].ndim == 2:
             perturbations[gradient_mode] = perturbations[gradient_mode][NP.newaxis,...]
-        elif perturbations[gradient_mode].ndim != 3:
-            raise ValueError('Perturbations must be a two- or three-dimensional array')
+        if perturbations[gradient_mode].ndim < 2:
+            raise ValueError('Perturbations must be two--dimensions or higher')
+
+        inpshape = perturbations[gradient_mode].shape
+        if perturbations[gradient_mode].ndim > 3:
+            perturbations[gradient_mode] = perturbations[gradient_mode].reshape(-1,inpshape[-2],inpshape[-1])
 
         if perturbations[gradient_mode].shape[2] != self.gradient[self.gradient_mode].shape[1]:
             raise ValueError('Number of {0} perturbations not equal to that in the gradient attribute'.format(gradient_mode))
@@ -5648,6 +5654,10 @@ class InterferometerArray(object):
         if gradient_mode == 'baseline':
             delta_skyvis_freq = -1j * 2.0 * NP.pi / wl.reshape(1,1,-1,1) * NP.sum(perturbations[gradient_mode][...,NP.newaxis,NP.newaxis] * self.gradient[gradient_mode][NP.newaxis,...], axis=1) # nseed x nbl x nchan x ntimes
             
+        outshape = list(inpshape[:-2])
+        outshape += [self.labels.size, self.channels.size, self.lst.size]
+        outshape = tuple(outshape)
+        delta_skyvis_freq = delta_skyvis_freq.reshape(outshape)
         return delta_skyvis_freq
 
     #############################################################################
