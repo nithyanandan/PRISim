@@ -1,3 +1,11 @@
+From 354f11c (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Delete FITS data read from ROI parameters file after call to
+InterferometerArray.observe()
+
 From 060086e (master):
 =====================
 
