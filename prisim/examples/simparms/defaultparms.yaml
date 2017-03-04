@@ -633,10 +633,30 @@ fgparm   :
                                 # Epoch of the coordinates of the
                                 # foreground model or EoR signal
 
-    nside           : 256
+    nside           : null
                                 # Healpix nside parameter for 
                                 # foreground model input map. Accepted 
                                 # values are valid nside values
+
+    n_mdl_freqs     : 8
+                                # Number of model frequencies covering
+                                # the frequency range if sky model is
+                                # set to 'gsm2008' or 'gsm2016'. If set 
+                                # to null it will be set equal to the
+                                # nchan (number of frequency channels)
+                                # specified under bandpass parameters.
+                                # Default = 8. It is strongly advised
+                                # not to set to null as it may be very
+                                # expensive computationally unless
+                                # there are strong reasons for it
+
+    parallel        : false
+                                # Specifies if sky model when set to
+                                # 'gsm2008' or 'gsm2016' must be
+                                # computed in parallel. By default, it
+                                # is set to False as no significant
+                                # improvement was found when
+                                # parallelized
 
     flux_unit       : 'K'
                                 # Units of flux or flux density.

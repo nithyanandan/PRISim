@@ -1,6 +1,6 @@
 #!python
 
-import os, shutil, subprocess, pwd, errno
+import os, shutil, subprocess, pwd, errno, warnings
 from mpi4py import MPI
 import yaml
 import argparse
@@ -884,6 +884,7 @@ lst = NP.fmod(lst, 360.0)
 use_GSM = False
 use_DSM = False
 use_spectrum = False
+use_pygsm = False
 use_CSM = False
 use_SUMSS = False
 use_GLEAM = False
@@ -896,7 +897,7 @@ use_HI_cube = False
 use_HI_fluctuations = False
 use_MSS=False
 
-if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations', 'fullspectrum']:
+if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations', 'fullspectrum', 'gsm2008', 'gsm2016']:
     raise ValueError('Invalid foreground model string specified.')
 
 if fg_str == 'asm':
@@ -905,6 +906,8 @@ elif fg_str == 'dsm':
     use_DSM = True
 elif fg_str == 'fullspectrum':
     use_spectrum = True
+elif (fg_str == 'gsm2008') or (fg_str == 'gsm2016'):
+    use_pygsm = True
 elif fg_str == 'csm':
     use_CSM = True
 elif fg_str == 'sumss':
@@ -1490,6 +1493,44 @@ elif use_DSM:
 
 elif use_spectrum:
     skymod = SM.SkyModel(init_parms=None, init_file=spectrum_file, load_spectrum=False)
+
+elif use_pygsm:
+    if rank == 0:
+        skymod_parallel = parms['fgparm']['parallel']
+        if not isinstance(skymod_parallel, bool):
+            warnings.warn('Input parallel for determining sky model must be boolean. Setting it to False.')
+            skymod_parallel = False
+        n_mdl_freqs = parms['fgparm']['n_mdl_freqs']
+        if n_mdl_freqs is None:
+            mdl_freqs = 1e9 * chans
+        elif not isinstance(n_mdl_freqs, int):
+            raise TypeError('Input n_mdl_freqs must be an integer')
+        else:
+            if n_mdl_freqs < 2:
+                n_mdl_freqs = 8
+            mdl_freqs = 1e9 * NP.linspace(0.99 * chans.min(), 1.01 * chans.max(), n_mdl_freqs)
+        if nside is None:
+            u_max = bl_length.max() * 1e9 * chans.max() / FCNST.c
+            angres = 1 / u_max # radians
+            nside = 1
+            hpxres = HP.nside2resol(nside)
+            while hpxres > 0.5 * angres:
+                nside *= 2
+                hpxres = HP.nside2resol(nside)
+        try:
+            os.makedirs(rootdir+project_dir+simid+skymod_dir, 0755)
+        except OSError as exception:
+            if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+skymod_dir):
+                pass
+            else:
+                raise
+        skymod_extfile = rootdir+project_dir+simid+skymod_dir+'skymodel'
+        skymod = SM.diffuse_radio_sky_model(mdl_freqs, gsmversion=fg_str, nside=nside, ind=None, outfile=skymod_extfile, parallel=skymod_parallel)
+    else:
+        skymod_extfile = None
+    skymod_extfile = comm.bcast(skymod_extfile, root=0)
+    if rank != 0:
+        skymod = SM.SkyModel(init_parms=None, init_file=skymod_extfile+'.hdf5')
 
 elif use_USM:
     dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)

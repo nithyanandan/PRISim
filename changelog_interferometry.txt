@@ -1,3 +1,20 @@
+From cf6d122 (skymod):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Include options to parallelize sky model generation when set to
+'gsm2008' or 'gsm2016'
+(*) Add option to set nside to null so it can be determined
+automaticallywhen sky model is set to gsm2008 or gsm2016
+(*) Add option to pass number of model frequencies when sky model is
+set to gsm2008 or gsm2016
+
+In scripts/run_prisim.py,
+
+(*) Import warnings module
+(*) Update to determine sky model from gsm2008 and gsm2016
+
 From 354f11c (master):
 =====================
 
