@@ -1,3 +1,27 @@
+From 354f11c (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Include options to specify sky model as 'fullspectrum', 'gsm2008'
+and 'gsm2016'
+(*) Include input spectrum_file under foreground catalogs to specify
+input file for 'fullspectrum' sky model
+
+In scripts/run_prisim.py,
+
+(*) Add option to include 'fullspectrum' in the sky models
+(*) Process sky model specified as 'fullspectrum'
+(*) Remove use of skymod.subset() in call to
+InterferometerArray.observe() and pass the full skymod
+(*) Restructure setting up of directories
+
+In prisim/interferometry.py,
+
+(*) Update observe() member function of class InterferometerArray to
+call generate_spectrum() of class SkyModel without calling its
+subset() member function
+
 From 060086e (master):
 =====================
 

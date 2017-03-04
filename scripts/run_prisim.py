@@ -268,6 +268,7 @@ use_21cmfast = parms['fgparm']['21cmfast']
 global_HI_parms = parms['fgparm']['global_EoR_parms']
 catalog_filepathtype = parms['catalog']['filepathtype']
 DSM_file_prefix = parms['catalog']['DSM_file_prefix']
+spectrum_file = parms['catalog']['spectrum_file']
 SUMSS_file = parms['catalog']['SUMSS_file']
 NVSS_file = parms['catalog']['NVSS_file']
 MWACS_file = parms['catalog']['MWACS_file']
@@ -275,6 +276,7 @@ GLEAM_file = parms['catalog']['GLEAM_file']
 custom_catalog_file = parms['catalog']['custom_file']
 if catalog_filepathtype == 'default':
     DSM_file_prefix = prisim_path + 'data/catalogs/' + DSM_file_prefix
+    spectrum_file = prisim_path + 'data/catalogs/' + spectrum_file
     SUMSS_file = prisim_path + 'data/catalogs/' + SUMSS_file
     NVSS_file = prisim_path + 'data/catalogs/' + NVSS_file
     MWACS_file = prisim_path + 'data/catalogs/' + MWACS_file
@@ -881,6 +883,7 @@ lst = NP.fmod(lst, 360.0)
 
 use_GSM = False
 use_DSM = False
+use_spectrum = False
 use_CSM = False
 use_SUMSS = False
 use_GLEAM = False
@@ -893,13 +896,15 @@ use_HI_cube = False
 use_HI_fluctuations = False
 use_MSS=False
 
-if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations']:
+if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations', 'fullspectrum']:
     raise ValueError('Invalid foreground model string specified.')
 
 if fg_str == 'asm':
     use_GSM = True
 elif fg_str == 'dsm':
     use_DSM = True
+elif fg_str == 'fullspectrum':
+    use_spectrum = True
 elif fg_str == 'csm':
     use_CSM = True
 elif fg_str == 'sumss':
@@ -1160,6 +1165,53 @@ if not isinstance(n_sky_sectors, int):
     raise TypeError('n_sky_sectors must be an integer')
 elif (n_sky_sectors < 1):
     n_sky_sectors = 1
+
+# Create organized directory structure
+
+timestamps_JD = NP.asarray(timestamps_JD)
+init_timestamps_JD = timestamps_JD.min()
+init_time = Time(init_timestamps_JD, format='jd', scale='utc')
+obsdatetime_dir = '{0}{1}{2}_{3}{4}{5}/'.format(init_time.datetime.year, init_time.datetime.month, init_time.datetime.day, init_time.datetime.hour, init_time.datetime.minute, init_time.datetime.second)
+
+sim_dir = 'simdata/'
+meta_dir = 'metainfo/'
+roi_dir = 'roi/'
+skymod_dir = 'skymodel/'
+
+try:
+    os.makedirs(rootdir+project_dir+simid+sim_dir, 0755)
+except OSError as exception:
+    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+sim_dir):
+        pass
+    else:
+        raise
+
+try:
+    os.makedirs(rootdir+project_dir+simid+meta_dir, 0755)
+except OSError as exception:
+    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+meta_dir):
+        pass
+    else:
+        raise
+
+try:
+    os.makedirs(rootdir+project_dir+simid+roi_dir, 0755)
+except OSError as exception:
+    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+roi_dir):
+        pass
+    else:
+        raise
+    
+if cleanup < 3:
+    try:
+        os.makedirs(rootdir+project_dir+simid+skymod_dir, 0755)
+    except OSError as exception:
+        if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+skymod_dir):
+            pass
+        else:
+            raise
+    
+# Start organizing different sky models
 
 if use_HI_cube:
     if not isinstance(use_lidz, bool):
@@ -1435,6 +1487,9 @@ elif use_DSM:
 
     # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+
+elif use_spectrum:
+    skymod = SM.SkyModel(init_parms=None, init_file=spectrum_file, load_spectrum=False)
 
 elif use_USM:
     dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
@@ -1849,51 +1904,6 @@ else:
     n_bl_chunk_per_rank = n_bl_chunk_per_rank[::-1] # Reverse for more equal distribution of chunk sizes over processes
     cumm_bl_chunks = NP.concatenate(([0], NP.cumsum(n_bl_chunk_per_rank)))
 
-# Create organized directory structure
-
-timestamps_JD = NP.asarray(timestamps_JD)
-init_timestamps_JD = timestamps_JD.min()
-init_time = Time(init_timestamps_JD, format='jd', scale='utc')
-obsdatetime_dir = '{0}{1}{2}_{3}{4}{5}/'.format(init_time.datetime.year, init_time.datetime.month, init_time.datetime.day, init_time.datetime.hour, init_time.datetime.minute, init_time.datetime.second)
-
-sim_dir = 'simdata/'
-meta_dir = 'metainfo/'
-roi_dir = 'roi/'
-skymod_dir = 'skymodel/'
-
-try:
-    os.makedirs(rootdir+project_dir+simid+sim_dir, 0755)
-except OSError as exception:
-    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+sim_dir):
-        pass
-    else:
-        raise
-
-try:
-    os.makedirs(rootdir+project_dir+simid+meta_dir, 0755)
-except OSError as exception:
-    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+meta_dir):
-        pass
-    else:
-        raise
-
-try:
-    os.makedirs(rootdir+project_dir+simid+roi_dir, 0755)
-except OSError as exception:
-    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+roi_dir):
-        pass
-    else:
-        raise
-    
-if cleanup < 3:
-    try:
-        os.makedirs(rootdir+project_dir+simid+skymod_dir, 0755)
-    except OSError as exception:
-        if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+skymod_dir):
-            pass
-        else:
-            raise
-    
 ## Set up the observing run
 
 process_complete = False
@@ -2059,7 +2069,9 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 if j == 0:
                     ts0 = ts
               
-                ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                # ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                
                 te = time.time()
                 # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                 progress.update(j+1)

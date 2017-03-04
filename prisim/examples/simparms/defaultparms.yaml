@@ -603,6 +603,7 @@ fgparm   :
                                 # are 'csm' (NVSS+SUMSS point sources), 
                                 # 'dsm' (diffuse emission), 'asm' (both
                                 # point sources and diffuse emission),
+                                # 'gsm2008' and 'gsm2016' (from PyGSM),
                                 # 'sumss' (SUMSS catalog), nvss (NVSS
                                 # catalog), 'mss' (Molonglo Sky 
                                 # Survey), 'gleam' (GLEAM catalog), 
@@ -610,9 +611,9 @@ fgparm   :
                                 # 'usm' (uniform sky model), 'mwacs' 
                                 # (MWACS catalog), 'HI_monopole' (global 
                                 # EoR), HI_cube (HI cube from external 
-                                # simulations), and 'HI_fluctuations' 
+                                # simulations), 'HI_fluctuations' 
                                 # (HI fluctuations with the global mean
-                                # signal removed)
+                                # signal removed), 'fullspectrum'        
 
     fsky            : null
                                 # fraction of sky covered by the sky
@@ -720,6 +721,10 @@ catalog  :
                       # '/path/to/gsmdata'
                                 # Diffuse Sky Model map file name
                                 # prefix
+
+    spectrum_file   : '/data3/t_nithyanandan/project_abscal/newGSM.hdf5'
+                      # '/path/to/newDSMcatalog.hdf5'
+                                # full spectrum catalog file
 
     SUMSS_file      : 'sumsscat.Mar-11-2008.txt'
                       # '/path/to/SUMSScatalogFile.txt'
