@@ -5092,8 +5092,6 @@ class InterferometerArray(object):
             skypos_altaz_roi = skypos_altaz[m2,:]
             coords_str = 'altaz'
 
-            # skymodel_subset = skymodel.subset(indices=m2)
-            # fluxes = skymodel_subset.generate_spectrum()
             fluxes = skymodel.generate_spectrum(ind=m2, frequency=self.channels)
 
             if pb is None:
@@ -5103,7 +5101,6 @@ class InterferometerArray(object):
             geometric_delays = DLY.geometric_delay(baselines_in_local_frame, skypos_altaz_roi, altaz=(coords_str=='altaz'), hadec=(coords_str=='hadec'), latitude=self.latitude)
 
             vis_wts = None
-            # if skymodel_subset.src_shape is not None:
             if skymodel.src_shape is not None:
                 eps = 1.0e-13
                 f0 = self.channels[int(0.5*self.channels.size)]
@@ -5113,7 +5110,6 @@ class InterferometerArray(object):
                 # projected_spatial_frequencies = NP.sqrt(self.baseline_lengths.reshape(1,-1)**2 - (FCNST.c * geometric_delays)**2) / wl0
                 projected_spatial_frequencies = NP.sqrt(self.baseline_lengths.reshape(1,-1,1)**2 - (FCNST.c * geometric_delays[:,:,NP.newaxis])**2) / wl.reshape(1,1,-1)
                 
-                # src_FWHM = NP.sqrt(skymodel_subset.src_shape[:,0] * skymodel_subset.src_shape[:,1])
                 src_FWHM = NP.sqrt(skymodel.src_shape[m2,0] * skymodel.src_shape[m2,1])
                 src_FWHM_dircos = 2.0 * NP.sin(0.5*NP.radians(src_FWHM)).reshape(-1,1) # assuming the projected baseline is perpendicular to source direction
                 # src_sigma_spatial_frequencies = 2.0 * NP.sqrt(2.0 * NP.log(2.0)) / (2 * NP.pi * src_FWHM_dircos)  # estimate 1

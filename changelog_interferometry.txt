@@ -1,3 +1,17 @@
+From 4b710e6 (skymod):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Remove commented lines on the way subset of skymod was passed to
+InterferometerArray.observe()
+
+In prisim/interferometry.py,
+
+(*) Remove commented lines in member function observe() of class
+InterferometerArray on the way subset of skymod was passed to
+generate_spectrum() member function of class SkyModel
+
 From cf6d122 (skymod):
 =====================
 
