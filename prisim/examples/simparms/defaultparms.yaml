@@ -857,6 +857,14 @@ processing:
                                 # to true use single precision, if
                                 # false, use double precision
 
+    store_prev_sky  : true
+                                # If true (default), store spectrum 
+                                # from one time iteration and compute
+                                # spectrum from only new sources in
+                                # the next iteration. If set to false,
+                                # compute spectrum of all sources in
+                                # field of view in each iteration
+
     cleanup         : 3
                                 # Level of cleanup [0-3]. If set to 
                                 # 0, no cleanup is performed and even

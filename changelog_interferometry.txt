@@ -1,3 +1,25 @@
+From 8ebbccb (skymod):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Include option to temporarily store previous sky models under
+processing parameters
+
+In prisim/interferometry.py,
+
+(*) Add input keyword store_prev_skymodel_file in member function
+observe() of class InterferometerArray. Update docstring accordingly
+(*) Update observe() member function of class InterferometerArray
+to store and retrieve sky model frome each time iteration to save
+time on computing spectrum of sources that repeat between iteration
+
+In scripts/run_prisim.py,
+
+(*) Include option to simulate with temporary storage of skymodel in
+each time iteration
+(*) Clean up skymodel directory when cleanup parameter is set >= 3
+
 From 4b710e6 (skymod):
 =====================
 

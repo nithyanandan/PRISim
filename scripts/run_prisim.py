@@ -238,6 +238,9 @@ bandpass_correct = parms['processing']['bp_correct']
 noise_bandpass_correct = parms['processing']['noise_bp_correct']
 do_delay_transform = parms['processing']['delay_transform']
 memsave = parms['processing']['memsave']
+store_prev_sky = parms['processing']['store_prev_sky']
+if not isinstance(store_prev_sky, (bool,int)):
+    store_prev_sky = True
 cleanup = parms['processing']['cleanup']
 if not isinstance(cleanup, (bool,int)):
     raise TypeError('cleanup parameter must be an integer or boolean')
@@ -2095,6 +2098,11 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
             ia = RI.InterferometerArray(labels, bl, chans_chunk, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo)
             
+            if store_prev_sky:
+                store_prev_skymodel_file=rootdir+project_dir+simid+roi_dir+'_{0:0d}.hdf5'.format(i)
+            else:
+                store_prev_skymodel_file = None
+
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
             for j in range(n_acc):
                 roi_ind_snap = fits.getdata(roifile+'.fits', extname='IND_{0:0d}'.format(j))
@@ -2110,10 +2118,10 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 if j == 0:
                     ts0 = ts
               
-                ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave, store_prev_skymodel_file=store_prev_skymodel_file)
                 
                 te = time.time()
-                # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
+                print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                 progress.update(j+1)
             progress.finish()
 
@@ -2123,6 +2131,9 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             # ia.generate_noise()
             # ia.add_noise()
             # ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
+            if os.path.exists(store_prev_skymodel_file):
+                os.remove(store_prev_skymodel_file) # Remove the temporary skymodel file
+
             ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
             ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
 else: # MPI based on baseline multiplexing
@@ -2431,10 +2442,13 @@ if rank == 0:
             uvfits_parms = {'ref_point': uvfits_ref_point, 'method': save_formats['uvfits_method']}
             simvis.write_uvfits(consolidated_outfile, uvfits_parms=uvfits_parms, overwrite=True)
 
+    if cleanup >= 3:
+        dir_to_be_removed = rootdir+project_dir+simid+skymod_dir
+        shutil.rmtree(dir_to_be_removed, ignore_errors=True)
     if cleanup < 3:
         skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel'
         if fg_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:
-            skymod.save(skymod_file, fileformat='hdf5')
+            skymod.save(skymod_file, fileformat='hdf5', extspec_action=None)
     if cleanup >= 2:
         dir_to_be_removed = rootdir+project_dir+simid+roi_dir
         shutil.rmtree(dir_to_be_removed, ignore_errors=True)
