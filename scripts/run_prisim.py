@@ -2046,8 +2046,8 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
             for j in range(n_acc):
-                roi_ind_snap = fits.getdata(roifile+'.fits', extname='IND_{0:0d}'.format(j))
-                roi_pbeam_snap = fits.getdata(roifile+'.fits', extname='PB_{0:0d}'.format(j))
+                roi_ind_snap = fits.getdata(roifile+'.fits', extname='IND_{0:0d}'.format(j), memmap=False)
+                roi_pbeam_snap = fits.getdata(roifile+'.fits', extname='PB_{0:0d}'.format(j), memmap=False)
                 roi_pbeam_snap = roi_pbeam_snap[:,chans_chunk_indices]
                 if obs_mode in ['custom', 'dns', 'lstbin']:
                     timestamp = obs_id[j]

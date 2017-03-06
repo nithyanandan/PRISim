@@ -1,3 +1,11 @@
+From 891a925 (filehandling):
+===========================
+
+In scripts/run_prisim.py,
+
+(*) Set memmap to False explicitly when calling fits.getdata() to 
+read in ROI parameters before call to InterferometerArray.observe()
+
 From 354f11c (master):
 =====================
 
