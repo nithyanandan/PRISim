@@ -1,3 +1,11 @@
+From fbc3a0d (skymod):
+=====================
+
+In prisim/interferometry.py,
+
+(*) In member function __init__() of class InterferometerArray,
+fix bug to correctly initialize altitude parameter
+
 From 19ca66c (skymod):
 =====================
 
