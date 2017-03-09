@@ -2123,6 +2123,18 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 te = time.time()
                 print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
                 progress.update(j+1)
+
+                numbytes = []
+                variables = []
+                var = None
+                obj = None
+                for var,obj in locals().iteritems():
+                    if isinstance(obj, NP.ndarray):
+                        variables += [var]
+                        numbytes += [obj.nbytes]
+                nGB = NP.asarray(numbytes) / 2.0**30
+                totalmemGB = NP.sum(nGB)
+
             progress.finish()
 
             te0 = time.time()

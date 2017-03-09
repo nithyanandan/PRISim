@@ -1,3 +1,17 @@
+From 19ca66c (skymod):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Add few lines in member function observe() of class
+InterferometerArray to calculate memory taken by variables inside
+the scope of the function
+
+In scripts/run_prisim.py,
+
+(*) Add few lines to calculate memory taken by variables inside
+the script
+
 From 8ebbccb (skymod):
 =====================
 

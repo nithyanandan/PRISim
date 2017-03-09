@@ -5271,6 +5271,17 @@ class InterferometerArray(object):
         self.n_acc += 1
         self.lst = self.lst + [lst]
 
+        numbytes = []
+        variables = []
+        var = None
+        obj = None
+        for var,obj in locals().iteritems():
+            if isinstance(obj, NP.ndarray):
+                variables += [var]
+                numbytes += [obj.nbytes]
+        nGB = NP.asarray(numbytes) / 2.0**30
+        totalmemGB = NP.sum(nGB)
+
     ############################################################################
 
     def observing_run(self, pointing_init, skymodel, t_acc, duration, channels, 
