@@ -1,3 +1,19 @@
+From e57c820 (filehandling):
+===========================
+
+In changelog_interferometry.txt,
+
+(*) Add changelog entry about the bug fix in the previous commit
+which was forgotten earlier
+
+From 175ea7c, ed306cb in filehandling:
+=====================================
+
+In prisim/interferometry.py,
+
+(*) Fix bug in initializing altitude parameter in member function
+__init__() of class InterferometerArray
+
 From 891a925 (filehandling):
 ===========================
 
