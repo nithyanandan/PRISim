@@ -1,3 +1,17 @@
+From 661440c (antpos):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Update duplicate_measurements() member function of class
+InterferometerArray to duplicate attributes bp and bp_wts
+
+In prisim/delay_spectrum.py,
+
+(*) Add member function delay_spectrum_allruns() along with docstring
+under class DelaySpectrum to compute delay spectrum from multiple
+runs. Update class docstring accordingly
+
 From da770fc (antpos):
 =====================
 

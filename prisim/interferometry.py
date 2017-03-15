@@ -5725,6 +5725,10 @@ class InterferometerArray(object):
             self.eff_Q = NP.repeat(self.eff_Q, num_list, axis=0)
         if self.A_eff.shape[0] > 1:
             self.A_eff = NP.repeat(self.A_eff, num_list, axis=0)
+        if self.bp.shape[0] > 1:
+            self.bp = NP.repeat(self.bp, num_list, axis=0)
+        if self.bp_wts.shape[0] > 1:
+            self.bp_wts = NP.repeat(self.bp_wts, num_list, axis=0)
         self.generate_noise()
         self.add_noise()
 

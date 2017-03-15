@@ -844,6 +844,10 @@ class DelaySpectrum(object):
                 noiseless sky visibilities, thermal noise in visibilities, 
                 and observed visibilities. 
 
+    delay_transform_allruns()        
+                Transforms the visibilities of multiple runs from frequency 
+                axis onto delay (time) axis using an IFFT. 
+
     clean()     Transforms the visibilities from frequency axis onto delay 
                 (time) axis using an IFFT and deconvolves the delay transform 
                 quantities along the delay axis. This is performed for noiseless 
@@ -1480,6 +1484,134 @@ class DelaySpectrum(object):
 
     #     self.clean_window_buffer = clean_window_buffer
         
+    #############################################################################
+        
+    def delay_transform_allruns(self, vis, pad=1.0, freq_wts=None, 
+                                downsample=True, verbose=True):
+
+        """
+        ------------------------------------------------------------------------
+        Transforms the visibilities of multiple runs from frequency axis onto 
+        delay (time) axis using an IFFT. 
+
+        Inputs:
+
+        vis         [numpy array] Visibilities which will be delay transformed.
+                    It must be of shape (...,nbl,nchan,ntimes)
+
+        pad         [scalar] Non-negative scalar indicating padding fraction 
+                    relative to the number of frequency channels. For e.g., a 
+                    pad of 1.0 pads the frequency axis with zeros of the same 
+                    width as the number of channels. After the delay transform,
+                    the transformed visibilities are downsampled by a factor of
+                    1+pad. If a negative value is specified, delay transform 
+                    will be performed with no padding
+
+        freq_wts    [numpy vector or array] window shaping to be applied before
+                    computing delay transform. It can either be a vector or size
+                    equal to the number of channels (which will be applied to all
+                    time instances for all baselines), or a nchan x n_snapshots 
+                    numpy array which will be applied to all baselines, or a 
+                    n_baselines x nchan numpy array which will be applied to all 
+                    timestamps, or a n_baselines x nchan x n_snapshots numpy 
+                    array or have shape identical to input vis. Default (None) 
+                    will not apply windowing and only the inherent bandpass will 
+                    be used.
+
+        downsample  [boolean] If set to True (default), the delay transform
+                    quantities will be downsampled by exactly the same factor
+                    that was used in padding. For instance, if pad is set to 
+                    1.0, the downsampling will be by a factor of 2. If set to 
+                    False, no downsampling will be done even if the original 
+                    quantities were padded 
+
+        verbose     [boolean] If set to True (default), print diagnostic and 
+                    progress messages. If set to False, no such messages are
+                    printed.
+        ------------------------------------------------------------------------
+        """
+
+        if verbose:
+            print 'Preparing to compute delay transform...\n\tChecking input parameters for compatibility...'
+
+        try:
+            vis
+        except NameError:
+            raise NameError('Input vis must be provided')
+
+        if not isinstance(vis, NP.ndarray):
+            raise TypeError('Input vis must be a numpy array')
+        elif vis.ndim < 3:
+            raise ValueError('Input vis must be at least 3-dimensional')
+        elif vis.shape[-3:] == (self.ia.baselines.shape[0],self.f.size,self.n_acc):
+            if vis.ndim == 3:
+                shp = (1,) + vis.shape
+            else:
+                shp = vis.shape
+            vis = vis.reshape(shp)
+        else:
+            raise ValueError('Input vis does not have compatible shape')
+
+        if not isinstance(pad, (int, float)):
+            raise TypeError('pad fraction must be a scalar value.')
+        if pad < 0.0:
+            pad = 0.0
+            if verbose:
+                print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+
+        if freq_wts is not None:
+            if freq_wts.shape == self.f.shape:
+                freq_wts = freq_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+(1,-1,1)) * NP.ones_like(vis, dtype=vis.real.dtype)
+            elif freq_wts.shape == (self.f.size, self.n_acc):
+                freq_wts = freq_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+(1,self.f.size,self.n_acc)) * NP.ones_like(vis, dtype=vis.real.dtype)
+            elif freq_wts.shape == (self.ia.baselines.shape[0], self.f.size):
+                freq_wts = freq_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+(self.ia.baselines.shape[0],self.f.size,1)) * NP.ones_like(vis, dtype=vis.real.dtype)
+            elif freq_wts.shape == (self.ia.baselines.shape[0], self.f.size, self.n_acc):
+                freq_wts = freq_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+(self.ia.baselines.shape[0],self.f.size,self.n_acc)) * NP.ones_like(vis, dtype=vis.real.dtype)
+            elif not freq_wts.shape != vis.shape:
+                raise ValueError('window shape dimensions incompatible with number of channels and/or number of tiemstamps.')
+                
+        else:
+            freq_wts = self.bp_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+self.bp_wts.shape)
+        bp = self.bp.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+self.bp.shape)
+        if verbose:
+            print '\tFrequency window weights assigned.'
+
+        if not isinstance(downsample, bool):
+            raise TypeError('Input downsample must be of boolean type')
+
+        if verbose:
+            print '\tInput parameters have been verified to be compatible.\n\tProceeding to compute delay transform.'
+            
+        result = {}
+        result['freq_wts'] = freq_wts
+        result['pad'] = pad
+        result['lags'] = DSP.spectral_axis(int(self.f.size*(1+pad)), delx=self.df, use_real=False, shift=True)
+        if pad == 0.0:
+            result['vis_lag'] = DSP.FT1D(vis * bp * freq_wts, ax=-2, inverse=True, use_real=False, shift=True) * self.f.size * self.df
+            result['lag_kernel'] = DSP.FT1D(bp * freq_wts, ax=-2, inverse=True, use_real=False, shift=True) * self.f.size * self.df
+            if verbose:
+                print '\tDelay transform computed without padding.'
+        else:
+            npad = int(self.f.size * pad)
+            pad_shape = NP.zeros((len(vis.shape[:-3]),2), dtype=NP.int).tolist()
+            pad_shape += [[0,0], [0,npad], [0,0]]
+            result['vis_lag'] = DSP.FT1D(NP.pad(vis * bp * freq_wts, pad_shape, mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+            result['lag_kernel'] = DSP.FT1D(NP.pad(bp * freq_wts, pad_shape, mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+            if verbose:
+                print '\tDelay transform computed with padding fraction {0:.1f}'.format(pad)
+
+        if downsample:
+            result['vis_lag'] = DSP.downsampler(result['vis_lag'], 1+pad, axis=-2)
+            result['lag_kernel'] = DSP.downsampler(result['lag_kernel'], 1+pad, axis=-2)
+            result['lags'] = DSP.downsampler(result['lags'], 1+pad)
+            result['lags'] = result['lags'].flatten()
+            if verbose:
+                print '\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad)
+                print 'delay_transform() completed successfully.'
+
+        return result
+
     #############################################################################
         
     def delayClean(self, pad=1.0, freq_wts=None, clean_window_buffer=1.0,
