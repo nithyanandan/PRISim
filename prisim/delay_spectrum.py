@@ -1502,6 +1502,26 @@ class DelaySpectrum(object):
         verbose     [boolean] If set to True (default), print diagnostic and 
                     progress messages. If set to False, no such messages are
                     printed.
+
+        Output:
+
+        Dictionary containing delay spectrum information. It contains the 
+        following keys and values:
+        'lags'      [numpy array] lags of the subband delay spectra with or
+                    without resampling. If not resampled it is of size 
+                    nlags=nchan+npad where npad is the number of frequency 
+                    channels padded specified under the key 'npad'. If 
+                    resampled, it is of shape nlags where nlags is the number 
+                    of independent delay bins
+        'lag_kernel'
+                    [numpy array] The delay kernel which is the result of the
+                    bandpass shape and the spectral window used in determining
+                    the delay spectrum. It is of shape 
+                    n_bl x n_win x nlags x n_t.
+        'vis_lag'   [numpy array] delay spectra of visibilities, after 
+                    applying the frequency weights under the key 'freq_wts'. It 
+                    is of size n_win x (n1xn2x... n_runs dims) x n_bl x nlags x
+                    x n_t. 
         ------------------------------------------------------------------------
         """
 
@@ -2319,7 +2339,7 @@ class DelaySpectrum(object):
         'vis_lag'   [numpy array] subband delay spectra of visibilities, 
                     after applying the frequency weights under the key 
                     'freq_wts'. It is of size 
-                    n_win x (1x1x... n_runs times) x n_bl x (nchan+npad) x 
+                    n_win x (n1xn2x... n_runs dims) x n_bl x (nchan+npad) x 
                     x n_t. 
 
         If action is set to 'return_resampled', the following  
@@ -2355,7 +2375,7 @@ class DelaySpectrum(object):
         'vis_lag'   [numpy array] subband delay spectra of visibilities, 
                     after applying the frequency weights under the key 
                     'freq_wts'. It is of size 
-                    n_win x (1x1x... n_runs times) x n_bl x nlags x n_t
+                    n_win x (n1xn2x... n_runs dims) x n_bl x nlags x n_t
         ------------------------------------------------------------------------
         """
 
@@ -3088,6 +3108,11 @@ class DelayPowerSpectrum(object):
     compute_power_spectrum()
                 Compute delay power spectrum in units of K^2 (Mpc/h)^3 from the 
                 delay spectrum in units of Jy Hz
+
+    compute_power_spectrum_allruns()
+                Compute delay power spectrum in units of K^2 (Mpc/h)^3 from the 
+                delay spectrum in units of Jy Hz from multiple runs of 
+                visibilities
     ----------------------------------------------------------------------------
     """
 
@@ -3496,6 +3521,136 @@ class DelayPowerSpectrum(object):
                     self.subband_delay_power_spectra_resampled[key]['vis_net_lag'] = NP.abs(self.ds.subband_delay_spectra_resampled[key]['vis_net_lag'])**2 * conversion_factor
                 else:
                     self.subband_delay_power_spectra_resampled[key]['vis_noise_lag'] = NP.abs(self.ds.subband_delay_spectra_resampled[key]['vis_noise_lag'])**2 * conversion_factor
+
+    ############################################################################
+
+    def compute_power_spectrum_allruns(self, dspec, subband=False):
+
+        """
+        ------------------------------------------------------------------------
+        Compute delay power spectrum in units of K^2 (Mpc/h)^3 from the delay
+        spectrum in units of Jy Hz from multiple runs of visibilities
+
+        Inputs:
+
+        dspec   [dictionary] Delay spectrum information. If subband is set to
+                False, it contains the keys 'vislag1' and maybe 'vislag2' 
+                (optional). If subband is set to True, it must contain these
+                keys as well - 'lags', 'freq_center', 'bw_eff', 'freq_wts' as
+                well. The value under these keys are described below:
+                'vislag1'   [numpy array] subband delay spectra of first set of
+                            visibilities. It is of size 
+                            n_win x (n1xn2x... n_runs dims) x n_bl x nlags x n_t
+                            if subband is set to True or of shape 
+                            (n1xn2x... n_runs dims) x n_bl x nlags x n_t if 
+                            subband is set to False
+                            It must be specified independent of subband value
+                'vislag2'   [numpy array] subband delay spectra of second set of
+                            visibilities (optional). If not specified, value 
+                            under key 'vislag1' is copied under this key and 
+                            auto-delay spectrum is computed. If explicitly 
+                            specified, it must be of same shape as value under 
+                            'vislag1' and cross-delay spectrum will be computed. 
+                            It is of size 
+                            n_win x (n1xn2x... n_runs dims) x n_bl x nlags x n_t
+                            if subband is set to True or of shape 
+                            (n1xn2x... n_runs dims) x n_bl x nlags x n_t if 
+                            subband is set to False. It is applicable 
+                            independent of value of input subband
+                'lags'      [numpy array] Contains the lags in the delay 
+                            spectrum. Applicable only if subband is set to True.
+                            It is of size nlags
+                'freq_center'
+                            [numpy array] frequency centers (in Hz) of the 
+                            selected frequency windows for subband delay 
+                            transform of visibilities. The values can be a 
+                            scalar, list or numpy array. Applicable only if
+                            subband is set to True. It is of size n_win
+                'bw_eff'    [scalar, list or numpy array] effective bandwidths 
+                            (in Hz) on the selected frequency windows for 
+                            subband delay transform of visibilities. The values 
+                            can be a scalar, list or numpy array. Applicable 
+                            only if subband is set to True. It is of size n_win
+                'freq_wts'  [numpy array] Contains frequency weights applied 
+                            on each frequency sub-band during the subband delay 
+                            transform. It is of size n_win x nchan. Applicable
+                            only if subband is set to True.
+
+        subband [boolean] If set to False (default), the entire band is used in
+                          determining the delay power spectrum and only value
+                          under key 'vislag1' and optional key 'vislag2' in 
+                          input dspec is required. If set to True, delay pwoer
+                          spectrum in specified subbands is determined. In 
+                          addition to key 'vislag1' and optional key 'vislag2', 
+                          following keys are also required in input dictionary 
+                          dspec, namely, 'lags', 'freq_center', 'bw_eff', 
+                          'freq_wts'
+
+        Output:
+
+        Dictionary containing delay power spectrum (in units of K^2 (Mpc/h)^3) 
+        of shape (n1xn2x... n_runs dims) x n_bl x nlags x n_t under key 
+        'fullband' if subband is set to False or of shape 
+        n_win x (n1xn2x... n_runs dims) x n_bl x nlags x n_t under key 'subband'
+        if subband is set to True. 
+        ------------------------------------------------------------------------
+        """
+
+        try:
+            dspec
+        except NameError:
+            raise NameError('Input dspec must be specified')
+
+        if not isinstance(dspec, dict):
+            raise TypeError('Input dspec must be a dictionary')
+        else:
+            mode = 'auto'
+            if 'vislag1' not in dspec:
+                raise KeyError('Key "vislag1" not found in input dspec')
+            if not isinstance(dspec['vislag1'], NP.ndarray):
+                raise TypeError('Value under key "vislag1" must be a numpy array')
+            if 'vislag2' not in dspec:
+                dspec['vislag2'] = dspec['vislag1']
+            else:
+                mode = 'cross'
+            if not isinstance(dspec['vislag2'], NP.ndarray):
+                raise TypeError('Value under key "vislag2" must be a numpy array')
+            if dspec['vislag1'].shape != dspec['vislag2'].shape:
+                raise ValueError('Value under keys "vislag1" and "vislag2" must have same shape')
+
+        if not isinstance(subband, bool):
+            raise TypeError('Input subband must be boolean')
+
+        dps = {}
+        if not subband:
+            factor = self.jacobian1 * self.jacobian2 * self.Jy2K**2 # scalar
+            factor = factor.reshape(tuple(NP.ones(dspec['vislag1'].ndim, dtype=NP.int)))
+            key = 'fullband'
+        else:
+            dspec['freq_center'] = NP.asarray(dspec['freq_center']).ravel() # n_win
+            dspec['bw_eff'] = NP.asarray(dspec['bw_eff']).ravel() # n_win
+            wl = FCNST.c / dspec['freq_center'] # n_win
+            redshift = CNST.rest_freq_HI / dspec['freq_center'] - 1 # n_win
+            dz = CNST.rest_freq_HI / dspec['freq_center']**2 * dspec['bw_eff'] # n_win
+            kprll = NP.empty((dspec['freq_center'].size, dspec['lags'].size)) # n_win x nlags
+            kperp = NP.empty((dspec['freq_center'].size, self.bl_length.size)) # n_win x nbl
+            for zind,z in enumerate(redshift):
+                kprll[zind,:] = self.k_parallel(dspec['lags'], z, action='return')
+                kperp[zind,:] = self.k_perp(self.bl_length, z, action='return')
+            rz_transverse = self.comoving_transverse_distance(redshift, action='return') # n_win
+            drz_los = self.comoving_los_depth(dspec['bw_eff'], redshift, action='return') # n_win
+            omega_bw = self.beam3Dvol(freq_wts=NP.squeeze(dspec['freq_wts'])) 
+            jacobian1 = 1 / omega_bw # n_win
+            jacobian2 = rz_transverse**2 * drz_los / dspec['bw_eff'] # n_win
+            Jy2K = wl**2 * CNST.Jy / (2*FCNST.k) # n_win
+            factor = jacobian1 * jacobian2 * Jy2K**2 # n_win
+            factor = factor.reshape((-1,)+tuple(NP.ones(dspec['vislag1'].ndim-1, dtype=NP.int)))
+            key = 'subband'
+        dps[key] = dspec['vislag1'] * dspec['vislag2'].conj() * factor
+        dps[key] = dps[key].real
+        if mode == 'cross':
+            dps[key] *= 2
+        return dps
 
     ############################################################################
 

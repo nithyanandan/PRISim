@@ -1,3 +1,15 @@
+From 3a8bfd1 (measurement-group):
+================================
+
+In prisim/delay_spectrum.py,
+
+(*) Add member function compute_power_spectrum_allruns() along with
+docstring under class DelayPowerSpectrum to compute fullband or
+subband delay power spectrum of visibilities from multiple runs.
+Update class docstring accordingly
+(*) Update docstring of member function delay_transform_allruns() of
+class DelaySpectrum to describe output
+
 From e8ddf4a (measurement-group):
 ================================
 
