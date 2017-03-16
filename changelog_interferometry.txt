@@ -1,3 +1,12 @@
+From e8ddf4a (measurement-group):
+================================
+
+In prisim/delay_spectrum.py,
+
+(*) Add member function subband_delay_transform_allruns() along with
+docstring under class DelaySpectrum to compute subband delay spectrum
+of visibilities from multiple runs. Update class docstring accordingly
+
 From 661440c (antpos):
 =====================
 

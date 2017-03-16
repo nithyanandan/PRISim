@@ -867,6 +867,10 @@ class DelaySpectrum(object):
                 Computes delay transform on multiple frequency sub-bands with 
                 specified weights
 
+    subband_delay_transform_allruns()
+                Computes delay transform on multiple frequency sub-bands with 
+                specified weights for multiple realizations of visibilities
+
     get_horizon_delay_limits()
                 Estimates the delay envelope determined by the sky horizon 
                 for the baseline(s) for the phase centers 
@@ -1325,36 +1329,6 @@ class DelaySpectrum(object):
 
         return result
 
-        # self.lags = DSP.spectral_axis(int(self.f.size*(1+pad)), delx=self.df, use_real=False, shift=True)
-        # if pad == 0.0:
-        #     self.vis_lag = DSP.FT1D(self.ia.vis_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
-        #     self.skyvis_lag = DSP.FT1D(self.ia.skyvis_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
-        #     self.vis_noise_lag = DSP.FT1D(self.ia.vis_noise_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
-        #     self.lag_kernel = DSP.FT1D(self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
-        #     if verbose:
-        #         print '\tDelay transform computed without padding.'
-        # else:
-        #     npad = int(self.f.size * pad)
-        #     self.vis_lag = DSP.FT1D(NP.pad(self.ia.vis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-        #     self.skyvis_lag = DSP.FT1D(NP.pad(self.ia.skyvis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-        #     self.vis_noise_lag = DSP.FT1D(NP.pad(self.ia.vis_noise_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-        #     self.lag_kernel = DSP.FT1D(NP.pad(self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-
-        #     if verbose:
-        #         print '\tDelay transform computed with padding fraction {0:.1f}'.format(pad)
-        # if downsample:
-        #     self.vis_lag = DSP.downsampler(self.vis_lag, 1+pad, axis=1)
-        #     self.skyvis_lag = DSP.downsampler(self.skyvis_lag, 1+pad, axis=1)
-        #     self.vis_noise_lag = DSP.downsampler(self.vis_noise_lag, 1+pad, axis=1)
-        #     self.lag_kernel = DSP.downsampler(self.lag_kernel, 1+pad, axis=1)
-        #     self.lags = DSP.downsampler(self.lags, 1+pad)
-        #     self.lags = self.lags.flatten()
-        #     if verbose:
-        #         print '\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad)
-        #         print 'delay_transform() completed successfully.'
-
-        # self.pad = pad
-
     #############################################################################
         
     # def clean(self, pad=1.0, freq_wts=None, clean_window_buffer=1.0,
@@ -1561,16 +1535,15 @@ class DelaySpectrum(object):
 
         if freq_wts is not None:
             if freq_wts.shape == self.f.shape:
-                freq_wts = freq_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+(1,-1,1)) * NP.ones_like(vis, dtype=vis.real.dtype)
+                freq_wts = freq_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+(1,-1,1))
             elif freq_wts.shape == (self.f.size, self.n_acc):
-                freq_wts = freq_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+(1,self.f.size,self.n_acc)) * NP.ones_like(vis, dtype=vis.real.dtype)
+                freq_wts = freq_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+(1,self.f.size,self.n_acc))
             elif freq_wts.shape == (self.ia.baselines.shape[0], self.f.size):
-                freq_wts = freq_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+(self.ia.baselines.shape[0],self.f.size,1)) * NP.ones_like(vis, dtype=vis.real.dtype)
+                freq_wts = freq_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+(self.ia.baselines.shape[0],self.f.size,1))
             elif freq_wts.shape == (self.ia.baselines.shape[0], self.f.size, self.n_acc):
-                freq_wts = freq_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+(self.ia.baselines.shape[0],self.f.size,self.n_acc)) * NP.ones_like(vis, dtype=vis.real.dtype)
+                freq_wts = freq_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+(self.ia.baselines.shape[0],self.f.size,self.n_acc))
             elif not freq_wts.shape != vis.shape:
                 raise ValueError('window shape dimensions incompatible with number of channels and/or number of tiemstamps.')
-                
         else:
             freq_wts = self.bp_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+self.bp_wts.shape)
         bp = self.bp.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+self.bp.shape)
@@ -1733,12 +1706,6 @@ class DelaySpectrum(object):
         skyvis_lag = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.ia.skyvis_freq*self.bp*self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
         vis_lag = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.ia.vis_freq*self.bp*self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
         lag_kernel = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.bp*self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
-
-        # skyvis_lag = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.ia.skyvis_freq, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
-        # vis_lag = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.ia.vis_freq, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
-        # lag_kernel = (npad + self.f.size) * self.df * DSP.FT1D(NP.pad(self.bp, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=False)
-        
-        # lag_kernel = lag_kernel * NP.exp(-1j * 2 * NP.pi * self.f[0] * lags).reshape(1,-1,1)
 
         ccomponents_noiseless = NP.zeros_like(skyvis_lag)
         ccres_noiseless = NP.zeros_like(skyvis_lag)
@@ -2247,6 +2214,272 @@ class DelaySpectrum(object):
                 return result
             if action == 'return_resampled':
                 return result_resampled
+
+    #############################################################################
+
+    def subband_delay_transform_allruns(self, vis, bw_eff, freq_center=None, 
+                                        shape=None, fftpow=None, pad=None, 
+                                        bpcorrect=False, action=None,
+                                        verbose=True):
+
+        """
+        ------------------------------------------------------------------------
+        Computes delay transform on multiple frequency sub-bands with specified
+        weights for multiple realizations of visibilities
+
+        Inputs:
+
+        vis          [numpy array] Visibilities which will be delay transformed.
+                     It must be of shape (...,nbl,nchan,ntimes)
+
+        bw_eff       [scalar, list or numpy array] effective bandwidths (in Hz) 
+                     on the selected frequency windows for subband delay 
+                     transform of visibilities. The values can be a scalar, list 
+                     or numpy array. If a scalar value is provided, the same 
+                     will be applied to all frequency windows.
+
+        freq_center  [scalar, list or numpy array] frequency centers (in Hz) of 
+                     the selected frequency windows for subband delay transform 
+                     of visibilities. The values can be a scalar, list or numpy 
+                     array. If a scalar is provided, the same will be applied 
+                     to all frequency windows. Default=None uses the center 
+                     frequency from the class attribute
+
+        shape        [string] frequency window shape for subband delay transform 
+                     of visibilities. It must be a string. Accepted values for the
+                     string are 'rect' or 'RECT' (for rectangular), 'bnw' and 
+                     'BNW' (for Blackman-Nuttall), and 'bhw' or 'BHW' (for 
+                     Blackman-Harris). Default=None sets it to 'rect' 
+                     (rectangular window)
+
+        fftpow       [scalar] the power to which the FFT of the window will be 
+                     raised. The value must be a positive scalar. Default = 1.0 
+
+        pad          [scalar] padding fraction relative to the number of 
+                     frequency channels. Value must be a non-negative scalar. 
+                     For e.g., a pad of 1.0 pads the frequency axis with zeros 
+                     of the same width as the number of channels. After the 
+                     delay transform, the transformed visibilities are 
+                     downsampled by a factor of 1+pad. If a negative value is 
+                     specified, delay transform will be performed with no 
+                     padding. Default=None sets to padding factor to 1.0
+
+        action       [string or None] If set to 'return_oversampled' it returns 
+                     the output dictionary corresponding to oversampled delay 
+                     space quantities with full resolution in delay space. If 
+                     set to None (default) or 'return_resampled' it returns the 
+                     output dictionary corresponding to resampled/downsampled 
+                     delay space quantities.
+
+        verbose      [boolean] If set to True (default), print diagnostic and 
+                     progress messages. If set to False, no such messages are
+                     printed.
+
+        Output: 
+
+        The output is a dictionary that contains information about delay spectra 
+        of different frequency sub-bands (n_win in number). If action is set to
+        'return_resampled', it contains the following keys and values:
+        'freq_center' 
+                    [numpy array] contains the center frequencies 
+                    (in Hz) of the frequency subbands of the subband
+                    delay spectra. It is of size n_win. It is roughly 
+                    equivalent to redshift(s)
+        'freq_wts'  [numpy array] Contains frequency weights applied 
+                    on each frequency sub-band during the subband delay 
+                    transform. It is of size n_win x nchan. 
+        'bw_eff'    [numpy array] contains the effective bandwidths 
+                    (in Hz) of the subbands being delay transformed. It
+                    is of size n_win. It is roughly equivalent to width 
+                    in redshift or along line-of-sight
+        'shape'     [string] shape of the window function applied. 
+                    Accepted values are 'rect' (rectangular), 'bhw'
+                    (Blackman-Harris), 'bnw' (Blackman-Nuttall). 
+        'npad'      [scalar] Numbber of zero-padded channels before
+                    performing the subband delay transform. 
+        'lags'      [numpy array] lags of the subband delay spectra 
+                    after padding in frequency during the transform. It
+                    is of size nchan+npad where npad is the number of 
+                    frequency channels padded specified under the key 
+                    'npad'
+        'lag_kernel'
+                    [numpy array] delay transform of the frequency 
+                    weights under the key 'freq_wts'. It is of size
+                    n_win x (1 x 1 x ... nruns times) x n_bl x
+                    (nchan+npad) x n_t.
+        'lag_corr_length' 
+                    [numpy array] It is the correlation timescale (in 
+                    pixels) of the subband delay spectra. It is 
+                    proportional to inverse of effective bandwidth. It
+                    is of size n_win. The unit size of a pixel is 
+                    determined by the difference between adjacent pixels 
+                    in lags under key 'lags' which in turn is 
+                    effectively inverse of the total bandwidth 
+                    (nchan x df) simulated. It is of size n_win
+        'vis_lag'   [numpy array] subband delay spectra of visibilities, 
+                    after applying the frequency weights under the key 
+                    'freq_wts'. It is of size 
+                    n_win x (1x1x... n_runs times) x n_bl x (nchan+npad) x 
+                    x n_t. 
+
+        If action is set to 'return_resampled', the following  
+        output is returned. The output is a dictionary that contains  
+        information about delay spectra of different frequency sub-bands 
+        (n_win in number) with the following keys and values:
+        'freq_center' 
+                    [numpy array] contains the center frequencies 
+                    (in Hz) of the frequency subbands of the subband
+                    delay spectra. It is of size n_win. It is roughly 
+                    equivalent to redshift(s)
+        'bw_eff'    [numpy array] contains the effective bandwidths 
+                    (in Hz) of the subbands being delay transformed. It
+                    is of size n_win. It is roughly equivalent to width 
+                    in redshift or along line-of-sight
+        'lags'      [numpy array] lags of the resampled subband delay spectra 
+                    after padding in frequency during the transform. It
+                    is of size nlags where nlags is the number of 
+                    independent delay bins
+        'lag_kernel'
+                    [numpy array] delay transform of the frequency 
+                    weights under the key 'freq_wts'. It is of size
+                    n_win x (1 x 1 x ... nruns times) x n_bl x nlags x n_t
+        'lag_corr_length' 
+                    [numpy array] It is the correlation timescale (in 
+                    pixels) of the subband delay spectra. It is 
+                    proportional to inverse of effective bandwidth. It
+                    is of size n_win. The unit size of a pixel is 
+                    determined by the difference between adjacent pixels 
+                    in lags under key 'lags' which in turn is 
+                    effectively inverse of the total bandwidth 
+                    (nchan x df) simulated. It is of size n_win
+        'vis_lag'   [numpy array] subband delay spectra of visibilities, 
+                    after applying the frequency weights under the key 
+                    'freq_wts'. It is of size 
+                    n_win x (1x1x... n_runs times) x n_bl x nlags x n_t
+        ------------------------------------------------------------------------
+        """
+
+        try:
+            vis, bw_eff
+        except NameError:
+            raise NameError('Input visibilities and effective bandwidth must be specified')
+        else:
+            if not isinstance(vis, NP.ndarray):
+                raise TypeError('Input vis must be a numpy array')
+            elif vis.ndim < 3:
+                raise ValueError('Input vis must be at least 3-dimensional')
+            elif vis.shape[-3:] == (self.ia.baselines.shape[0],self.f.size,self.n_acc):
+                if vis.ndim == 3:
+                    shp = (1,) + vis.shape
+                else:
+                    shp = vis.shape
+                vis = vis.reshape(shp)
+            else:
+                raise ValueError('Input vis does not have compatible shape')
+            
+            if not isinstance(bw_eff, (int, float, list, NP.ndarray)):
+                raise TypeError('Value of effective bandwidth must be a scalar, list or numpy array')
+            bw_eff = NP.asarray(bw_eff).reshape(-1)
+            if NP.any(bw_eff <= 0.0):
+                raise ValueError('All values in effective bandwidth must be strictly positive')
+
+        if freq_center is None:
+            freq_center = NP.asarray(self.f[self.f.size/2]).reshape(-1)
+        elif isinstance(freq_center, (int, float, list, NP.ndarray)):
+            freq_center = NP.asarray(freq_center).reshape(-1)
+            if NP.any((freq_center <= self.f.min()) | (freq_center >= self.f.max())):
+                raise ValueError('Value(s) of frequency center(s) must lie strictly inside the observing band')
+        else:
+            raise TypeError('Values(s) of frequency center must be scalar, list or numpy array')
+
+        if (bw_eff.size == 1) and (freq_center.size > 1):
+            bw_eff = NP.repeat(bw_eff, freq_center.size)
+        elif (bw_eff.size > 1) and (freq_center.size == 1):
+            freq_center = NP.repeat(freq_center, bw_eff.size)
+        elif bw_eff.size != freq_center.size:
+            raise ValueError('Effective bandwidth(s) and frequency center(s) must have same number of elements')
+            
+        if shape is not None:
+            if not isinstance(shape, str):
+                raise TypeError('Window shape must be a string')
+            if shape.lower() not in ['rect', 'bhw', 'bnw']:
+                raise ValueError('Invalid value for window shape specified.')
+        else:
+            shape = 'rect'
+
+        if fftpow is None:
+            fftpow = 1.0
+        else:
+            if not isinstance(fftpow, (int, float)):
+                raise TypeError('Power to raise window FFT by must be a scalar value.')
+            if fftpow < 0.0:
+                raise ValueError('Power for raising FFT of window by must be positive.')
+
+        if pad is None:
+            pad = 1.0
+        else:
+            if not isinstance(pad, (int, float)):
+                raise TypeError('pad fraction must be a scalar value.')
+            if pad < 0.0:
+                pad = 0.0
+                if verbose:
+                    print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+
+        result = {}
+        freq_wts = NP.empty((bw_eff.size, self.f.size), dtype=NP.float_)
+        frac_width = DSP.window_N2width(n_window=None, shape=shape, fftpow=fftpow, area_normalize=False, power_normalize=True)
+        window_loss_factor = 1 / frac_width
+        n_window = NP.round(window_loss_factor * bw_eff / self.df).astype(NP.int)
+        ind_freq_center, ind_channels, dfrequency = LKP.find_1NN(self.f.reshape(-1,1), freq_center.reshape(-1,1), distance_ULIM=0.5*self.df, remove_oob=True)
+        sortind = NP.argsort(ind_channels)
+        ind_freq_center = ind_freq_center[sortind]
+        ind_channels = ind_channels[sortind]
+        dfrequency = dfrequency[sortind]
+        n_window = n_window[sortind]
+
+        for i,ind_chan in enumerate(ind_channels):
+            window = NP.sqrt(frac_width * n_window[i]) * DSP.window_fftpow(n_window[i], shape=shape, fftpow=fftpow, centering=True, peak=None, area_normalize=False, power_normalize=True)
+            window_chans = self.f[ind_chan] + self.df * (NP.arange(n_window[i]) - int(n_window[i]/2))
+            ind_window_chans, ind_chans, dfreq = LKP.find_1NN(self.f.reshape(-1,1), window_chans.reshape(-1,1), distance_ULIM=0.5*self.df, remove_oob=True)
+            sind = NP.argsort(ind_window_chans)
+            ind_window_chans = ind_window_chans[sind]
+            ind_chans = ind_chans[sind]
+            dfreq = dfreq[sind]
+            window = window[ind_window_chans]
+            window = NP.pad(window, ((ind_chans.min(), self.f.size-1-ind_chans.max())), mode='constant', constant_values=((0.0,0.0)))
+            freq_wts[i,:] = window
+
+        freq_wts = freq_wts.reshape((bw_eff.size,)+tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+(1,self.f.size,1))
+        bp = self.bp.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+self.bp.shape)
+        npad = int(self.f.size * pad)
+        lags = DSP.spectral_axis(self.f.size + npad, delx=self.df, use_real=False, shift=True)
+
+        pad_shape = [[0,0]] + NP.zeros((len(vis.shape[:-3]),2), dtype=NP.int).tolist()
+        pad_shape += [[0,0], [0,npad], [0,0]]
+        vis_lag = DSP.FT1D(NP.pad(vis[NP.newaxis,...] * bp[NP.newaxis,...] * freq_wts, pad_shape, mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        lag_kernel = DSP.FT1D(NP.pad(bp[NP.newaxis,...] * freq_wts, pad_shape, mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'npad': npad, 'lags': lags, 'vis_lag': vis_lag, 'lag_kernel': lag_kernel, 'lag_corr_length': self.f.size / NP.squeeze(NP.sum(freq_wts, axis=-2))}
+
+        if verbose:
+            print '\tSub-band(s) delay transform computed'
+
+        if action is not None:
+            action = 'return_resampled'
+        if action == 'return_oversampled':
+            return result
+        elif action == 'return_resampled':
+            downsample_factor = NP.min((self.f.size + npad) * self.df / result['bw_eff'])
+            result['lags'] = DSP.downsampler(result['lags'], downsample_factor, axis=-1, method='interp', kind='linear')
+            result['lag_kernel'] = DSP.downsampler(result['lag_kernel'], downsample_factor, axis=-2, method='interp', kind='linear')
+            result['vis_lag'] = DSP.downsampler(result['vis_lag'], downsample_factor, axis=-2, method='FFT')
+            dlag = result['lags'][1] - result['lags'][0]
+            result['lag_corr_length'] = (1/result['bw_eff']) / dlag
+            return result
+        else:
+            raise ValueError('Invalid value specified for keyword input action')
+
+        if verbose:
+            print '\tDownsampled Sub-band(s) delay transform computed'
 
     #############################################################################
 
