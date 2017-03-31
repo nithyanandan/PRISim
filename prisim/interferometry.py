@@ -6822,7 +6822,6 @@ class InterferometerArray(object):
             if 'method' not in uvfits_parms:
                 uvfits_parms['method'] = None
             dataobj = InterferometerData(self, ref_point=uvfits_parms['ref_point'])
-            import import ipdb; ipdb.set_trace()
             for datakey in dataobj.infodict['data_array']:
                 dataobj.write(outfile+'-{0}.uvfits'.format(datakey), datatype=datakey, fmt='UVFITS', uvfits_method=uvfits_parms['method'], overwrite=overwrite)
 
