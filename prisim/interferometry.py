@@ -6822,6 +6822,7 @@ class InterferometerArray(object):
             if 'method' not in uvfits_parms:
                 uvfits_parms['method'] = None
             dataobj = InterferometerData(self, ref_point=uvfits_parms['ref_point'])
+            import import ipdb; ipdb.set_trace()
             for datakey in dataobj.infodict['data_array']:
                 dataobj.write(outfile+'-{0}.uvfits'.format(datakey), datatype=datakey, fmt='UVFITS', uvfits_method=uvfits_parms['method'], overwrite=overwrite)
 
@@ -7369,7 +7370,20 @@ class InterferometerData(object):
         attributes_of_uvdata = ['Ntimes', 'Nbls', 'Nblts', 'Nfreqs', 'Npols', 'Nspws', 'data_array', 'vis_units', 'nsample_array', 'flag_array', 'spw_array', 'uvw_array', 'time_array', 'lst_array', 'ant_1_array', 'ant_2_array', 'baseline_array', 'freq_array', 'polarization_array', 'integration_time', 'channel_width', 'object_name', 'telescope_name', 'instrument', 'telescope_location', 'history', 'phase_center_epoch', 'is_phased', 'Nants_data', 'Nants_telescope', 'antenna_names', 'antenna_numbers', 'dateobs', 'phase_center_ra', 'phase_center_dec']
         dataobj = UVData()
         for attrkey in attributes_of_uvdata:
-            if attrkey != 'data_array':
+            if attrkey == 'telescope_location':
+                from pyuvdata import utils
+                loc_array = self.infodict[attrkey]
+                # convert location in lat lon alt degrees to radains
+                loc_array *= NP.pi/180.
+                # convert location in radians to XYZ in ITRF
+                XYZ = utils.XYZ_from_LatLonAlt(*loc_array)
+                setattr(dataobj, attrkey, XYZ)
+            elif attkey == 'phase_type':
+                if self.infodict['is_phased']:
+                    setattr(dataobj, attrkey, 'phased')
+                else:
+                    setattr(dataobj, attrkey, 'drift')
+            elif attrkey != 'data_array':
                 setattr(dataobj, attrkey, self.infodict[attrkey])
             else:
                 if datatype in self.infodict[attrkey]:
