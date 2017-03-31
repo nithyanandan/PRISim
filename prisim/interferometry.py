@@ -7377,7 +7377,7 @@ class InterferometerData(object):
                 # convert location in radians to XYZ in ITRF
                 XYZ = utils.XYZ_from_LatLonAlt(*loc_array)
                 setattr(dataobj, attrkey, XYZ)
-            elif attkey == 'phase_type':
+            elif attrkey == 'phase_type':
                 if self.infodict['is_phased']:
                     setattr(dataobj, attrkey, 'phased')
                 else:
