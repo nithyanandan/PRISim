@@ -1,3 +1,12 @@
+From f287cee (measurement-group):
+================================
+
+In prisim/interferometry.py,
+
+(*) Fix bug in computation of visibility gradient in observe() member
+function of class InterferometerArray when memory shortage is detected
+by selecting only the appropriate source indices
+
 From 3a8bfd1 (measurement-group):
 ================================
 

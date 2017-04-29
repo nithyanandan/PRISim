@@ -5216,7 +5216,7 @@ class InterferometerArray(object):
                         skyvis += NP.sum(phase_matrix, axis=0)
                         if gradient_mode is not None:
                             if gradient_mode.lower() == 'baseline':
-                                skyvis_gradient += NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float32) * phase_matrix[:,NP.newaxis,:,:], axis=0)
+                                skyvis_gradient += NP.sum(skypos_dircos_roi[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis,NP.newaxis].astype(NP.float32) * phase_matrix[:,NP.newaxis,:,:], axis=0)
                 else:
                     for i in xrange(len(src_indices)):
                         phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float64) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float64) - pc_delay_offsets.astype(NP.float64).reshape(1,-1,1)) * self.channels.astype(NP.float64).reshape(1,1,-1)).astype(NP.complex128, copy=False)
@@ -5227,7 +5227,7 @@ class InterferometerArray(object):
                         skyvis += NP.sum(phase_matrix, axis=0)
                         if gradient_mode is not None:
                             if gradient_mode.lower() == 'baseline':
-                                skyvis_gradient += NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * phase_matrix[:,NP.newaxis,:,:], axis=0)
+                                skyvis_gradient += NP.sum(skypos_dircos_roi[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis,NP.newaxis].astype(NP.float64) * phase_matrix[:,NP.newaxis,:,:], axis=0)
             self.obs_catalog_indices = self.obs_catalog_indices + [m2]
         else:
             print 'No sources found in the catalog within matching radius. Simply populating the observed visibilities and/or gradients with noise.'
