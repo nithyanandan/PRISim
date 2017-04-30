@@ -1,9 +1,14 @@
-<<<<<<< HEAD
-From 65a1648 (measurement-group), aa28afa (master):
+From 94d6002 (measurement-group):
+================================
+
+(*) Commit changelog_interferometry.txt forgotten to commit during
+the merge
+
+From 04baac3 (measurement-group), 3efb300 (master):
 ==================================================
 
-(*) Merge changes from master onto measurement-group branch
-=======
+(*) Merge bug fixes on master onto measurement-group branch
+
 From 48c1c1e (freq-chunk-bugfix):
 ================================
 
@@ -17,7 +22,11 @@ From aa28afa (master):
 In run_prisim.py,
 
 (*) Fix bug in frequency chunking
->>>>>>> master
+
+From 65a1648 (measurement-group), aa28afa (master):
+==================================================
+
+(*) Merge changes from master onto measurement-group branch
 
 From e57c820 (filehandling):
 ===========================
@@ -51,13 +60,37 @@ In scripts/run_prisim.py,
 (*) Delete FITS data read from ROI parameters file after call to
 InterferometerArray.observe()
 
-<<<<<<< HEAD
-From 060086e (master):
-####### Ancestor
-=======
->>>>>>> master
-From 060086e (master):
-======= end
+From e57c820 (filehandling):
+===========================
+
+In changelog_interferometry.txt,
+
+(*) Add changelog entry about the bug fix in the previous commit
+which was forgotten earlier
+
+From 175ea7c, ed306cb in filehandling:
+=====================================
+
+In prisim/interferometry.py,
+
+(*) Fix bug in initializing altitude parameter in member function
+__init__() of class InterferometerArray
+
+From 891a925 (filehandling):
+===========================
+
+In scripts/run_prisim.py,
+
+(*) Set memmap to False explicitly when calling fits.getdata() to 
+read in ROI parameters before call to InterferometerArray.observe()
+
+From 354f11c (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Delete FITS data read from ROI parameters file after call to
+InterferometerArray.observe()
 
 From f287cee (measurement-group):
 ================================
