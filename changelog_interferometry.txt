@@ -1,3 +1,45 @@
+From 65a1648 (measurement-group), aa28afa (master):
+==================================================
+
+(*) Merge changes from master onto measurement-group branch
+
+From e57c820 (filehandling):
+===========================
+
+In changelog_interferometry.txt,
+
+(*) Add changelog entry about the bug fix in the previous commit
+which was forgotten earlier
+
+From 175ea7c, ed306cb in filehandling:
+=====================================
+
+In prisim/interferometry.py,
+
+(*) Fix bug in initializing altitude parameter in member function
+__init__() of class InterferometerArray
+
+From 891a925 (filehandling):
+===========================
+
+In scripts/run_prisim.py,
+
+(*) Set memmap to False explicitly when calling fits.getdata() to 
+read in ROI parameters before call to InterferometerArray.observe()
+
+From 354f11c (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Delete FITS data read from ROI parameters file after call to
+InterferometerArray.observe()
+
+From 060086e (master):
+####### Ancestor
+From 060086e (master):
+======= end
+
 From f287cee (measurement-group):
 ================================
 

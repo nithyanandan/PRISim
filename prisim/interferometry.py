@@ -4168,7 +4168,7 @@ class InterferometerArray(object):
                             if 'longitude' in grp:
                                 self.longitude = grp['longitude'].value
                             if 'altitude' in grp:
-                                self.latitude = grp['altitude'].value
+                                self.altitude = grp['altitude'].value
                             if 'id' in grp:
                                 self.telescope['id'] = grp['id'].value
                         if key == 'layout':
