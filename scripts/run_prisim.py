@@ -2032,14 +2032,14 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
         roifile = comm.bcast(roifile, root=0) # Broadcast saved RoI filename
         pbinfo = comm.bcast(pbinfo, root=0) # Broadcast PB synthesis info
 
+        frequency_bin_indices_bounds = frequency_bin_indices + [nchan]
         for i in range(cumm_freq_chunks[rank], cumm_freq_chunks[rank+1]):
             print 'Process {0:0d} working on frequency chunk # {1:0d} ...'.format(rank, freq_chunk[i])
-    
-            chans_chunk_indices = NP.arange(frequency_bin_indices[freq_chunk[i]], min(frequency_bin_indices[freq_chunk[i]]+frequency_chunk_size,nchan))
+
+            chans_chunk_indices = NP.arange(frequency_bin_indices_bounds[i], frequency_bin_indices_bounds[i+1])
             chans_chunk = NP.asarray(chans[chans_chunk_indices]).reshape(-1)
             nchan_chunk = chans_chunk.size
-            # nchan_chunk = min(frequency_bin_indices[freq_chunk[i]]+frequency_chunk_size,nchan) - frequency_bin_indices[freq_chunk[i]]
-            f0_chunk = chans[freq_chunk[i]*frequency_chunk_size] + NP.floor(0.5*nchan_chunk) * freq_resolution / 1e9
+            f0_chunk = NP.mean(chans_chunk)
             bw_chunk_str = '{0:0d}x{1:.1f}_kHz'.format(nchan_chunk, freq_resolution/1e3)
             outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
             ia = RI.InterferometerArray(labels, bl, chans_chunk, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo)
@@ -2327,11 +2327,12 @@ if rank == 0:
 
         elif mpi_on_freq:
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Frequency chunks '.format(n_freq_chunks), PGB.ETA()], maxval=n_freq_chunks).start()
+            frequency_bin_indices_bounds = frequency_bin_indices + [nchan]
             for i in range(0, n_freq_chunks):
-                chans_chunk_indices = NP.arange(frequency_bin_indices[freq_chunk[i]], min(frequency_bin_indices[freq_chunk[i]]+frequency_chunk_size,nchan))
+                chans_chunk_indices = NP.arange(frequency_bin_indices_bounds[i], frequency_bin_indices_bounds[i+1])
                 chans_chunk = NP.asarray(chans[chans_chunk_indices]).reshape(-1)
                 nchan_chunk = chans_chunk.size
-                f0_chunk = chans[freq_chunk[i]*frequency_chunk_size] + NP.floor(0.5*nchan_chunk) * freq_resolution / 1e9
+                f0_chunk = NP.mean(chans_chunk)
                 bw_chunk_str = '{0:0d}x{1:.1f}_kHz'.format(nchan_chunk, freq_resolution/1e3)
                 freqchunk_infile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
                 if i == 0:

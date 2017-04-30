@@ -1,7 +1,23 @@
+<<<<<<< HEAD
 From 65a1648 (measurement-group), aa28afa (master):
 ==================================================
 
 (*) Merge changes from master onto measurement-group branch
+=======
+From 48c1c1e (freq-chunk-bugfix):
+================================
+
+In run_prisim.py,
+
+(*) Remove commented lines from erroneous frequency chunking
+
+From aa28afa (master):
+=====================
+
+In run_prisim.py,
+
+(*) Fix bug in frequency chunking
+>>>>>>> master
 
 From e57c820 (filehandling):
 ===========================
@@ -35,8 +51,11 @@ In scripts/run_prisim.py,
 (*) Delete FITS data read from ROI parameters file after call to
 InterferometerArray.observe()
 
+<<<<<<< HEAD
 From 060086e (master):
 ####### Ancestor
+=======
+>>>>>>> master
 From 060086e (master):
 ======= end
 
