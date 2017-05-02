@@ -1,3 +1,17 @@
+From 48c1c1e (freq-chunk-bugfix):
+================================
+
+In run_prisim.py,
+
+(*) Remove commented lines from erroneous frequency chunking
+
+From aa28afa (master):
+=====================
+
+In run_prisim.py,
+
+(*) Fix bug in frequency chunking
+
 From e57c820 (filehandling):
 ===========================
 
