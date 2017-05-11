@@ -1,3 +1,16 @@
+From 99c2eac (mkolopanis-master):
+================================
+
+In prisim/interferometry.py,
+
+(*) In member function createUVData() of class InterferometerData,
+convert telecope location from lat, lon, alt to ITRF x, y, z using
+the lla2ecef() function in astroutils/geometry module and store in
+the returned value
+(*) Also bring in changes from mkolopanis-master branch into
+member function createUVData() of class InterferometerData attributes
+such as 'is_phased' and 'drift'
+
 From 48c1c1e (freq-chunk-bugfix):
 ================================
 
