@@ -1,3 +1,15 @@
+From c9b85cd (pyuvdata):
+=======================
+
+In astroutils/interferometry.py,
+
+(*) Scalarize telescope location parameters x, y, z in ITRF frame
+before assigning to UVData attribute and writing
+
+In setup.py,
+
+(*) Add pyuvdata version 1.1 in dependency list to install
+
 From 99c2eac (mkolopanis-master):
 ================================
 

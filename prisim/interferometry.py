@@ -7371,7 +7371,7 @@ class InterferometerData(object):
         for attrkey in attributes_of_uvdata:
             if attrkey == 'telescope_location':
                 x, y, z = GEOM.lla2ecef(*self.infodict[attrkey], units='degrees')
-                setattr(dataobj, attrkey, NP.asarray([x,y,z]))
+                setattr(dataobj, attrkey, NP.asarray([x[0],y[0],z[0]]))
                 # from pyuvdata import utils
                 # loc_array = self.infodict[attrkey]
                 # # convert location in lat lon alt degrees to radains
