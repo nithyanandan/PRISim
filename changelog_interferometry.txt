@@ -1,10 +1,20 @@
+From f85d9d1 (parabolic-cylinder):
+=================================
+
+In prisim/primary_beams.py,
+
+(*) Add function generic_aperture_field_pattern() along with
+docstring that allows computing the field pattern of any arbitrary
+aperture including application of frequency-dependent gains and
+delays
+
 From 3efb300 (master):
 =====================
 
 In prisim/primary_beams.py,
 
-(*) Add function parabola_parameters() to compute parameters of a
-parabola
+(*) Add function parabola_parameters() along with docstring to
+compute parameters of a parabola
 
 From 48c1c1e (freq-chunk-bugfix):
 ================================

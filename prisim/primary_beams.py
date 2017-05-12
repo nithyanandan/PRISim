@@ -1442,15 +1442,16 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', pointing_info=None,
 
     Output:
 
-    Returns a complex electric field or power pattern as a MxN numpy array, 
-    M=number of sky positions, N=number of wavelengths.
+    Returns a complex electric field or power pattern as a MxNxnrand numpy array, 
+    M=number of sky positions, N=number of wavelengths, nrand=number of random
+    realizations
     -----------------------------------------------------------------------------
     """
 
     try:
         antpos, skypos
     except NameError:
-        raise NameError('antpos and skypos must be provided for array_beamformer().')
+        raise NameError('antpos and skypos must be provided.')
         
     if not isinstance(antpos, NP.ndarray):
         raise TypeError('antenna positions in antpos must be a numpy array.')
@@ -1618,6 +1619,305 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', pointing_info=None,
     retvalue = NP.sum(retvalue.astype(NP.complex64), axis=0)
 
     # field_pattern = NP.sum(gains * NP.exp(1j * 2*NP.pi * (geometric_delays+delays) * FCNST.c / wavelength), axis=0) / antpos.shape[0]
+
+    # return field_pattern
+
+    if power:
+        retvalue = NP.abs(retvalue)**2
+    return retvalue
+
+#################################################################################
+
+def generic_aperture_field_pattern(antpos, skypos, skycoords='altaz', 
+                                   pointing_info=None, wavelength=1.0,
+                                   power=True):
+
+    """
+    -----------------------------------------------------------------------------
+    A routine to generate field pattern from an aperture of generic shape made of
+    isotropic radiator elements. This can supercede the functionality of 
+    isotropic_radiators_array_field_pattern() as well as array_field_pattern() 
+    because this can handle frequency-dependent gains as well as delays applied 
+    on the aperture elements of any arbitrary shape. This can model aperture 
+    surface imperfections including frequency dependent variations.
+
+    Inputs:
+
+    elementpos    
+              [2- or 3-column numpy array] The position of elements in tile. The
+              coordinates are assumed to be in the local ENU coordinate system  
+              in meters. If a 2-column array is provided, the third column is 
+              assumed to be made of zeros. Each row is for one element. No 
+              default. 
+
+    skypos    [2- or 3-column numpy array] The positions on the sky for which 
+              the array field pattern is to be estimated. The coordinate system 
+              specified using the keyword input skycoords. If skycoords is set
+              to 'altaz', skypos must be a 2-column array that obeys Alt-Az 
+              conventions with altitude in the first column and azimuth in the 
+              second column. Both altitude and azimuth must be in degrees. If 
+              skycoords is set to 'dircos', a 3- or 2-column (the
+              third column is automatically determined from direction cosine 
+              rules), it must obey conventions of direction cosines. The first 
+              column is l (east), the second is m (north) and third is n (up).
+              Default will be set to zenith position in the coordinate system 
+              specified.
+
+    skycoords [string scalar] Coordinate system of sky positions specified in 
+              skypos. Accepted values are 'altaz' (Alt-Az) or 'dircos' (direction
+              cosines)
+
+    pointing_info 
+              [dictionary] A dictionary consisting of information relating to 
+              pointing center. The pointing center can be specified either via
+              element delay compensation or by directly specifying the pointing
+              center in a certain coordinate system. Default = None (pointing 
+              centered at zenith). This dictionary consists of the following 
+              tags and values:
+              'delays'          [numpy array] Delays (in seconds) to be applied 
+                                to the tile elements. Size should be equal to 
+                                number of tile elements (number of rows in
+                                elementpos). Default = None will set all element
+                                delays to zero phasing them to zenith. 
+              'pointing_center' [numpy array] This will apply in the absence of 
+                                key 'delays'. This can be specified as a row 
+                                vector. Should have two-columns if using Alt-Az
+                                coordinates, or two or three columns if using
+                                direction cosines. There is no default. The
+                                coordinate system must be specified in
+                                'pointing_coords' if 'pointing_center' is to be
+                                used.
+              'pointing_coords' [string scalar] Coordinate system in which the
+                                pointing_center is specified. Accepted values 
+                                are 'altaz' or 'dircos'. Must be provided if
+                                'pointing_center' is to be used. No default.
+              'delayerr'        [int, float] RMS jitter in delays used in the
+                                beamformer. Random jitters are drawn from a 
+                                normal distribution with this rms. Must be
+                                a non-negative scalar. If not provided, it
+                                defaults to 0 (no jitter). 
+              'gains'           [numpy array] Complex element gains. Must be of 
+                                size equal n_elements specified by the number of 
+                                rows in elementpos. If set to None (default), all 
+                                element gains are assumed to be unity.
+              'gainerr'         [int, float] RMS error in voltage amplitude in 
+                                dB to be used in the beamformer. Random jitters 
+                                are drawn from a normal distribution in 
+                                logarithm units which are then converted to 
+                                linear units. Must be a non-negative scalar. If 
+                                not provided, it defaults to 0 (no jitter). 
+              'nrand'           [int] number of random realizations of gainerr 
+                                and/or delayerr to be generated. Must be 
+                                positive. If none provided, it defaults to 1.
+              
+    wavelength [scalar, list or numpy vector] Wavelengths at which the field 
+               dipole pattern is to be estimated. Must be in the same units as 
+               element positions in elementpos.
+                               
+    power      [boolean] If set to True (default), compute power pattern,
+               otherwise compute field pattern.
+
+    Output:
+
+    Returns a complex electric field or power pattern as a MxNxnrand numpy array, 
+    M=number of sky positions, N=number of wavelengths, nrand=number of random
+    realizations
+    -----------------------------------------------------------------------------
+    """
+
+    try:
+        elementpos, skypos
+    except NameError:
+        raise NameError('elementpos and skypos must be provided.')
+        
+    if not isinstance(elementpos, NP.ndarray):
+        raise TypeError('antenna positions in elementpos must be a numpy array.')
+    else:
+        if (len(elementpos.shape) != 2):
+            raise ValueError('elementpos must be a 2-dimensional 2- or 3-column numpy array')
+        else:
+            if elementpos.shape[1] == 2:
+                elementpos = NP.hstack((elementpos, NP.zeros(elementpos.shape[0]).reshape(-1,1)))
+            elif elementpos.shape[1] != 3:
+                raise ValueError('elementpos must be a 2- or 3-column array')
+            elementpos = elementpos.astype(NP.float32)
+
+    if isinstance(wavelength, list):
+        wavelength = NP.asarray(wavelength)
+    elif isinstance(wavelength, (int, float)):
+        wavelength = NP.asarray(wavelength).reshape(-1)
+    elif not isinstance(wavelength, NP.ndarray):
+        raise TypeError('Wavelength should be a scalar, list or numpy array.')
+ 
+    if NP.any(wavelength <= 0.0):
+        raise ValueError('Wavelength(s) should be positive.')
+
+    wavelength = wavelength.astype(NP.float32)
+
+    if pointing_info is None:
+        # delays = NP.zeros(elementpos.shape[0])
+        # gains = NP.ones(elementpos.shape[0])
+        nrand = 1
+        delays = NP.asarray([0.0]).reshape(1,1,1,1) # (nelements=1)x(nsky=1)x(nchan=1)x(nrand=1)
+        gains = NP.asarray([1.0]).reshape(1,1,1,1) # (nelements=1)x(nsky=1)x(nchan=1)x(nrand=1)
+    else:
+        if 'nrand' in pointing_info:
+            nrand = pointing_info['nrand']
+            if nrand is None: 
+                nrand = 1
+            elif not isinstance(nrand, int):
+                raise TypeError('nrand must be an integer')
+            elif nrand < 1:
+                raise ValueError('nrand must be positive')
+        else:
+            nrand = 1
+
+        if 'delays' in pointing_info:
+            delays = pointing_info['delays']
+            if delays is None:
+                # delays = NP.zeros(elementpos.shape[0])
+                delays = NP.asarray([0.0]).reshape(1,1,1,1) # (nelements=1)x(nsky=1)x(nchan=1)x(nrand=1)
+            elif not isinstance(delays, NP.ndarray):
+                raise TypeError('delays must be a numpy array')
+            else:
+                if delays.size == 1:
+                    delays = delays.reshape(1,1,1,1)
+                elif delays.size == elementpos.shape[0]:
+                    delays = delays.reshape(-1,1,1,1)
+                elif delays.size == wavelength.size:
+                    delays = delays.reshape(1,1,-1,1)
+                elif delays.shape == (elementpos.shape[0], wavelength.size):
+                    delays = delays[:,NP.newaxis,:,NP.newaxis]
+                else:
+                    raise ValueError('size of delays provided is inconsistent')
+            # delays = delays.ravel()
+        elif 'pointing_center' in pointing_info:
+            if 'pointing_coords' not in pointing_info:
+                raise KeyError('pointing_coords not specified.')
+            elif pointing_info['pointing_coords'] == 'altaz':
+                pointing_center = GEOM.altaz2dircos(pointing_info['pointing_center'].reshape(1,-1), units='degrees')
+            elif pointing_info['pointing_coords'] == 'dircos':            
+                if NP.sum(pointing_info['pointing_center']**2 > 1.0):
+                    raise ValueError('Invalid direction cosines specified in pointing_center')
+                pointing_center = pointing_info['pointing_center'].reshape(1,-1)
+            else:
+                raise ValueError('pointing_coords must be set to "dircos" or "altaz"')
+            delays = NP.dot(elementpos, pointing_center.T) / FCNST.c # Opposite sign as that used for determining geometric delays later because this is delay compensation, shape = (nelements x nsky)
+            delays = delays[:,:,NP.newaxis,NP.newaxis]
+        else:
+            delays = NP.asarray([0.0]).reshape(1,1,1,1) # (nelements=1)x(nsky=1)x(nchan=1)x(nrand=1)
+            # delays = NP.zeros(elementpos.shape[0], dtype=NP.float32)
+
+        if 'gains' in pointing_info:
+            gains = pointing_info['gains']
+            if gains is None:
+                # gains = NP.ones(elementpos.shape[0])
+                gains = NP.asarray([1.0]).reshape(1,1,1,1) # (nelements=1)x(nsky=1)x(nchan=1)x(nrand=1)
+            elif not isinstance(gains, NP.ndarray):
+                raise TypeError('gains must be a numpy array')
+            else:
+                if gains.size == 1:
+                    gains = gains.reshape(1,1,1,1)
+                elif gains.size == elementpos.shape[0]:
+                    gains = gains.reshape(-1,1,1,1)
+                elif gains.size == wavelength.size:
+                    gains = gains.reshape(1,1,-1,1)
+                elif gains.shape == (elementpos.shape[0], wavelength.size):
+                    gains = gains[:,NP.newaxis,:,NP.newaxis]
+                else:
+                    raise ValueError('size of gains provided is inconsistent')
+            # gains = gains.ravel()
+        else:
+            gains = NP.asarray([1.0]).reshape(1,1,1,1) # (nelements=1)x(nsky=1)x(nchan=1)x(nrand=1)
+            # gains = NP.ones(elementpos.shape[0], dtype=NP.float32)
+
+        if 'delayerr' in pointing_info:
+            delayerr = pointing_info['delayerr']
+            if delayerr is not None:
+                if isinstance(delayerr, (int, float)):
+                    if delayerr < 0.0:
+                        raise ValueError('delayerr must be non-negative')
+                    # delays = delays.reshape(elementpos.shape[0],1) + delayerr * NP.random.standard_normal((elementpos.shape[0],nrand))
+                    delays = delays + delayserr * NP.random.standard_normal((elementpos.shape[0],1,1,nrand))
+                else:
+                    raise TypeError('delayerr must be an integer or float')
+
+        if 'gainerr' in pointing_info:
+            gainerr = pointing_info['gainerr']
+            if gainerr is not None:
+                if isinstance(gainerr, (int, float)):
+                    if gainerr < 0.0:
+                        raise ValueError('gainerr must be non-negative')
+                    gainerr /= 10.0         # Convert from dB to logarithmic units
+                    # gains = gains.reshape(elementpos.shape[0],1) * 10**(gainerr * NP.random.standard_normal((elementpos.shape[0],nrand)))
+                    gains = gains * 10**(gainerr * NP.random.standard_normal((elementpos.shape[0],1,1,nrand)))
+                else:
+                    raise TypeError('gainerr must be an integer or float')
+
+    gains = gains.astype(NP.float32)        
+    delays = delays.astype(NP.float32)
+
+    if not isinstance(skypos, NP.ndarray):
+        raise TypeError('skypos must be a Numpy array.')
+    
+    if skycoords is not None:
+        if (skycoords != 'altaz') and (skycoords != 'dircos'):
+            raise ValueError('skycoords must be "altaz" or "dircos" or None (default).')
+        elif skycoords == 'altaz':
+            if skypos.ndim < 2:
+                if skypos.size == 2:
+                    skypos = NP.asarray(skypos).reshape(1,2)
+                else:
+                    raise ValueError('skypos must be a Nx2 Numpy array.')
+            elif skypos.ndim > 2:
+                raise ValueError('skypos must be a Nx2 Numpy array.')
+            else:
+                if skypos.shape[1] != 2:
+                    raise ValueError('skypos must be a Nx2 Numpy array.')
+                elif NP.any(skypos[:,0] < 0.0) or NP.any(skypos[:,0] > 90.0):
+                    raise ValueError('Altitudes in skypos have to be positive and <= 90 degrees')
+            skypos = GEOM.altaz2dircos(skypos, 'degrees') # Convert sky positions to direction cosines
+        else:
+            if skypos.ndim < 2:
+                if (skypos.size == 2) or (skypos.size == 3):
+                    skypos = NP.asarray(skypos).reshape(1,-1)
+                else:
+                    raise ValueError('skypos must be a Nx2 Nx3 Numpy array.')
+            elif skypos.ndim > 2:
+                raise ValueError('skypos must be a Nx2 or Nx3 Numpy array.')
+            else:
+                if (skypos.shape[1] < 2) or (skypos.shape[1] > 3):
+                    raise ValueError('skypos must be a Nx2 or Nx3 Numpy array.')
+                elif skypos.shape[1] == 2:
+                    if NP.any(NP.sum(skypos**2, axis=1) > 1.0):
+                        raise ValueError('skypos in direction cosine coordinates are invalid.')
+                
+                    skypos = NP.hstack((skypos, NP.sqrt(1.0-NP.sum(skypos**2, axis=1)).reshape(-1,1)))
+                else:
+                    eps = 1.0e-10
+                    if NP.any(NP.abs(NP.sum(skypos**2, axis=1) - 1.0) > eps) or NP.any(skypos[:,2] < 0.0):
+                        if verbose:
+                            print '\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                        skypos[:,2] = NP.sqrt(1.0 - NP.sum(skypos[:2]**2, axis=1))
+    else:
+        raise ValueError('skycoords has not been set.')
+    
+    skypos = skypos.astype(NP.float32, copy=False)
+    
+    geometric_delays = -NP.dot(elementpos, skypos.T) / FCNST.c
+    geometric_delays = geometric_delays[:,:,NP.newaxis,NP.newaxis].astype(NP.float32, copy=False) # Add an axis for wavelengths, and random realizations of beamformer settings
+    
+    # gains = gains.reshape(elementpos.shape[0],1,1,nrand).astype(NP.complex64, copy=False)
+    # delays = delays.reshape(elementpos.shape[0],1,1,nrand)
+    gains = gains.astype(NP.complex64, copy=False)
+    wavelength = wavelength.reshape(1,1,-1,1).astype(NP.float32, copy=False)
+
+    retvalue = geometric_delays + delays
+    retvalue = retvalue.astype(NP.complex64, copy=False)
+    retvalue = NP.exp(1j * 2*NP.pi * FCNST.c/wavelength * retvalue).astype(NP.complex64, copy=False)
+    retvalue = NP.sum(gains*retvalue, axis=0) / elementpos.shape[0]
+
+    # field_pattern = NP.sum(gains * NP.exp(1j * 2*NP.pi * (geometric_delays+delays) * FCNST.c / wavelength), axis=0) / elementpos.shape[0]
 
     # return field_pattern
 
