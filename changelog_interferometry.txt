@@ -1,3 +1,11 @@
+From 3efb300 (master):
+=====================
+
+In prisim/primary_beams.py,
+
+(*) Add function parabola_parameters() to compute parameters of a
+parabola
+
 From 48c1c1e (freq-chunk-bugfix):
 ================================
 
