@@ -933,7 +933,7 @@ bl = NP.copy(bl_orig)
 bl_label = NP.copy(bl_label_orig)
 bl_id = NP.copy(bl_id_orig)
 if array_is_redundant:
-    bl, select_bl_ind, bl_count, _allinds = RI.uniq_baselines(bl)
+    bl, select_bl_ind, bl_count, allinds = RI.uniq_baselines(bl)
     bl_label = bl_label[select_bl_ind]
     bl_id = bl_id[select_bl_ind]
 bl_length = NP.sqrt(NP.sum(bl**2, axis=1))
@@ -946,6 +946,7 @@ bl_length = bl_length[sortind]
 bl_orientation = bl_orientation[sortind]
 if array_is_redundant:
     bl_count = bl_count[sortind]
+    select_bl_ind = select_bl_ind[sortind]
 neg_bl_orientation_ind = (bl_orientation < -67.5) | (bl_orientation > 112.5)
 # neg_bl_orientation_ind = NP.logical_or(bl_orientation < -0.5*180.0/n_bins_baseline_orientation, bl_orientation > 180.0 - 0.5*180.0/n_bins_baseline_orientation)
 bl[neg_bl_orientation_ind,:] = -1.0 * bl[neg_bl_orientation_ind,:]
@@ -972,7 +973,7 @@ elif maxbl < minbl:
 
 min_blo = -67.5
 max_blo = 112.5
-select_bl_ind = NP.zeros(bl_length.size, dtype=NP.bool)
+subselect_bl_ind = NP.zeros(bl_length.size, dtype=NP.bool)
 
 if bldirection is not None:
     if isinstance(bldirection, str):
@@ -985,27 +986,29 @@ if bldirection is not None:
             if direction in ['SE', 'E', 'NE', 'N']:
                 if direction == 'SE':
                     oind = (bl_orientation >= -67.5) & (bl_orientation < -22.5)
-                    select_bl_ind[oind] = True
+                    subselect_bl_ind[oind] = True
                 elif direction == 'E':
                     oind = (bl_orientation >= -22.5) & (bl_orientation < 22.5)
-                    select_bl_ind[oind] = True
+                    subselect_bl_ind[oind] = True
                 elif direction == 'NE':
                     oind = (bl_orientation >= 22.5) & (bl_orientation < 67.5)
-                    select_bl_ind[oind] = True
+                    subselect_bl_ind[oind] = True
                 else:
                     oind = (bl_orientation >= 67.5) & (bl_orientation < 112.5)
-                    select_bl_ind[oind] = True
+                    subselect_bl_ind[oind] = True
     else:
         raise TypeError('Baseline direction criterion must specified as string or list of strings')
 else:
-    select_bl_ind = NP.ones(bl_length.size, dtype=NP.bool)
+    subselect_bl_ind = NP.ones(bl_length.size, dtype=NP.bool)
 
-select_bl_ind = select_bl_ind & (bl_length >= minbl) & (bl_length <= maxbl)
-bl_label = bl_label[select_bl_ind]
-bl_id = bl_id[select_bl_ind]
-bl = bl[select_bl_ind,:]
-bl_length = bl_length[select_bl_ind]
-bl_orientation = bl_orientation[select_bl_ind]
+subselect_bl_ind = subselect_bl_ind & (bl_length >= minbl) & (bl_length <= maxbl)
+bl_label = bl_label[subselect_bl_ind]
+bl_id = bl_id[subselect_bl_ind]
+bl = bl[subselect_bl_ind,:]
+bl_length = bl_length[subselect_bl_ind]
+bl_orientation = bl_orientation[subselect_bl_ind]
+if array_is_redundant:
+    select_bl_ind = select_bl_ind[subselect_bl_ind]
 
 if use_HI_monopole:
     bllstr = map(str, bl_length)
@@ -1018,6 +1021,8 @@ if use_HI_monopole:
     bl_id = bl_id[ind_uniq_bll]
     bl_orientation = bl_orientation[ind_uniq_bll]
     bl_length = bl_length[ind_uniq_bll]
+    if array_is_redundant:
+        select_bl_ind = select_bl_ind[ind_uniq_bll]
 
     sortind = NP.argsort(bl_length, kind='mergesort')
     bl = bl[sortind,:]
@@ -1026,8 +1031,18 @@ if use_HI_monopole:
     bl_length = bl_length[sortind]
     bl_orientation = bl_orientation[sortind]
     count_uniq_bll = count_uniq_bll[sortind]
+    if array_is_redundant:
+        select_bl_ind = select_bl_ind[sortind]
 
 total_baselines = bl_length.size
+if array_is_redundant:
+    blgroups = {}
+    blgroups_reversemap = {}
+    for labelind, label in enumerate(bl_label_orig[select_bl_ind]):
+        if bl_count[labelind] > 0:
+            blgroups[tuple(label)] = bl_label_orig[NP.asarray(allinds[labelind])]
+            for lbl in bl_label_orig[NP.asarray(allinds[labelind])]:
+                blgroups_reversemap[tuple(lbl)] = tuple(label)
 
 try:
     labels = bl_label.tolist()

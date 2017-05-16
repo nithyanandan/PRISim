@@ -1,3 +1,10 @@
+From 9ae336b (measurement-group):
+================================
+
+In scripts/run_prisim.py,
+
+(*) Compute baseline groups if array is redundant
+
 From 94d6002 (measurement-group):
 ================================
 
@@ -12,14 +19,14 @@ From 04baac3 (measurement-group), 3efb300 (master):
 From 48c1c1e (freq-chunk-bugfix):
 ================================
 
-In run_prisim.py,
+In scripts/run_prisim.py,
 
 (*) Remove commented lines from erroneous frequency chunking
 
 From aa28afa (master):
 =====================
 
-In run_prisim.py,
+In scripts/run_prisim.py,
 
 (*) Fix bug in frequency chunking
 
