@@ -1,3 +1,13 @@
+From 9a02e33 (parabolic-cylinder):
+=================================
+
+In prisim/primary_beams.py,
+
+(*) Add function feed_aperture_combined_field_pattern() to compute
+combined field pattern from the feed-aperture assembly where the feed
+illuminates the aperture
+(*) Fix bugs in feed_illumination_of_aperture()
+
 From 1a072a4 (parabolic-cylinder):
 =================================
 
