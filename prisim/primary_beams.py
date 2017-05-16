@@ -2353,12 +2353,9 @@ def feed_illumination_of_aperture(aperture_locs, feedinfo=None, wavelength=1.0,
     wavelength = wavelength.astype(NP.float32)
 
     if NP.mean(aperture_locs, axis=2) < 0.0:    # Invert the aperture and compute the feed illumination on the aperture as the feed can "only point upwards"
-        aperture_locs_inverted = -1.0 * aperture_locs
-        aperture_locs_alt = NP.pi/2 - NP.arccos(aperture_locs_inverted[:,2]/NP.sqrt(NP.sum(aperture_locs**2, axis=1)))
-        aperture_locs_az = NP.pi/2 - NP.arctan2(aperture_locs_inverted[:,1], aperture_locs_inverted[:,0])
+        r, aperture_locs_alt, aperture_locs_az = GEOM.xyz2sph(-aperture_locs[:,0], -aperture_locs[:,1], -aperture_locs[:,2], units='degrees')
     else:
-        aperture_locs_alt = NP.pi/2 - NP.arccos(aperture_locs[:,2]/NP.sqrt(NP.sum(aperture_locs**2, axis=1)))
-        aperture_locs_az = NP.pi/2 - NP.arctan2(aperture_locs[:,1], aperture_locs[:,0])
+        r, aperture_locs_alt, aperture_locs_az = GEOM.xyz2sph(aperture_locs[:,0], aperture_locs[:,1], aperture_locs[:,2], units='degrees')
     aperture_locs_altaz = NP.hstack((aperture_locs_alt.reshape(-1,1), aperture_locs_az.reshape(-1,1)))
 
     if feedinfo is not None:
