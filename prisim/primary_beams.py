@@ -2308,3 +2308,215 @@ def parabola_parameters(dia=None, f_to_dia_ratio=None, f=None, depth=None):
 
 ################################################################################
 
+def feed_illumination_of_aperture(aperture_locs, feedinfo=None, wavelength=1.0,
+                                  short_dipole_approx=False,
+                                  half_wave_dipole_approx=True):
+
+    """
+    -----------------------------------------------------------------------------
+    Compute the illumination by a specified feed of the aperture at specified
+    locations.
+
+    Inputs:
+
+    aperture_locs   
+                [numpy array] Nx3 array of N locations defined by three
+                coordinates x, y, z. If Nx1 or Nx2 array is specified, y 
+                and z are accordingly assumed to be zero. 
+
+    wavelength  [scalar, list or numpy vector] Wavelengths at which the field 
+                pattern of the feed is to be estimated. Must be in the same 
+                units as aperture_locs and the feed dimensions
+
+    feedinfo    [dictionary] dictionary that specifies feed including the type 
+                of element, element size and orientation. It consists of the 
+                following keys and values:
+                'shape'       [string] Shape of antenna element. Accepted values
+                              are 'dipole', 'delta', 'dish', 'rect' and 'square'. 
+                              Will be ignored if key 'id' is set. 'delta' denotes 
+                              a delta function for the antenna element which has 
+                              an isotropic radiation pattern. 'delta' is the 
+                              default when keys 'id' and 'shape' are not set.
+                'size'        [scalar or 2-element list/numpy array] Diameter of 
+                              the telescope dish (in meters) if the key 'shape' 
+                              is set to 'dish', side of the square aperture (in 
+                              meters) if the key 'shape' is set to 'square', 
+                              2-element sides if key 'shape' is set to 'rect', 
+                              or length of the dipole if key 'shape' is set to 
+                              'dipole'. Will be ignored if key 'shape' is set to 
+                              'delta'. Will be ignored if key 'id' is set and a 
+                              preset value used for the diameter or dipole.
+                'orientation' [list or numpy array] If key 'shape' is set to 
+                              dipole, it refers to the orientation of the dipole 
+                              element unit vector whose magnitude is specified by 
+                              length. If key 'shape' is set to 'dish', it refers 
+                              to the position on the sky to which the dish is
+                              pointed. For a dipole, this unit vector must be
+                              provided in the local ENU coordinate system aligned 
+                              with the direction cosines coordinate system or in
+                              the Alt-Az coordinate system. This will be
+                              used only when key 'shape' is set to 'dipole'.
+                              This could be a 2-element vector (transverse 
+                              direction cosines) where the third (line-of-sight) 
+                              component is determined, or a 3-element vector
+                              specifying all three direction cosines or a two-
+                              element coordinate in Alt-Az system. If not provided 
+                              it defaults to an eastward pointing dipole. If key
+                              'shape' is set to 'dish', the orientation refers 
+                              to the pointing center of the dish on the sky. It
+                              can be provided in Alt-Az system as a two-element
+                              vector or in the direction cosine coordinate
+                              system as a two- or three-element vector. If not
+                              set in the case of a dish element, it defaults to 
+                              zenith. This is not to be confused with the key
+                              'pointing_center' in dictionary 'pointing_info' 
+                              which refers to the beamformed pointing center of
+                              the array. The coordinate system is specified by 
+                              the key 'ocoords'
+                'ocoords'     [scalar string] specifies the coordinate system 
+                              for key 'orientation'. Accepted values are 'altaz'
+                              and 'dircos'. 
+                'element_locs'
+                              [2- or 3-column array] Element locations that
+                              constitute the tile. Each row specifies
+                              location of one element in the tile. The
+                              locations must be specified in local ENU
+                              coordinate system. First column specifies along
+                              local east, second along local north and the
+                              third along local up. If only two columns are 
+                              specified, the third column is assumed to be 
+                              zeros. If 'elements_locs' is not provided, it
+                              assumed to be a one-element system and not a
+                              phased array as far as determination of primary 
+                              beam is concerned.
+                'groundplane' [scalar] height of telescope element above the 
+                              ground plane (in meteres). Default = None will
+                              denote no ground plane effects.
+    short_dipole_approx
+                [boolean] if True, indicates short dipole approximation
+                is to be used. Otherwise, a more accurate expression is used
+                for the dipole pattern. Default=False. Both
+                short_dipole_approx and half_wave_dipole_approx cannot be set 
+                to True at the same time
+
+    half_wave_dipole_approx
+                [boolean] if True, indicates half-wave dipole approximation
+                is to be used. Otherwise, a more accurate expression is used
+                for the dipole pattern. Default=False
+
+    Output:
+
+    Dictionary containing the following keys and values:
+    'aperture_locs' [numpy array] Nx3 array of sampled x, y, z aperture 
+                    locations 
+    'field_pattern' [numpy array] Complex electric field illumination pattern
+                    at the sampled aperture locations. It is an array of shape
+                    N x nchan where nchan is the number of frequency channels
+    -----------------------------------------------------------------------------
+    """
+
+    try:
+        aperture_locs
+    except NameError:
+        raise NameError('Input aperture_locs must be specified')
+
+    if not isinstance(aperture_locs, NP.ndarray):
+        raise TypeError('Input aperture_locs must be a numpy array')
+    if aperture_locs.ndim == 1:
+        aperture_locs = aperture_locs.reshape(-1) + NP.zeros((1,3), dtype=NP.float)
+    elif aperture_locs.ndim == 2:
+        if aperture_locs.shape[1] == 1:
+            aperture_locs = aperture_locs + NP.zeros((1,3), dtype=NP.float)
+        elif aperture_locs.shape[1] == 2:
+            aperture_locs = NP.hstack((aperture_locs, NP.zeros((aperture_locs.shape[0],1), dtype=NP.float)))
+        elif aperture_locs.shape[1] != 3:
+            raise ValueError('Input aperture_locs must not have more than three coordinates')
+    else:
+        raise ValueError('Input aperture_locs has too many dimensions')
+
+    if isinstance(wavelength, list):
+        wavelength = NP.asarray(wavelength)
+    elif isinstance(wavelength, (int, float)):
+        wavelength = NP.asarray(wavelength).reshape(-1)
+    elif not isinstance(wavelength, NP.ndarray):
+        raise TypeError('Wavelength should be a scalar, list or numpy array.')
+ 
+    if NP.any(wavelength <= 0.0):
+        raise ValueError('Wavelength(s) should be positive.')
+
+    wavelength = wavelength.astype(NP.float32)
+
+    if NP.mean(aperture_locs, axis=2) < 0.0:    # Invert the aperture and compute the feed illumination on the aperture as the feed can "only point upwards"
+        aperture_locs_inverted = -1.0 * aperture_locs
+        aperture_locs_alt = NP.pi/2 - NP.arccos(aperture_locs_inverted[:,2]/NP.sqrt(NP.sum(aperture_locs**2, axis=1)))
+        aperture_locs_az = NP.pi/2 - NP.arctan2(aperture_locs_inverted[:,1], aperture_locs_inverted[:,0])
+    else:
+        aperture_locs_alt = NP.pi/2 - NP.arccos(aperture_locs[:,2]/NP.sqrt(NP.sum(aperture_locs**2, axis=1)))
+        aperture_locs_az = NP.pi/2 - NP.arctan2(aperture_locs[:,1], aperture_locs[:,0])
+    aperture_locs_altaz = NP.hstack((aperture_locs_alt.reshape(-1,1), aperture_locs_az.reshape(-1,1)))
+
+    if feedinfo is not None:
+        if not isinstance(feedinfo, dict):
+            raise TypeError('Input feedinfo must be a dictionary')
+        if 'shape' not in feedinfo:
+            feedinfo['shape'] = 'delta'
+            ep = 1.0
+        elif feedinfo['shape'] == 'delta':
+            ep = 1.0
+        elif feedinfo['shape'] == 'dipole':
+            ep = dipole_field_pattern(feedinfo['size'], aperture_locs_altaz,
+                                      dipole_coords=feedinfo['ocoords'],
+                                      dipole_orientation=feedinfo['orientation'],
+                                      skycoords='altaz', wavelength=wavelength, 
+                                      short_dipole_approx=short_dipole_approx,
+                                      half_wave_dipole_approx=half_wave_dipole_approx,
+                                      power=False)
+            ep = ep[:,:,NP.newaxis]   # add an axis to be compatible with random ralizations
+        elif feedinfo['shape'] == 'dish':
+            ep = airy_disk_pattern(feedinfo['size'], aperture_locs_altaz,
+                                   FCNST.c/wavelength, skyunits=skyunits,
+                                   peak=1.0, pointing_center=None, 
+                                   gaussian=False, power=False,
+                                   small_angle_tol=1e-10)
+            ep = ep[:,:,NP.newaxis]   # add an axis to be compatible with random ralizations
+        elif feedinfo['shape'] == 'rect':
+            if feedinfo['phased_array_feed']:
+                raise ValueError('Phased array feed cannot be used with the feed shape specified')
+            ep = uniform_rectangular_aperture(feedinfo['size'], aperture_locs_altaz, FCNST.c/wavelength, skyunits='altaz', east2ax1=feedinfo['east2ax1'], pointing_center=None, power=False)
+        elif feedinfo['shape'] == 'square':
+            if feedinfo['phased_array_feed']:
+                raise ValueError('Phased array feed cannot be used with the feed shape specified')
+            ep = uniform_square_aperture(feedinfo['size'], aperture_locs_altaz, FCNST.c/wavelength, skyunits='altaz', east2ax1=feedinfo['east2ax1'], pointing_center=None, power=False)
+        else:
+            raise ValueError('Value in key "shape" of feedinfo dictionary invalid.')
+    else:
+        raise ValueError('Input feedinfo must not be None')
+
+    if feedinfo['phased_array_feed']:
+        element_locs = feedinfo['element_locs']
+        irap = array_field_pattern(element_locs, aperture_locs_altaz, skycoords=skyunits,
+                                   pointing_info=None, wavelength=FCNST.c/frequency,
+                                   power=False)
+    else:
+        irap = 1.0
+
+    compute_ground_pattern = False
+    gp = 1.0
+    ground_modifier = None
+    if 'groundplane' in feedinfo:
+        if feedinfo['groundplane'] is not None:
+            if 'shape' in feedinfo:
+                if feedinfo['shape'] != 'dish':  # If shape is not dish, compute ground plane pattern
+                    compute_ground_pattern = True
+            else:
+                compute_ground_pattern = True
+
+    if compute_ground_pattern:
+        gp = ground_plane_field_pattern(feedinfo['groundplane'], aperture_locs_altaz, skycoords=skyunits,
+                                        wavelength=FCNST.c/frequency, angle_units='degrees', 
+                                        modifier=ground_modifier, power=False)
+    
+    fp = ep * irap * gp
+    return {'aperture_locs': aperture_locs, 'field_pattern': fp}
+    
+#################################################################################

@@ -1,3 +1,11 @@
+From 0434514 (parabolic-cylinder):
+=================================
+
+In prisim/primary_beams.py,
+
+(*) Add function feed_illumination_of_aperture() along with docstring
+that computes illumination of sampled aperture locations by the feed
+
 From f85d9d1 (parabolic-cylinder):
 =================================
 
