@@ -1,3 +1,11 @@
+From 8eb05b6 (parabolic-cylinder):
+=================================
+
+In prisim/primary_beams.py,
+
+(*) Remove function parabola_parameters() and move it under geometry
+module in AstroUtils package
+
 From 0434514 (parabolic-cylinder):
 =================================
 
