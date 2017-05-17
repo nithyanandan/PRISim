@@ -1,3 +1,10 @@
+From 3173feb (master):
+=====================
+
+In setup.py,
+
+(*) Add h5py package in the dependency lists
+
 From 9ae336b (master), e9eb582 (pyuvdata):
 =========================================
 
