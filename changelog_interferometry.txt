@@ -1,7 +1,22 @@
+From f44bb2c (pyuvdata):
+=======================
+
+In MANIFEST.in,
+
+(*) Rewrite lines involving recursive-include by changing syntax from
+recursive-include <DIR> <DIR> ... and recursive-include <file> <file>
+to recursive-include <DIR> <file> <file>... for each <DIR>
+
+In prisim/interferometry.py,
+
+(*) In createUVData() member function of class InterferometerData,
+remove commented lines from Matt's version since they have now been
+replaced with routines from AstroUtils package
+
 From c9b85cd (pyuvdata):
 =======================
 
-In astroutils/interferometry.py,
+In prisim/interferometry.py,
 
 (*) Scalarize telescope location parameters x, y, z in ITRF frame
 before assigning to UVData attribute and writing
