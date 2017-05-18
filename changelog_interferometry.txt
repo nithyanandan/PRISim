@@ -1,3 +1,9 @@
+From 4822f00 (measurement-group), 4d29909 (master):
+==================================================
+
+(*) Bring changes relating to writing via pyuvdata package to UVFITS
+from master branch onto measurement-group
+
 From 63f271b (measurement-group):
 ================================
 
@@ -23,6 +29,18 @@ In scripts/run_prisim.py,
 
 (*) Compute baseline groups if array is redundant
 
+From 3173feb (master):
+=====================
+
+In setup.py,
+
+(*) Add h5py package in the dependency lists
+
+From 9ae336b (master), e9eb582 (pyuvdata):
+=========================================
+
+(*) Merge fixes in pyuvdata branch onto master branch
+
 From 94d6002 (measurement-group):
 ================================
 
@@ -33,6 +51,46 @@ From 04baac3 (measurement-group), 3efb300 (master):
 ==================================================
 
 (*) Merge bug fixes on master onto measurement-group branch
+
+From f44bb2c (pyuvdata):
+=======================
+
+In MANIFEST.in,
+
+(*) Rewrite lines involving recursive-include by changing syntax from
+recursive-include <DIR> <DIR> ... and recursive-include <file> <file>
+to recursive-include <DIR> <file> <file>... for each <DIR>
+
+In prisim/interferometry.py,
+
+(*) In createUVData() member function of class InterferometerData,
+remove commented lines from Matt's version since they have now been
+replaced with routines from AstroUtils package
+
+From c9b85cd (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Scalarize telescope location parameters x, y, z in ITRF frame
+before assigning to UVData attribute and writing
+
+In setup.py,
+
+(*) Add pyuvdata version 1.1 in dependency list to install
+
+From 99c2eac (mkolopanis-master):
+================================
+
+In prisim/interferometry.py,
+
+(*) In member function createUVData() of class InterferometerData,
+convert telecope location from lat, lon, alt to ITRF x, y, z using
+the lla2ecef() function in astroutils/geometry module and store in
+the returned value
+(*) Also bring in changes from mkolopanis-master branch into
+member function createUVData() of class InterferometerData attributes
+such as 'is_phased' and 'drift'
 
 From 48c1c1e (freq-chunk-bugfix):
 ================================

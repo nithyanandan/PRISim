@@ -2403,7 +2403,6 @@ if rank == 0:
         consolidated_outfile = rootdir+project_dir+simid+sim_dir+'simvis'
         simvis.save(consolidated_outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=save_to_npz, overwrite=True, uvfits_parms=None)
 
-        PDB.set_trace()
         uvfits_parms = None
         if save_to_uvfits:
             if save_formats['phase_center'] is None:
