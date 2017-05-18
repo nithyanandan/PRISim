@@ -1,3 +1,21 @@
+From 63f271b (measurement-group):
+================================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add parameter save_redundant to save redundant visibilities
+at the end of the simulation
+
+In scripts/run_prisim.py,
+
+(*) Process baselines so that redundant visibilities can be generated
+post-facto and appended to the InterferometerArray instance
+
+In prisim/interferometry.py,
+
+(*) Fix bug in duplicate_measurements() member function of class
+InterferometerArray
+
 From 9ae336b (measurement-group):
 ================================
 

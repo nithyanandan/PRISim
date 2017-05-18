@@ -284,6 +284,7 @@ pc = parms['phasing']['center']
 pc_coords = parms['phasing']['coords']
 mpi_key = parms['pp']['key']
 mpi_eqvol = parms['pp']['eqvol']
+save_redundant = parms['save_redundant']
 save_formats = parms['save_formats']
 save_to_npz = save_formats['npz']
 save_to_uvfits = save_formats['uvfits']
@@ -929,15 +930,35 @@ if global_HI_parms is not None:
     dz_half = global_HI_parms[2]
 
 bl_orig, bl_label_orig, bl_id_orig = RI.baseline_generator(ant_locs_orig, ant_label=ant_label_orig, ant_id=ant_id_orig, auto=False, conjugate=False)
+
+blo = NP.angle(bl_orig[:,0] + 1j * bl_orig[:,1], deg=True)
+neg_blo_ind = (blo < -67.5) | (blo > 112.5)
+# neg_blo_ind = NP.logical_or(blo < -0.5*180.0/n_bins_baseline_orientation, blo > 180.0 - 0.5*180.0/n_bins_baseline_orientation)
+bl_orig[neg_blo_ind,:] = -1.0 * bl_orig[neg_blo_ind,:]
+blo = NP.angle(bl_orig[:,0] + 1j * bl_orig[:,1], deg=True)
+maxlen = max(max(len(albl[0]), len(albl[1])) for albl in bl_label_orig)
+bl_label_orig = [tuple(reversed(bl_label_orig[i])) if neg_blo_ind[i] else bl_label_orig[i] for i in xrange(bl_label_orig.size)]
+bl_label_orig = NP.asarray(bl_label_orig, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
+bl_id_orig = [tuple(reversed(bl_id_orig[i])) if neg_blo_ind[i] else bl_id_orig[i] for i in xrange(bl_id_orig.size)]
+bl_id_orig = NP.asarray(bl_id_orig, dtype=[('A2', int), ('A1', int)])
+bl_length_orig = NP.sqrt(NP.sum(bl_orig**2, axis=1))
+sortind_orig = NP.argsort(bl_length_orig, kind='mergesort')
+bl_orig = bl_orig[sortind_orig,:]
+blo = blo[sortind_orig]
+bl_label_orig = bl_label_orig[sortind_orig]
+bl_id_orig = bl_id_orig[sortind_orig]
+bl_length_orig = bl_length_orig[sortind_orig]
+
 bl = NP.copy(bl_orig)
 bl_label = NP.copy(bl_label_orig)
 bl_id = NP.copy(bl_id_orig)
+bl_orientation = NP.copy(blo)
 if array_is_redundant:
     bl, select_bl_ind, bl_count, allinds = RI.uniq_baselines(bl)
     bl_label = bl_label[select_bl_ind]
     bl_id = bl_id[select_bl_ind]
 bl_length = NP.sqrt(NP.sum(bl**2, axis=1))
-bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
+# bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
 sortind = NP.argsort(bl_length, kind='mergesort')
 bl = bl[sortind,:]
 bl_label = bl_label[sortind]
@@ -947,15 +968,15 @@ bl_orientation = bl_orientation[sortind]
 if array_is_redundant:
     bl_count = bl_count[sortind]
     select_bl_ind = select_bl_ind[sortind]
-neg_bl_orientation_ind = (bl_orientation < -67.5) | (bl_orientation > 112.5)
-# neg_bl_orientation_ind = NP.logical_or(bl_orientation < -0.5*180.0/n_bins_baseline_orientation, bl_orientation > 180.0 - 0.5*180.0/n_bins_baseline_orientation)
-bl[neg_bl_orientation_ind,:] = -1.0 * bl[neg_bl_orientation_ind,:]
-bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
-maxlen = max(max(len(albl[0]), len(albl[1])) for albl in bl_label)
-bl_label = [tuple(reversed(bl_label[i])) if neg_bl_orientation_ind[i] else bl_label[i] for i in xrange(bl_label.size)]
-bl_label = NP.asarray(bl_label, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
-bl_id = [tuple(reversed(bl_id[i])) if neg_bl_orientation_ind[i] else bl_id[i] for i in xrange(bl_id.size)]
-bl_id = NP.asarray(bl_id, dtype=[('A2', int), ('A1', int)])
+    allinds = [allinds[i] for i in sortind]
+# neg_bl_orientation_ind = (bl_orientation < -67.5) | (bl_orientation > 112.5)
+# bl[neg_bl_orientation_ind,:] = -1.0 * bl[neg_bl_orientation_ind,:]
+# bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
+# maxlen = max(max(len(albl[0]), len(albl[1])) for albl in bl_label)
+# bl_label = [tuple(reversed(bl_label[i])) if neg_bl_orientation_ind[i] else bl_label[i] for i in xrange(bl_label.size)]
+# bl_label = NP.asarray(bl_label, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
+# bl_id = [tuple(reversed(bl_id[i])) if neg_bl_orientation_ind[i] else bl_id[i] for i in xrange(bl_id.size)]
+# bl_id = NP.asarray(bl_id, dtype=[('A2', int), ('A1', int)])
 
 if minbl is None:
     minbl = 0.0
@@ -1008,7 +1029,9 @@ bl = bl[subselect_bl_ind,:]
 bl_length = bl_length[subselect_bl_ind]
 bl_orientation = bl_orientation[subselect_bl_ind]
 if array_is_redundant:
+    bl_count = bl_count[subselect_bl_ind]
     select_bl_ind = select_bl_ind[subselect_bl_ind]
+    allinds = [allinds[i] for i in range(subselect_bl_ind.size) if subselect_bl_ind[i]]
 
 if use_HI_monopole:
     bllstr = map(str, bl_length)
@@ -1022,7 +1045,9 @@ if use_HI_monopole:
     bl_orientation = bl_orientation[ind_uniq_bll]
     bl_length = bl_length[ind_uniq_bll]
     if array_is_redundant:
+        bl_count = bl_count[ind_uniq_bll]
         select_bl_ind = select_bl_ind[ind_uniq_bll]
+        allinds = [allinds[i] for i in ind_uniq_bll]
 
     sortind = NP.argsort(bl_length, kind='mergesort')
     bl = bl[sortind,:]
@@ -1032,7 +1057,9 @@ if use_HI_monopole:
     bl_orientation = bl_orientation[sortind]
     count_uniq_bll = count_uniq_bll[sortind]
     if array_is_redundant:
+        bl_count = bl_count[sortind]
         select_bl_ind = select_bl_ind[sortind]
+        allinds = [allinds[i] for i in sortind]
 
 total_baselines = bl_length.size
 if array_is_redundant:
@@ -2376,6 +2403,7 @@ if rank == 0:
         consolidated_outfile = rootdir+project_dir+simid+sim_dir+'simvis'
         simvis.save(consolidated_outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=save_to_npz, overwrite=True, uvfits_parms=None)
 
+        PDB.set_trace()
         uvfits_parms = None
         if save_to_uvfits:
             if save_formats['phase_center'] is None:
@@ -2397,6 +2425,11 @@ if rank == 0:
             else:
                 uvfits_ref_point = {'location': NP.asarray(save_formats['phase_center']).reshape(1,-1), 'coords': 'radec'}
             uvfits_parms = {'ref_point': uvfits_ref_point, 'method': save_formats['uvfits_method']}
+            if save_redundant:
+                if array_is_redundant:
+                    simvis.duplicate_measurements(blgroups)
+                    consolidated_outfile = rootdir+project_dir+simid+sim_dir+'all-simvis'
+
             simvis.write_uvfits(consolidated_outfile, uvfits_parms=uvfits_parms, overwrite=True)
 
     if cleanup < 3:

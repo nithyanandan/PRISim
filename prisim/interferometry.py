@@ -5695,7 +5695,7 @@ class InterferometerArray(object):
                 else:
                     label_key = NP.asarray([tuple(reversed(label_key))], dtype=self.labels.dtype)[0]
             if label_key not in blgroups[tuple(label_key)]:
-                blgroups[label_key] += [label_key]
+                blgroups[tuple(label_key)] += [label_key]
 
         uniq_inplabels = []
         num_list = []

@@ -893,9 +893,16 @@ flags    :
                                 # coarse channels. Do not repeat if
                                 # set to false
 
-########## Save format ##########
+########## Save details ##########
 
-save_formats :
+save_redundant  : true
+                                # If set to true, in case of redundant
+                                # array, expand and save all 
+                                # visibilities including redundant
+                                # values, otherwise only unique values
+                                # are saved
+
+save_formats    :
 
     fmt             : 'HDF5'
                                 # File format for the final saved data
