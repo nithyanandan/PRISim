@@ -2233,6 +2233,10 @@ def feed_illumination_of_aperture(aperture_locs, feedinfo, wavelength=1.0,
     feedinfo    [dictionary] dictionary that specifies feed including the type 
                 of element, element size and orientation. It consists of the 
                 following keys and values:
+                'position'    [numpy array] 3-element array specifying x,y,z-
+                              coordinates of the center of the feed (in meters).
+                              If not specified or set to None, it is assumed to 
+                              be at the origin
                 'shape'       [string] Shape of antenna element. Accepted values
                               are 'dipole', 'delta', 'dish', 'rect' and 'square'. 
                               Will be ignored if key 'id' is set. 'delta' denotes 
@@ -2326,6 +2330,21 @@ def feed_illumination_of_aperture(aperture_locs, feedinfo, wavelength=1.0,
     except NameError:
         raise NameError('Input aperture_locs must be specified')
 
+    if 'position' not in feedinfo:
+        feedinfo['position'] = NP.asarray([0.0, 0.0, 0.0])
+    elif feedinfo['position'] is None:
+        feedinfo['position'] = NP.asarray([0.0, 0.0, 0.0])
+    elif not isinstance(feedinfo['position'], NP.ndarray):
+        raise TypeError('"position" key in input feedinfo must be a numpy array')
+    else:
+        if feedinfo['position'].ndim > 1:
+            feedinfo['position'] = feedinfo['position'].ravel()
+        feedinfo['position'] = feedinfo['position'].reshape(-1)
+        if feedinfo['position'].size > 3:
+            raise ValueError('Feed position must be a 3-element array')
+        else:
+            feedinfo['position'] = NP.pad(feedinfo['position'], [(0,3-feedinfo['position'].size)], mode='constant', constant_values=[(0.0, 0.0)])
+
     if not isinstance(aperture_locs, NP.ndarray):
         raise TypeError('Input aperture_locs must be a numpy array')
     if aperture_locs.ndim == 1:
@@ -2339,6 +2358,8 @@ def feed_illumination_of_aperture(aperture_locs, feedinfo, wavelength=1.0,
             raise ValueError('Input aperture_locs must not have more than three coordinates')
     else:
         raise ValueError('Input aperture_locs has too many dimensions')
+
+    aperture_locs = aperture_locs - feedinfo['position'].reshape(1,-1)
 
     if isinstance(wavelength, list):
         wavelength = NP.asarray(wavelength)
@@ -2442,6 +2463,10 @@ def feed_aperture_combined_field_pattern(aperture_locs, feedinfo, skypos,
     feedinfo  [dictionary] dictionary that specifies feed including the type 
               of element, element size and orientation. It consists of the 
               following keys and values:
+              'position'    [numpy array] 3-element array specifying x,y,z-
+                            coordinates of the center of the feed (in meters).
+                            If not specified or set to None, it is assumed to 
+                            be at the origin
               'shape'       [string] Shape of antenna element. Accepted values
                             are 'dipole', 'delta', 'dish', 'rect' and 'square'. 
                             Will be ignored if key 'id' is set. 'delta' denotes 
@@ -2597,6 +2622,7 @@ def feed_aperture_combined_field_pattern(aperture_locs, feedinfo, skypos,
 
     if not isinstance(feedinfo, dict):
         raise TypeError('Input feedinfo must be a dictionary')
+
     if 'shape' not in feedinfo:
         feedinfo['shape'] = 'delta'
         ep = 1.0

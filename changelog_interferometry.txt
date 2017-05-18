@@ -1,3 +1,12 @@
+From c14d356 (parabolic-cylinder):
+=================================
+
+In prisim/primary_beams.py,
+
+(*) Add 'position' key in input feedinfo in functions
+feed_aperture_combined_field_pattern() and
+feed_illumination_of_aperture()
+
 From 9a02e33 (parabolic-cylinder):
 =================================
 
