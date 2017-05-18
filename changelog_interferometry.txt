@@ -1,3 +1,13 @@
+From b4cc216 (measurement-group):
+================================
+
+In scripts folder,
+
+(*) Start creating a script make_redundant_visibilities.py that will
+expand the unique visibilities with redundant visibilities
+
+(*) Add make_redundant_visibilities.py to git repo
+
 From 4822f00 (measurement-group), 4d29909 (master):
 ==================================================
 
