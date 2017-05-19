@@ -1,0 +1,40 @@
+##### IMPORTANT INFORMATION #####
+##### DO NOT MODIFY THIS FILE #####
+##### MAKE A COPY OF THIS FILE AND CUSTOMIZE #####
+
+########## Input/Output information #########
+
+io   :
+                                # Directory information
+
+    indir           : '/path/to/input/folder/'
+                                # Input folder containing
+                                # simulated beam(s)
+
+    infmt           : 'FEKO'
+                                # Input file format
+
+    infile          : 'infile.extn'
+                                # Input filename
+
+    outdir          : '/path/to/output/folder/'
+                                # Output folder containing
+                                # beam converted to healpix
+                                # format
+
+    outfmt          : 'HDF5'
+                                # Output format of the
+                                # consolidated beams in
+                                # healpix format
+
+    outfile         : 'outfile'
+                                # Output filename without
+                                # extension. The extension
+                                # will be automatically
+                                # appended depending on
+                                # outfmt -- '.hdf5', '.fits',
+                                # etc.
+
+
+                                
+

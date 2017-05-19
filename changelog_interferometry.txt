@@ -1,3 +1,10 @@
+From cb08278 (parabolic-cylinder):
+=================================
+
+(*) Add scripts/simbeam_to_healpix.py to git repo
+(*) Add prisim/examples/pbparms/ folder to git repo
+(*) Add prisim/examples/pbparms/simbeam_to_healpix.yaml to git repo
+
 From c14d356 (parabolic-cylinder):
 =================================
 
