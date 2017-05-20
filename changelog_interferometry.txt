@@ -1,3 +1,13 @@
+From 3eafb60 (parabolic-cylinder):
+=================================
+
+In scripts/simbeam_to_healpix.py,
+
+(*) Process multiple frequencies while interpolating from input
+coordinates to HEALPIX coordinates
+(*) Avoid for loop while processing HEALPIX interpolation by using
+mathops.binned_statistic()
+
 From ff6de25 (parabolic-cylinder):
 =================================
 

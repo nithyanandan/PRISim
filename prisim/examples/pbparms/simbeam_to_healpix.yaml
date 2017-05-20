@@ -39,6 +39,15 @@ io   :
                                 
 processing  :
 
+    is_grid     : false
+                                # If set to true, the input data can
+                                # be gridded as nchan x ntheta x nphi
+                                # else it will be used with the shape
+                                # nchan x nlocs. Setting is_grid can
+                                # make interpolation considerably
+                                # faster if using 'spline' interp
+                                # method
+
     nside       : 32
                                 # NSIDE parameter of healpix output
     
@@ -48,7 +57,7 @@ processing  :
                                 # decibels. If set to null, they are 
                                 # in normal units
 
-    interp      : 'spline'
+    interp      : 'healpix'
                                 # Interpolation method. Accepted
                                 # values are 'spline' (default),
                                 # 'healpix' or 'nearest'

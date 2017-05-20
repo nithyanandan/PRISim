@@ -6,6 +6,8 @@ import healpy as HP
 import yaml, h5py
 import argparse
 from scipy import interpolate
+import progressbar as PGB
+from astroutils import mathops as OPS
 import ipdb as PDB
 
 def read_FEKO(infile):
@@ -100,18 +102,26 @@ def convert_to_healpix(theta, phi, gains, nside=32, interp_method='spline', gain
             phi_flattened = phi
         if interp_method == 'healpix':
             ngbrs, wts = HP.get_interp_weights(nside, theta_flattened, phi=phi_flattened)
-            hmap[NP.unique(ngbrs)] = 0.0
-            wtsmap[NP.unique(ngbrs)] = 0.0
-            for i in xrange(theta_flattened.size):
-                hmap[ngbrs[:,i]] += wts[:,i] * gains[i]
-                wtsmap[ngbrs[:,i]] += wts[:,i]
+            gains4 = gains.reshape(1,-1) * NP.ones(ngbrs.shape[0]).reshape(-1,1)
+            wtsmap, be, bn, ri = OPS.binned_statistic(ngbrs.ravel(), values=wts.ravel(), statistic='sum', bins=NP.arange(HP.nside2npix(nside)+1))
+            hmap, be, bn, ri = OPS.binned_statistic(ngbrs.ravel(), values=(wts*gains4).ravel(), statistic='sum', bins=NP.arange(HP.nside2npix(nside)+1))
+
+            # hmap[NP.unique(ngbrs)] = 0.0
+            # wtsmap[NP.unique(ngbrs)] = 0.0
+            # for i in xrange(theta_flattened.size):
+            #     hmap[ngbrs[:,i]] += wts[:,i] * gains[i]
+            #     wtsmap[ngbrs[:,i]] += wts[:,i]
         else: # nearest neighbour
-            nnpix = HP.ang2pix(nside, theta_flattened, phi_flattened)
-            hmap[NP.unique(nnpix)] = 0.0
-            wtsmap[NP.unique(nnpix)] = 0.0
-            for i in xrange(theta_flattened.size):
-                hmap[nnpix[i]] += gains[i]
-                wtsmap[nnpix[i]] += 1
+            ngbrs = HP.ang2pix(nside, theta_flattened, phi_flattened)
+
+            wtsmap, be, bn, ri = OPS.binned_statistic(ngbrs.ravel(), statistic='count', bins=NP.arange(HP.nside2npix(nside)+1))
+            hmap, be, bn, ri = OPS.binned_statistic(ngbrs.ravel(), values=gains.ravel(), statistic='sum', bins=NP.arange(HP.nside2npix(nside)+1))
+
+            # hmap[NP.unique(ngbrs)] = 0.0
+            # wtsmap[NP.unique(ngbrs)] = 0.0
+            # for i in xrange(theta_flattened.size):
+            #     hmap[ngbrs[i]] += gains[i]
+            #     wtsmap[ngbrs[i]] += 1
         ind_nan = NP.isnan(wtsmap)
         other_nanind = wtsmap < 1e-12
         ind_nan = ind_nan | other_nanind
@@ -146,17 +156,26 @@ if __name__ == '__main__':
     outdir = ioparms['outdir']
     outfmt = ioparms['outfmt']
     outfile = outdir + ioparms['outfile'] + outfmt.lower()
+    gridded = parms['processing']['is_grid']
     nside = parms['processing']['nside']
     gainunits = parms['processing']['gainunits']
     interp_method = parms['processing']['interp']
     
     if infmt.lower() == 'feko':
         freqs, theta_list, phi_list, theta, phi, gaindB = read_FEKO(infile)
+        if gridded and (interp_method == 'spline'):
+            gaindB = NP.transpose(gaindB.reshape(freqs.size,phi.size,theta.size), (0,2,1)) # nchan x ntheta x nphi
     
-    hmap1 = convert_to_healpix(theta_list, phi_list, gaindB[0], interp_method='spline', gainunits=gainunits, angunits='degrees')
-    hmap2 = convert_to_healpix(theta, phi, gaindB[0].reshape(phi.size,theta.size).T, interp_method='spline', gainunits=gainunits, angunits='degrees')
-    hmap3 = convert_to_healpix(theta, phi, gaindB[0].reshape(phi.size,theta.size).T, interp_method=interp_method, gainunits=gainunits, angunits='degrees')
-    hmap4 = convert_to_healpix(theta_list, phi_list, gaindB[0], interp_method='healpix', gainunits=gainunits, angunits='degrees')
-    hmap5 = convert_to_healpix(theta_list, phi_list, gaindB[0], interp_method='nearest', gainunits=gainunits, angunits='degrees')
+    hmaps = []
+    progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Channels'.format(freqs.size), PGB.ETA()], maxval=freqs.size).start()
+    for freqind,freq in enumerate(freqs):
+        if gridded and (interp_method == 'spline'):
+            hmap = convert_to_healpix(theta, phi, gaindB[freqind,:,:], interp_method=interp_method, gainunits=gainunits, angunits='degrees')
+        else:
+            hmap = convert_to_healpix(theta_list, phi_list, gaindB[freqind,:], interp_method=interp_method, gainunits=gainunits, angunits='degrees')
+        hmaps += [hmap]
+        progress.update(freqind+1)
+    progress.finish()
+    hmaps = NP.asarray(hmaps)
 
     PDB.set_trace()
