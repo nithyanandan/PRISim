@@ -76,7 +76,6 @@ def convert_to_healpix(theta, phi, gains, nside=32, interp_method='spline', gain
     if interp_method == 'spline':
         if gainunits.lower() != 'db':
             gains = 10.0 * NP.log10(gains)
-        # gains -= NP.amax(gains)
         hpxtheta, hpxphi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
         if gridded:
             interp_func = interpolate.RectBivariateSpline(theta, phi, gains)
@@ -91,7 +90,6 @@ def convert_to_healpix(theta, phi, gains, nside=32, interp_method='spline', gain
     else:
         if gainunits.lower() == 'db':
             gains = 10**(gains/10.0)
-        # gains /= NP.amax(gains)
         if gridded:
             phi_flattened, theta_flattened = NP.meshgrid(phi, theta)
             theta_flattened = theta_flattened.flatten()
@@ -105,23 +103,11 @@ def convert_to_healpix(theta, phi, gains, nside=32, interp_method='spline', gain
             gains4 = gains.reshape(1,-1) * NP.ones(ngbrs.shape[0]).reshape(-1,1)
             wtsmap, be, bn, ri = OPS.binned_statistic(ngbrs.ravel(), values=wts.ravel(), statistic='sum', bins=NP.arange(HP.nside2npix(nside)+1))
             hmap, be, bn, ri = OPS.binned_statistic(ngbrs.ravel(), values=(wts*gains4).ravel(), statistic='sum', bins=NP.arange(HP.nside2npix(nside)+1))
-
-            # hmap[NP.unique(ngbrs)] = 0.0
-            # wtsmap[NP.unique(ngbrs)] = 0.0
-            # for i in xrange(theta_flattened.size):
-            #     hmap[ngbrs[:,i]] += wts[:,i] * gains[i]
-            #     wtsmap[ngbrs[:,i]] += wts[:,i]
         else: # nearest neighbour
             ngbrs = HP.ang2pix(nside, theta_flattened, phi_flattened)
-
             wtsmap, be, bn, ri = OPS.binned_statistic(ngbrs.ravel(), statistic='count', bins=NP.arange(HP.nside2npix(nside)+1))
             hmap, be, bn, ri = OPS.binned_statistic(ngbrs.ravel(), values=gains.ravel(), statistic='sum', bins=NP.arange(HP.nside2npix(nside)+1))
 
-            # hmap[NP.unique(ngbrs)] = 0.0
-            # wtsmap[NP.unique(ngbrs)] = 0.0
-            # for i in xrange(theta_flattened.size):
-            #     hmap[ngbrs[i]] += gains[i]
-            #     wtsmap[ngbrs[i]] += 1
         ind_nan = NP.isnan(wtsmap)
         other_nanind = wtsmap < 1e-12
         ind_nan = ind_nan | other_nanind
