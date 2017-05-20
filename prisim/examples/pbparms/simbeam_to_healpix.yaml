@@ -35,6 +35,20 @@ io   :
                                 # outfmt -- '.hdf5', '.fits',
                                 # etc.
 
-
+########## Processing parameters #########
                                 
+processing  :
 
+    nside       : 32
+                                # NSIDE parameter of healpix output
+    
+    gainunits   : 'dB'
+                                # Units of input gain. If set to 
+                                # 'dB' (default), they are in 
+                                # decibels. If set to null, they are 
+                                # in normal units
+
+    interp      : 'spline'
+                                # Interpolation method. Accepted
+                                # values are 'spline' (default),
+                                # 'healpix' or 'nearest'

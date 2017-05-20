@@ -1,3 +1,17 @@
+From ff6de25 (parabolic-cylinder):
+=================================
+
+In scripts/simbeam_to_healpix.py,
+
+(*) Add function convert_to_healpix() to take arbitrary coordinates
+as input and interpolate to HEALPIX grid
+
+In prisim/examples/pbparms/simbeam_to_healpix.yaml,
+
+(*) Add parameters to process interpolation from arbitrary
+coordinates to HEAKPIX coordinates under multiple interpolation
+methods
+
 From cb08278 (parabolic-cylinder):
 =================================
 
