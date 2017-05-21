@@ -4,6 +4,7 @@ import ast
 import numpy as NP
 import healpy as HP
 import yaml, h5py
+from astropy.io import fits
 import argparse
 from scipy import interpolate
 import progressbar as PGB
@@ -145,16 +146,42 @@ def write_HEALPIX(beaminfo, outfile, outfmt='HDF5'):
         raise ValueError('Output file format invalid')
 
     outfilename = outfile + '.' + outfmt.lower()
-    with h5py.File(outfilename, 'w') as fileobj:
-        hdr_grp = fileobj.create_group('header')
-        spec_grp = fileobj.create_group('spectral_info')
-        spec_grp['freqs'] = beaminfo['freqs']
-        spec_grp['freqs'].attrs['units'] = 'Hz'
-        gain_grp = fileobj.create_group('gain_info')
-        for key in beaminfo['gains']: # Different polarizations
-            if 'nside' not in hdr_grp:
-                hdr_grp['nside'] = HP.npix2nside(beaminfo['gains'][key].shape[1])
-            dset = gain_grp.create_dataset(key, data=beaminfo['gains'][key], chunks=(1,beaminfo['gains'][key].shape[1]), compression='gzip', compression_opts=9)
+    if outfmt.lower() == 'hdf5':
+        with h5py.File(outfilename, 'w') as fileobj:
+            hdr_grp = fileobj.create_group('header')
+            hdr_grp['npol'] = len(beaminfo['gains'].keys())
+            hdr_grp['source'] = beaminfo['source']
+            hdr_grp['nchan'] = beaminfo['freqs'].size
+            hdr_grp['nside'] = beaminfo['nside']
+            spec_grp = fileobj.create_group('spectral_info')
+            spec_grp['freqs'] = beaminfo['freqs']
+            spec_grp['freqs'].attrs['units'] = 'Hz'
+            gain_grp = fileobj.create_group('gain_info')
+            for key in beaminfo['gains']: # Different polarizations
+                dset = gain_grp.create_dataset(key, data=beaminfo['gains'][key], chunks=(1,beaminfo['gains'][key].shape[1]), compression='gzip', compression_opts=9)
+    else:
+        hdulist = []
+        hdulist += [fits.PrimaryHDU()]
+        hdulist[0].header['EXTNAME'] = 'PRIMARY'
+        hdulist[0].header['NPOL'] = (beaminfo['npol'], 'Number of polarizations')
+        hdulist[0].header['SOURCE'] = (beaminfo['source'], 'Source of data')
+        # hdulist[0].header['NSIDE'] = (beaminfo['nside'], 'NSIDE parameter of HEALPIX')
+        # hdulist[0].header['NCHAN'] = (beaminfo['freqs'].size, 'Number of frequency channels')
+        for pi,pol in enumerate(pols):
+            hdu = fits.ImageHDU(beaminfo['gains'][pol].T, name='BEAM_{0}'.format(pol))
+            hdu.header['PIXTYPE'] = ('HEALPIX', 'Type of pixelization')
+            hdu.header['ORDERING'] = ('RING', 'Pixel ordering scheme, either RING or NESTED')
+            hdu.header['NSIDE'] = (beaminfo['nside'], 'NSIDE parameter of HEALPIX')
+            npix = HP.nside2npix(beaminfo['nside'])
+            hdu.header['NPIX'] = (npix, 'Number of HEALPIX pixels')
+            hdu.header['FIRSTPIX'] = (0, 'First pixel # (0 based)')
+            hdu.header['LASTPIX'] = (npix-1, 'Last pixel # (0 based)')
+            hdulist += [hdu]
+            hdulist += [fits.ImageHDU(beaminfo['freqs'], name='FREQS_{0}'.format(pol))]
+        
+        outhdu = fits.HDUList(hdulist)
+        outhdu.writeto(outfilename, clobber=True)
+        
             
 if __name__ == '__main__':
 
@@ -184,6 +211,7 @@ if __name__ == '__main__':
     gainunits = parms['processing']['gainunits']
     interp_method = parms['processing']['interp']
     wait_after_run = parms['processing']['wait']
+    beam_src = parms['misc']['source']
     pols = ['P1', 'P2']
     
     gains = {}
@@ -208,7 +236,7 @@ if __name__ == '__main__':
         progress.finish()
         hmaps[pol] = NP.asarray(hmaps[pol])
 
-    beaminfo = {'freqs': freqs, 'gains': hmaps}
+    beaminfo = {'npol': len(pols), 'nside': nside, 'source': beam_src, 'freqs': freqs, 'gains': hmaps}
 
     write_HEALPIX(beaminfo, outfile, outfmt=outfmt)
 

@@ -70,3 +70,11 @@ processing  :
     wait        : true
                                 # If set to true, wait after run.
                                 # Default=false
+
+########## Miscellaneous parameters #########
+
+misc        :
+
+    source      : 'somename'
+                                # Source of the beam
+                                

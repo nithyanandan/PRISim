@@ -1,3 +1,10 @@
+From e750176 (parabolic-cylinder):
+=================================
+
+In scripts/simbeam_to_healpix.py,
+
+(*) Add functionality to save in FITS format in write_HEALPIX()
+
 From 5d348b3 (parabolic-cylinder):
 =================================
 
