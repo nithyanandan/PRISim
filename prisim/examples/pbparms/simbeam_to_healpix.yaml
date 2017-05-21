@@ -14,8 +14,13 @@ io   :
     infmt           : 'FEKO'
                                 # Input file format
 
-    infile          : 'infile.extn'
-                                # Input filename
+    p1infile        : 'filename1'
+                                # Input filename for pol#1.
+                                # Default=null
+
+    p2infile        : 'filename2'
+                                # Input filename for pol#2
+                                # Default=null
 
     outdir          : '/path/to/output/folder/'
                                 # Output folder containing
@@ -61,3 +66,7 @@ processing  :
                                 # Interpolation method. Accepted
                                 # values are 'spline' (default),
                                 # 'healpix' or 'nearest'
+
+    wait        : true
+                                # If set to true, wait after run.
+                                # Default=false

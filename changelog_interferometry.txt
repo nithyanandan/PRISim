@@ -1,3 +1,15 @@
+From 5d348b3 (parabolic-cylinder):
+=================================
+
+In prisim/examples/pbparms/simbeam_to_healpix.yaml,
+
+(*) Add parameters to process dual polarizations
+
+In scripts/simbeam_to_healpix.py,
+
+(*) Add function write_HEALPIX() to write healpix beam maps to
+HDF5 format at present
+
 From 1e4a43c (parabolic-cylinder):
 =================================
 
