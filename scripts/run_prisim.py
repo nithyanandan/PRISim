@@ -585,7 +585,7 @@ if antenna_file is not None:
 
     ant_locs = NP.hstack((east.reshape(-1,1), north.reshape(-1,1), elev.reshape(-1,1)))
 else:
-    if array_layout not in ['MWA-128T', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331', 'PAPER-64', 'PAPER-112', 'HIRAX-1024', 'CIRC']:
+    if array_layout not in ['MWA-128T', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331', 'PAPER-64', 'PAPER-112', 'HIRAX-1024', 'CHIME', 'CIRC']:
         raise ValueError('Invalid array layout specified')
 
     if array_layout == 'MWA-128T':
@@ -618,6 +618,8 @@ else:
         ant_locs, ant_label = RI.rectangle_generator([15.0, 4.0], [16, 7])
     elif array_layout == 'HIRAX-1024':
         ant_locs, ant_label = RI.rectangle_generator(7.0, n_side=32)
+    elif array_layout == 'CHIME':
+        ant_locs, ant_label = RI.rectangle_generator([20.0, 0.3], [5, 256])
     elif array_layout == 'CIRC':
         ant_locs, ant_label = RI.circular_antenna_array(element_size, minR, maxR=maxR)
     ant_label = NP.asarray(ant_label)

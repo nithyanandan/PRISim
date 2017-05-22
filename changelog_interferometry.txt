@@ -1,3 +1,14 @@
+From 0076e4e (parabolic-cylinder):
+=================================
+
+In scripts/run_prisim.py,
+
+(*) Update to handle CHIME layout
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add CHIME telescope and layout options
+
 From 55126b1 (parabolic-cylinder):
 =================================
 
