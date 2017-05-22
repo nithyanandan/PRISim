@@ -1,3 +1,10 @@
+From 1c5f122 (parabolic-cylinder):
+=================================
+
+In scripts/run_prisim.py,
+
+(*) Add checks for valid chunk sizes
+
 From 89bada5 (parabolic-cylinder):
 =================================
 

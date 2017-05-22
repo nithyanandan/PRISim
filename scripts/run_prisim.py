@@ -1926,13 +1926,18 @@ memory_DFT_matrix_per_process = memory_DFT_matrix / nproc
 memory_use_per_process = float(memuse) / nproc
 n_chunks_per_process = NP.ceil(memory_DFT_matrix/memuse)
 n_chunks = NP.ceil(nproc * n_chunks_per_process)
+
 if mpi_on_src:
     src_chunk_size = int(NP.floor(1.0 * nchan / n_chunks))
+    if src_chunk_size == 0:
+        raise MemoryError('Too many chunks to fit in usable memory. Try changing number of parallel processes and amount of usable memory. Usually reducing the former or increasing the latter should help avoid this problem.')
     src_bin_indices = range(0, nsrc, src_chunk_size)
     src_chunk = range(len(src_bin_indices))
     n_src_chunks = len(src_bin_indices)
 elif mpi_on_freq:
     frequency_chunk_size = int(NP.floor(1.0 * nchan / n_chunks))
+    if frequency_chunk_size <= 1:
+        raise MemoryError('Too many chunks to fit in usable memory. Try changing number of parallel processes and amount of usable memory. Usually reducing the former or increasing the latter should help avoid this problem.')
     frequency_bin_indices = range(0, nchan, frequency_chunk_size)
     if frequency_bin_indices[-1] == nchan-1:
         if frequency_chunk_size > 2:
@@ -1948,6 +1953,8 @@ elif mpi_on_freq:
     cumm_freq_chunks = NP.concatenate(([0], NP.cumsum(n_freq_chunk_per_rank)))
 else:
     baseline_chunk_size = int(NP.floor(1.0 * nbl / n_chunks))
+    if baseline_chunk_size == 0:
+        raise MemoryError('Too many chunks to fit in usable given memory. Try changing number of parallel processes and amount of usable memory. Usually reducing the former or increasing the latter should help avoid this problem.')
     baseline_bin_indices = range(0, nbl, baseline_chunk_size)
     if baseline_bin_indices[-1] == nchan-1:
         if baseline_chunk_size > 2:
