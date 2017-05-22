@@ -47,7 +47,7 @@ def read_FEKO(infile):
     phi = NP.linspace(phi_list.min(), phi_list.max(), nphi)
     return (freqs, theta_list, phi_list, theta, phi, gaindB)
 
-def convert_to_healpix(theta, phi, gains, nside=32, interp_method='spline', gainunits='dB', angunits='radians'):
+def convert_to_healpix(theta, phi, gains, nside=32, interp_method='spline', gainunit_in='dB', gainunit_out=None, angunits='radians'):
     try:
         theta, phi, gains
     except NameError:
@@ -75,7 +75,7 @@ def convert_to_healpix(theta, phi, gains, nside=32, interp_method='spline', gain
     wtsmap.fill(NP.nan)
     
     if interp_method == 'spline':
-        if gainunits.lower() != 'db':
+        if gainunit_in.lower() != 'db':
             gains = 10.0 * NP.log10(gains)
         hpxtheta, hpxphi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
         if gridded:
@@ -86,10 +86,10 @@ def convert_to_healpix(theta, phi, gains, nside=32, interp_method='spline', gain
             # hmap = interp_func(hpxtheta, hpxphi)
             hmap = interpolate.griddata(NP.hstack((theta.reshape(-1,1),phi.reshape(-1,1))), gains, NP.hstack((hpxtheta.reshape(-1,1),hpxphi.reshape(-1,1))), method='cubic')
         hmap -= NP.nanmax(hmap)
-        if gainunits.lower() != 'db':
+        if gainunit_out.lower() != 'db':
             hmap = 10**(hmap/10)
     else:
-        if gainunits.lower() == 'db':
+        if gainunit_in.lower() == 'db':
             gains = 10**(gains/10.0)
         if gridded:
             phi_flattened, theta_flattened = NP.meshgrid(phi, theta)
@@ -115,7 +115,7 @@ def convert_to_healpix(theta, phi, gains, nside=32, interp_method='spline', gain
         wtsmap[ind_nan] = NP.nan
         hmap /= wtsmap
         hmap /= NP.nanmax(hmap)
-        if gainunits.lower() == 'db':
+        if gainunit_out.lower() == 'db':
             hmap = 10.0 * NP.log10(hmap)
     ind_nan = NP.isnan(hmap)
     hmap[ind_nan] = HP.UNSEEN
@@ -153,6 +153,7 @@ def write_HEALPIX(beaminfo, outfile, outfmt='HDF5'):
             hdr_grp['source'] = beaminfo['source']
             hdr_grp['nchan'] = beaminfo['freqs'].size
             hdr_grp['nside'] = beaminfo['nside']
+            hdr_grp['gainunit'] = beaminfo['gainunit']
             spec_grp = fileobj.create_group('spectral_info')
             spec_grp['freqs'] = beaminfo['freqs']
             spec_grp['freqs'].attrs['units'] = 'Hz'
@@ -165,6 +166,7 @@ def write_HEALPIX(beaminfo, outfile, outfmt='HDF5'):
         hdulist[0].header['EXTNAME'] = 'PRIMARY'
         hdulist[0].header['NPOL'] = (beaminfo['npol'], 'Number of polarizations')
         hdulist[0].header['SOURCE'] = (beaminfo['source'], 'Source of data')
+        hdulist[0].header['GAINUNIT'] = (beaminfo['gainunit'], 'Units of gain')
         # hdulist[0].header['NSIDE'] = (beaminfo['nside'], 'NSIDE parameter of HEALPIX')
         # hdulist[0].header['NCHAN'] = (beaminfo['freqs'].size, 'Number of frequency channels')
         for pi,pol in enumerate(pols):
@@ -178,10 +180,8 @@ def write_HEALPIX(beaminfo, outfile, outfmt='HDF5'):
             hdu.header['LASTPIX'] = (npix-1, 'Last pixel # (0 based)')
             hdulist += [hdu]
             hdulist += [fits.ImageHDU(beaminfo['freqs'], name='FREQS_{0}'.format(pol))]
-        
         outhdu = fits.HDUList(hdulist)
         outhdu.writeto(outfilename, clobber=True)
-        
             
 if __name__ == '__main__':
 
@@ -208,7 +208,10 @@ if __name__ == '__main__':
     outfile = outdir + ioparms['outfile']
     gridded = parms['processing']['is_grid']
     nside = parms['processing']['nside']
-    gainunits = parms['processing']['gainunits']
+    gainunit_in = parms['processing']['gainunit_in']
+    gainunit_out = parms['processing']['gainunit_out']
+    if gainunit_out is None:
+        gainunit_out = 'regular'
     interp_method = parms['processing']['interp']
     wait_after_run = parms['processing']['wait']
     beam_src = parms['misc']['source']
@@ -228,15 +231,15 @@ if __name__ == '__main__':
         progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Channels'.format(freqs.size), PGB.ETA()], maxval=freqs.size).start()
         for freqind,freq in enumerate(freqs):
             if gridded and (interp_method == 'spline'):
-                hmap = convert_to_healpix(theta, phi, gains[pol][freqind,:,:], interp_method=interp_method, gainunits=gainunits, angunits='degrees')
+                hmap = convert_to_healpix(theta, phi, gains[pol][freqind,:,:], interp_method=interp_method, gainunit_in=gainunit_in, gainunit_out=gainunit_out, angunits='degrees')
             else:
-                hmap = convert_to_healpix(theta_list, phi_list, gains[pol][freqind,:], interp_method=interp_method, gainunits=gainunits, angunits='degrees')
+                hmap = convert_to_healpix(theta_list, phi_list, gains[pol][freqind,:], interp_method=interp_method, gainunit_in=gainunit_in, gainunit_out=gainunit_out, angunits='degrees')
             hmaps[pol] += [hmap]
             progress.update(freqind+1)
         progress.finish()
         hmaps[pol] = NP.asarray(hmaps[pol])
 
-    beaminfo = {'npol': len(pols), 'nside': nside, 'source': beam_src, 'freqs': freqs, 'gains': hmaps}
+    beaminfo = {'npol': len(pols), 'nside': nside, 'source': beam_src, 'freqs': freqs, 'gains': hmaps, 'gainunit': gainunit_out}
 
     write_HEALPIX(beaminfo, outfile, outfmt=outfmt)
 

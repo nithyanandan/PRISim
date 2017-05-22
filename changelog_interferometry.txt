@@ -1,3 +1,18 @@
+From 89bada5 (parabolic-cylinder):
+=================================
+
+In scripts/run_prisim.py,
+
+(*) Update to handle regular or dB units in external beam
+
+In prisim/examples/pbparms/simbeam_to_healpix.yaml,
+
+(*) Add parameters to specify input and output gain units
+
+In scripts/simbeam_to_healpix.py,
+
+(*) Update to process input and out gain unit parameters 
+
 From fe173b6 (parabolic-cylinder), 9ec47ee (skymod):
 ===================================================
 

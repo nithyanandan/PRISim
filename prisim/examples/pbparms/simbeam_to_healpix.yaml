@@ -56,7 +56,13 @@ processing  :
     nside       : 32
                                 # NSIDE parameter of healpix output
     
-    gainunits   : 'dB'
+    gainunit_in : 'dB'
+                                # Units of input gain. If set to 
+                                # 'dB' (default), they are in 
+                                # decibels. If set to null, they are 
+                                # in normal units
+
+    gainunit_out: 'dB'
                                 # Units of input gain. If set to 
                                 # 'dB' (default), they are in 
                                 # decibels. If set to null, they are 
