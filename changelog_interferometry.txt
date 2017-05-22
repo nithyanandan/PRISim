@@ -1,3 +1,14 @@
+From 55126b1 (parabolic-cylinder):
+=================================
+
+In scripts/run_prisim.py,
+
+(*) Update to handle external beams in HDF5 format
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add 'P1' and 'P2' in beam polarization
+
 From e750176 (parabolic-cylinder):
 =================================
 

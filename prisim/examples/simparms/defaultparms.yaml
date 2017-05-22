@@ -360,7 +360,7 @@ beam    :
 
     pol             : 'X'
                                 # Beam polarization. Accepted values
-                                # are 'X' and 'Y'
+                                # are 'X' and 'Y', or 'P1' and 'P2'
 
     chromatic       : true
                                 # if false, the beam is the same at

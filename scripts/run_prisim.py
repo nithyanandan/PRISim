@@ -3,6 +3,7 @@
 import os, shutil, subprocess, pwd, errno
 from mpi4py import MPI
 import yaml
+import h5py
 import argparse
 import copy
 import numpy as NP
@@ -470,9 +471,15 @@ else:
         raise ValueError('Height of antenna element above ground plane must be positive.')
 
 if use_external_beam:
-    external_beam = fits.getdata(external_beam_file, extname='BEAM_{0}'.format(beam_pol))
-    external_beam_freqs = fits.getdata(external_beam_file, extname='FREQS_{0}'.format(beam_pol))
-    external_beam = external_beam.reshape(-1,external_beam_freqs.size)
+    if beam_filefmt.lower() == 'fits':
+        external_beam = fits.getdata(external_beam_file, extname='BEAM_{0}'.format(beam_pol))
+        external_beam_freqs = fits.getdata(external_beam_file, extname='FREQS_{0}'.format(beam_pol))
+        external_beam = external_beam.reshape(-1,external_beam_freqs.size)
+    else:
+        with h5py.File(external_beam_file, 'r') as fileobj:
+            external_beam = fileobj['gain_info'][beam_pol].value
+            external_beam = external_beam.T
+            external_beam_freqs = fileobj['spectral_info']['freqs'].value
     beam_usage_str = 'extpb_'+beam_id
     if beam_chromaticity:
         if pbeam_spec_interp_method == 'fft':
