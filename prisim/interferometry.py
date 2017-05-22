@@ -4766,7 +4766,7 @@ class InterferometerArray(object):
     def observe(self, timestamp, Tsysinfo, bandpass, pointing_center, skymodel,
                 t_acc, pb_info=None, brightness_units=None, bpcorrect=None,
                 roi_info=None, roi_radius=None, roi_center=None, lst=None,
-                gradient_mode=None, memsave=False):
+                gradient_mode=None, memsave=False, store_prev_skymodel_file=None):
 
         """
         -------------------------------------------------------------------------
@@ -4865,6 +4865,15 @@ class InterferometerArray(object):
 
         memsave      [boolean] If set to True, enforce computations in single
                      precision, otherwise enforce double precision (default)
+
+        store_prev_skymodel_file
+                     [string] Filename including full path to store source
+                     indices and spectrum from previous computation which can 
+                     be read during the next iteration to generate spectrum 
+                     only of new sources that come into the field of view thus
+                     saving computations. If set to None (default), the full
+                     spectrum of all sources in the field of view will be 
+                     computed in each iteration.
         ------------------------------------------------------------------------
         """
 
@@ -5053,6 +5062,12 @@ class InterferometerArray(object):
         elif self.skycoords == 'radec':
             skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.latitude, units='degrees')
 
+        if memsave:
+            datatype = NP.complex64
+        else:
+            datatype = NP.complex128
+        skyvis = NP.zeros( (self.baselines.shape[0], self.channels.size), dtype=datatype)
+
         pb = None
         if roi_info is not None:
             if ('ind' not in roi_info) or ('pbeam' not in roi_info):
@@ -5083,17 +5098,38 @@ class InterferometerArray(object):
                 m2 = NP.arange(skypos_altaz.shape[0])
                 m2 = m2[NP.where(skypos_altaz[:,0] >= 90.0-roi_radius)] # select sources whose altitude (angle above horizon) is 90-roi_radius
 
-        if memsave:
-            datatype = NP.complex64
-        else:
-            datatype = NP.complex128
-        skyvis = NP.zeros( (self.baselines.shape[0], self.channels.size), dtype=datatype)
         if len(m2) != 0:
             skypos_altaz_roi = skypos_altaz[m2,:]
             coords_str = 'altaz'
 
-            skymodel_subset = skymodel.subset(indices=m2)
-            fluxes = skymodel_subset.generate_spectrum()
+            prev_skymodel_success = False
+            if store_prev_skymodel_file is not None:
+                if not isinstance(store_prev_skymodel_file, str):
+                    raise TypeError('Input store_prev_skymodel_file must be a string')
+                try:
+                    with h5py.File(store_prev_skymodel_file, 'a') as fileobj:
+                        if 'ind' in fileobj:
+                            stored_ind_dset = fileobj['ind']
+                            stored_spectrum_dset = fileobj['spectrum']
+                            stored_ind = stored_ind_dset.value
+                            stored_spectrum = stored_spectrum_dset.value
+                            ind_of_m2_in_prev = NMO.find_list_in_list(stored_ind, m2)
+                            fluxes = NP.zeros((m2.size, self.channels.size))
+                            if NP.sum(~ind_of_m2_in_prev.mask) > 0:
+                                fluxes[NP.where(~ind_of_m2_in_prev.mask)[0],:] = stored_spectrum[ind_of_m2_in_prev[~ind_of_m2_in_prev.mask],:]
+                            if NP.sum(ind_of_m2_in_prev.mask) > 0:
+                                fluxes[NP.where(ind_of_m2_in_prev.mask)[0],:] = skymodel.generate_spectrum(ind=m2[NP.where(ind_of_m2_in_prev.mask)[0]], frequency=self.channels)
+                            stored_ind_dset[...] = m2
+                            stored_spectrum_dset[...] = fluxes
+                        else:
+                            fluxes = skymodel.generate_spectrum(ind=m2, frequency=self.channels)
+                            ind_dset = fileobj.create_dataset('ind', data=m2)
+                            spec_dset = fileobj.create_dataset('spectrum', data=fluxes, compression='gzip', compression_opts=9)
+                        prev_skymodel_success = True
+                except:
+                    prev_skymodel_success = False
+            if not prev_skymodel_success:
+                fluxes = skymodel.generate_spectrum(ind=m2, frequency=self.channels)
 
             if pb is None:
                 pb = PB.primary_beam_generator(skypos_altaz_roi, self.channels/1.0e9, skyunits='altaz', telescope=self.telescope, pointing_info=pb_info, pointing_center=pc_altaz, freq_scale='GHz')
@@ -5102,7 +5138,7 @@ class InterferometerArray(object):
             geometric_delays = DLY.geometric_delay(baselines_in_local_frame, skypos_altaz_roi, altaz=(coords_str=='altaz'), hadec=(coords_str=='hadec'), latitude=self.latitude)
 
             vis_wts = None
-            if skymodel_subset.src_shape is not None:
+            if skymodel.src_shape is not None:
                 eps = 1.0e-13
                 f0 = self.channels[int(0.5*self.channels.size)]
                 wl0 = FCNST.c / f0
@@ -5111,7 +5147,7 @@ class InterferometerArray(object):
                 # projected_spatial_frequencies = NP.sqrt(self.baseline_lengths.reshape(1,-1)**2 - (FCNST.c * geometric_delays)**2) / wl0
                 projected_spatial_frequencies = NP.sqrt(self.baseline_lengths.reshape(1,-1,1)**2 - (FCNST.c * geometric_delays[:,:,NP.newaxis])**2) / wl.reshape(1,1,-1)
                 
-                src_FWHM = NP.sqrt(skymodel_subset.src_shape[:,0] * skymodel_subset.src_shape[:,1])
+                src_FWHM = NP.sqrt(skymodel.src_shape[m2,0] * skymodel.src_shape[m2,1])
                 src_FWHM_dircos = 2.0 * NP.sin(0.5*NP.radians(src_FWHM)).reshape(-1,1) # assuming the projected baseline is perpendicular to source direction
                 # src_sigma_spatial_frequencies = 2.0 * NP.sqrt(2.0 * NP.log(2.0)) / (2 * NP.pi * src_FWHM_dircos)  # estimate 1
                 src_sigma_spatial_frequencies = 1.0 / NP.sqrt(2.0*NP.log(2.0)) / src_FWHM_dircos  # estimate 2 created by constraint that at lambda/D_proj, visibility weights are half
@@ -5234,6 +5270,17 @@ class InterferometerArray(object):
         self.t_obs += t_acc
         self.n_acc += 1
         self.lst = self.lst + [lst]
+
+        numbytes = []
+        variables = []
+        var = None
+        obj = None
+        for var,obj in locals().iteritems():
+            if isinstance(obj, NP.ndarray):
+                variables += [var]
+                numbytes += [obj.nbytes]
+        nGB = NP.asarray(numbytes) / 2.0**30
+        totalmemGB = NP.sum(nGB)
 
     ############################################################################
 
