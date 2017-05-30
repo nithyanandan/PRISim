@@ -1,3 +1,15 @@
+From 5e4e192 (measurement-group):
+================================
+
+In scripts/make_redundant_visibilities.py,
+
+(*) Develop make_redundant_visibilities.py to duplicate and write
+redundant visibilities
+
+In scripts/run_prisim.py,
+
+(*) Fix bug in indexing and selection of bl_orientation
+
 From b4cc216 (measurement-group):
 ================================
 

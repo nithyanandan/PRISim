@@ -957,6 +957,7 @@ if array_is_redundant:
     bl, select_bl_ind, bl_count, allinds = RI.uniq_baselines(bl)
     bl_label = bl_label[select_bl_ind]
     bl_id = bl_id[select_bl_ind]
+    bl_orientation = bl_orientation[select_bl_ind]
 bl_length = NP.sqrt(NP.sum(bl**2, axis=1))
 # bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
 sortind = NP.argsort(bl_length, kind='mergesort')
