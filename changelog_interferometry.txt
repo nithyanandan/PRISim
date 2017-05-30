@@ -1,3 +1,15 @@
+From 966abbd (progress):
+=======================
+
+In scripts folder,
+
+(*) Rename prisim_memory_monitor.py to prisim_resource_monitor.py
+
+In scripts/run_prisim.py,
+
+(*) Replace usage of prisim_memory_monitor.py with
+prisim_resource_monitor.py
+
 From 302a3a6 (master):
 =====================
 

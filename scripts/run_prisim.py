@@ -309,7 +309,7 @@ pid = os.getpid()
 pids = comm.gather(pid, root=0)
 
 if rank == 0:
-    cmd = ' '.join(['xterm', '-e', 'prisim_memory_monitor.py', '-p', ' '.join(map(str, pids)), '-t', '{0:.1f}'.format(tint), '&'])
+    cmd = ' '.join(['xterm', '-e', 'prisim_resource_monitor.py', '-p', ' '.join(map(str, pids)), '-t', '{0:.1f}'.format(tint), '&'])
     subprocess.call([cmd], shell=True)
 
 project_dir = project + '/'
