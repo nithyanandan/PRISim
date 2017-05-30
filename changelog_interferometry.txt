@@ -1,3 +1,11 @@
+From 302a3a6 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Display which chunk and remaining number of chunks under each
+process
+
 From 5e4e192 (measurement-group):
 ================================
 

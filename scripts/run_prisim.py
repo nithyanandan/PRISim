@@ -2077,7 +2077,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
 
         frequency_bin_indices_bounds = frequency_bin_indices + [nchan]
         for i in range(cumm_freq_chunks[rank], cumm_freq_chunks[rank+1]):
-            print 'Process {0:0d} working on frequency chunk # {1:0d} ...'.format(rank, freq_chunk[i])
+            print 'Process {0:0d} working on frequency chunk # {1:0d} ... ({2:0d}/{3:0d})'.format(rank, freq_chunk[i], i-cumm_freq_chunks[rank]+1, n_freq_chunk_per_rank[rank])
 
             chans_chunk_indices = NP.arange(frequency_bin_indices_bounds[i], frequency_bin_indices_bounds[i+1])
             chans_chunk = NP.asarray(chans[chans_chunk_indices]).reshape(-1)
@@ -2111,7 +2111,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             progress.finish()
 
             te0 = time.time()
-            print 'Process {0:0d} took {1:.1f} minutes to complete frequency chunk # {2:0d}'.format(rank, (te0-ts0)/60, freq_chunk[i])
+            print 'Process {0:0d} took {1:.1f} minutes to complete frequency chunk # {2:0d} ({3:0d}/{4:0d})'.format(rank, (te0-ts0)/60, freq_chunk[i], i-cumm_freq_chunks[rank]+1, n_freq_chunk_per_rank[rank])
             # ia.t_obs = t_obs
             # ia.generate_noise()
             # ia.add_noise()
