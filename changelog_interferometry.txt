@@ -1,3 +1,18 @@
+From 0702222 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Add function getBaselineInfo() to calculate baselines and groups
+of redundant baselines, if any
+(*) Add prisim_path as a global variable
+
+In scripts/make_redundant_visibilities.py,
+
+(*) Move computation of baselines and redundant groups of baselines
+to getBaselineInfo() under prisim/interferometry.py
+(*) Update inputs and descriptions to argparse inputs
+
 From 966abbd (progress):
 =======================
 

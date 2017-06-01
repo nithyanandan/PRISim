@@ -22,6 +22,7 @@ from astroutils import DSP_modules as DSP
 from astroutils import catalog as SM
 from astroutils import lookup_operations as LKP
 from astroutils import nonmathops as NMO
+import prisim
 import baseline_delay_horizon as DLY
 import primary_beams as PB
 try:
@@ -36,6 +37,8 @@ except ImportError:
     mwa_tools_found = False
 else:
     mwa_tools_found = True
+
+prisim_path = prisim.__path__[0]+'/'    
 
 ################################################################################
 
@@ -1209,6 +1212,526 @@ def uniq_baselines(baseline_locations, redundant=None):
             
     allinds_where_found = NMO.find_all_occurrences_list1_in_list2(invind[retind], invind)
     return (baseline_locations[retind,:], retind, counts, allinds_where_found)
+
+#################################################################################
+
+def getBaselineInfo(inpdict):
+
+    """
+    ---------------------------------------------------------------------------
+    Generate full baseline info from a given layout and return information 
+    about redundancy and the mapping between unique and redundant baselines
+
+    Input:
+
+    inpdict [dictionary] It contains the following keys and values:
+            'array'     [dictionary] It contains the following keys and values:
+                        'redundant' [boolean] If this key is present, it says
+                                    whether the array could be redundant (true)
+                                    or not (false). If key is absent, this 
+                                    value is assumed to be true. When it is set
+                                    to true, it basically checks for redundancy
+                                    otherwise not. It is not meant to say if 
+                                    the array is actually redundant or not but
+                                    only used for redundancy check to happen or
+                                    not
+                        'layout'    [string] Preset array layouts mutually 
+                                    exclusive to antenna file. Only one of 
+                                    these must be specified. Accepted 
+                                    values are 'MWA-128T', 'HERA-7', 'HERA-19', 
+                                    'HERA-37', 'HERA-61', 'HERA-91', 
+                                    'HERA-127', 'HERA-169', 'HERA-217', 
+                                    'HERA-271', 'HERA-331', 'PAPER-64', 
+                                    'PAPER-112', 'HIRAX-1024', 'CHIME', 'CIRC', 
+                                    or None (if layout file is specified). 
+                        'file'      [string] File containing antenna locations
+                                    parsed according to info in parser (see 
+                                    below). If preset layout is specified, this
+                                    must be set to None.
+                        'filepathtype'
+                                    [string] Accepted values are 'default' (if
+                                    layout file can be found in prisim path, 
+                                    namely, prisim/data/array_layouts folder)
+                                    and 'custom'. If set to 'default', only 
+                                    filename should be specified in file and it
+                                    will be searched in the default 
+                                    array_layouts folder
+                                    prisim/data/array_layouts. 
+                                    If set to 'custom' then the full path
+                                    to the file must be specified.
+                        'parser'    [dictionary] Will be used for parsing the 
+                                    file if file is specified for array layout.
+                                    It contains the following keys and values:
+                                    'comment'   [string] Character used to 
+                                                denote commented lines to be
+                                                ignored. Default=None ('#')
+                                    'delimiter' [string] Delimiter string. 
+                                                Accepted values are whitespace 
+                                                (default or None), ',' and '|'
+                                    'data_strart'
+                                                [integer] Line index for the 
+                                                start of data not counting 
+                                                comment or blank lines. A line 
+                                                with only whitespace is 
+                                                considered blank. It is 
+                                                required. No defaults. 
+                                                Indexing starts from 0
+                                    'data_end'  [integer] Line index for the end 
+                                                of data not counting comment or 
+                                                blank lines. This value can be 
+                                                negative to count from the end. 
+                                                Default is None (all the way to 
+                                                end of file). Indexing starts 
+                                                from 0.
+                                    'header_start'
+                                                [integer] Line index for the 
+                                                header line not counting comment 
+                                                or blank lines. A line with only 
+                                                whitespace is considered blank. 
+                                                Must be provided. No defaults
+                                    'label'     [string] String in the header 
+                                                containing antenna labels. If 
+                                                set to None (default), antenna 
+                                                labels will be automatically 
+                                                assigned. e.g. of some accepted 
+                                                values are None, 'label', 'id', 
+                                                'antid', etc. This must be found 
+                                                in the header
+                                    'east'      [string] String specifying East 
+                                                coordinates in the header and 
+                                                data. Must be provided. No 
+                                                defaults.
+                                    'north'     [string] String specifying North
+                                                coordinates in the header and 
+                                                data. Must be provided. No 
+                                                defaults.
+                                    'up'        [string] String specifying 
+                                                elevation coordinates in the 
+                                                header and data. Must be 
+                                                provided. No defaults.
+                        'minR'      [string] Minimum radius of circular ring.
+                                    Applies only when layout = 'CIRC'
+
+                        'maxR'      [string] Maximum radius of circular ring.
+                                    Applies only when layout = 'CIRC'
+                        'rms_tgtplane'
+                                    [float] Perturbation of antenna positions
+                                    (in m) in tangent plane. Default=0.0
+                        'rms_elevation'
+                                    [float] Perturbation of antenna positions
+                                    (in m) in perpendicular to tangent plane.
+                                    Default=0.0
+                        'seed'      [integer] Random number seed for antenna
+                                    position perturbations. Default=None means 
+                                    no fixed seed
+            'baseline'  [dictionary] Parameters specifying baseline
+                        selection criteria. It consists of the following keys
+                        and values:
+                        'min'       [float] Minimum baseline in distance
+                                    units (m). Default=None (0.0)
+                        'max'       [float] Maximum baseline in distance
+                                    units (m). Default=None (max baseline)
+                        'direction' [string] Baseline vector directions to
+                                    select. Default=None (all directions).
+                                    Other accepted values are 'E' (east)
+                                    'SE' (south-east), 'NE' (north-east),
+                                    and 'N' (north). Multiple values from
+                                    this accepted list can be specified
+                                    as a list of strings. e.g., ['N', 'E'], 
+                                    ['NE', 'SE', 'E'], ['SE', 'E', 'NE', 'N'] 
+                                    which is equivalent to None, etc.
+            'fgparm'    [dictionary] Sky model specification. It contains the
+                        following keys and values:
+                        'model'     [string] Sky model. Accepted values
+                                    are 'csm' (NVSS+SUMSS point sources), 
+                                    'dsm' (diffuse emission), 'asm' (both
+                                    point sources and diffuse emission),
+                                    'sumss' (SUMSS catalog), nvss (NVSS
+                                    catalog), 'mss' (Molonglo Sky Survey), 
+                                    'gleam' (GLEAM catalog), 'custom' 
+                                    (user-defined catalog), 'usm' (uniform 
+                                    sky model), 'mwacs' (MWACS catalog), 
+                                    'HI_monopole' (global EoR), HI_cube (HI 
+                                    cube from external simulations), and 
+                                    'HI_fluctuations' (HI fluctuations with 
+                                    the global mean signal removed). If set
+                                    'HI_monopole' or 'monopole' the orientation
+                                    of the baseline vector does not matter 
+                                    and only unique baseline lengths will be 
+                                    selected if value under 'redundant' key is
+                                    set to True. 
+
+    Output:
+
+    Dictionary containing the following keys and values. 
+    'bl'    [numpy array] Baseline vectors (unique ones or all depending on
+            value in key 'redundant'). It is of shape nbl x 3 and will 
+            consist of unique baselines if value under key 'redundant' was
+            set to True. Otherwise, redundancy will not be checked and all
+            baselines will be returned.
+    'label' [numpy recarray] A unique label of each of the baselines. 
+            Shape is nbl where each element is a recarray under fields 'A1'
+            (first antenna label) and 'A2' (second antenna label)
+    'id'    [numpy recarray] A unique identifier of each of the baselines. 
+            Shape is nbl where each element is a recarray under fields 'A1'
+            (first antenna id) and 'A2' (second antenna id)
+    'redundancy' 
+            [boolean] If the array was originally found to be made of unique 
+            baselines (False) or redundant baselines were found (True). Even
+            if set to False, the baselines may still be redundant because
+            redundancy may never have been checked if value under key
+            'redundant' was set to False
+    'groups'
+            [dictionary] Contains the grouping of unique baselines and the
+            redundant baselines as numpy recarray under each unique baseline 
+            category/flavor. It contains as keys the labels (tuple of A1, A2) 
+            of unique baselines and the value under each of these keys is a 
+            list of baseline labels that are redundant under that category
+    'reversemap'
+            [dictionary] Contains the baseline category for each baseline. 
+            The keys are baseline labels as tuple and the value under each 
+            key is the label of the unique baseline category that it falls 
+            under. 
+    ---------------------------------------------------------------------------
+    """
+
+    try:
+        inpdict
+    except NameError:
+        raise NameError('Input inpdict must be specified')
+
+    if not isinstance(inpdict, dict):
+        raise TypeError('Input inpdict must be a dictionary')
+
+    if 'array' in inpdict:
+        if 'redundant' in inpdict['array']:
+            array_is_redundant = inpdict['array']['redundant']
+        else:
+            array_is_redundant = True
+            # raise KeyError('Key "redundant" not found in input inpdict["array"]')
+    else:
+        raise KeyError('Key "array" not found in input inpdict')
+
+    # if not array_is_redundant:
+    #     raise ValueError('Simulations assumed array was non-redundant to begin with.')
+
+    fg_str = inpdict['fgparm']['model']
+    use_HI_monopole = False
+    if fg_str == 'HI_monopole':
+        use_HI_monopole = True
+    antenna_file = inpdict['array']['file']
+    array_layout = inpdict['array']['layout']
+    minR = inpdict['array']['minR']
+    maxR = inpdict['array']['maxR']
+    antpos_rms_tgtplane = inpdict['array']['rms_tgtplane']
+    antpos_rms_elevation = inpdict['array']['rms_elevation']
+    antpos_rms_seed = inpdict['array']['seed']
+    if antpos_rms_seed is None:
+        antpos_rms_seed = NP.random.randint(1, high=100000)
+    elif isinstance(antpos_rms_seed, (int,float)):
+        antpos_rms_seed = int(NP.abs(antpos_rms_seed))
+    else:
+        raise ValueError('Random number seed must be a positive integer')
+    minbl = inpdict['baseline']['min']
+    maxbl = inpdict['baseline']['max']
+    bldirection = inpdict['baseline']['direction']
+
+    if (antenna_file is None) and (array_layout is None):
+        raise ValueError('One of antenna array file or layout must be specified')
+    if (antenna_file is not None) and (array_layout is not None):
+        raise ValueError('Only one of antenna array file or layout must be specified')
+    
+    if antenna_file is not None:
+        if not isinstance(antenna_file, str):
+            raise TypeError('Filename containing antenna array elements must be a string')
+        if inpdict['array']['filepathtype'] == 'default':
+            antenna_file = prisim_path+'data/array_layouts/'+antenna_file
+        
+        antfile_parser = inpdict['array']['parser']
+        if 'comment' in antfile_parser:
+            comment = antfile_parser['comment']
+            if comment is None:
+                comment = '#'
+            elif not isinstance(comment, str):
+                raise TypeError('Comment expression must be a string')
+        else:
+            comment = '#'
+        if 'delimiter' in antfile_parser:
+            delimiter = antfile_parser['delimiter']
+            if delimiter is not None:
+                if not isinstance(delimiter, str):
+                    raise TypeError('Delimiter expression must be a string')
+            else:
+                delimiter = ' '
+        else:
+            delimiter = ' '
+    
+        if 'data_start' in antfile_parser:
+            data_start = antfile_parser['data_start']
+            if not isinstance(data_start, int):
+                raise TypeError('data_start parameter must be an integer')
+        else:
+            raise KeyError('data_start parameter not provided')
+        if 'data_end' in antfile_parser:
+            data_end = antfile_parser['data_end']
+            if data_end is not None:
+                if not isinstance(data_end, int):
+                    raise TypeError('data_end parameter must be an integer')
+        else:
+            data_end = None
+        if 'header_start' in antfile_parser:
+            header_start = antfile_parser['header_start']
+            if not isinstance(header_start, int):
+                raise TypeError('header_start parameter must be an integer')
+        else:
+            raise KeyError('header_start parameter not provided')
+    
+        if 'label' not in antfile_parser:
+            antfile_parser['label'] = None
+        elif antfile_parser['label'] is not None:
+            antfile_parser['label'] = str(antfile_parser['label'])
+    
+        if 'east' not in antfile_parser:
+            raise KeyError('Keyword for "east" coordinates not provided')
+        else:
+            if not isinstance(antfile_parser['east'], str):
+                raise TypeError('Keyword for "east" coordinates must be a string')
+        if 'north' not in antfile_parser:
+            raise KeyError('Keyword for "north" coordinates not provided')
+        else:
+            if not isinstance(antfile_parser['north'], str):
+                raise TypeError('Keyword for "north" coordinates must be a string')
+        if 'up' not in antfile_parser:
+            raise KeyError('Keyword for "up" coordinates not provided')
+        else:
+            if not isinstance(antfile_parser['up'], str):
+                raise TypeError('Keyword for "up" coordinates must be a string')
+    
+        try:
+            ant_info = ascii.read(antenna_file, comment=comment, delimiter=delimiter, header_start=header_start, data_start=data_start, data_end=data_end, guess=False)
+        except IOError:
+            raise IOError('Could not open file containing antenna locations.')
+    
+        if (antfile_parser['east'] not in ant_info.colnames) or (antfile_parser['north'] not in ant_info.colnames) or (antfile_parser['up'] not in ant_info.colnames):
+            raise KeyError('One of east, north, up coordinates incompatible with the table in antenna_file')
+    
+        if antfile_parser['label'] is not None:
+            ant_label = ant_info[antfile_parser['label']].data.astype('str')
+        else:
+            ant_label = NP.arange(len(ant_info)).astype('str')
+    
+        east = ant_info[antfile_parser['east']].data
+        north = ant_info[antfile_parser['north']].data
+        elev = ant_info[antfile_parser['up']].data
+    
+        if (east.dtype != NP.float) or (north.dtype != NP.float) or (elev.dtype != NP.float):
+            raise TypeError('Antenna locations must be of floating point type')
+    
+        ant_locs = NP.hstack((east.reshape(-1,1), north.reshape(-1,1), elev.reshape(-1,1)))
+    else:
+        if array_layout not in ['MWA-128T', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331', 'PAPER-64', 'PAPER-112', 'HIRAX-1024', 'CHIME', 'CIRC']:
+            raise ValueError('Invalid array layout specified')
+    
+        if array_layout == 'MWA-128T':
+            ant_info = NP.loadtxt(prisim_path+'data/array_layouts/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', skiprows=6, comments='#', usecols=(0,1,2,3))
+            ant_label = ant_info[:,0].astype(int).astype(str)
+            ant_locs = ant_info[:,1:]
+        elif array_layout == 'HERA-7':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=7)
+        elif array_layout == 'HERA-19':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=19)
+        elif array_layout == 'HERA-37':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=37)
+        elif array_layout == 'HERA-61':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=61)
+        elif array_layout == 'HERA-91':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=91)
+        elif array_layout == 'HERA-127':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=127)
+        elif array_layout == 'HERA-169':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=169)
+        elif array_layout == 'HERA-217':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=217)
+        elif array_layout == 'HERA-271':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=271)
+        elif array_layout == 'HERA-331':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=331)
+        elif array_layout == 'PAPER-64':
+            ant_locs, ant_label = rectangle_generator([30.0, 4.0], [8, 8])
+        elif array_layout == 'PAPER-112':
+            ant_locs, ant_label = rectangle_generator([15.0, 4.0], [16, 7])
+        elif array_layout == 'HIRAX-1024':
+            ant_locs, ant_label = rectangle_generator(7.0, n_side=32)
+        elif array_layout == 'CIRC':
+            ant_locs, ant_label = circular_antenna_array(element_size, minR, maxR=maxR)
+        ant_label = NP.asarray(ant_label)
+    if ant_locs.shape[1] == 2:
+        ant_locs = NP.hstack((ant_locs, NP.zeros(ant_label.size).reshape(-1,1)))
+    antpos_rstate = NP.random.RandomState(antpos_rms_seed)
+    deast = antpos_rms_tgtplane/NP.sqrt(2.0) * antpos_rstate.randn(ant_label.size)
+    dnorth = antpos_rms_tgtplane/NP.sqrt(2.0) * antpos_rstate.randn(ant_label.size)
+    dup = antpos_rms_elevation * antpos_rstate.randn(ant_label.size)
+    denu = NP.hstack((deast.reshape(-1,1), dnorth.reshape(-1,1), dup.reshape(-1,1)))
+    ant_locs = ant_locs + denu
+    ant_locs_orig = NP.copy(ant_locs)
+    ant_label_orig = NP.copy(ant_label)
+    ant_id = NP.arange(ant_label.size, dtype=int)
+    ant_id_orig = NP.copy(ant_id)
+    layout_info = {'positions': ant_locs_orig, 'labels': ant_label_orig, 'ids': ant_id_orig, 'coords': 'ENU'}
+
+    bl_orig, bl_label_orig, bl_id_orig = baseline_generator(ant_locs_orig, ant_label=ant_label_orig, ant_id=ant_id_orig, auto=False, conjugate=False)
+    
+    blo = NP.angle(bl_orig[:,0] + 1j * bl_orig[:,1], deg=True)
+    neg_blo_ind = (blo < -67.5) | (blo > 112.5)
+    # neg_blo_ind = NP.logical_or(blo < -0.5*180.0/n_bins_baseline_orientation, blo > 180.0 - 0.5*180.0/n_bins_baseline_orientation)
+    bl_orig[neg_blo_ind,:] = -1.0 * bl_orig[neg_blo_ind,:]
+    blo = NP.angle(bl_orig[:,0] + 1j * bl_orig[:,1], deg=True)
+    maxlen = max(max(len(albl[0]), len(albl[1])) for albl in bl_label_orig)
+    bl_label_orig = [tuple(reversed(bl_label_orig[i])) if neg_blo_ind[i] else bl_label_orig[i] for i in xrange(bl_label_orig.size)]
+    bl_label_orig = NP.asarray(bl_label_orig, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
+    bl_id_orig = [tuple(reversed(bl_id_orig[i])) if neg_blo_ind[i] else bl_id_orig[i] for i in xrange(bl_id_orig.size)]
+    bl_id_orig = NP.asarray(bl_id_orig, dtype=[('A2', int), ('A1', int)])
+    bl_length_orig = NP.sqrt(NP.sum(bl_orig**2, axis=1))
+    sortind_orig = NP.argsort(bl_length_orig, kind='mergesort')
+    bl_orig = bl_orig[sortind_orig,:]
+    blo = blo[sortind_orig]
+    bl_label_orig = bl_label_orig[sortind_orig]
+    bl_id_orig = bl_id_orig[sortind_orig]
+    bl_length_orig = bl_length_orig[sortind_orig]
+    
+    bl = NP.copy(bl_orig)
+    bl_label = NP.copy(bl_label_orig)
+    bl_id = NP.copy(bl_id_orig)
+    bl_orientation = NP.copy(blo)
+
+    if array_is_redundant:
+        bl, select_bl_ind, bl_count, allinds = uniq_baselines(bl)
+    else:
+        select_bl_ind = NP.arange(bl.shape[0])
+        bl_count = NP.ones(bl.shape[0], dtype=int)
+        allinds = select_bl_ind.reshape(-1,1).tolist()
+    bl_label = bl_label[select_bl_ind]
+    bl_id = bl_id[select_bl_ind]
+    bl_orientation = bl_orientation[select_bl_ind]
+    if NP.any(bl_count > 1):
+        redundancy = True
+    else:
+        redundancy = False
+
+    bl_length = NP.sqrt(NP.sum(bl**2, axis=1))
+    # bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
+    sortind = NP.argsort(bl_length, kind='mergesort')
+    bl = bl[sortind,:]
+    bl_label = bl_label[sortind]
+    bl_id = bl_id[sortind]
+    bl_length = bl_length[sortind]
+    bl_orientation = bl_orientation[sortind]
+
+    # if array_is_redundant:
+    bl_count = bl_count[sortind]
+    select_bl_ind = select_bl_ind[sortind]
+    allinds = [allinds[i] for i in sortind]
+    
+    if minbl is None:
+        minbl = 0.0
+    elif not isinstance(minbl, (int,float)):
+        raise TypeError('Minimum baseline length must be a scalar')
+    elif minbl < 0.0:
+        minbl = 0.0
+    
+    if maxbl is None:
+        maxbl = bl_length.max()
+    elif not isinstance(maxbl, (int,float)):
+        raise TypeError('Maximum baseline length must be a scalar')
+    elif maxbl < minbl:
+        maxbl = bl_length.max()
+    
+    min_blo = -67.5
+    max_blo = 112.5
+    subselect_bl_ind = NP.zeros(bl_length.size, dtype=NP.bool)
+    
+    if bldirection is not None:
+        if isinstance(bldirection, str):
+            if bldirection not in ['SE', 'E', 'NE', 'N']:
+                raise ValueError('Invalid baseline direction criterion specified')
+            else:
+                bldirection = [bldirection]
+        if isinstance(bldirection, list):
+            for direction in bldirection:
+                if direction in ['SE', 'E', 'NE', 'N']:
+                    if direction == 'SE':
+                        oind = (bl_orientation >= -67.5) & (bl_orientation < -22.5)
+                        subselect_bl_ind[oind] = True
+                    elif direction == 'E':
+                        oind = (bl_orientation >= -22.5) & (bl_orientation < 22.5)
+                        subselect_bl_ind[oind] = True
+                    elif direction == 'NE':
+                        oind = (bl_orientation >= 22.5) & (bl_orientation < 67.5)
+                        subselect_bl_ind[oind] = True
+                    else:
+                        oind = (bl_orientation >= 67.5) & (bl_orientation < 112.5)
+                        subselect_bl_ind[oind] = True
+        else:
+            raise TypeError('Baseline direction criterion must specified as string or list of strings')
+    else:
+        subselect_bl_ind = NP.ones(bl_length.size, dtype=NP.bool)
+    
+    subselect_bl_ind = subselect_bl_ind & (bl_length >= minbl) & (bl_length <= maxbl)
+    bl_label = bl_label[subselect_bl_ind]
+    bl_id = bl_id[subselect_bl_ind]
+    bl = bl[subselect_bl_ind,:]
+    bl_length = bl_length[subselect_bl_ind]
+    bl_orientation = bl_orientation[subselect_bl_ind]
+
+    # if array_is_redundant:
+    bl_count = bl_count[subselect_bl_ind]
+    select_bl_ind = select_bl_ind[subselect_bl_ind]
+    allinds = [allinds[i] for i in range(subselect_bl_ind.size) if subselect_bl_ind[i]]
+    
+    if use_HI_monopole:
+        bllstr = map(str, bl_length)
+        uniq_bllstr, ind_uniq_bll = NP.unique(bllstr, return_index=True)
+        count_uniq_bll = [bllstr.count(ubll) for ubll in uniq_bllstr]
+        count_uniq_bll = NP.asarray(count_uniq_bll)
+    
+        bl = bl[ind_uniq_bll,:]
+        bl_label = bl_label[ind_uniq_bll]
+        bl_id = bl_id[ind_uniq_bll]
+        bl_orientation = bl_orientation[ind_uniq_bll]
+        bl_length = bl_length[ind_uniq_bll]
+
+        # if array_is_redundant:
+        bl_count = bl_count[ind_uniq_bll]
+        select_bl_ind = select_bl_ind[ind_uniq_bll]
+        allinds = [allinds[i] for i in ind_uniq_bll]
+    
+        sortind = NP.argsort(bl_length, kind='mergesort')
+        bl = bl[sortind,:]
+        bl_label = bl_label[sortind]
+        bl_id = bl_id[sortind]
+        bl_length = bl_length[sortind]
+        bl_orientation = bl_orientation[sortind]
+        count_uniq_bll = count_uniq_bll[sortind]
+
+        # if array_is_redundant:
+        bl_count = bl_count[sortind]
+        select_bl_ind = select_bl_ind[sortind]
+        allinds = [allinds[i] for i in sortind]
+    
+    # if array_is_redundant:
+    blgroups = {}
+    blgroups_reversemap = {}
+    for labelind, label in enumerate(bl_label_orig[select_bl_ind]):
+        if bl_count[labelind] > 0:
+            blgroups[tuple(label)] = bl_label_orig[NP.asarray(allinds[labelind])]
+            for lbl in bl_label_orig[NP.asarray(allinds[labelind])]:
+                blgroups_reversemap[tuple(lbl)] = tuple(label)
+    
+    if bl_label_orig.size == bl_label.size:
+        raise ValueError('No redundant baselines found.')
+
+    blinfo = {'bl': bl, 'id': bl_id, 'label': bl_label, 'groups': blgroups, 'reversemap': blgroups_reversemap, 'redundancy': redundancy}
+    return blinfo
 
 #################################################################################
 
