@@ -1392,6 +1392,15 @@ def getBaselineInfo(inpdict):
             The keys are baseline labels as tuple and the value under each 
             key is the label of the unique baseline category that it falls 
             under. 
+    'layout_info'
+            [dictionary] Contains the antenna layout information with the 
+            following keys and values:
+            'positions' [numpy array] Antenna locations with shape nant x 3
+            'labels'    [numpy array of strings] Antenna labels of size nant
+            'ids'       [numpy array of strings] Antenna IDs of size nant
+            'coords'    [string] Coordinate system in which antenna locations
+                        are specified. Currently only returns 'ENU' for East-
+                        North-Up coordinate system
     ---------------------------------------------------------------------------
     """
 
@@ -1408,12 +1417,8 @@ def getBaselineInfo(inpdict):
             array_is_redundant = inpdict['array']['redundant']
         else:
             array_is_redundant = True
-            # raise KeyError('Key "redundant" not found in input inpdict["array"]')
     else:
         raise KeyError('Key "array" not found in input inpdict')
-
-    # if not array_is_redundant:
-    #     raise ValueError('Simulations assumed array was non-redundant to begin with.')
 
     fg_str = inpdict['fgparm']['model']
     use_HI_monopole = False
@@ -1583,7 +1588,6 @@ def getBaselineInfo(inpdict):
     
     blo = NP.angle(bl_orig[:,0] + 1j * bl_orig[:,1], deg=True)
     neg_blo_ind = (blo < -67.5) | (blo > 112.5)
-    # neg_blo_ind = NP.logical_or(blo < -0.5*180.0/n_bins_baseline_orientation, blo > 180.0 - 0.5*180.0/n_bins_baseline_orientation)
     bl_orig[neg_blo_ind,:] = -1.0 * bl_orig[neg_blo_ind,:]
     blo = NP.angle(bl_orig[:,0] + 1j * bl_orig[:,1], deg=True)
     maxlen = max(max(len(albl[0]), len(albl[1])) for albl in bl_label_orig)
@@ -1619,7 +1623,6 @@ def getBaselineInfo(inpdict):
         redundancy = False
 
     bl_length = NP.sqrt(NP.sum(bl**2, axis=1))
-    # bl_orientation = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
     sortind = NP.argsort(bl_length, kind='mergesort')
     bl = bl[sortind,:]
     bl_label = bl_label[sortind]
@@ -1627,7 +1630,6 @@ def getBaselineInfo(inpdict):
     bl_length = bl_length[sortind]
     bl_orientation = bl_orientation[sortind]
 
-    # if array_is_redundant:
     bl_count = bl_count[sortind]
     select_bl_ind = select_bl_ind[sortind]
     allinds = [allinds[i] for i in sortind]
@@ -1683,7 +1685,6 @@ def getBaselineInfo(inpdict):
     bl_length = bl_length[subselect_bl_ind]
     bl_orientation = bl_orientation[subselect_bl_ind]
 
-    # if array_is_redundant:
     bl_count = bl_count[subselect_bl_ind]
     select_bl_ind = select_bl_ind[subselect_bl_ind]
     allinds = [allinds[i] for i in range(subselect_bl_ind.size) if subselect_bl_ind[i]]
@@ -1700,7 +1701,6 @@ def getBaselineInfo(inpdict):
         bl_orientation = bl_orientation[ind_uniq_bll]
         bl_length = bl_length[ind_uniq_bll]
 
-        # if array_is_redundant:
         bl_count = bl_count[ind_uniq_bll]
         select_bl_ind = select_bl_ind[ind_uniq_bll]
         allinds = [allinds[i] for i in ind_uniq_bll]
@@ -1713,12 +1713,10 @@ def getBaselineInfo(inpdict):
         bl_orientation = bl_orientation[sortind]
         count_uniq_bll = count_uniq_bll[sortind]
 
-        # if array_is_redundant:
         bl_count = bl_count[sortind]
         select_bl_ind = select_bl_ind[sortind]
         allinds = [allinds[i] for i in sortind]
     
-    # if array_is_redundant:
     blgroups = {}
     blgroups_reversemap = {}
     for labelind, label in enumerate(bl_label_orig[select_bl_ind]):
@@ -1730,8 +1728,8 @@ def getBaselineInfo(inpdict):
     if bl_label_orig.size == bl_label.size:
         raise ValueError('No redundant baselines found.')
 
-    blinfo = {'bl': bl, 'id': bl_id, 'label': bl_label, 'groups': blgroups, 'reversemap': blgroups_reversemap, 'redundancy': redundancy}
-    return blinfo
+    outdict = {'bl': bl, 'id': bl_id, 'label': bl_label, 'groups': blgroups, 'reversemap': blgroups_reversemap, 'redundancy': redundancy, 'layout_info': layout_info}
+    return outdict
 
 #################################################################################
 

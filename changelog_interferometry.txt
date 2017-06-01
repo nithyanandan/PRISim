@@ -1,3 +1,16 @@
+From 87c804a (measurement-group):
+================================
+
+In scripts/run_prisim.py,
+
+(*) Comment out array layout and baseline generation and instead use
+getBaselineInfo() from interferometry.py
+
+In prisim/interferometry.py,
+
+(*) Return layout information under key 'layout_info' in the returned
+dictionary in function getBaselineInfo()
+
 From 6ffb622 (measurement-group):
 ================================
 
