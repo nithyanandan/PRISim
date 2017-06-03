@@ -129,7 +129,7 @@ array   :                       # Parameters 'file' and 'layout'
     file            : null
                                 # File containing antenna locations
                                 # parsed according to info in
-                                # parse_info
+                                # parser
 
     filepathtype    : 'default'
                                 # If set to 'default', only filename

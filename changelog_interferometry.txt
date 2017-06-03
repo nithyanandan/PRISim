@@ -1,3 +1,10 @@
+From f4031ac (measurement-group):
+================================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Make minor change in commented text
+
 From 8699c6e (measurement-group):
 ================================
 
