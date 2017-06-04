@@ -1,3 +1,12 @@
+From 14b593b (measurement-group):
+================================
+
+In prisim/interferometry.py,
+
+(*) In __init__() member function of class InterferometerArray,
+initialize attributes blgroups and bl_reversemap from HDF5 input
+file. This is not supported in FITS format
+
 From 0d78ae6 (measurement-group):
 ================================
 

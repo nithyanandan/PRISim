@@ -4,7 +4,7 @@ import scipy.constants as FCNST
 from scipy import interpolate
 import datetime as DT
 import progressbar as PGB
-import os
+import os, ast
 import copy
 import astropy
 from astropy.io import fits
@@ -4859,6 +4859,16 @@ class InterferometerArray(object):
                         if key == 'gaininfo':
                             if key in fileobj:
                                 self.gaininfo = GainInfo(init_file=grp['gainsfile'].value)
+
+                        if key == 'blgroupinfo':
+                            if key in fileobj:
+                                self.blgroups = {}
+                                self.bl_reversemap = {}
+                                for blkey in grp['groups']:
+                                    self.blgroups[ast.literal_eval(blkey)] = grp['groups'][blkey].value
+                                for blkey in grp['reversemap']:
+                                    self.bl_reversemap[ast.literal_eval(blkey)] = grp['reversemap'][blkey].value
+                                    
 
             except IOError: # Check if a FITS file is available
                 try:
