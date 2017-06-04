@@ -1,3 +1,11 @@
+From 7bf7adc (measurement-group):
+================================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Indicate saving or initializing from simulation output in FITS 
+format is not supported or developed anymore.
+
 From 14b593b (measurement-group):
 ================================
 
