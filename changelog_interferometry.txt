@@ -1,3 +1,12 @@
+From 1366afc (measurement-group):
+================================
+
+In prisim/interferometry.py,
+
+(*) Add member function getThreePointCombinations() along with
+docstring to class InterferometerArray. Update class docstring
+accordingly
+
 From f4031ac (measurement-group):
 ================================
 
