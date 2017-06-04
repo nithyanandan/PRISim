@@ -1,3 +1,19 @@
+From 8bb4c5b (measurement-group):
+================================
+
+In prisim/interferometry.py,
+
+(*) In duplicate_measurements() member function of class
+InterferometerArray, make input blgroups optional with default input
+as None. In case of default input, the input is taken from the class
+attribute blgroups
+(*) Add checking in duplicate_measurements() member function of class
+InterferometerArray for redundancy before creating redundant sets
+
+In scripts/run_prisim.py,
+
+(*) Remove usage of variable array_is_redundant
+
 From 286d4da (measurement-group):
 ================================
 

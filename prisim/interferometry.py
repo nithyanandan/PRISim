@@ -6208,7 +6208,7 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def duplicate_measurements(self, blgroups):
+    def duplicate_measurements(self, blgroups=None):
 
         """
         -------------------------------------------------------------------------
@@ -6227,56 +6227,66 @@ class InterferometerArray(object):
                     baseline label keys and recarrays specified here. It results
                     in updating attributes where a new number of baselines are 
                     formed from original baselines and new redundant baselines.
+                    If set to None (default), attribute blgroups will be used to
+                    create redundant sets
         -------------------------------------------------------------------------
         """
 
+        if blgroups is None:
+            blgroups = self.blgroups
         if not isinstance(blgroups, dict):
             raise TypeError('Input blgroups must be a dictionary')
 
-        label_keys = NP.asarray(blgroups.keys(), dtype=self.labels.dtype)
-        for label_key in label_keys:
-            if label_key not in self.labels:
-                if NP.asarray([tuple(reversed(label_key))], dtype=self.labels.dtype)[0] not in self.labels:
-                    raise KeyError('Input label {0} not found in attribute labels'.format(label_key))
-                else:
-                    label_key = NP.asarray([tuple(reversed(label_key))], dtype=self.labels.dtype)[0]
-            if label_key not in blgroups[tuple(label_key)]:
-                blgroups[tuple(label_key)] += [label_key]
+        if self.bl_reversemap is None:
+            nbl = NP.sum(NP.asarray([len(blgroups[blkey]) for blkey in blgroups]))
+        else:
+            nbl = len(self.bl_reversemap)
 
-        uniq_inplabels = []
-        num_list = []
-        for label in self.labels:
-            if label in label_keys:
-                num_list += [blgroups[tuple(label)].size]
-                for lbl in blgroups[tuple(label)]:
-                    if tuple(lbl) not in uniq_inplabels:
-                        uniq_inplabels += [tuple(lbl)]
+        if self.labels.size < nbl:
+            label_keys = NP.asarray(blgroups.keys(), dtype=self.labels.dtype)
+            for label_key in label_keys:
+                if label_key not in self.labels:
+                    if NP.asarray([tuple(reversed(label_key))], dtype=self.labels.dtype)[0] not in self.labels:
+                        raise KeyError('Input label {0} not found in attribute labels'.format(label_key))
                     else:
-                        raise ValueError('Label {0} repeated in more than one baseline group'.format(lbl))
-            else:
-                num_list += [1]
-                uniq_inplabels += [tuple(label)]
-        if len(num_list) != len(self.labels):
-            raise ValueError('Fatal error in counting and matching labels in input blgroups')
-        if self.skyvis_freq is not None:
-            self.skyvis_freq = NP.repeat(self.skyvis_freq, num_list, axis=0)
-        if self.gradient_mode is not None:
-            self.gradient[self.gradient_mode] = NP.repeat(self.gradient[self.gradient_mode], num_list, axis=1)
-        self.labels = NP.asarray(uniq_inplabels, dtype=self.labels.dtype)
-        self.baselines = NP.repeat(self.baselines, num_list, axis=0)
-        self.baseline_lengths = NP.repeat(self.baseline_lengths, num_list)
-        if self.Tsys.shape[0] > 1:
-            self.Tsys = NP.repeat(self.Tsys, num_list, axis=0)
-        if self.eff_Q.shape[0] > 1:
-            self.eff_Q = NP.repeat(self.eff_Q, num_list, axis=0)
-        if self.A_eff.shape[0] > 1:
-            self.A_eff = NP.repeat(self.A_eff, num_list, axis=0)
-        if self.bp.shape[0] > 1:
-            self.bp = NP.repeat(self.bp, num_list, axis=0)
-        if self.bp_wts.shape[0] > 1:
-            self.bp_wts = NP.repeat(self.bp_wts, num_list, axis=0)
-        self.generate_noise()
-        self.add_noise()
+                        label_key = NP.asarray([tuple(reversed(label_key))], dtype=self.labels.dtype)[0]
+                if label_key not in blgroups[tuple(label_key)]:
+                    blgroups[tuple(label_key)] += [label_key]
+    
+            uniq_inplabels = []
+            num_list = []
+            for label in self.labels:
+                if label in label_keys:
+                    num_list += [blgroups[tuple(label)].size]
+                    for lbl in blgroups[tuple(label)]:
+                        if tuple(lbl) not in uniq_inplabels:
+                            uniq_inplabels += [tuple(lbl)]
+                        else:
+                            raise ValueError('Label {0} repeated in more than one baseline group'.format(lbl))
+                else:
+                    num_list += [1]
+                    uniq_inplabels += [tuple(label)]
+            if len(num_list) != len(self.labels):
+                raise ValueError('Fatal error in counting and matching labels in input blgroups')
+            if self.skyvis_freq is not None:
+                self.skyvis_freq = NP.repeat(self.skyvis_freq, num_list, axis=0)
+            if self.gradient_mode is not None:
+                self.gradient[self.gradient_mode] = NP.repeat(self.gradient[self.gradient_mode], num_list, axis=1)
+            self.labels = NP.asarray(uniq_inplabels, dtype=self.labels.dtype)
+            self.baselines = NP.repeat(self.baselines, num_list, axis=0)
+            self.baseline_lengths = NP.repeat(self.baseline_lengths, num_list)
+            if self.Tsys.shape[0] > 1:
+                self.Tsys = NP.repeat(self.Tsys, num_list, axis=0)
+            if self.eff_Q.shape[0] > 1:
+                self.eff_Q = NP.repeat(self.eff_Q, num_list, axis=0)
+            if self.A_eff.shape[0] > 1:
+                self.A_eff = NP.repeat(self.A_eff, num_list, axis=0)
+            if self.bp.shape[0] > 1:
+                self.bp = NP.repeat(self.bp, num_list, axis=0)
+            if self.bp_wts.shape[0] > 1:
+                self.bp_wts = NP.repeat(self.bp_wts, num_list, axis=0)
+            self.generate_noise()
+            self.add_noise()
 
     #############################################################################
 

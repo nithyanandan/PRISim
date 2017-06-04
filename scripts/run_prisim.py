@@ -2125,9 +2125,8 @@ if rank == 0:
                 uvfits_ref_point = {'location': NP.asarray(save_formats['phase_center']).reshape(1,-1), 'coords': 'radec'}
             uvfits_parms = {'ref_point': uvfits_ref_point, 'method': save_formats['uvfits_method']}
             if save_redundant:
-                if array_is_redundant:
-                    simvis.duplicate_measurements(blgroups)
-                    consolidated_outfile = rootdir+project_dir+simid+sim_dir+'all-simvis'
+                simvis.duplicate_measurements(blgroups=blgroups)
+                consolidated_outfile = rootdir+project_dir+simid+sim_dir+'all-simvis'
 
             simvis.write_uvfits(consolidated_outfile, uvfits_parms=uvfits_parms, overwrite=True)
 
