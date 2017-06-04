@@ -4283,7 +4283,7 @@ class InterferometerArray(object):
     freq_resolution
                 [scalar] Frequency resolution (in Hz)
 
-    labels:     [list of 2-element tuples] A unique identifier (tuple of
+    labels      [list of 2-element tuples] A unique identifier (tuple of
                 strings) for each of the interferometers.
 
     lags        [numpy vector] Time axis obtained when the frequency axis is
@@ -4305,6 +4305,18 @@ class InterferometerArray(object):
     lst         [list] List of LST (in degrees) for each timestamp
 
     n_acc       [scalar] Number of accumulations
+
+    groups      [dictionary] Contains the grouping of unique baselines and the
+                redundant baselines as numpy recarray under each unique baseline 
+                category/flavor. It contains as keys the labels (tuple of A1, A2) 
+                of unique baselines and the value under each of these keys is a 
+                list of baseline labels that are redundant under that category
+
+    bl_reversemap
+                [dictionary] Contains the baseline category for each baseline. 
+                The keys are baseline labels as tuple and the value under each 
+                key is the label of the unique baseline category that it falls 
+                under. 
 
     gaininfo    [None or instance of class GainInfo] Instance of class
                 Gaininfo. If set to None, default gains assumed to be unity.
@@ -4614,7 +4626,7 @@ class InterferometerArray(object):
     def __init__(self, labels, baselines, channels, telescope=None, eff_Q=0.89,
                  latitude=34.0790, longitude=0.0, altitude=0.0,
                  skycoords='radec', A_eff=NP.pi*(25.0/2)**2,
-                 pointing_coords='hadec', layout=None,
+                 pointing_coords='hadec', layout=None, blgroupinfo=None,
                  baseline_coords='localenu', freq_scale=None, gaininfo=None,
                  init_file=None, simparms_file=None):
 
@@ -4631,7 +4643,7 @@ class InterferometerArray(object):
         timestamp, t_acc, Tsys, Tsysinfo, vis_freq, vis_lag, t_obs, n_acc,
         vis_noise_freq, vis_noise_lag, vis_rms_freq, geometric_delays,
         projected_baselines, simparms_file, layout, gradient, gradient_mode,
-        gaininfo
+        gaininfo, blgroups, bl_reversemap
 
         Read docstring of class InterferometerArray for details on these
         attributes.
@@ -4669,6 +4681,8 @@ class InterferometerArray(object):
                     self.telescope['groundplane'] = None
                     self.Tsysinfo = []
                     self.layout = {}
+                    self.blgroups = None
+                    self.bl_reversemap = None
                     self.lags = None
                     self.vis_lag = None
                     self.skyvis_lag = None
@@ -4676,13 +4690,13 @@ class InterferometerArray(object):
                     self.gradient_mode = None
                     self.gradient = {}
                     self.gaininfo = None
-                    for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'layout', 'instrument', 'visibilities', 'gradients', 'gaininfo']:
+                    for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'layout', 'instrument', 'visibilities', 'gradients', 'gaininfo', 'blgroupinfo']:
                         try:
                             grp = fileobj[key]
                         except KeyError:
                             if key in ['gradients', 'gaininfo']:
                                 pass
-                            elif key != 'simparms':
+                            elif key not in ['simparms', 'blgroupinfo']:
                                 raise KeyError('Key {0} not found in init_file'.format(key))
                         if key == 'header':
                             self.flux_unit = grp['flux_unit'].value
@@ -5194,6 +5208,14 @@ class InterferometerArray(object):
                 raise KeyError('Array antenna ids missing')
             if (layout['positions'].shape[0] != layout['labels'].size) or (layout['ids'].size != layout['labels'].size):
                 raise ValueError('Antenna layout positions, labels and IDs must all be for same number of antennas')
+
+        self.blgroups = None
+        self.bl_reversemap = None
+        if blgroupinfo is not None:
+            if not isinstance(blgroupinfo, dict):
+                raise TypeError('Input blgroupinfo must be a dictionary')
+            self.blgroups = blgroupinfo['groups']
+            self.bl_reversemap = blgroupinfo['reversemap']
 
         self.latitude = latitude
         self.longitude = longitude

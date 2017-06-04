@@ -768,7 +768,7 @@ bl = arrayinfo['bl']
 bl_label = arrayinfo['label']
 bl_id = arrayinfo['id']
 blgroups = arrayinfo['groups']
-blgroups_reversemap = arrayinfo['reversemap']
+bl_reversemap = arrayinfo['reversemap']
 total_baselines = bl.shape[0]
 
 try:
@@ -1644,7 +1644,7 @@ if mpi_on_src: # MPI based on source multiplexing
     for i in range(len(bl_chunk)):
         print 'Working on baseline chunk # {0:0d} ...'.format(bl_chunk[i])
 
-        ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo)
+        ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo, blgroupinfo={'groups': blgroups, 'reversemap': bl_reversemap})
 
         progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
         for j in range(n_acc):
@@ -1784,7 +1784,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             f0_chunk = NP.mean(chans_chunk)
             bw_chunk_str = '{0:0d}x{1:.1f}_kHz'.format(nchan_chunk, freq_resolution/1e3)
             outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
-            ia = RI.InterferometerArray(labels, bl, chans_chunk, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo)
+            ia = RI.InterferometerArray(labels, bl, chans_chunk, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo, blgroupinfo={'groups': blgroups, 'reversemap': bl_reversemap})
             
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
             for j in range(n_acc):
@@ -1835,7 +1835,7 @@ else: # MPI based on baseline multiplexing
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, count)
 
                 outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(count)
-                ia = RI.InterferometerArray(labels[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo)        
+                ia = RI.InterferometerArray(labels[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo, blgroupinfo={'groups': blgroups, 'reversemap': bl_reversemap})
 
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
                 for j in range(n_acc):
@@ -1995,7 +1995,7 @@ else: # MPI based on baseline multiplexing
                 print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i])
         
                 outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
-                ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo)
+                ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo, blgroupinfo={'groups': blgroups, 'reversemap': bl_reversemap})
                 
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
                 for j in range(n_acc):

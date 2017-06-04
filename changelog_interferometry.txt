@@ -1,3 +1,19 @@
+From 286d4da (measurement-group):
+================================
+
+In prisim/interferometry.py,
+
+(*) Add attribute blgroups and bl_reversemap along with docstrings in
+class InterferometerArray
+(*) Initialize attributes blgroups and bl_reversemap through input
+blgroupinfo in __init__() member function of class InterferometerArray
+and update member function docstring accordingly
+
+In scripts/run_prisim.py,
+
+(*) Pass inputs blgroups and bl_reversemap in calls that initialize
+instances of class InterferometerArray
+
 From 1366afc (measurement-group):
 ================================
 
