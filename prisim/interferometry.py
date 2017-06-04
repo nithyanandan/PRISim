@@ -7550,7 +7550,15 @@ class InterferometerArray(object):
                     gains_group = fileobj.create_group('gaininfo')
                     gains_group['gainsfile'] = outfile+'.gains.hdf5'
                     self.gaininfo.write_gaintable(gains_group['gainsfile'].value)
-
+                if self.blgroups is not None:
+                    blinfo = fileobj.create_group('blgroupinfo')
+                    blgrp = blinfo.create_group('groups')
+                    for blkey in self.blgroups:
+                        blgrp[str(blkey)] = self.blgroups[blkey]
+                    revmap = blinfo.create_group('reversemap')
+                    for blkey in self.bl_reversemap:
+                        revmap[str(blkey)] = self.bl_reversemap[blkey]
+                    
         if verbose:
             print '\tInterferometer array information written successfully to file on disk:\n\t\t{0}\n'.format(filename)
 

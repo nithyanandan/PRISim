@@ -1,3 +1,12 @@
+From 0d78ae6 (measurement-group):
+================================
+
+In prisim/interferometry.py,
+
+(*) In save() member function of class InterferometerArray, save
+attributes blgroups and bl_reversemap in HDF5 format. This is not
+supported in FITS format
+
 From 8bb4c5b (measurement-group):
 ================================
 
