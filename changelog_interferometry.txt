@@ -1,3 +1,12 @@
+From fb76b5b (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Add member function getClosurePhase() along with docstring under
+class InterferometerArray. Update class docstring accordingly
+(*) Fix data type in getBaselineInfo() of blgroups_reversemap
+
 From cd1432f (measurement-group):
 ================================
 

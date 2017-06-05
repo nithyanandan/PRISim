@@ -1723,7 +1723,8 @@ def getBaselineInfo(inpdict):
         if bl_count[labelind] > 0:
             blgroups[tuple(label)] = bl_label_orig[NP.asarray(allinds[labelind])]
             for lbl in bl_label_orig[NP.asarray(allinds[labelind])]:
-                blgroups_reversemap[tuple(lbl)] = tuple(label)
+                # blgroups_reversemap[tuple(lbl)] = tuple(label)
+                blgroups_reversemap[tuple(lbl)] = NP.asarray([label], dtype=bl_label.dtype)
     
     if bl_label_orig.size == bl_label.size:
         raise ValueError('No redundant baselines found.')
@@ -4588,6 +4589,9 @@ class InterferometerArray(object):
     getThreePointCombinations()
                         Return all unique 3-point combinations of baselines
 
+    getClosurePhase()   Get closure phases of visibilities from triplets of 
+                        antennas
+
     rotate_visibilities()
                         Centers the phase of visibilities around any given phase
                         center. Project baseline vectors with respect to a
@@ -6376,6 +6380,109 @@ class InterferometerArray(object):
                                         anttriplets += [(aid1, aid2, aid3)]
 
         return (anttriplets, bltriplets)             
+
+    #############################################################################
+
+    def getClosurePhase(self, antenna_triplets=None):
+
+        """
+        -------------------------------------------------------------------------
+        Get closure phases of visibilities from triplets of antennas. 
+
+        Inputs:
+
+        antenna_triplets
+                    [list of tuples] List of antenna ID triplets where each 
+                    triplet is given as a tuple. If set to None (default), all
+                    the unique triplets based on the antenna layout attribute
+                    in class InterferometerArray
+
+        Output:
+
+        Dictionary containing closure phase information under the following keys
+        and values:
+        'closure_phase_skyvis'  [numpy array] Closure phases (in radians) for
+                                the given antenna triplets from the noiseless 
+                                visibilities. It is of shape
+                                ntriplets x nchan x ntimes
+        'closure_phase_vis'     [numpy array] Closure phases (in radians) for
+                                the given antenna triplets for noisy 
+                                visibilities. It is of shape
+                                ntriplets x nchan x ntimes
+        'antenna_triplets'      [list of tuples] List of three-element tuples of 
+                                antenna IDs for which the closure phases are
+                                calculated.
+        -------------------------------------------------------------------------
+        """
+
+        if antenna_triplets is None:
+            antenna_triplets, bltriplets = self.getThreePointCombinations()
+
+        if not isinstance(antenna_triplets, list):
+            raise TypeError('Input antenna triplets must be a list of triplet tuples')
+
+        phase_skyvis123 = []
+        phase_vis123 = []
+        for anttriplet in antenna_triplets:
+            a1, a2, a3 = anttriplet
+            a1 = str(a1)
+            a2 = str(a2)
+            a3 = str(a3)
+            bl12_id = (a2, a1)
+            conj12 = False
+            if bl12_id in self.bl_reversemap:
+                bl12_id_ref = self.bl_reversemap[bl12_id]
+            elif tuple(reversed(bl12_id)) in self.bl_reversemap:
+                bl12_id_ref = self.bl_reversemap[tuple(reversed(bl12_id))]
+                conj12 = True
+            else:
+                raise ValueError('Baseline ({0[0]:0d}, {0[1]:0d}) not found in simulated baselines'.format(bl12_id))
+            ind12 = NP.where(self.labels == bl12_id_ref)[0][0]
+            if not conj12:
+                skyvis12 = self.skyvis_freq[ind12,:,:]
+                vis12 = self.vis_freq[ind12,:,:]
+            else:
+                skyvis12 = self.skyvis_freq[ind12,:,:].conj()
+                vis12 = self.vis_freq[ind12,:,:].conj()
+
+            bl23_id = (a3, a2)
+            conj23 = False
+            if bl23_id in self.bl_reversemap:
+                bl23_id_ref = self.bl_reversemap[bl23_id]
+            elif tuple(reversed(bl23_id)) in self.bl_reversemap:
+                bl23_id_ref = self.bl_reversemap[tuple(reversed(bl23_id))]
+                conj23 = True
+            else:
+                raise ValueError('Baseline ({0[0]:0d}, {0[1]:0d}) not found in simulated baselines'.format(bl23_id))
+            ind23 = NP.where(self.labels == bl23_id_ref)[0][0]
+            if not conj23:
+                skyvis23 = self.skyvis_freq[ind23,:,:]
+                vis23 = self.vis_freq[ind23,:,:]
+            else:
+                skyvis23 = self.skyvis_freq[ind23,:,:].conj()
+                vis23 = self.vis_freq[ind23,:,:].conj()
+
+            bl31_id = (a1, a3)
+            conj31 = False
+            if bl31_id in self.bl_reversemap:
+                bl31_id_ref = self.bl_reversemap[bl31_id]
+            elif tuple(reversed(bl31_id)) in self.bl_reversemap:
+                bl31_id_ref = self.bl_reversemap[tuple(reversed(bl31_id))]
+                conj31 = True
+            else:
+                raise ValueError('Baseline ({0[0]:0d}, {0[1]:0d}) not found in simulated baselines'.format(bl31_id))
+            ind31 = NP.where(self.labels == bl31_id_ref)[0][0]
+            if not conj31:
+                skyvis31 = self.skyvis_freq[ind31,:,:]
+                vis31 = self.vis_freq[ind31,:,:]
+            else:
+                skyvis31 = self.skyvis_freq[ind31,:,:].conj()
+                vis31 = self.vis_freq[ind31,:,:].conj()
+
+            phase_skyvis123 += [NP.angle(skyvis12*skyvis23*skyvis31)]
+            phase_vis123 += [NP.angle(skyvis12*skyvis23*skyvis31)]
+
+        return {'closure_phase_skyvis': NP.asarray(phase_skyvis123), 'closure_phase_vis': NP.asarray(phase_vis123), 'antenna_triplets': antenna_triplets}
 
     #############################################################################
 
