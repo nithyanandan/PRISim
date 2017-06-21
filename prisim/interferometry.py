@@ -6480,7 +6480,7 @@ class InterferometerArray(object):
                 vis31 = self.vis_freq[ind31,:,:].conj()
 
             phase_skyvis123 += [NP.angle(skyvis12*skyvis23*skyvis31)]
-            phase_vis123 += [NP.angle(skyvis12*skyvis23*skyvis31)]
+            phase_vis123 += [NP.angle(vis12*vis23*vis31)]
 
         return {'closure_phase_skyvis': NP.asarray(phase_skyvis123), 'closure_phase_vis': NP.asarray(phase_vis123), 'antenna_triplets': antenna_triplets}
 

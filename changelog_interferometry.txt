@@ -1,3 +1,21 @@
+From 86cb163 (closure):
+======================
+
+In prisim/interferometry.py,
+
+(*) Fix minor bug in member function getClosurePhase() of class
+InterferometerArray
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add option to input skymodel as a HDF5 file that can be read
+to create an instance of class SkyModel directly
+
+In scripts/run_prisim.py,
+
+(*) Update to input skymod_file parameter to create an instance of
+class SkyModel directly
+
 From fb76b5b (master):
 =====================
 

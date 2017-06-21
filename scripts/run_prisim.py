@@ -254,6 +254,7 @@ NVSS_file = parms['catalog']['NVSS_file']
 MWACS_file = parms['catalog']['MWACS_file']
 GLEAM_file = parms['catalog']['GLEAM_file']
 custom_catalog_file = parms['catalog']['custom_file']
+skymod_file = parms['catalog']['skymod_file']
 if catalog_filepathtype == 'default':
     DSM_file_prefix = prisim_path + 'data/catalogs/' + DSM_file_prefix
     SUMSS_file = prisim_path + 'data/catalogs/' + SUMSS_file
@@ -261,6 +262,7 @@ if catalog_filepathtype == 'default':
     MWACS_file = prisim_path + 'data/catalogs/' + MWACS_file
     GLEAM_file = prisim_path + 'data/catalogs/' + GLEAM_file
     custom_catalog_file = prisim_path + 'data/catalogs/' + custom_catalog_file
+    skymod_file = prisim_path + 'data/catalogs/' + skymod_file
 pc = parms['phasing']['center']
 pc_coords = parms['phasing']['coords']
 mpi_key = parms['pp']['key']
@@ -721,13 +723,14 @@ use_GLEAM = False
 use_USM = False
 use_MSS = False
 use_custom = False
+use_skymod = False
 use_NVSS = False
 use_HI_monopole = False
 use_HI_cube = False
 use_HI_fluctuations = False
 use_MSS=False
 
-if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations']:
+if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations', 'skymod_file']:
     raise ValueError('Invalid foreground model string specified.')
 
 if fg_str == 'asm':
@@ -742,6 +745,8 @@ elif fg_str == 'gleam':
     use_GLEAM = True
 elif fg_str == 'custom':
     use_custom = True
+elif fg_str == 'skymod_file':
+    use_skymod = True
 elif fg_str == 'nvss':
     use_NVSS = True
 elif fg_str == 'usm':
@@ -934,6 +939,7 @@ if spindex_seed is not None:
     if not isinstance(spindex_seed, (int, float)):
         raise TypeError('Spectral index random seed must be a scalar')
     spindex_seed_str = '{0:0d}_'.format(spindex_seed)
+
 
 if use_HI_fluctuations or use_HI_cube:
     # if freq_resolution != 80e3:
@@ -1480,6 +1486,9 @@ elif use_GLEAM:
 
     # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+
+elif use_skymod:
+    skymod = SM.SkyModel(init_parms=None, init_file=skymod_file)
 
 elif use_custom:
     catdata = ascii.read(custom_catalog_file, comment='#', header_start=0, data_start=1)

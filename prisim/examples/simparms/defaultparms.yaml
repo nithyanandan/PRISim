@@ -607,11 +607,13 @@ fgparm   :
                                 # Survey), 'gleam' (GLEAM catalog), 
                                 # 'custom' (user-defined catalog), 
                                 # 'usm' (uniform sky model), 'mwacs' 
-                                # (MWACS catalog), 'HI_monopole' (global 
-                                # EoR), HI_cube (HI cube from external 
+                                # (MWACS catalog), 'skymod_file' (a
+                                # skymodel_file must be specified 
+                                # below), 'HI_monopole' (global EoR), 
+                                # HI_cube, (HI cube from external 
                                 # simulations), and 'HI_fluctuations' 
-                                # (HI fluctuations with the global mean
-                                # signal removed)
+                                # (HI fluctuations with the global 
+                                # mean signal removed)
 
     fsky            : null
                                 # fraction of sky covered by the sky
@@ -634,7 +636,7 @@ fgparm   :
     nside           : 256
                                 # Healpix nside parameter for 
                                 # foreground model input map. Accepted 
-                                # values are valid nside values
+                                # values must be HEALPIX compatible
 
     flux_unit       : 'K'
                                 # Units of flux or flux density.
@@ -741,6 +743,11 @@ catalog  :
                                 # User defined catalog. See
                                 # prisim/data/catalogs/custom_catalog.txt
                                 # for file format
+
+    skymod_file     : '/path/to/skymodel.hdf5'
+                                # User defined skymodel file in HDF5
+                                # format that can be read in as an
+                                # instance of class SkyModel. 
 
 ########## Processing setup ##########
 
