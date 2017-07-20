@@ -1,3 +1,13 @@
+From a46475d (parabolic-cylinder):
+=================================
+
+In prisim/delay_spectrum.py,
+
+(*) Import h5py module
+(*) In member function beam3Dvol() of class DelayPowerSpectrum, add
+support for antenna power beams in HDF5 format. Also check for beam
+units and convert appropriately to power units
+
 From 1c5f122 (parabolic-cylinder):
 =================================
 

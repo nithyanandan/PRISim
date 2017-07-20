@@ -10,7 +10,7 @@ import astropy.cosmology as CP
 import scipy.constants as FCNST
 import healpy as HP
 from distutils.version import LooseVersion
-import yaml
+import yaml, h5py
 from astroutils import writer_module as WM
 from astroutils import constants as CNST
 from astroutils import DSP_modules as DSP
@@ -3010,9 +3010,19 @@ class DelayPowerSpectrum(object):
                 if beam_filefmt.lower() == 'fits':
                     extbeam = fits.getdata(beam_file, extname='BEAM_{0}'.format(beam_pol))
                     beam_freqs = fits.getdata(beam_file, extname='FREQS_{0}'.format(beam_pol))
+                    extbeam = extbeam.reshape(-1,beam_freqs.size)
+                    prihdr = fits.getheader(beam_file, 0)
+                    beamunit = prihdr['GAINUNIT']
+                elif beam_filefmt.lower() == 'hdf5':
+                    with h5py.File(beam_file, 'r') as fileobj:
+                        extbeam = fileobj['gain_info'][beam_pol].value
+                        extbeam = extbeam.T
+                        beam_freqs = fileobj['spectral_info']['freqs'].value
+                        beamunit = fileobj['header']['gainunit'].value
                 else:
                     raise ValueError('The external beam file format is currently not supported.')
-                extbeam = extbeam.reshape(-1,beam_freqs.size)
+                if beamunit.lower() == 'db':
+                    extbeam = 10**(extbeam/10.0)
                 beam_nside = HP.npix2nside(extbeam.shape[0])
                 if beam_nside < nside:
                     nside = beam_nside
