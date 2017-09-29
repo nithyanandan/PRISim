@@ -7,7 +7,7 @@ import progressbar as PGB
 import os, ast
 import copy
 import astropy
-from astropy.io import fits
+from astropy.io import fits, ascii
 from astropy.coordinates import SkyCoord
 from astropy import units
 from astropy.time import Time
@@ -8312,7 +8312,7 @@ class InterferometerData(object):
         if datatype not in ['noiseless', 'noisy', 'noise']:
             raise ValueError('Invalid input datatype specified')
 
-        attributes_of_uvdata = ['Ntimes', 'Nbls', 'Nblts', 'Nfreqs', 'Npols', 'Nspws', 'data_array', 'vis_units', 'nsample_array', 'flag_array', 'spw_array', 'uvw_array', 'time_array', 'lst_array', 'ant_1_array', 'ant_2_array', 'baseline_array', 'freq_array', 'polarization_array', 'integration_time', 'channel_width', 'object_name', 'telescope_name', 'instrument', 'telescope_location', 'history', 'phase_center_epoch', 'is_phased', 'phase_type', 'Nants_data', 'Nants_telescope', 'antenna_names', 'antenna_numbers', 'dateobs', 'phase_center_ra', 'phase_center_dec']
+        attributes_of_uvdata = ['Ntimes', 'Nbls', 'Nblts', 'Nfreqs', 'Npols', 'Nspws', 'data_array', 'vis_units', 'nsample_array', 'flag_array', 'spw_array', 'uvw_array', 'time_array', 'lst_array', 'ant_1_array', 'ant_2_array', 'baseline_array', 'freq_array', 'polarization_array', 'integration_time', 'channel_width', 'object_name', 'telescope_name', 'instrument', 'telescope_location', 'history', 'phase_center_epoch', 'is_phased', 'phase_type', 'Nants_data', 'Nants_telescope', 'antenna_names', 'antenna_numbers', 'dateobs', 'phase_center_ra', 'phase_center_dec', 'antenna_positions']
         dataobj = UVData()
         for attrkey in attributes_of_uvdata:
             if attrkey == 'telescope_location':
