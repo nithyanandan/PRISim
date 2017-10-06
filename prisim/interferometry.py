@@ -1186,7 +1186,7 @@ def uniq_baselines(baseline_locations, redundant=None):
     bll = NP.sqrt(NP.sum(baseline_locations**2, axis=1))
     blza = NP.degrees(NP.arccos(baseline_locations[:,2] / bll))
 
-    blstr = ['{0[0]:.2f}_{0[1]:.3f}_{0[2]:.3f}'.format(lo) for lo in zip(bll,blza,blo)]
+    blstr = ['{0[0]:.2f}_{0[1]:.3f}_{0[2]:.3f}'.format(lo) for lo in zip(bll,3.6e3*blza,3.6e3*blo)]
 
     uniq_blstr, ind, invind = NP.unique(blstr, return_index=True, return_inverse=True)  ## if numpy.__version__ < 1.9.0
 
@@ -1726,8 +1726,9 @@ def getBaselineInfo(inpdict):
                 # blgroups_reversemap[tuple(lbl)] = tuple(label)
                 blgroups_reversemap[tuple(lbl)] = NP.asarray([label], dtype=bl_label.dtype)
     
-    if bl_label_orig.size == bl_label.size:
-        raise ValueError('No redundant baselines found.')
+    if array_is_redundant:
+        if bl_label_orig.size == bl_label.size:
+            warnings.warn('No redundant baselines found. Proceeding...')
 
     outdict = {'bl': bl, 'id': bl_id, 'label': bl_label, 'groups': blgroups, 'reversemap': blgroups_reversemap, 'redundancy': redundancy, 'layout_info': layout_info}
     return outdict

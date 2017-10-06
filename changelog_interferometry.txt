@@ -1,3 +1,13 @@
+From 2b5384e (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) In fuction uniq_baselines(), increase precision of baseline
+orientation when determining unique baselines
+(*) In function getBaselineInfo(), raise warning instead of error
+when no redundant baselines are found
+
 From 86cb163 (closure):
 ======================
 
