@@ -6410,6 +6410,10 @@ class InterferometerArray(object):
                                 the given antenna triplets for noisy 
                                 visibilities. It is of shape
                                 ntriplets x nchan x ntimes
+        'closure_phase_noise'   [numpy array] Closure phases (in radians) for
+                                the given antenna triplets for thermal noise in
+                                visibilities. It is of shape
+                                ntriplets x nchan x ntimes
         'antenna_triplets'      [list of tuples] List of three-element tuples of 
                                 antenna IDs for which the closure phases are
                                 calculated.
@@ -6424,6 +6428,7 @@ class InterferometerArray(object):
 
         phase_skyvis123 = []
         phase_vis123 = []
+        phase_noise123 = []
         for anttriplet in antenna_triplets:
             a1, a2, a3 = anttriplet
             a1 = str(a1)
@@ -6442,9 +6447,11 @@ class InterferometerArray(object):
             if not conj12:
                 skyvis12 = self.skyvis_freq[ind12,:,:]
                 vis12 = self.vis_freq[ind12,:,:]
+                noise12 = self.vis_noise_freq[ind12,:,:]
             else:
                 skyvis12 = self.skyvis_freq[ind12,:,:].conj()
                 vis12 = self.vis_freq[ind12,:,:].conj()
+                noise12 = self.vis_noise_freq[ind12,:,:].conj()
 
             bl23_id = (a3, a2)
             conj23 = False
@@ -6459,9 +6466,11 @@ class InterferometerArray(object):
             if not conj23:
                 skyvis23 = self.skyvis_freq[ind23,:,:]
                 vis23 = self.vis_freq[ind23,:,:]
+                noise23 = self.vis_noise_freq[ind23,:,:]
             else:
                 skyvis23 = self.skyvis_freq[ind23,:,:].conj()
                 vis23 = self.vis_freq[ind23,:,:].conj()
+                noise23 = self.vis_noise_freq[ind23,:,:].conj()
 
             bl31_id = (a1, a3)
             conj31 = False
@@ -6476,14 +6485,17 @@ class InterferometerArray(object):
             if not conj31:
                 skyvis31 = self.skyvis_freq[ind31,:,:]
                 vis31 = self.vis_freq[ind31,:,:]
+                noise31 = self.vis_noise_freq[ind31,:,:]
             else:
                 skyvis31 = self.skyvis_freq[ind31,:,:].conj()
                 vis31 = self.vis_freq[ind31,:,:].conj()
+                noise31 = self.vis_noise_freq[ind31,:,:].conj()
 
             phase_skyvis123 += [NP.angle(skyvis12*skyvis23*skyvis31)]
             phase_vis123 += [NP.angle(vis12*vis23*vis31)]
+            phase_noise123 += [NP.angle(noise12*noise23*noise31)]
 
-        return {'closure_phase_skyvis': NP.asarray(phase_skyvis123), 'closure_phase_vis': NP.asarray(phase_vis123), 'antenna_triplets': antenna_triplets}
+        return {'closure_phase_skyvis': NP.asarray(phase_skyvis123), 'closure_phase_vis': NP.asarray(phase_vis123), 'closure_phase_noise': NP.asarray(phase_noise123), 'antenna_triplets': antenna_triplets}
 
     #############################################################################
 
