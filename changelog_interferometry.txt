@@ -1,3 +1,13 @@
+From 6b3b9f6 (closure):
+======================
+
+In prisim/delay_spectrum.py,
+
+(*) Add member function subband_delay_transform_closure_phase() along
+with docstring to class DelaySpectrum. Update class docstring
+accordingly
+(*) minor updates to docstring of class DelaySpectrum
+
 From f36cce1 (master):
 =====================
 
