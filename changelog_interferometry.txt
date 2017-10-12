@@ -1,3 +1,22 @@
+From 16158f8 (closure):
+======================
+
+In prisim/interferometry.py,
+
+(*) In member function getClosurePhase() of class InterferometerArray,
+add triplets of baseline vectors in the returned dictionary under key
+'baseline_triplets'. Update member function docstring accordingly
+
+In prisim/delay_spectrum.py,
+
+(*) In member function subband_delay_transform_closure_phase() of
+class DelaySpectrum, add triplets of baseline vectors in the returned
+dictionary under key 'baseline_triplets'. Update member function
+docstring accordingly
+(*) Add member function compute_closure_phase_power_spectrum() along
+with docstring in class DelayPowerSpectrum to compute delay power
+spectrum of closure phases. Update class docstring accordingly
+
 From 6b3b9f6 (closure):
 ======================
 

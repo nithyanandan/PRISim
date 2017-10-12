@@ -2515,7 +2515,9 @@ class DelaySpectrum(object):
         """
         ------------------------------------------------------------------------
         Computes delay transform of closure phases on antenna triplets on 
-        multiple frequency sub-bands with specified weights
+        multiple frequency sub-bands with specified weights. It will have units 
+        of Jy Hz where the original visibility amplitudes of closure phase 
+        complex exponents are assumed to be 1 Jy across the band
 
         Inputs:
 
@@ -2575,6 +2577,21 @@ class DelaySpectrum(object):
         output is returned. The output is a dictionary that contains information 
         about delay spectra of different frequency sub-bands (n_win in number) 
         under the following keys:
+        'antenna_triplets'
+                    [list of tuples] List of antenna ID triplets where each 
+                    triplet is given as a tuple. Closure phase delay spectra in
+                    subbands is computed for each of these antenna triplets
+        'baseline_triplets'     
+                    [numpy array] List of 3x3 numpy arrays. Each 3x3
+                    unit in the list represents triplets of baseline
+                    vectors where the three rows denote the three 
+                    baselines in the triplet and the three columns 
+                    define the x-, y- and z-components of the 
+                    triplet. The number of 3x3 unit elements in the 
+                    list will equal the number of elements in the 
+                    list under key 'antenna_triplets'. Closure phase delay 
+                    spectra in subbands is computed for each of these baseline
+                    triplets which correspond to the antenna triplets
         'freq_center' 
                     [numpy array] contains the center frequencies 
                     (in Hz) of the frequency subbands of the subband
@@ -2613,21 +2630,39 @@ class DelaySpectrum(object):
         'closure_phase_skyvis'
                     [numpy array] subband delay spectra of closure phases
                     of noiseless sky visiblities from the specified 
-                    antenna triplets. It is of size n_triplets x n_win x n_t.
+                    antenna triplets. It is of size n_triplets x n_win x 
+                    nlags x n_t. It is in units of Jy Hz
         'closure_phase_vis'
                     [numpy array] subband delay spectra of closure phases
                     of noisy sky visiblities from the specified antenna 
-                    triplets. It is of size n_triplets x n_win x n_t.
+                    triplets. It is of size n_triplets x n_win x nlags x n_t.
+                    It is in units of Jy Hz
         'closure_phase_noise'
                     [numpy array] subband delay spectra of closure phases
                     of noise visiblities from the specified antenna triplets.
-                    It is of size n_triplets x n_win x n_t.
+                    It is of size n_triplets x n_win x nlags x n_t. It is in 
+                    units of Jy Hz
 
         If action is set to 'return_resampled', the following  
         output is returned. The output is a dictionary that contains 
         information about closure phases. Under each of these keys is
         information about delay spectra of different frequency sub-bands 
         (n_win in number) under the following keys:
+        'antenna_triplets'
+                    [list of tuples] List of antenna ID triplets where each 
+                    triplet is given as a tuple. Closure phase delay spectra in
+                    subbands is computed for each of these antenna triplets
+        'baseline_triplets'     
+                    [numpy array] List of 3x3 numpy arrays. Each 3x3
+                    unit in the list represents triplets of baseline
+                    vectors where the three rows denote the three 
+                    baselines in the triplet and the three columns 
+                    define the x-, y- and z-components of the 
+                    triplet. The number of 3x3 unit elements in the 
+                    list will equal the number of elements in the 
+                    list under key 'antenna_triplets'. Closure phase delay 
+                    spectra in subbands is computed for each of these baseline
+                    triplets which correspond to the antenna triplets
         'freq_center' 
                     [numpy array] contains the center frequencies 
                     (in Hz) of the frequency subbands of the subband
@@ -2657,15 +2692,17 @@ class DelaySpectrum(object):
                     [numpy array] subband delay spectra of closure phases
                     of noiseless sky visiblities from the specified 
                     antenna triplets. It is of size n_triplets x n_win x 
-                    nlags x n_t. 
+                    nlags x n_t. It is in units of Jy Hz
         'closure_phase_vis'
                     [numpy array] subband delay spectra of closure phases
                     of noisy sky visiblities from the specified antenna 
-                    triplets. It is of size n_triplets x n_win x n_t.
+                    triplets. It is of size n_triplets x n_win x nlags x n_t.
+                    It is in units of Jy Hz
         'closure_phase_noise'
                     [numpy array] subband delay spectra of closure phases
                     of noise visiblities from the specified antenna triplets.
-                    It is of size n_triplets x n_win x n_t.
+                    It is of size n_triplets x n_win x nlags x n_t. It is in 
+                    units of Jy Hz
         ------------------------------------------------------------------------
         """
 
@@ -2681,7 +2718,7 @@ class DelaySpectrum(object):
                 raise ValueError('All values in effective bandwidth must be strictly positive')
         if freq_center is None:
             freq_center = NP.asarray(self.f[self.f.size/2]).reshape(-1)
-        elif isinstance(freq_center[key], (int, float, list, NP.ndarray)):
+        elif isinstance(freq_center, (int, float, list, NP.ndarray)):
             freq_center = NP.asarray(freq_center).reshape(-1)
             if NP.any((freq_center <= self.f.min()) | (freq_center >= self.f.max())):
                 raise ValueError('Value(s) of frequency center(s) must lie strictly inside the observing band')
@@ -2722,7 +2759,7 @@ class DelaySpectrum(object):
                     print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
 
         cpinfo = self.ia.getClosurePhase(antenna_triplets=antenna_triplets)
-        result = {'antenna_triplets': cpinfo['antenna_triplets']}
+        result = {'antenna_triplets': cpinfo['antenna_triplets'], 'baseline_triplets': cpinfo['baseline_triplets']}
 
         freq_wts = NP.empty((bw_eff.size, self.f.size), dtype=NP.float_)
         frac_width = DSP.window_N2width(n_window=None, shape=shape, fftpow=fftpow, area_normalize=False, power_normalize=True)
@@ -2759,9 +2796,10 @@ class DelaySpectrum(object):
         if verbose:
             print '\tSub-band(s) delay transform computed'
 
-        result_resampled = {'antenna_triplets': cpinfo['antenna_triplets']}
+        result_resampled = {'antenna_triplets': cpinfo['antenna_triplets'], 'baseline_triplets': cpinfo['baseline_triplets']}
         result_resampled['freq_center'] = result['freq_center']
         result_resampled['bw_eff'] = result['bw_eff']
+        result_resampled['freq_wts'] = result['freq_wts']
     
         downsample_factor = NP.min((self.f.size + npad) * self.df / result_resampled['bw_eff'])
         result_resampled['lags'] = DSP.downsampler(result['lags'], downsample_factor, axis=-1, method='interp', kind='linear')
@@ -3296,7 +3334,7 @@ class DelayPowerSpectrum(object):
                 'horizon_kprll_limits'
                             [numpy array] limits on k_parallel corresponding to 
                             limits on horizon delays for each subband. It is of 
-                            size N x n_win x M x 2 denoting the neagtive and 
+                            size N x n_win x M x 2 denoting the negative and 
                             positive horizon delay limits where N is the number 
                             of timestamps, n_win is the number of subbands, M is 
                             the number of baselines. The 0 index in the fourth 
@@ -3393,6 +3431,12 @@ class DelayPowerSpectrum(object):
                 Compute delay power spectrum in units of K^2 (Mpc/h)^3 from the 
                 delay spectrum in units of Jy Hz from multiple runs of 
                 visibilities
+
+    compute_closure_phase_power_spectrum()
+                Compute delay power spectrum of closure phase in units of 
+                K^2 (Mpc/h)^3 from the delay spectrum in units of Jy Hz where 
+                the original visibility amplitudes of closure phase complex 
+                exponents are assumed to be 1 Jy across the band
     ----------------------------------------------------------------------------
     """
 
@@ -3599,7 +3643,8 @@ class DelayPowerSpectrum(object):
         Outputs:
 
         If keyword input action is set to 'return', the line-of-sight 
-        wavenumbers (h/Mpc) computed is returned
+        wavenumbers (h/Mpc) computed is returned. It is of same size as input
+        lags
         ------------------------------------------------------------------------
         """
 
@@ -3931,6 +3976,156 @@ class DelayPowerSpectrum(object):
         if mode == 'cross':
             dps[key] *= 2
         return dps
+
+    ############################################################################
+
+    def compute_closure_phase_power_spectrum(self, closure_phase_delay_spectra):
+
+        """
+        ------------------------------------------------------------------------
+        Compute delay power spectrum of closure phase in units of K^2 (Mpc/h)^3 
+        from the delay spectrum in units of Jy Hz where the original visibility
+        amplitudes of closure phase complex exponents are assumed to be 1 Jy 
+        across the band
+
+        Inputs:
+
+        closure_phase_delay_spectra
+        [dictionary] contains information about closure phase delay spectra of 
+        different frequency sub-bands (n_win in number) under the following 
+        keys:
+        'antenna_triplets'
+                    [list of tuples] List of antenna ID triplets where each 
+                    triplet is given as a tuple. Closure phase delay spectra in
+                    subbands is computed for each of these antenna triplets
+        'baseline_triplets'     
+                    [numpy array] List of 3x3 numpy arrays. Each 3x3
+                    unit in the list represents triplets of baseline
+                    vectors where the three rows denote the three 
+                    baselines in the triplet and the three columns 
+                    define the x-, y- and z-components of the 
+                    triplet. The number of 3x3 unit elements in the 
+                    list will equal the number of elements in the 
+                    list under key 'antenna_triplets'. Closure phase delay 
+                    spectra in subbands is computed for each of these baseline
+                    triplets which correspond to the antenna triplets
+        'freq_center' 
+                    [numpy array] contains the center frequencies 
+                    (in Hz) of the frequency subbands of the subband
+                    delay spectra. It is of size n_win. It is roughly 
+                    equivalent to redshift(s)
+        'bw_eff'    [numpy array] contains the effective bandwidths 
+                    (in Hz) of the subbands being delay transformed. It
+                    is of size n_win. It is roughly equivalent to width 
+                    in redshift or along line-of-sight
+        'lags'      [numpy array] lags of the resampled subband delay spectra 
+                    after padding in frequency during the transform. It
+                    is of size nlags where nlags is the number of 
+                    independent delay bins
+        'lag_kernel'
+                    [numpy array] delay transform of the frequency 
+                    weights under the key 'freq_wts'. It is of size
+                    n_bl x n_win x nlags x n_t.
+        'lag_corr_length' 
+                    [numpy array] It is the correlation timescale (in 
+                    pixels) of the resampled subband delay spectra. It is 
+                    proportional to inverse of effective bandwidth. It
+                    is of size n_win. The unit size of a pixel is 
+                    determined by the difference between adjacent pixels 
+                    in lags under key 'lags' which in turn is 
+                    effectively inverse of the effective bandwidth 
+        'closure_phase_skyvis'
+                    [numpy array] subband delay spectra of closure phases
+                    of noiseless sky visiblities from the specified 
+                    antenna triplets. It is of size n_triplets x n_win x 
+                    nlags x n_t. It must be in units of Jy Hz.
+        'closure_phase_vis'
+                    [numpy array] subband delay spectra of closure phases
+                    of noisy sky visiblities from the specified antenna 
+                    triplets. It is of size n_triplets x n_win x nlags x n_t.
+                    It must be in units of Jy Hz.
+        'closure_phase_noise'
+                    [numpy array] subband delay spectra of closure phases
+                    of noise visiblities from the specified antenna triplets.
+                    It is of size n_triplets x n_win x nlags x n_t. It must be 
+                    in units of Jy Hz.
+        
+        Output:
+
+        Dictionary with closure phase delay power spectra containing the 
+        following keys and values:
+        'z'         [numpy array] Redshifts corresponding to the centers of the
+                    frequency subbands. Same size as number of values under key
+                    'freq_center' which is n_win
+        'kprll'     [numpy array] k_parallel (h/Mpc) for different subbands and
+                    various delays. It is of size n_win x nlags
+        'kperp'     [numpy array] k_perp (h/Mpc) for different subbands and the
+                    antenna/baseline triplets. It is of size n_win x n_triplets
+                    x 3 x 3 where the 3 x 3 refers to 3 different baselines and 
+                    3 components of the baseline vector respectively
+        'horizon_kprll_limits' 
+                    [numpy array] limits on k_parallel corresponding to limits 
+                    on horizon delays for each of the baseline triplets and 
+                    subbands. It is of shape 1 x n_win x n_triplets x 3 x 2, 
+                    where 1 phase center, 3 is for the three baselines involved 
+                    in the triplet, 2 limits (upper and lower). It has units of 
+                    h/Mpc
+        'closure_phase_skyvis'
+                    [numpy array] subband delay power spectra of closure phases
+                    of noiseless sky visiblities from the specified 
+                    antenna triplets. It is of size n_triplets x n_win x 
+                    nlags x n_t. It is in units of K^2 (Mpc/h)^3
+        'closure_phase_vis'
+                    [numpy array] subband delay power spectra of closure phases
+                    of noisy sky visiblities from the specified antenna 
+                    triplets. It is of size n_triplets x n_win x nlags x n_t.
+                    It is in units of K^2 (Mpc/h)^3
+        'closure_phase_noise'
+                    [numpy array] subband delay power spectra of closure phases
+                    of noise visiblities from the specified antenna triplets.
+                    It is of size n_triplets x n_win x nlags x n_t. It is in 
+                    units of K^2 (Mpc/h)^3
+        ------------------------------------------------------------------------
+        """
+
+        try:
+            closure_phase_delay_spectra
+        except NameError:
+            raise NameError('Input closure_phase_delay_spectra must be provided')
+
+        closure_phase_delay_power_spectra = {}
+        wl = FCNST.c / closure_phase_delay_spectra['freq_center']
+        z = CNST.rest_freq_HI / closure_phase_delay_spectra['freq_center'] - 1
+        dz = CNST.rest_freq_HI / closure_phase_delay_spectra['freq_center']**2 * closure_phase_delay_spectra['bw_eff']
+        kprll = NP.empty((closure_phase_delay_spectra['freq_center'].size, closure_phase_delay_spectra['lags'].size))
+        kperp = NP.empty((closure_phase_delay_spectra['freq_center'].size, len(closure_phase_delay_spectra['antenna_triplets']), 3)) # n_win x n_triplets x 3, where 3 is for the three baselines involved
+        horizon_kprll_limits = NP.empty((self.ds.n_acc, closure_phase_delay_spectra['freq_center'].size, len(closure_phase_delay_spectra['antenna_triplets']), 3, 2)) # n_t x n_win x n_triplets x 3 x 2, where 3 is for the three baselines involved
+
+        for zind,redshift in enumerate(z):
+            kprll[zind,:] = self.k_parallel(closure_phase_delay_spectra['lags'], redshift, action='return')
+            for triplet_ind, ant_triplet in enumerate(closure_phase_delay_spectra['antenna_triplets']):
+                bl_lengths = NP.sqrt(NP.sum(closure_phase_delay_spectra['baseline_triplets'][triplet_ind]**2, axis=1))
+                kperp[zind,triplet_ind,:] = self.k_perp(bl_lengths, redshift, action='return')
+                horizon_delay_limits = bl_lengths.reshape(1,-1,1) / FCNST.c # 1x3x1, where 1 phase center, 3 is for the three baselines involved in the triplet, 1 upper limit
+                horizon_delay_limits = NP.concatenate((horizon_delay_limits, -horizon_delay_limits), axis=2) # 1x3x2, where 1 phase center, 3 is for the three baselines involved in the triplet, 2 limits (upper and lower)
+                horizon_kprll_limits[:,zind,triplet_ind,:,:] = self.k_parallel(horizon_delay_limits, redshift, action='return') # 1 x n_win x n_triplets x 3 x 2, where 1 phase center, 3 is for the three baselines involved in the triplet, 2 limits (upper and lower)
+        
+        closure_phase_delay_power_spectra['z'] = z
+        closure_phase_delay_power_spectra['kprll'] = kprll
+        closure_phase_delay_power_spectra['kperp'] = kperp
+        closure_phase_delay_power_spectra['horizon_kprll_limits'] = horizon_kprll_limits
+        rz_transverse = self.comoving_transverse_distance(closure_phase_delay_power_spectra['z'], action='return')
+        drz_los = self.comoving_los_depth(closure_phase_delay_spectra['bw_eff'], closure_phase_delay_power_spectra['z'], action='return')
+        omega_bw = self.beam3Dvol(freq_wts=closure_phase_delay_spectra['freq_wts'])
+        jacobian1 = 1 / omega_bw
+        jacobian2 = rz_transverse**2 * drz_los / closure_phase_delay_spectra['bw_eff']
+        Jy2K = wl**2 * CNST.Jy / (2*FCNST.k)
+        factor = jacobian1 * jacobian2 * Jy2K**2
+        conversion_factor = factor.reshape(1,-1,1,1)
+        for key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
+            closure_phase_delay_power_spectra[key] = NP.abs(closure_phase_delay_spectra[key])**2 * conversion_factor
+
+        return closure_phase_delay_power_spectra
 
     ############################################################################
 
