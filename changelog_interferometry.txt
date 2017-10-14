@@ -1,3 +1,22 @@
+From 343af6e (closure):
+======================
+
+In prisim/interferometry.py,
+
+(*) In member function getClosurePhase() of class InterferometerArray,
+incorporate respective bandpass weights into the visibility triplets 
+before returning their phases
+
+In prisim/delay_spectrum.py,
+
+(*) In member function subband_delay_transform_closure_phase() of
+class DelaySpectrum, in determining quantities lag_kernel and delay
+spectrum of closure phases, exclude using the attribute bp (bandpass
+shape) and only use freq_wts.
+(*) In member function subband_delay_transform_closure_phase() of
+class DelaySpectrum, use negative sign in the exponent while computing
+the complex exponential from closure phase
+
 From 16158f8 (closure):
 ======================
 

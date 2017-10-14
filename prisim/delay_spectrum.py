@@ -2787,11 +2787,13 @@ class DelaySpectrum(object):
         npad = int(self.f.size * pad)
         lags = DSP.spectral_axis(self.f.size + npad, delx=self.df, use_real=False, shift=True)
     
-        lag_kernel = DSP.FT1D(NP.pad(self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        # lag_kernel = DSP.FT1D(NP.pad(self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        lag_kernel = DSP.FT1D(NP.pad(freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
         result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'npad': npad, 'lags': lags, 'lag_kernel': lag_kernel, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=1)}
         for key in cpinfo:
             if key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
-                result[key] = DSP.FT1D(NP.pad(NP.exp(1j*cpinfo[key][:,NP.newaxis,:,:]) * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                # result[key] = DSP.FT1D(NP.pad(NP.exp(-1j*cpinfo[key][:,NP.newaxis,:,:]) * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                result[key] = DSP.FT1D(NP.pad(NP.exp(-1j*cpinfo[key][:,NP.newaxis,:,:]) * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                 
         if verbose:
             print '\tSub-band(s) delay transform computed'

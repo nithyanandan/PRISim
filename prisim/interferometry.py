@@ -6459,11 +6459,13 @@ class InterferometerArray(object):
                 vis12 = self.vis_freq[ind12,:,:]
                 noise12 = self.vis_noise_freq[ind12,:,:]
                 blvecttriplets[-1][0,:] = self.baselines[ind12,:]
+                bpwts12 = self.bp[ind12,:,:] * self.bp_wts[ind12,:,:]
             else:
                 skyvis12 = self.skyvis_freq[ind12,:,:].conj()
                 vis12 = self.vis_freq[ind12,:,:].conj()
                 noise12 = self.vis_noise_freq[ind12,:,:].conj()
                 blvecttriplets[-1][0,:] = -self.baselines[ind12,:]
+                bpwts12 = self.bp[ind12,:,:].conj() * self.bp_wts[ind12,:,:].conj()
 
             bl23_id = (a3, a2)
             conj23 = False
@@ -6480,11 +6482,13 @@ class InterferometerArray(object):
                 vis23 = self.vis_freq[ind23,:,:]
                 noise23 = self.vis_noise_freq[ind23,:,:]
                 blvecttriplets[-1][1,:] = self.baselines[ind23,:]
+                bpwts23 = self.bp[ind23,:,:] * self.bp_wts[ind23,:,:]
             else:
                 skyvis23 = self.skyvis_freq[ind23,:,:].conj()
                 vis23 = self.vis_freq[ind23,:,:].conj()
                 noise23 = self.vis_noise_freq[ind23,:,:].conj()
                 blvecttriplets[-1][1,:] = -self.baselines[ind23,:]
+                bpwts23 = self.bp[ind23,:,:].conj() * self.bp_wts[ind23,:,:].conj()
 
             bl31_id = (a1, a3)
             conj31 = False
@@ -6501,15 +6505,17 @@ class InterferometerArray(object):
                 vis31 = self.vis_freq[ind31,:,:]
                 noise31 = self.vis_noise_freq[ind31,:,:]
                 blvecttriplets[-1][2,:] = self.baselines[ind31,:]
+                bpwts31 = self.bp[ind31,:,:] * self.bp_wts[ind31,:,:]
             else:
                 skyvis31 = self.skyvis_freq[ind31,:,:].conj()
                 vis31 = self.vis_freq[ind31,:,:].conj()
                 noise31 = self.vis_noise_freq[ind31,:,:].conj()
                 blvecttriplets[-1][2,:] = -self.baselines[ind31,:]
+                bpwts31 = self.bp[ind31,:,:].conj() * self.bp_wts[ind31,:,:].conj()
 
-            phase_skyvis123 += [NP.angle(skyvis12*skyvis23*skyvis31)]
-            phase_vis123 += [NP.angle(vis12*vis23*vis31)]
-            phase_noise123 += [NP.angle(noise12*noise23*noise31)]
+            phase_skyvis123 += [NP.angle(skyvis12*skyvis23*skyvis31 * bpwts12*bpwts23*bpwts31)]
+            phase_vis123 += [NP.angle(vis12*vis23*vis31 * bpwts12*bpwts23*bpwts31)]
+            phase_noise123 += [NP.angle(noise12*noise23*noise31 * bpwts12*bpwts23*bpwts31)]
 
         return {'closure_phase_skyvis': NP.asarray(phase_skyvis123), 'closure_phase_vis': NP.asarray(phase_vis123), 'closure_phase_noise': NP.asarray(phase_noise123), 'antenna_triplets': antenna_triplets, 'baseline_triplets': blvecttriplets}
 
