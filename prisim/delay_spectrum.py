@@ -4068,10 +4068,9 @@ class DelayPowerSpectrum(object):
         'horizon_kprll_limits' 
                     [numpy array] limits on k_parallel corresponding to limits 
                     on horizon delays for each of the baseline triplets and 
-                    subbands. It is of shape 1 x n_win x n_triplets x 3 x 2, 
-                    where 1 phase center, 3 is for the three baselines involved 
-                    in the triplet, 2 limits (upper and lower). It has units of 
-                    h/Mpc
+                    subbands. It is of shape n_t x n_win x n_triplets x 3 x 2, 
+                    where 3 is for the three baselines involved in the triplet, 
+                    2 limits (upper and lower). It has units of h/Mpc
         'closure_phase_skyvis'
                     [numpy array] subband delay power spectra of closure phases
                     of noiseless sky visiblities from the specified 

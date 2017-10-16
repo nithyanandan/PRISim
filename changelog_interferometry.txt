@@ -1,3 +1,11 @@
+From d71c10e (closure):
+======================
+
+In prisim/delay_spectrum.py,
+
+(*) Minor changes in docstring of member function
+compute_closure_phase_power_spectrum() of class DelayPowerSpectrum
+
 From 343af6e (closure):
 ======================
 
