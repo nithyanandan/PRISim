@@ -6384,7 +6384,7 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def getClosurePhase(self, antenna_triplets=None):
+    def getClosurePhase(self, antenna_triplets=None, delay_filter_info=None):
 
         """
         -------------------------------------------------------------------------
@@ -6397,6 +6397,40 @@ class InterferometerArray(object):
                     triplet is given as a tuple. If set to None (default), all
                     the unique triplets based on the antenna layout attribute
                     in class InterferometerArray
+
+        delay_filter_info
+                    [NoneType or dictionary] Info containing delay filter 
+                    parameters. If set to None (default), no delay filtering is
+                    performed. Otherwise, delay filter is applied on each of the
+                    visibilities in the triplet before computing the closure
+                    phases. The delay filter parameters are specified in a 
+                    dictionary as follows:
+                    'type'      [string] 'horizon' (default) or 'regular'. If
+                                set to 'horizon', the horizon delay limits are
+                                estimated from the respective baseline lengths
+                                in the triplet. If set to 'regular', the extent
+                                of the filter is determined by the 'min' and
+                                'width' keys (see below). 
+                    'min'       [scalar] Non-negative number (in seconds) that
+                                specifies the minimum delay in the filter span.
+                                If not specified, it is assumed to be 0. If 
+                                'type' is set to 'horizon', the 'min' is ignored 
+                                and set to 0. 
+                    'width'     [scalar] Non-negative number (in numbers of 
+                                inverse bandwidths). If 'type' is set to 
+                                'horizon', the width represents the delay 
+                                buffer beyond the horizon. If 'type' is set to
+                                'regular', this number has to be positive and
+                                determines the span of the filter starting from
+                                the minimum delay in key 'min'. 
+                    'mode'      [string] 'discard' (default) or 'retain'. If set
+                                to 'discard', the span defining the filter is
+                                discarded and the rest retained. If set to 
+                                'retain', the span defining the filter is 
+                                retained and the rest discarded. For example, 
+                                if 'type' is set to 'horizon' and 'mode' is set
+                                to 'discard', the horizon-to-horizon is 
+                                filtered out (discarded).
 
         Output:
 
@@ -6433,6 +6467,59 @@ class InterferometerArray(object):
 
         if not isinstance(antenna_triplets, list):
             raise TypeError('Input antenna triplets must be a list of triplet tuples')
+
+        # Check if delay filter is to be performed
+        if delay_filter_info is not None:
+            fft_delays = DSP.spectral_axis(self.channels.size, delx=self.freq_resolution, shift=False, use_real=False)
+            filter_unmask = NP.ones(fft_delays.size)
+            dtau = fft_delays[1] - fft_delays[0]
+            if not isinstance(delay_filter_info, dict):
+                raise TypeError('Delay filter info must be specified as a dictionary')
+
+            if 'mode' not in delay_filter_info:
+                filter_mode = 'discard'
+            else:
+                filter_mode = delay_filter_info['mode']
+            if filter_mode.lower() not in ['discard', 'retain']:
+                raise ValueError('Invalid delay filter mode specified')
+
+            if 'type' not in delay_filter_info:
+                filter_type = 'horizon'
+            else:
+                filter_type = delay_filter_info['type']
+            if filter_type.lower() not in ['horizon', 'regular']:
+                raise ValueError('Invalid delay filter type specified')
+            if filter_type.lower() == 'regular':
+                if ('min' not in delay_filter_info) or ('width' not in delay_filter_info):
+                    raise KeyError('Keys "min" and "width" must be specified in input delay_filter_info')
+                delay_min = delay_filter_info['min']
+                delay_width = delay_filter_info['width']
+                if delay_min is None:
+                    delay_min = 0.0
+                elif isinstance(delay_min, (int,float)):
+                    delay_min = max([0.0, delay_min])
+                else:
+                    raise TypeError('Minimum delay in the filter must be a scalar value (int or float)')
+
+                if isinstance(delay_width, (int,float)):
+                    if delay_width <= 0.0:
+                        raise ValueError('Delay filter width must be positive')
+                else:
+                    raise TypeError('Delay width in the filter must be a scalar value (int or float)')
+            else:
+                if 'width' not in delay_filter_info:
+                    delay_width = 0.0
+                else:
+                    delay_width = delay_filter_info['width']
+
+                if delay_width is None:
+                    delay_width = 0.0
+                elif isinstance(delay_width, (int,float)):
+                    if delay_width <= 0.0:
+                        raise ValueError('Delay filter width must be positive')
+                else:
+                    raise TypeError('Delay width in the filter must be a scalar value (int or float)')
+            delay_width = delay_width * dtau
 
         phase_skyvis123 = []
         phase_vis123 = []
@@ -6512,6 +6599,59 @@ class InterferometerArray(object):
                 noise31 = self.vis_noise_freq[ind31,:,:].conj()
                 blvecttriplets[-1][2,:] = -self.baselines[ind31,:]
                 bpwts31 = self.bp[ind31,:,:].conj() * self.bp_wts[ind31,:,:].conj()
+
+            # Check if delay filter is to be performed
+            if delay_filter_info is not None:
+                if filter_type.lower() == 'regular':
+                    delay_max = delay_min + delay_width
+                    if filter_mode.lower() == 'discard':
+                        mask_ind = NP.logical_and(NP.abs(fft_delays) >= delay_min, NP.abs(fft_delays) <= delay_max)
+                    else:
+                        mask_ind = NP.logical_or(NP.abs(fft_delays) <= delay_min, NP.abs(fft_delays) >= delay_max)
+                    filter_unmask[mask_ind] = 0.0
+
+                    skyvis12 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(skyvis12,ax=0,inverse=False), ax=0, inverse=True)
+                    skyvis23 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(skyvis23,ax=0,inverse=False), ax=0, inverse=True)
+                    skyvis31 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(skyvis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    vis12 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(vis12,ax=0,inverse=False), ax=0, inverse=True)
+                    vis23 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(vis23,ax=0,inverse=False), ax=0, inverse=True)
+                    vis31 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(vis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    noise12 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(noise12,ax=0,inverse=False), ax=0, inverse=True)
+                    noise23 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(noise23,ax=0,inverse=False), ax=0, inverse=True)
+                    noise31 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(noise31,ax=0,inverse=False), ax=0, inverse=True)
+                else:
+                    filter_unmask12 = 1.0 * filter_unmask
+                    filter_unmask23 = 1.0 * filter_unmask
+                    filter_unmask31 = 1.0 * filter_unmask
+                    delay_max12 = self.baseline_lengths[ind12] / FCNST.c + delay_width
+                    delay_max23 = self.baseline_lengths[ind23] / FCNST.c + delay_width
+                    delay_max31 = self.baseline_lengths[ind31] / FCNST.c + delay_width
+                    if filter_mode.lower() == 'discard':
+                        mask_ind12 = NP.abs(fft_delays) <= delay_max12
+                        mask_ind23 = NP.abs(fft_delays) <= delay_max23
+                        mask_ind31 = NP.abs(fft_delays) <= delay_max31
+                    else:
+                        mask_ind12 = NP.abs(fft_delays) >= delay_max12
+                        mask_ind23 = NP.abs(fft_delays) >= delay_max23
+                        mask_ind31 = NP.abs(fft_delays) >= delay_max31
+                    
+                    filter_unmask12[mask_ind12] = 0.0
+                    filter_unmask23[mask_ind23] = 0.0
+                    filter_unmask31[mask_ind31] = 0.0
+
+                    skyvis12 = 1.0 * fft_delays.size / NP.sum(filter_unmask12) * DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(skyvis12,ax=0,inverse=False), ax=0, inverse=True)
+                    skyvis23 = 1.0 * fft_delays.size / NP.sum(filter_unmask23) * DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(skyvis23,ax=0,inverse=False), ax=0, inverse=True)
+                    skyvis31 = 1.0 * fft_delays.size / NP.sum(filter_unmask31) * DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(skyvis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    vis12 = 1.0 * fft_delays.size / NP.sum(filter_unmask12) * DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(vis12,ax=0,inverse=False), ax=0, inverse=True)
+                    vis23 = 1.0 * fft_delays.size / NP.sum(filter_unmask23) * DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(vis23,ax=0,inverse=False), ax=0, inverse=True)
+                    vis31 = 1.0 * fft_delays.size / NP.sum(filter_unmask31) * DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(vis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    noise12 = 1.0 * fft_delays.size / NP.sum(filter_unmask12) * DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(noise12,ax=0,inverse=False), ax=0, inverse=True)
+                    noise23 = 1.0 * fft_delays.size / NP.sum(filter_unmask23) * DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(noise23,ax=0,inverse=False), ax=0, inverse=True)
+                    noise31 = 1.0 * fft_delays.size / NP.sum(filter_unmask31) * DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(noise31,ax=0,inverse=False), ax=0, inverse=True)
 
             phase_skyvis123 += [NP.angle(skyvis12*skyvis23*skyvis31 * bpwts12*bpwts23*bpwts31)]
             phase_vis123 += [NP.angle(vis12*vis23*vis31 * bpwts12*bpwts23*bpwts31)]

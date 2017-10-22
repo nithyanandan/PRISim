@@ -1,3 +1,21 @@
+From cce8bf8 (closure):
+======================
+
+In prisim/interferometry.py,
+
+(*) In member function getClosurePhase() of class InterferometerArray,
+add input delay_filter_info to apply delay filtering on the respective
+visibilities before computing closure phase spectra. Update member
+function docstring accordingly
+
+In prisim/delay_spectrum.py,
+
+(*) In member function subband_delay_transform_closure_phase() of
+class DelaySpectrum, add input delay_filter_info to apply delay
+filtering on the respective visibilities before computing
+closure phase delay spectra. Update member function docstring
+accordingly
+
 From d71c10e (closure):
 ======================
 
