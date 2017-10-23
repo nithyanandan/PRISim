@@ -6459,6 +6459,15 @@ class InterferometerArray(object):
                                 triplet. The number of 3x3 unit elements in the 
                                 list will equal the number of elements in the 
                                 list under key 'antenna_triplets'. 
+        'skyvis'                [numpy array] Noiseless visibilities that went 
+                                into the triplet used for estimating closure
+                                phases. It has size ntriplets x 3 nchan x ntimes
+                                where 3 is for the triplet of visibilities or
+                                baselines involved. 
+        'vis'                   [numpy array] Same as 'skyvis' but for noisy
+                                visibilities
+        'noisevis'              [numpy array] Same as 'skyvis' but for the
+                                noise in the visibilities
         -------------------------------------------------------------------------
         """
 
@@ -6525,6 +6534,9 @@ class InterferometerArray(object):
         phase_vis123 = []
         phase_noise123 = []
         blvecttriplets = []
+        skyvis_triplets = []
+        vis_triplets = []
+        noise_triplets = []
         for anttriplet in antenna_triplets:
             blvecttriplets += [NP.zeros((3,3))]
             a1, a2, a3 = anttriplet
@@ -6653,11 +6665,19 @@ class InterferometerArray(object):
                     noise23 = 1.0 * fft_delays.size / NP.sum(filter_unmask23) * DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(noise23,ax=0,inverse=False), ax=0, inverse=True)
                     noise31 = 1.0 * fft_delays.size / NP.sum(filter_unmask31) * DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(noise31,ax=0,inverse=False), ax=0, inverse=True)
 
-            phase_skyvis123 += [NP.angle(skyvis12*skyvis23*skyvis31 * bpwts12*bpwts23*bpwts31)]
-            phase_vis123 += [NP.angle(vis12*vis23*vis31 * bpwts12*bpwts23*bpwts31)]
-            phase_noise123 += [NP.angle(noise12*noise23*noise31 * bpwts12*bpwts23*bpwts31)]
+            skyvis_triplets += [[skyvis12*bpwts12, skyvis23*bpwts23, skyvis31*bpwts31]]
+            vis_triplets += [[vis12*bpwts12, vis23*bpwts23, vis31*bpwts31]]
+            noise_triplets += [[noise12*bpwts12, noise23*bpwts23, noise31*bpwts31]]
 
-        return {'closure_phase_skyvis': NP.asarray(phase_skyvis123), 'closure_phase_vis': NP.asarray(phase_vis123), 'closure_phase_noise': NP.asarray(phase_noise123), 'antenna_triplets': antenna_triplets, 'baseline_triplets': blvecttriplets}
+        skyvis_triplets = NP.asarray(skyvis_triplets)
+        vis_triplets = NP.asarray(vis_triplets)
+        noise_triplets = NP.asarray(noise_triplets)
+
+        phase_skyvis123 = NP.angle(NP.prod(skyvis_triplets, axis=1))
+        phase_vis123 = NP.angle(NP.prod(vis_triplets, axis=1))
+        phase_noise123 = NP.angle(NP.prod(noise_triplets, axis=1))
+        
+        return {'closure_phase_skyvis': phase_skyvis123, 'closure_phase_vis': phase_vis123, 'closure_phase_noise': phase_noise123, 'antenna_triplets': antenna_triplets, 'baseline_triplets': blvecttriplets, 'skyvis': skyvis_triplets, 'vis': vis_triplets, 'noisevis': noise_triplets}
 
     #############################################################################
 
