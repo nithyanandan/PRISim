@@ -1,3 +1,19 @@
+From d1a5be9 (closure):
+======================
+
+In prisim/interferometry.py,
+
+(*) In member function getClosurePhase() of class InterferometerArray,
+add input spectral_window_info (dictionary) to specify the spectral
+window to be applied before delay filtering. Update docstring
+accordingly
+(*) In member function getClosurePhase() of class InterferometerArray,
+add key 'spectral_weights' in the output dictionary that contains the
+spectral weights determined from the input spectral_window_info
+(*) In member function getClosurePhase() of class InterferometerArray,
+remove multiplicative factor to correct for amplitude in the
+inverse-FFT steps due to delay filtering
+
 From 0117c34 (closure):
 ======================
 
