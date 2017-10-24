@@ -2509,6 +2509,7 @@ class DelaySpectrum(object):
 
     def subband_delay_transform_closure_phase(self, bw_eff, antenna_triplets=None,
                                               delay_filter_info=None,
+                                              spectral_window_info=None,
                                               freq_center=None, shape=None, 
                                               fftpow=None, pad=None, action=None,
                                               verbose=True):
@@ -2566,6 +2567,35 @@ class DelaySpectrum(object):
                                 if 'type' is set to 'horizon' and 'mode' is set
                                 to 'discard', the horizon-to-horizon is 
                                 filtered out (discarded).
+
+        spectral_window_info    [NoneType or dictionary] Spectral window 
+                                parameters to determine the spectral weights and
+                                apply to the visibilities in the frequency 
+                                domain before filtering in the delay domain. 
+                                THESE PARAMETERS ARE APPLIED ON THE INDIVIDUAL 
+                                VISIBILITIES THAT GO INTO THE CLOSURE PHASE. 
+                                THESE ARE NOT TO BE CONFUSED WITH THE PARAMETERS
+                                THAT WILL BE USED IN THE ACTUAL DELAY TRANSFORM 
+                                OF CLOSURE PHASE SPECTRA WHICH ARE SPECIFIED
+                                SEPARATELY FURTHER BELOW. 
+                                If set to None (default), unity spectral weights 
+                                are applied. If spectral weights are to be 
+                                applied, it must be a provided as a dictionary 
+                                with the following keys and values:
+                                bw_eff       [scalar] effective bandwidths (in 
+                                             Hz) for the spectral window
+                                freq_center  [scalar] frequency center (in Hz) 
+                                             for the spectral window
+                                shape        [string] frequency window shape for 
+                                             the spectral window. Accepted 
+                                             values are 'rect' or 'RECT' (for 
+                                             rectangular), 'bnw' and 'BNW' (for 
+                                             Blackman-Nuttall), and 'bhw' or 
+                                             'BHW' (for Blackman-Harris). 
+                                             Default=None sets it to 'rect' 
+                                fftpow       [scalar] power to which the FFT of 
+                                             the window will be raised. The 
+                                             value must be a positive scalar. 
 
         freq_center [scalar, list or numpy array] frequency centers (in Hz) of 
                     the selected frequency windows for subband delay transform 
@@ -2793,7 +2823,7 @@ class DelaySpectrum(object):
                 if verbose:
                     print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
 
-        cpinfo = self.ia.getClosurePhase(antenna_triplets=antenna_triplets, delay_filter_info=delay_filter_info)
+        cpinfo = self.ia.getClosurePhase(antenna_triplets=antenna_triplets, delay_filter_info=delay_filter_info, spectral_window_info=spectral_window_info)
         result = {'antenna_triplets': cpinfo['antenna_triplets'], 'baseline_triplets': cpinfo['baseline_triplets']}
 
         freq_wts = NP.empty((bw_eff.size, self.f.size), dtype=NP.float_)

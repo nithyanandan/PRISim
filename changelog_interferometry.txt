@@ -1,3 +1,18 @@
+From 5c71897 (closure):
+======================
+
+In prisim/delay_spectrum.py,
+
+(*) In member function subband_delay_transform_closure_phase() of
+class DelaySpectrum, add input spectral_window_info that gets passed
+to InterferometerArray.getClosurePhase(). Update docstring accordingly
+
+In prisim/interferometry.py,
+
+(*) In member function getClosurePhase() of class InterferometerArray,
+compute appropriate visibilities if spectral windowing is to be
+applied but not delay filtering
+
 From d1a5be9 (closure):
 ======================
 

@@ -6774,7 +6774,19 @@ class InterferometerArray(object):
                     # noise12 = 1.0 * fft_delays.size / NP.sum(filter_unmask12) * DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(noise12,ax=0,inverse=False), ax=0, inverse=True)
                     # noise23 = 1.0 * fft_delays.size / NP.sum(filter_unmask23) * DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(noise23,ax=0,inverse=False), ax=0, inverse=True)
                     # noise31 = 1.0 * fft_delays.size / NP.sum(filter_unmask31) * DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(noise31,ax=0,inverse=False), ax=0, inverse=True)
-                    
+            else:
+                skyvis12 = freq_wts.reshape(-1,1)*skyvis12
+                skyvis23 = freq_wts.reshape(-1,1)*skyvis23
+                skyvis31 = freq_wts.reshape(-1,1)*skyvis31
+
+                vis12 = freq_wts.reshape(-1,1)*vis12
+                vis23 = freq_wts.reshape(-1,1)*vis23
+                vis31 = freq_wts.reshape(-1,1)*vis31
+
+                noise12 = freq_wts.reshape(-1,1)*noise12
+                noise23 = freq_wts.reshape(-1,1)*noise23
+                noise31 = freq_wts.reshape(-1,1)*noise31
+                
             skyvis_triplets += [[skyvis12*bpwts12, skyvis23*bpwts23, skyvis31*bpwts31]]
             vis_triplets += [[vis12*bpwts12, vis23*bpwts23, vis31*bpwts31]]
             noise_triplets += [[noise12*bpwts12, noise23*bpwts23, noise31*bpwts31]]
