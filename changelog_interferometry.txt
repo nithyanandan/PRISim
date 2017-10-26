@@ -1,3 +1,16 @@
+From cce8bf8 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Import UVBeam module from pyuvdata
+(*) Integrate use of uvdata.UVBeam module to use external beams
+in UVBeam format
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Indicate option to input external beams in UVBeam format
+
 From d71c10e (closure):
 ======================
 

@@ -33,6 +33,12 @@ import prisim
 from prisim import interferometry as RI
 from prisim import primary_beams as PB
 from prisim import baseline_delay_horizon as DLY
+try:
+    from pyuvdata import UVBeam
+except ImportError:
+    uvbeam_module_found = False
+else:
+    uvbeam_module_found = True
 import ipdb as PDB
 
 ## Set MPI parameters
@@ -154,8 +160,8 @@ if use_external_beam:
     external_beam_file = beam_info['file']
     if beam_info['filepathtype'] == 'default':
         external_beam_file = prisim_path+'data/beams/'+external_beam_file
-    if beam_info['filefmt'] in ['HDF5', 'hdf5', 'fits', 'FITS']:
-        beam_filefmt = beam_info['filefmt']
+    if beam_info['filefmt'].lower() in ['hdf5', 'fits', 'uvbeam']:
+        beam_filefmt = beam_info['filefmt'].lower()
     else:
         raise ValueError('Invalid beam file format specified')
     beam_pol = beam_info['pol']
@@ -454,9 +460,26 @@ else:
         raise ValueError('Height of antenna element above ground plane must be positive.')
 
 if use_external_beam:
-    external_beam = fits.getdata(external_beam_file, extname='BEAM_{0}'.format(beam_pol))
-    external_beam_freqs = fits.getdata(external_beam_file, extname='FREQS_{0}'.format(beam_pol))
-    external_beam = external_beam.reshape(-1,external_beam_freqs.size)
+    if beam_filefmt == 'fits':
+        external_beam = fits.getdata(external_beam_file, extname='BEAM_{0}'.format(beam_pol))
+        external_beam_freqs = fits.getdata(external_beam_file, extname='FREQS_{0}'.format(beam_pol)) # in MHz
+        external_beam = external_beam.reshape(-1,external_beam_freqs.size) # npix x nfreqs
+    elif beam_filefmt == 'uvbeam':
+        if uvbeam_module_found:
+            uvbm = UVBeam()
+            uvbm.read_beamfits(external_beam_file)
+            axis_vec_ind = 0 # for power beam
+            spw_ind = 0 # spectral window index
+            if beam_pol.lower() in ['x', 'e']:
+                beam_pol_ind = 0
+            else:
+                beam_pol_ind = 1
+            external_beam = uvbm.data_array[axis_vec_ind,spw_ind,beam_pol_ind,:,:].T # npix x nfreqs
+            external_beam_freqs = uvbm.freq_array.ravel() / 1e6 # nfreqs (in MHz)
+        else:
+            raise ImportError('uvbeam module not installed/found')
+    else:
+        raise ValueError('Specified beam file format not currently supported')
     beam_usage_str = 'extpb_'+beam_id
     if beam_chromaticity:
         if pbeam_spec_interp_method == 'fft':

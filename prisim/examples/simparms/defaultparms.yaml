@@ -350,13 +350,14 @@ beam    :
 
     filefmt         : 'FITS'
                                 # File format for external beam file.
-                                # Accepted values are 'HDF5' and 'FITS'
+                                # Accepted values are 'HDF5', 'FITS',
+                                # and 'UVBeam' (pyuvdata UVBeam object)
 
     identifier      : 'HERA-CST'
                                 # string to identify source of beam
                                 # Any string. e.g. RB=Rich Bradley,
-                                # AN=Abraham Neben
-                                # DD=Dave DeBoer, or 'HERA-CST'
+                                # AN=Abraham Neben, DD=Dave DeBoer,
+                                # 'HERA-CST', NF=Nic Fagnoni, etc.
 
     pol             : 'X'
                                 # Beam polarization. Accepted values
