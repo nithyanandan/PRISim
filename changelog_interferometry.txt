@@ -1,3 +1,13 @@
+From e0ab939 (issue-16):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Add member function getBaselinesInGroups() in class
+InterferometerArray along with docstring to find redundant baselines
+in the baseline group corresponding to the given baseline labels.
+Update class docstring accordingly
+
 From edcfa1e (issue-16):
 =======================
 
