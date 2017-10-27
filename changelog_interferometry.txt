@@ -1,3 +1,11 @@
+From 8f84a22 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Add function getBaselineGroupKeys() along with docstring to find
+the baseline group keys for given baseline labels
+
 From 2c7a4ad (issue-22), bbc3ff3 (master):
 =========================================
 

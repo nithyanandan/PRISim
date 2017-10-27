@@ -1735,6 +1735,82 @@ def getBaselineInfo(inpdict):
 
 #################################################################################
 
+def getBaselineGroupKeys(inp_labels, blgroups_reversemap):
+
+    """
+    ---------------------------------------------------------------------------
+    Inputs:
+
+    inp_labels
+            [list] List where each element in the list is a two-element tuple 
+            that corresponds to a baseline / antenna pair label. 
+            e.g. [('1', '2'), ('3', '0'), ('2', '2'), ...] 
+
+    blgroups_reversemap
+            [dictionary] Contains the baseline category for each baseline. 
+            The keys are baseline labels as tuple and the value under each 
+            key is the label of the unique baseline category that it falls 
+            under. That label could be a two-element Numpy RecArray or a tuple. 
+            Each element in this two-element tuple must be an antenna label 
+            specified as a string. e.g. {('9','8'): ('2','3'), 
+            ('12','11'): ('2','3'), ('1','4'): ('6','7'),...} or {('9','8'): 
+            array[('2','3')], ('12','11'): array[('2','3')], 
+            ('1','4'): array[('6','7')],...}
+
+    Output:
+
+    Tuple containing two values. The first value is a list of all baseline
+    group keys corresponding to the input keys. If any input keys were not
+    found in blgroups_reversemap, those corresponding position in this list
+    will be filled with None to indicate the label was not found. The second
+    value in the tuple indicates if the ordering of the input label had to be
+    flipped in order to find the baseline group key. Positions where an input
+    label was found as is will contain False, but if it had to be flipped will
+    contain True. If the input label was not found, it will be filled with 
+    None. For example, 
+    blkeys, flipped = ([('2','3'), ('11','16'), None, ('5','1'),...], 
+    [False, True, None, False])
+    ---------------------------------------------------------------------------
+    """
+
+    try:
+        inp_labels, blgroups_reversemap
+    except NameError:
+        raise NameError('Inputs inp_label and blgroups_reversemap must be provided')
+
+    if not isinstance(blgroups_reversemap, dict):
+        raise TypeError('Input blgroups_reversemap must be a dictionary')
+
+    if not isinstance(inp_labels, list):
+        inp_labels = [inp_labels]
+        
+    blgrpkeys = []
+    flip_order = []
+    for lbl in inp_labels:
+        if lbl in blgroups_reversemap.keys():
+            if isinstance(blgroups_reversemap[lbl], NP.ndarray):
+                blgrpkeys += [tuple(blgroups_reversemap[lbl][0])]
+            elif isinstance(blgroups_reversemap[lbl], tuple):
+                blgrpkeys += [blgroups_reversemap[lbl]]
+            else:
+                raise TypeError('Invalid type found in blgroups_reversemap')
+            flip_order += [False]
+        elif lbl[::-1] in blgroups_reversemap.keys():
+            if isinstance(blgroups_reversemap[lbl[::-1]], NP.ndarray):
+                blgrpkeys += [tuple(blgroups_reversemap[lbl[::-1]][0])]
+            elif isinstance(blgroups_reversemap[lbl[::-1]], tuple):
+                blgrpkeys += [blgroups_reversemap[lbl[::-1]]]
+            else:
+                raise TypeError('Invalid type found in blgroups_reversemap')
+            flip_order += [True]
+        else:
+            blgrpkeys += [None]
+            flip_order += [None]
+
+    return (blgrpkeys, flip_order)
+
+#################################################################################
+
 def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
 
     """
