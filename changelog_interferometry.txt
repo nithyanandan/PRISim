@@ -1,3 +1,16 @@
+From edcfa1e (issue-16):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Add member function getBaselineGroupKeys() in class
+InterferometerArray along with docstring to find the baseline group
+keys for given baseline labels. Update class docstring accordingly
+(*) Update docstring of function getBaselineGroupKeys() to include a
+description of the function
+(*) Update docstring of function getBaselinesInGroups() to include a
+description of the function
+
 From 7c9877f (issue-16):
 =======================
 
