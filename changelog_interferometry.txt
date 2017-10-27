@@ -1,3 +1,12 @@
+From 7c9877f (issue-16):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Add function getBaselinesInGroups() along with docstring to find
+baselines in redundant groups corresponding to the given baseline
+labels
+
 From 8f84a22 (master):
 =====================
 

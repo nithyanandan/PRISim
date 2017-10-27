@@ -1767,9 +1767,13 @@ def getBaselineGroupKeys(inp_labels, blgroups_reversemap):
     flipped in order to find the baseline group key. Positions where an input
     label was found as is will contain False, but if it had to be flipped will
     contain True. If the input label was not found, it will be filled with 
-    None. For example, 
-    blkeys, flipped = ([('2','3'), ('11','16'), None, ('5','1'),...], 
-    [False, True, None, False])
+    None. 
+
+    Example:
+
+    blkeys, flipped = getBaselineGroupKeys(inp_labels, blgroups_reversemap) 
+    blkeys --> [('2','3'), ('11','16'), None, ('5','1'),...]
+    flipped --> [False, True, None, False],...)
     ---------------------------------------------------------------------------
     """
 
@@ -1808,6 +1812,72 @@ def getBaselineGroupKeys(inp_labels, blgroups_reversemap):
             flip_order += [None]
 
     return (blgrpkeys, flip_order)
+
+#################################################################################
+
+def getBaselinesInGroups(inp_labels, blgroups_reversemap, blgroups):
+
+    """
+    ---------------------------------------------------------------------------
+    Inputs:
+
+    inp_labels
+            [list] List where each element in the list is a two-element tuple 
+            that corresponds to a baseline / antenna pair label. 
+            e.g. [('1', '2'), ('3', '0'), ('2', '2'), ...] 
+
+    blgroups_reversemap
+            [dictionary] Contains the baseline category for each baseline. 
+            The keys are baseline labels as tuple and the value under each 
+            key is the label of the unique baseline category that it falls 
+            under. That label could be a two-element Numpy RecArray or a tuple. 
+            Each element in this two-element tuple must be an antenna label 
+            specified as a string. e.g. {('9','8'): ('2','3'), 
+            ('12','11'): ('2','3'), ('1','4'): ('6','7'),...} or {('9','8'): 
+            array[('2','3')], ('12','11'): array[('2','3')], 
+            ('1','4'): array[('6','7')],...}
+
+    blgroups
+            [dictionary] Contains the grouping of unique baselines and the
+            redundant baselines as numpy recarray under each unique baseline 
+            category/flavor. It contains as keys the labels (tuple of A1, A2) 
+            of unique baselines and the value under each of these keys is a 
+            list of baseline labels that are redundant under that category
+
+    Output:
+
+    Tuple with two elements where the first element is a list of numpy 
+    RecArrays where each RecArray corresponds to the entry in inp_label and is 
+    an array of two-element records corresponding to the baseline labels in 
+    that redundant group. If the input baseline is not found, the corresponding 
+    element in the list is None to indicate the baseline label was not found. 
+    The second value in the tuple indicates if the ordering of the input label 
+    had to be flipped in order to find the baseline group key. Positions where 
+    an input label was found as is will contain False, but if it had to be 
+    flipped will contain True. If the input label was not found, it will 
+    contain a None entry.
+
+    Example:
+
+    list_blgrps, flipped = getBaselineGroupKeys(inplabels, bl_revmap, blgrps) 
+    list_blgrps --> [array([('2','3'), ('11','16')]), None, 
+                     array([('5','1')]), ...], 
+    flipped --> [False, True, None, ...])
+    ---------------------------------------------------------------------------
+    """
+
+    if not isinstance(blgroups, dict):
+        raise TypeError('Input blgroups must be a dictionary')
+
+    blkeys, flip_order = getBaselineGroupKeys(inp_labels, blgroups_reversemap)
+    blgrps = []
+    for blkey in blkeys:
+        if blkey is not None:
+            blgrps += [blgroups[blkey]]
+        else:
+            blgrps += [None]
+
+    return (blgrps, flip_order)
 
 #################################################################################
 
