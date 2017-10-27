@@ -1522,7 +1522,7 @@ elif use_custom:
     majax = catdata['MAJAX'].data
     minax = catdata['MINAX'].data
     pa = catdata['PA'].data
-    freq_custom = 0.185 # in GHz
+    freq_custom = flux_unit = parms['fgparm']['custom_reffreq']
     freq_catalog = freq_custom * 1e9 + NP.zeros(fint.size)
     catlabel = NP.repeat('custom', fint.size)
     if fluxcut_max is None:

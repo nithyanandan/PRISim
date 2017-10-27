@@ -1,3 +1,16 @@
+From bb62b35 (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add parameter custom_reffreq to specify reference frequency for
+the custom catalog
+
+In scripts/run_prisim.py,
+
+(*) Replace hard-coded reference frequency for the custom catalog
+with the one read from the parameter file now updated as above
+
 From cce8bf8 (master):
 =====================
 

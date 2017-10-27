@@ -645,6 +645,11 @@ fgparm   :
                                 # temperature in K or 'Jy' for flux
                                 # density in Jy
 
+    custom_reffreq  : 0.150
+                                # Catalog reference frequency (in GHz).
+                                # Applies only to custom catalog when
+                                # FG model is set to 'custom'
+
     flux_min        : 10.0
                                 # Flux density lower limit (Jy) to be 
                                 # applied to 'csm', 'mwacs', 'gleam',
