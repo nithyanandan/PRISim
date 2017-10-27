@@ -1,0 +1,15 @@
+.eggs
+.idea/*
+/*.tar.gz
+/*~
+/main/*
+/modules/*
+/scripts/*~
+/scripts/*.pyc
+/prisim/*~
+/prisim/*.pyc
+/prisim/examples/dbparms/*~
+/prisim/examples/pbparms/*~
+/prisim/examples/ioparms/*~
+/prisim/*.pyc
+/prisim/*.tar.gz

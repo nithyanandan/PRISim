@@ -23,7 +23,7 @@ metadata = dict(re.findall("__([a-z]+)__\s*=\s*'([^']+)'", metafile))
 setup(name='PRISim',
     version=metadata['version'],
     description=metadata['description'],
-    long_description=open("README.txt").read(),
+    long_description=open("README.rst").read(),
     url=metadata['url'],
     author=metadata['author'],
     author_email=metadata['authoremail'],

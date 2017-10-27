@@ -1,3 +1,15 @@
+From 2c7a4ad (issue-22), bbc3ff3 (master):
+=========================================
+
+(*) Add README.rst to repo
+(*) Remove README.txt from repo
+(*) Add .gitignore to repo
+(*) Add prisim/githash.txt to repo
+
+In setup.py,
+
+(*) Replace occurrences of README.txt with README.rst
+
 From c42e4e4 (issue-18), 27af5bc (master):
 =========================================
 
