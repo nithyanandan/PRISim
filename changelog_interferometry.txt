@@ -1,3 +1,12 @@
+From c42e4e4 (issue-18), 27af5bc (master):
+=========================================
+
+In prisim/interferometry.py,
+
+(*) Add fixes from issue#18, anemly, importing ascii from astropy.io
+and adding 'antenna_positions' to attributes list to initialize
+UVData object of the pyuvdata module
+
 From bb62b35 (master):
 =====================
 
