@@ -52,4 +52,4 @@ Basic Usage
 
 RUN: ``mpirun -n 2 run_prisim.py -i parameterfile.yaml``
 
-data_size :math:`\propto n_\textrm{bl} \times nchan \times n_\textrm{acc}`
+data_size :math:`\\propto n_\\textrm{bl} \\times nchan \\times n_\\textrm{acc}`
