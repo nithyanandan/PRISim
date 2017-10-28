@@ -1,3 +1,10 @@
+From 7411561 (master):
+=====================
+
+In README.rst,
+
+(*) Update some instructions to install
+
 From e0ab939 (issue-16):
 =======================
 
