@@ -6622,7 +6622,8 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def getClosurePhase(self, antenna_triplets=None):
+    def getClosurePhase(self, antenna_triplets=None, delay_filter_info=None,
+                        spectral_window_info=None):
 
         """
         -------------------------------------------------------------------------
@@ -6635,6 +6636,63 @@ class InterferometerArray(object):
                     triplet is given as a tuple. If set to None (default), all
                     the unique triplets based on the antenna layout attribute
                     in class InterferometerArray
+
+        delay_filter_info
+                    [NoneType or dictionary] Info containing delay filter 
+                    parameters. If set to None (default), no delay filtering is
+                    performed. Otherwise, delay filter is applied on each of the
+                    visibilities in the triplet before computing the closure
+                    phases. The delay filter parameters are specified in a 
+                    dictionary as follows:
+                    'type'      [string] 'horizon' (default) or 'regular'. If
+                                set to 'horizon', the horizon delay limits are
+                                estimated from the respective baseline lengths
+                                in the triplet. If set to 'regular', the extent
+                                of the filter is determined by the 'min' and
+                                'width' keys (see below). 
+                    'min'       [scalar] Non-negative number (in seconds) that
+                                specifies the minimum delay in the filter span.
+                                If not specified, it is assumed to be 0. If 
+                                'type' is set to 'horizon', the 'min' is ignored 
+                                and set to 0. 
+                    'width'     [scalar] Non-negative number (in numbers of 
+                                inverse bandwidths). If 'type' is set to 
+                                'horizon', the width represents the delay 
+                                buffer beyond the horizon. If 'type' is set to
+                                'regular', this number has to be positive and
+                                determines the span of the filter starting from
+                                the minimum delay in key 'min'. 
+                    'mode'      [string] 'discard' (default) or 'retain'. If set
+                                to 'discard', the span defining the filter is
+                                discarded and the rest retained. If set to 
+                                'retain', the span defining the filter is 
+                                retained and the rest discarded. For example, 
+                                if 'type' is set to 'horizon' and 'mode' is set
+                                to 'discard', the horizon-to-horizon is 
+                                filtered out (discarded).
+
+        spectral_window_info    [NoneType or dictionary] Spectral window 
+                                parameters to determine the spectral weights and
+                                apply to the visibilities in the frequency 
+                                domain before filtering in the delay domain. If
+                                set to None (default), unity spectral weights 
+                                are applied. If spectral weights are to be 
+                                applied, it must be a provided as a dictionary 
+                                with the following keys and values:
+                                bw_eff       [scalar] effective bandwidths (in 
+                                             Hz) for the spectral window
+                                freq_center  [scalar] frequency center (in Hz) 
+                                             for the spectral window
+                                shape        [string] frequency window shape for 
+                                             the spectral window. Accepted 
+                                             values are 'rect' or 'RECT' (for 
+                                             rectangular), 'bnw' and 'BNW' (for 
+                                             Blackman-Nuttall), and 'bhw' or 
+                                             'BHW' (for Blackman-Harris). 
+                                             Default=None sets it to 'rect' 
+                                fftpow       [scalar] power to which the FFT of 
+                                             the window will be raised. The 
+                                             value must be a positive scalar. 
 
         Output:
 
@@ -6663,6 +6721,23 @@ class InterferometerArray(object):
                                 triplet. The number of 3x3 unit elements in the 
                                 list will equal the number of elements in the 
                                 list under key 'antenna_triplets'. 
+        'skyvis'                [numpy array] Noiseless visibilities that went 
+                                into the triplet used for estimating closure
+                                phases. It has size ntriplets x 3 nchan x ntimes
+                                where 3 is for the triplet of visibilities or
+                                baselines involved. 
+        'vis'                   [numpy array] Same as 'skyvis' but for noisy
+                                visibilities
+        'noisevis'              [numpy array] Same as 'skyvis' but for the
+                                noise in the visibilities
+        'spectral_weights'      [numpy array] Spectral weights applied in the
+                                frequency domain before filtering. This is 
+                                derived based on the parameters in the input 
+                                spectral_window_info. If spectral_window_info is
+                                set to None, the spectral weights are set to 1.0
+                                with shape (1,). If spectral_window_info is 
+                                specified as not None, the shape of the spectral
+                                weights is (nchan,).
         -------------------------------------------------------------------------
         """
 
@@ -6672,10 +6747,119 @@ class InterferometerArray(object):
         if not isinstance(antenna_triplets, list):
             raise TypeError('Input antenna triplets must be a list of triplet tuples')
 
+        # Check if spectral windowing is to be applied
+        if spectral_window_info is not None:
+            freq_center = spectral_window_info['freq_center']
+            bw_eff = spectral_window_info['bw_eff']
+            shape = spectral_window_info['shape']
+            fftpow = spectral_window_info['fftpow']
+
+            if freq_center is None:
+                freq_center = self.channels[self.channels.size/2]
+            if shape is None:
+                shape = 'rect'
+            else:
+                shape = shape.lower()
+            if bw_eff is None:
+                if shape == 'rect':
+                    bw_eff = self.channels.size * self.freq_resolution
+                elif shape == 'bhw':
+                    bw_eff = 0.5 * self.channels.size * self.freq_resolution
+                else:
+                    raise ValueError('Specified window shape not currently supported')
+            if fftpow is None:
+                fftpow = 1.0
+            elif isinstance(fftpow, (int,float)):
+                if fftpow <= 0.0:
+                    raise ValueError('Value fftpow must be positive')
+            else:
+                raise ValueError('Value fftpow must be a scalar (int or float)')
+            
+            freq_wts = NP.empty(self.channels.size, dtype=NP.float_)
+            frac_width = DSP.window_N2width(n_window=None, shape=shape, fftpow=fftpow, area_normalize=False, power_normalize=True)
+            window_loss_factor = 1 / frac_width
+            n_window = NP.round(window_loss_factor * bw_eff / self.freq_resolution).astype(NP.int)
+            ind_freq_center, ind_channels, dfrequency = LKP.find_1NN(self.channels.reshape(-1,1), NP.asarray(freq_center).reshape(-1,1), distance_ULIM=0.5*self.freq_resolution, remove_oob=True)
+            sortind = NP.argsort(ind_channels)
+            ind_freq_center = ind_freq_center[sortind]
+            ind_channels = ind_channels[sortind]
+            dfrequency = dfrequency[sortind]
+            # n_window = n_window[sortind]
+
+            window = NP.sqrt(frac_width * n_window) * DSP.window_fftpow(n_window, shape=shape, fftpow=fftpow, centering=True, peak=None, area_normalize=False, power_normalize=True)
+
+            window_chans = self.channels[ind_channels[0]] + self.freq_resolution * (NP.arange(n_window) - int(n_window/2))
+            ind_window_chans, ind_chans, dfreq = LKP.find_1NN(self.channels.reshape(-1,1), window_chans.reshape(-1,1), distance_ULIM=0.5*self.freq_resolution, remove_oob=True)
+            sind = NP.argsort(ind_window_chans)
+            ind_window_chans = ind_window_chans[sind]
+            ind_chans = ind_chans[sind]
+            dfreq = dfreq[sind]
+            window = window[ind_window_chans]
+            window = NP.pad(window, ((ind_chans.min(), self.channels.size-1-ind_chans.max())), mode='constant', constant_values=((0.0,0.0)))
+            freq_wts = window
+        else:
+            freq_wts = NP.asarray(1.0).reshape(-1)
+
+        # Check if delay filter is to be performed
+        filter_unmask = NP.ones(self.channels.size)
+        if delay_filter_info is not None:
+            fft_delays = DSP.spectral_axis(self.channels.size, delx=self.freq_resolution, shift=False, use_real=False)
+            dtau = fft_delays[1] - fft_delays[0]
+            if not isinstance(delay_filter_info, dict):
+                raise TypeError('Delay filter info must be specified as a dictionary')
+
+            if 'mode' not in delay_filter_info:
+                filter_mode = 'discard'
+            else:
+                filter_mode = delay_filter_info['mode']
+            if filter_mode.lower() not in ['discard', 'retain']:
+                raise ValueError('Invalid delay filter mode specified')
+
+            if 'type' not in delay_filter_info:
+                filter_type = 'horizon'
+            else:
+                filter_type = delay_filter_info['type']
+            if filter_type.lower() not in ['horizon', 'regular']:
+                raise ValueError('Invalid delay filter type specified')
+            if filter_type.lower() == 'regular':
+                if ('min' not in delay_filter_info) or ('width' not in delay_filter_info):
+                    raise KeyError('Keys "min" and "width" must be specified in input delay_filter_info')
+                delay_min = delay_filter_info['min']
+                delay_width = delay_filter_info['width']
+                if delay_min is None:
+                    delay_min = 0.0
+                elif isinstance(delay_min, (int,float)):
+                    delay_min = max([0.0, delay_min])
+                else:
+                    raise TypeError('Minimum delay in the filter must be a scalar value (int or float)')
+
+                if isinstance(delay_width, (int,float)):
+                    if delay_width <= 0.0:
+                        raise ValueError('Delay filter width must be positive')
+                else:
+                    raise TypeError('Delay width in the filter must be a scalar value (int or float)')
+            else:
+                if 'width' not in delay_filter_info:
+                    delay_width = 0.0
+                else:
+                    delay_width = delay_filter_info['width']
+
+                if delay_width is None:
+                    delay_width = 0.0
+                elif isinstance(delay_width, (int,float)):
+                    if delay_width <= 0.0:
+                        raise ValueError('Delay filter width must be positive')
+                else:
+                    raise TypeError('Delay width in the filter must be a scalar value (int or float)')
+            delay_width = delay_width * dtau
+
         phase_skyvis123 = []
         phase_vis123 = []
         phase_noise123 = []
         blvecttriplets = []
+        skyvis_triplets = []
+        vis_triplets = []
+        noise_triplets = []
         for anttriplet in antenna_triplets:
             blvecttriplets += [NP.zeros((3,3))]
             a1, a2, a3 = anttriplet
@@ -6751,11 +6935,109 @@ class InterferometerArray(object):
                 blvecttriplets[-1][2,:] = -self.baselines[ind31,:]
                 bpwts31 = self.bp[ind31,:,:].conj() * self.bp_wts[ind31,:,:].conj()
 
-            phase_skyvis123 += [NP.angle(skyvis12*skyvis23*skyvis31 * bpwts12*bpwts23*bpwts31)]
-            phase_vis123 += [NP.angle(vis12*vis23*vis31 * bpwts12*bpwts23*bpwts31)]
-            phase_noise123 += [NP.angle(noise12*noise23*noise31 * bpwts12*bpwts23*bpwts31)]
+            # Check if delay filter is to be performed
+            if delay_filter_info is not None:
+                if filter_type.lower() == 'regular':
+                    delay_max = delay_min + delay_width
+                    if filter_mode.lower() == 'discard':
+                        mask_ind = NP.logical_and(NP.abs(fft_delays) >= delay_min, NP.abs(fft_delays) <= delay_max)
+                    else:
+                        mask_ind = NP.logical_or(NP.abs(fft_delays) <= delay_min, NP.abs(fft_delays) >= delay_max)
+                    filter_unmask[mask_ind] = 0.0
 
-        return {'closure_phase_skyvis': NP.asarray(phase_skyvis123), 'closure_phase_vis': NP.asarray(phase_vis123), 'closure_phase_noise': NP.asarray(phase_noise123), 'antenna_triplets': antenna_triplets, 'baseline_triplets': blvecttriplets}
+                    skyvis12 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*skyvis12,ax=0,inverse=False), ax=0, inverse=True)
+                    skyvis23 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*skyvis23,ax=0,inverse=False), ax=0, inverse=True)
+                    skyvis31 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*skyvis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    vis12 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*vis12,ax=0,inverse=False), ax=0, inverse=True)
+                    vis23 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*vis23,ax=0,inverse=False), ax=0, inverse=True)
+                    vis31 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*vis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    noise12 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*noise12,ax=0,inverse=False), ax=0, inverse=True)
+                    noise23 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*noise23,ax=0,inverse=False), ax=0, inverse=True)
+                    noise31 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*noise31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    # skyvis12 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(skyvis12,ax=0,inverse=False), ax=0, inverse=True)
+                    # skyvis23 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(skyvis23,ax=0,inverse=False), ax=0, inverse=True)
+                    # skyvis31 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(skyvis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    # vis12 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(vis12,ax=0,inverse=False), ax=0, inverse=True)
+                    # vis23 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(vis23,ax=0,inverse=False), ax=0, inverse=True)
+                    # vis31 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(vis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    # noise12 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(noise12,ax=0,inverse=False), ax=0, inverse=True)
+                    # noise23 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(noise23,ax=0,inverse=False), ax=0, inverse=True)
+                    # noise31 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(noise31,ax=0,inverse=False), ax=0, inverse=True)
+
+                else:
+                    filter_unmask12 = 1.0 * filter_unmask
+                    filter_unmask23 = 1.0 * filter_unmask
+                    filter_unmask31 = 1.0 * filter_unmask
+                    delay_max12 = self.baseline_lengths[ind12] / FCNST.c + delay_width
+                    delay_max23 = self.baseline_lengths[ind23] / FCNST.c + delay_width
+                    delay_max31 = self.baseline_lengths[ind31] / FCNST.c + delay_width
+                    if filter_mode.lower() == 'discard':
+                        mask_ind12 = NP.abs(fft_delays) <= delay_max12
+                        mask_ind23 = NP.abs(fft_delays) <= delay_max23
+                        mask_ind31 = NP.abs(fft_delays) <= delay_max31
+                    else:
+                        mask_ind12 = NP.abs(fft_delays) >= delay_max12
+                        mask_ind23 = NP.abs(fft_delays) >= delay_max23
+                        mask_ind31 = NP.abs(fft_delays) >= delay_max31
+                    
+                    filter_unmask12[mask_ind12] = 0.0
+                    filter_unmask23[mask_ind23] = 0.0
+                    filter_unmask31[mask_ind31] = 0.0
+
+                    skyvis12 = DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*skyvis12,ax=0,inverse=False), ax=0, inverse=True)
+                    skyvis23 = DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*skyvis23,ax=0,inverse=False), ax=0, inverse=True)
+                    skyvis31 = DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*skyvis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    vis12 = DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*vis12,ax=0,inverse=False), ax=0, inverse=True)
+                    vis23 = DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*vis23,ax=0,inverse=False), ax=0, inverse=True)
+                    vis31 = DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*vis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    noise12 = DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*noise12,ax=0,inverse=False), ax=0, inverse=True)
+                    noise23 = DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*noise23,ax=0,inverse=False), ax=0, inverse=True)
+                    noise31 = DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*noise31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    # skyvis12 = 1.0 * fft_delays.size / NP.sum(filter_unmask12) * DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(skyvis12,ax=0,inverse=False), ax=0, inverse=True)
+                    # skyvis23 = 1.0 * fft_delays.size / NP.sum(filter_unmask23) * DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(skyvis23,ax=0,inverse=False), ax=0, inverse=True)
+                    # skyvis31 = 1.0 * fft_delays.size / NP.sum(filter_unmask31) * DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(skyvis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    # vis12 = 1.0 * fft_delays.size / NP.sum(filter_unmask12) * DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(vis12,ax=0,inverse=False), ax=0, inverse=True)
+                    # vis23 = 1.0 * fft_delays.size / NP.sum(filter_unmask23) * DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(vis23,ax=0,inverse=False), ax=0, inverse=True)
+                    # vis31 = 1.0 * fft_delays.size / NP.sum(filter_unmask31) * DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(vis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    # noise12 = 1.0 * fft_delays.size / NP.sum(filter_unmask12) * DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(noise12,ax=0,inverse=False), ax=0, inverse=True)
+                    # noise23 = 1.0 * fft_delays.size / NP.sum(filter_unmask23) * DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(noise23,ax=0,inverse=False), ax=0, inverse=True)
+                    # noise31 = 1.0 * fft_delays.size / NP.sum(filter_unmask31) * DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(noise31,ax=0,inverse=False), ax=0, inverse=True)
+            else:
+                skyvis12 = freq_wts.reshape(-1,1)*skyvis12
+                skyvis23 = freq_wts.reshape(-1,1)*skyvis23
+                skyvis31 = freq_wts.reshape(-1,1)*skyvis31
+
+                vis12 = freq_wts.reshape(-1,1)*vis12
+                vis23 = freq_wts.reshape(-1,1)*vis23
+                vis31 = freq_wts.reshape(-1,1)*vis31
+
+                noise12 = freq_wts.reshape(-1,1)*noise12
+                noise23 = freq_wts.reshape(-1,1)*noise23
+                noise31 = freq_wts.reshape(-1,1)*noise31
+                
+            skyvis_triplets += [[skyvis12*bpwts12, skyvis23*bpwts23, skyvis31*bpwts31]]
+            vis_triplets += [[vis12*bpwts12, vis23*bpwts23, vis31*bpwts31]]
+            noise_triplets += [[noise12*bpwts12, noise23*bpwts23, noise31*bpwts31]]
+
+        skyvis_triplets = NP.asarray(skyvis_triplets)
+        vis_triplets = NP.asarray(vis_triplets)
+        noise_triplets = NP.asarray(noise_triplets)
+
+        phase_skyvis123 = NP.angle(NP.prod(skyvis_triplets, axis=1))
+        phase_vis123 = NP.angle(NP.prod(vis_triplets, axis=1))
+        phase_noise123 = NP.angle(NP.prod(noise_triplets, axis=1))
+        
+        return {'closure_phase_skyvis': phase_skyvis123, 'closure_phase_vis': phase_vis123, 'closure_phase_noise': phase_noise123, 'antenna_triplets': antenna_triplets, 'baseline_triplets': blvecttriplets, 'skyvis': skyvis_triplets, 'vis': vis_triplets, 'noisevis': noise_triplets, 'spectral_weights': freq_wts}
 
     #############################################################################
 

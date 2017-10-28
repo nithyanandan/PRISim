@@ -2508,6 +2508,8 @@ class DelaySpectrum(object):
     #############################################################################
 
     def subband_delay_transform_closure_phase(self, bw_eff, antenna_triplets=None,
+                                              delay_filter_info=None,
+                                              spectral_window_info=None,
                                               freq_center=None, shape=None, 
                                               fftpow=None, pad=None, action=None,
                                               verbose=True):
@@ -2521,55 +2523,118 @@ class DelaySpectrum(object):
 
         Inputs:
 
-        bw_eff       [scalar or numpy array] effective bandwidths (in Hz) on the 
-                     selected frequency windows for subband delay transform of 
-                     closure phases. If a scalar value is provided, the same 
-                     will be applied to all frequency windows
+        bw_eff      [scalar or numpy array] effective bandwidths (in Hz) on the 
+                    selected frequency windows for subband delay transform of 
+                    closure phases. If a scalar value is provided, the same 
+                    will be applied to all frequency windows
 
         antenna_triplets
-                     [list of tuples] List of antenna ID triplets where each 
-                     triplet is given as a tuple. If set to None (default), all
-                     the unique triplets based on the antenna layout attribute
-                     in class InterferometerArray
+                    [list of tuples] List of antenna ID triplets where each 
+                    triplet is given as a tuple. If set to None (default), all
+                    the unique triplets based on the antenna layout attribute
+                    in class InterferometerArray
 
-        freq_center  [scalar, list or numpy array] frequency centers (in Hz) of 
-                     the selected frequency windows for subband delay transform 
-                     of closure phases. The value can be a scalar, list or numpy 
-                     array. If a scalar is provided, the same will be applied to 
-                     all frequency windows. Default=None uses the center 
-                     frequency from the class attribute named channels
+        delay_filter_info
+                    [NoneType or dictionary] Info containing delay filter 
+                    parameters. If set to None (default), no delay filtering is
+                    performed. Otherwise, delay filter is applied on each of the
+                    visibilities in the triplet before computing the closure
+                    phases. The delay filter parameters are specified in a 
+                    dictionary as follows:
+                    'type'      [string] 'horizon' (default) or 'regular'. If
+                                set to 'horizon', the horizon delay limits are
+                                estimated from the respective baseline lengths
+                                in the triplet. If set to 'regular', the extent
+                                of the filter is determined by the 'min' and
+                                'width' keys (see below). 
+                    'min'       [scalar] Non-negative number (in seconds) that
+                                specifies the minimum delay in the filter span.
+                                If not specified, it is assumed to be 0. If 
+                                'type' is set to 'horizon', the 'min' is ignored 
+                                and set to 0. 
+                    'width'     [scalar] Non-negative number (in numbers of 
+                                inverse bandwidths). If 'type' is set to 
+                                'horizon', the width represents the delay 
+                                buffer beyond the horizon. If 'type' is set to
+                                'regular', this number has to be positive and
+                                determines the span of the filter starting from
+                                the minimum delay in key 'min'. 
+                    'mode'      [string] 'discard' (default) or 'retain'. If set
+                                to 'discard', the span defining the filter is
+                                discarded and the rest retained. If set to 
+                                'retain', the span defining the filter is 
+                                retained and the rest discarded. For example, 
+                                if 'type' is set to 'horizon' and 'mode' is set
+                                to 'discard', the horizon-to-horizon is 
+                                filtered out (discarded).
 
-        shape        [string] frequency window shape for subband delay transform 
-                     of closure phases. Accepted values for the string are 
-                     'rect' or 'RECT' (for rectangular), 'bnw' and 'BNW' (for 
-                     Blackman-Nuttall), and 'bhw' or 'BHW' (for 
-                     Blackman-Harris). Default=None sets it to 'rect' 
-                     (rectangular window)
+        spectral_window_info    [NoneType or dictionary] Spectral window 
+                                parameters to determine the spectral weights and
+                                apply to the visibilities in the frequency 
+                                domain before filtering in the delay domain. 
+                                THESE PARAMETERS ARE APPLIED ON THE INDIVIDUAL 
+                                VISIBILITIES THAT GO INTO THE CLOSURE PHASE. 
+                                THESE ARE NOT TO BE CONFUSED WITH THE PARAMETERS
+                                THAT WILL BE USED IN THE ACTUAL DELAY TRANSFORM 
+                                OF CLOSURE PHASE SPECTRA WHICH ARE SPECIFIED
+                                SEPARATELY FURTHER BELOW. 
+                                If set to None (default), unity spectral weights 
+                                are applied. If spectral weights are to be 
+                                applied, it must be a provided as a dictionary 
+                                with the following keys and values:
+                                bw_eff       [scalar] effective bandwidths (in 
+                                             Hz) for the spectral window
+                                freq_center  [scalar] frequency center (in Hz) 
+                                             for the spectral window
+                                shape        [string] frequency window shape for 
+                                             the spectral window. Accepted 
+                                             values are 'rect' or 'RECT' (for 
+                                             rectangular), 'bnw' and 'BNW' (for 
+                                             Blackman-Nuttall), and 'bhw' or 
+                                             'BHW' (for Blackman-Harris). 
+                                             Default=None sets it to 'rect' 
+                                fftpow       [scalar] power to which the FFT of 
+                                             the window will be raised. The 
+                                             value must be a positive scalar. 
 
-        fftpow       [scalar] the power to which the FFT of the window will be 
-                     raised. The value must be a positive scalar. Default = 1.0
+        freq_center [scalar, list or numpy array] frequency centers (in Hz) of 
+                    the selected frequency windows for subband delay transform 
+                    of closure phases. The value can be a scalar, list or numpy 
+                    array. If a scalar is provided, the same will be applied to 
+                    all frequency windows. Default=None uses the center 
+                    frequency from the class attribute named channels
 
-        pad          [scalar] padding fraction relative to the number of 
-                     frequency channels for closure phases. Value must be a 
-                     non-negative scalar. For e.g., a pad of 1.0 pads the 
-                     frequency axis with zeros of the same width as the number 
-                     of channels. After the delay transform, the transformed 
-                     closure phases are downsampled by a factor of 1+pad. If a 
-                     negative value is specified, delay transform will be 
-                     performed with no padding. Default=None sets to padding 
-                     factor to 1.0
+        shape       [string] frequency window shape for subband delay transform 
+                    of closure phases. Accepted values for the string are 
+                    'rect' or 'RECT' (for rectangular), 'bnw' and 'BNW' (for 
+                    Blackman-Nuttall), and 'bhw' or 'BHW' (for 
+                    Blackman-Harris). Default=None sets it to 'rect' 
+                    (rectangular window)
 
-        action       [string or None] If set to None (default) just updates the 
-                     attribute. If set to 'return_oversampled' it returns the 
-                     output dictionary corresponding to oversampled delay space
-                     quantities with full resolution in delay space. If set to 
-                     None (default) or 'return_resampled', it returns the output 
-                     dictionary corresponding to resampled or downsampled delay 
-                     space quantities.
+        fftpow      [scalar] the power to which the FFT of the window will be 
+                    raised. The value must be a positive scalar. Default = 1.0
 
-        verbose      [boolean] If set to True (default), print diagnostic and 
-                     progress messages. If set to False, no such messages are
-                     printed.
+        pad         [scalar] padding fraction relative to the number of 
+                    frequency channels for closure phases. Value must be a 
+                    non-negative scalar. For e.g., a pad of 1.0 pads the 
+                    frequency axis with zeros of the same width as the number 
+                    of channels. After the delay transform, the transformed 
+                    closure phases are downsampled by a factor of 1+pad. If a 
+                    negative value is specified, delay transform will be 
+                    performed with no padding. Default=None sets to padding 
+                    factor to 1.0
+
+        action      [string or None] If set to None (default) just updates the 
+                    attribute. If set to 'return_oversampled' it returns the 
+                    output dictionary corresponding to oversampled delay space
+                    quantities with full resolution in delay space. If set to 
+                    None (default) or 'return_resampled', it returns the output 
+                    dictionary corresponding to resampled or downsampled delay 
+                    space quantities.
+
+        verbose     [boolean] If set to True (default), print diagnostic and 
+                    progress messages. If set to False, no such messages are
+                    printed.
 
         Output: 
 
@@ -2758,7 +2823,7 @@ class DelaySpectrum(object):
                 if verbose:
                     print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
 
-        cpinfo = self.ia.getClosurePhase(antenna_triplets=antenna_triplets)
+        cpinfo = self.ia.getClosurePhase(antenna_triplets=antenna_triplets, delay_filter_info=delay_filter_info, spectral_window_info=spectral_window_info)
         result = {'antenna_triplets': cpinfo['antenna_triplets'], 'baseline_triplets': cpinfo['baseline_triplets']}
 
         freq_wts = NP.empty((bw_eff.size, self.f.size), dtype=NP.float_)
