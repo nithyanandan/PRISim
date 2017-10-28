@@ -1,3 +1,10 @@
+From 4971b1a (readme):
+=====================
+
+In README.rst,
+
+(*) Introduce math formatting
+
 From 7411561 (master):
 =====================
 

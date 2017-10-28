@@ -50,5 +50,6 @@ Basic Usage
 ===========
 
 
-data_size \propto n_bl * nchan * n_acc
 RUN: ``mpirun -n 2 run_prisim.py -i parameterfile.yaml``
+
+data_size :math:`\propto n_\textrm{bl} \times nchan \times n_\textrm{acc}`
