@@ -19,15 +19,19 @@ If using the Anaconda python distribution, many of the packages may be installed
 
 It is best to first create a new env:
 
-``conda create -n PRISim python=2``
+``conda create -n YOURENV python=2``
+
+Activate this environment:
+
+``source activate YOURENV``
 
 Then install conda packages:
 
 ``conda install mpi4py progressbar psutil pyyaml h5py``
 
-You also need ``astroutils``:
+You also need ``AstroUtils``:
 
-``pip install git+https://github.com/nithyanandan/general``
+``pip install git+https://github.com/nithyanandan/AstroUtils``
 
 which will install a list of dependencies.
 

@@ -1,3 +1,10 @@
+From e2bbf7b (master):
+=====================
+
+In README.rst,
+
+(*) Minor updates to point to updated AstroUtils package
+
 From 852eb31 (master):
 =====================
 
