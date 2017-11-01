@@ -1,3 +1,8 @@
+From 8fa8032 (master):
+=====================
+
+(*) Rename changelog_interferometry.txt to changelog.txt
+
 From e2bbf7b (master):
 =====================
 
