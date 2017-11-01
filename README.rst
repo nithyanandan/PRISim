@@ -1,5 +1,5 @@
-PRISim
-======
+PRISim (Precision Radio Interferometer Simulator)
+=================================================
 
 A modular 21cm signal simulator, including foregrounds and instrumental effects.
 
@@ -19,7 +19,7 @@ If using the Anaconda python distribution, many of the packages may be installed
 
 It is best to first create a new env:
 
-``conda create -n prisim python=2``
+``conda create -n PRISim python=2``
 
 Then install conda packages:
 
@@ -27,7 +27,7 @@ Then install conda packages:
 
 You also need ``astroutils``:
 
-``pip install git+git://github.com/nithyanandan/general``
+``pip install git+https://github.com/nithyanandan/general``
 
 which will install a list of dependencies.
 
@@ -39,9 +39,9 @@ if it is not installed already.
 
 Finally, either install PRISim directly:
 
-``pip install git+git://github.com/nithyanandan/PRISim``
+``pip install git+https://github.com/nithyanandan/PRISim``
 
-or in the top-level directory:
+or clone it into a directory and from inside that directory issue the command:
 
 ``pip install .``.
 

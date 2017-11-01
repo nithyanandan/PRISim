@@ -1,3 +1,10 @@
+From 852eb31 (master):
+=====================
+
+In README.rst,
+
+(*) Minor updates to documentation
+
 From d7e3d9b (closure), 4971b1a (master):
 ========================================
 
