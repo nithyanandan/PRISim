@@ -47,12 +47,62 @@ Finally, either install PRISim directly:
 
 or clone it into a directory and from inside that directory issue the command:
 
-``pip install .``.
+``pip install .``
 
+Getting Package Data
+--------------------
+
+Find the ``data/`` directory under PRISim installation folder which is usually in
+
+``/path/to/Anaconda/envs/YOURENV/lib/python-2.7/site-packages/prisim/``
+
+Download the contents of  
+`PRISim Data <https://drive.google.com/open?id=0Bxl4zmCNSW4tUWxrRFhRQ2l4SDQ>`_
+
+or extract the contents of  
+`gzipped PRISim Data <https://drive.google.com/open?id=0Bxl4zmCNSW4tWnJmMDlBVHRQazQ>`_
+
+and place it under 
+
+``/path/to/Anaconda/envs/YOURENV/lib/python-2.7/site-packages/prisim/data/``
+
+Testing MPI for PRISim
+----------------------
+
+On terminal, run:
+
+``mpirun -n 2 test_mpi4py_for_prisim.py``
+
+and you must see a message that the test was successful. Otherwise you will have
+to ask your system administrator to install ``openmpi`` 
+
+It has also been noted that it is preferable to install ``mpi4py`` using 
+
+``conda install mpi4py`` 
+
+rather than 
+
+``pip install mpi4py``
+
+because the pip installation seems to get the paths to the ``MPI`` libraries
+mixed up.
 
 Basic Usage
 ===========
 
+RUN on terminal: 
 
-data_size \propto n_bl * nchan * n_acc
-RUN: ``mpirun -n 2 run_prisim.py -i parameterfile.yaml``
+``mpirun -n nproc run_prisim.py -i parameterfile.yaml``
+
+or 
+
+``mpirun -n nproc xterm -e run_prisim.py -i parameterfile.yaml``
+
+where, ``nproc`` is the number of processors (say, 4), and use of option 
+``xterm -e`` opens an xterm window where you can view the progress of each of the processes.  
+
+Data Size
+=========
+
+Data size is proportional to ``n_bl x nchan x n_acc``
+

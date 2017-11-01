@@ -1,3 +1,10 @@
+From 5e925bb (master):
+=====================
+
+In README.rst,
+
+(*) Clean up some documentation
+
 From 8fa8032 (master):
 =====================
 
