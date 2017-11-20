@@ -1,3 +1,22 @@
+From 1be6e74 (closure):
+======================
+
+In prisim/interferometry.py,
+
+(*) In member function getClosurePhase() of class InterferometerArray, 
+add option specsmooth_info as input to perform spectral filtering of 
+triplet visibilities (such as for RFI) before estimating closure
+phases. Update member function docstring accordingly
+(*) Import ndimage module from scipy
+
+In prisim/delay_spectrum.py,
+
+(*) In member function subband_delay_transform_closure_phase() of
+class DelaySpectrum, add option specsmooth_info as input to perform 
+spectral filtering of triplet visibilities (such as for RFI) before
+calling InterferometerArray.getClosurePhase() to estimate closure
+phases. Update member function docstring accordingly
+
 From 5e925bb (master):
 =====================
 

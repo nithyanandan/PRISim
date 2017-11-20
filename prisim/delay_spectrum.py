@@ -2508,6 +2508,7 @@ class DelaySpectrum(object):
     #############################################################################
 
     def subband_delay_transform_closure_phase(self, bw_eff, antenna_triplets=None,
+                                              specsmooth_info=None,
                                               delay_filter_info=None,
                                               spectral_window_info=None,
                                               freq_center=None, shape=None, 
@@ -2533,6 +2534,19 @@ class DelaySpectrum(object):
                     triplet is given as a tuple. If set to None (default), all
                     the unique triplets based on the antenna layout attribute
                     in class InterferometerArray
+
+        specsmooth_info         [NoneType or dictionary] Spectral smoothing 
+                                window to be applied prior to the delay 
+                                transform. If set to None, no smoothing is done. 
+                                This is usually set if spectral smoothing is to 
+                                be done such as in the case of RFI. The 
+                                smoothing window parameters are specified using
+                                the following keys and values:
+                                'filter_type' [string] Smoothing window type 
+                                              Default='median' (currently 
+                                              accepts only 'median'). 
+                                'window_size' [integer] Size of smoothing window
+                                              (in pixels) along frequency axis
 
         delay_filter_info
                     [NoneType or dictionary] Info containing delay filter 
@@ -2823,7 +2837,7 @@ class DelaySpectrum(object):
                 if verbose:
                     print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
 
-        cpinfo = self.ia.getClosurePhase(antenna_triplets=antenna_triplets, delay_filter_info=delay_filter_info, spectral_window_info=spectral_window_info)
+        cpinfo = self.ia.getClosurePhase(antenna_triplets=antenna_triplets, specsmooth_info=specsmooth_info, delay_filter_info=delay_filter_info, spectral_window_info=spectral_window_info)
         result = {'antenna_triplets': cpinfo['antenna_triplets'], 'baseline_triplets': cpinfo['baseline_triplets']}
 
         freq_wts = NP.empty((bw_eff.size, self.f.size), dtype=NP.float_)
@@ -2855,6 +2869,7 @@ class DelaySpectrum(object):
         # lag_kernel = DSP.FT1D(NP.pad(self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
         lag_kernel = DSP.FT1D(NP.pad(freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
         result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'npad': npad, 'lags': lags, 'lag_kernel': lag_kernel, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=1)}
+
         for key in cpinfo:
             if key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
                 # result[key] = DSP.FT1D(NP.pad(NP.exp(-1j*cpinfo[key][:,NP.newaxis,:,:]) * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df

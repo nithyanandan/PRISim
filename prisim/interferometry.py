@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as NP
 import scipy.constants as FCNST
-from scipy import interpolate
+from scipy import interpolate, ndimage
 import datetime as DT
 import progressbar as PGB
 import os, ast
@@ -6623,7 +6623,7 @@ class InterferometerArray(object):
     #############################################################################
 
     def getClosurePhase(self, antenna_triplets=None, delay_filter_info=None,
-                        spectral_window_info=None):
+                        specsmooth_info=None, spectral_window_info=None):
 
         """
         -------------------------------------------------------------------------
@@ -6746,6 +6746,19 @@ class InterferometerArray(object):
 
         if not isinstance(antenna_triplets, list):
             raise TypeError('Input antenna triplets must be a list of triplet tuples')
+
+        # Check if spectral smoothing is to be applied
+        if specsmooth_info is not None:
+            if not isinstance(specsmooth_info, dict):
+                raise TypeError('Input specsmooth_info must be a dictionary')
+            if 'filter_type' not in specsmooth_info:
+                raise KeyError('Key "filter_type" not found in input specsmooth_info')
+            if specsmooth_info['filter_type'].lower() not in ['median']:
+                raise ValueError('filter_type specified in specsmooth_info currently not supported')
+            if 'window_size' not in specsmooth_info:
+                raise KeyError('Input "window_size" not found in specsmooth_info')
+            if specsmooth_info['window_size'] <= 0:
+                raise ValueError('Spectral filter window size must be positive')
 
         # Check if spectral windowing is to be applied
         if spectral_window_info is not None:
@@ -6935,6 +6948,22 @@ class InterferometerArray(object):
                 blvecttriplets[-1][2,:] = -self.baselines[ind31,:]
                 bpwts31 = self.bp[ind31,:,:].conj() * self.bp_wts[ind31,:,:].conj()
 
+            # Apply the spectral smoothing first if delay filter and / or
+            # spectral windowing is to be performed, otherwise apply later
+            # on the full array instead of inside the antenna triplet loop
+            if (delay_filter_info is not None) or (spectral_window_info is not None):
+                if specsmooth_info is not None:
+                    if specsmooth_info['filter_type'].lower() == 'median':
+                        skyvis12 = ndimage.median_filter(skyvis12.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(skyvis12.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        skyvis23 = ndimage.median_filter(skyvis23.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(skyvis23.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        skyvis31 = ndimage.median_filter(skyvis31.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(skyvis31.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        vis12 = ndimage.median_filter(vis12.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(vis12.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        vis23 = ndimage.median_filter(vis23.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(vis23.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        vis31 = ndimage.median_filter(vis31.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(vis31.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        noise12 = ndimage.median_filter(noise12.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(noise12.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        noise23 = ndimage.median_filter(noise23.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(noise23.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        noise31 = ndimage.median_filter(noise31.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(noise31.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+
             # Check if delay filter is to be performed
             if delay_filter_info is not None:
                 if filter_type.lower() == 'regular':
@@ -7032,6 +7061,17 @@ class InterferometerArray(object):
         skyvis_triplets = NP.asarray(skyvis_triplets)
         vis_triplets = NP.asarray(vis_triplets)
         noise_triplets = NP.asarray(noise_triplets)
+
+        # Apply the spectral smoothing now on the entire triplet arrays
+        # if none of delay filter or spectral windowing is to be performed,
+        # otherwise it must have been applied prior to either one of those
+        # operations
+        
+        if (delay_filter_info is None) and (spectral_window_info is None) and (specsmooth_info is not None):
+            if specsmooth_info['filter_type'].lower() == 'median':
+                skyvis_triplets = ndimage.median_filter(skyvis_triplets.real, size=(1,1,specsmooth_info['window_size'],1)) + 1j * ndimage.median_filter(skyvis_triplets.imag, size=(1,1,specsmooth_info['window_size'],1))
+                vis_triplets = ndimage.median_filter(vis_triplets.real, size=(1,1,specsmooth_info['window_size'],1)) + 1j * ndimage.median_filter(vis_triplets.imag, size=(1,1,specsmooth_info['window_size'],1))
+                noise_triplets = ndimage.median_filter(noise_triplets.real, size=(1,1,specsmooth_info['window_size'],1)) + 1j * ndimage.median_filter(noise_triplets.imag, size=(1,1,specsmooth_info['window_size'],1))
 
         phase_skyvis123 = NP.angle(NP.prod(skyvis_triplets, axis=1))
         phase_vis123 = NP.angle(NP.prod(vis_triplets, axis=1))
