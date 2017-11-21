@@ -6671,28 +6671,43 @@ class InterferometerArray(object):
                                 to 'discard', the horizon-to-horizon is 
                                 filtered out (discarded).
 
-        spectral_window_info    [NoneType or dictionary] Spectral window 
-                                parameters to determine the spectral weights and
-                                apply to the visibilities in the frequency 
-                                domain before filtering in the delay domain. If
-                                set to None (default), unity spectral weights 
-                                are applied. If spectral weights are to be 
-                                applied, it must be a provided as a dictionary 
-                                with the following keys and values:
-                                bw_eff       [scalar] effective bandwidths (in 
-                                             Hz) for the spectral window
-                                freq_center  [scalar] frequency center (in Hz) 
-                                             for the spectral window
-                                shape        [string] frequency window shape for 
-                                             the spectral window. Accepted 
-                                             values are 'rect' or 'RECT' (for 
-                                             rectangular), 'bnw' and 'BNW' (for 
-                                             Blackman-Nuttall), and 'bhw' or 
-                                             'BHW' (for Blackman-Harris). 
-                                             Default=None sets it to 'rect' 
-                                fftpow       [scalar] power to which the FFT of 
-                                             the window will be raised. The 
-                                             value must be a positive scalar. 
+        specsmooth_info         
+                    [NoneType or dictionary] Spectral smoothing window to be 
+                    applied prior to the delay transform. If set to None, no 
+                    smoothing is done. This is usually set if spectral 
+                    smoothing is to be done such as in the case of RFI. The 
+                    smoothing window parameters are specified using the
+                    following keys and values:
+                    'filter_type' [string] Smoothing window type. 
+                                  Default='median' (currently accepts only 
+                                  'median'). 
+                    'window_size' [integer] Size of smoothing window (in 
+                                  pixels) along frequency axis
+
+        spectral_window_info    
+                    [NoneType or dictionary] Spectral window parameters to 
+                    determine the spectral weights and apply to the visibilities 
+                    in the frequency domain before filtering in the delay domain. 
+                    THESE PARAMETERS ARE APPLIED ON THE INDIVIDUAL VISIBILITIES 
+                    THAT GO INTO THE CLOSURE PHASE. THESE ARE NOT TO BE CONFUSED 
+                    WITH THE PARAMETERS THAT WILL BE USED IN THE ACTUAL DELAY 
+                    TRANSFORM OF CLOSURE PHASE SPECTRA WHICH ARE SPECIFIED
+                    SEPARATELY FURTHER BELOW. 
+                    If set to None (default), unity spectral weights are applied. 
+                    If spectral weights are to be applied, it must be a provided 
+                    as a dictionary with the following keys and values:
+                    bw_eff       [scalar] effective bandwidths (in Hz) for the 
+                                 spectral window
+                    freq_center  [scalar] frequency center (in Hz) for the 
+                                 spectral window
+                    shape        [string] frequency window shape for the 
+                                 spectral window. Accepted values are 'rect' or 
+                                 'RECT' (for rectangular), 'bnw' and 'BNW' (for 
+                                 Blackman-Nuttall), and 'bhw' or 'BHW' (for 
+                                 Blackman-Harris). Default=None sets it to 'rect' 
+                    fftpow       [scalar] power to which the FFT of the window 
+                                 will be raised. The value must be a positive 
+                                 scalar. 
 
         Output:
 

@@ -1,3 +1,16 @@
+From 8360835 (closure):
+======================
+
+In prisim/interferometry.py,
+
+(*) In docstring of member function getClosurePhase() of class
+InterferometerArray, add description for input specsmooth_info
+
+In prisim/delay_spectrum.py,
+
+(*) Change formatting of docstring of member function
+subband_delay_transform_closure_phase() of class DelaySpectrum
+
 From 1be6e74 (closure):
 ======================
 
