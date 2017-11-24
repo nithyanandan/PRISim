@@ -1,3 +1,34 @@
+From 60fa8a8 (closure):
+======================
+
+In prisim/interferometry.py,
+
+(*) Add functions thermalNoiseRMS() and generateNoise() along with
+docstrings to estimate thermal noise RMS and generate noise
+respectively
+(*) In member function getClosurePhase() of class InterferometerArray
+change name of key in input dictionary specsmooth_info from
+'filter_type' to 'op_type'. Add keys 'maskchans' and 'evalchans' in
+input dictionary specsmooth_info. Update docstring and member function
+accordingly
+(*) In member function getClosurePhase() of class InterferometerArray
+make copies of attributes like skyvis_freq, vis_freq, and
+vis_noise_freq so that original values are unchanged after returning
+from the member function.
+(*) Apply spectral smoothing operation in member function
+getClosurePhase() of class InterferometerArray based on the input
+dictionary specsmooth_info
+
+In prisim/delay_spectrum.py,
+
+(*) In member function subband_delay_transform_closure_phase() of
+class DelaySpectrum, change name of key in input dictionary 
+specsmooth_info from 'filter_type' to 'op_type'. Add keys 'maskchans'
+and 'evalchans' in input dictionary specsmooth_info. Update docstring
+and member function accordingly
+(*) Update to reflect corresponding updates in member function
+getClosurePhase() of class InterferometerArray
+
 From 8360835 (closure):
 ======================
 

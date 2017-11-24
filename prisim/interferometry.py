@@ -83,6 +83,227 @@ def _astropy_columns(cols, tabtype='BinTableHDU'):
 
 ################################################################################
 
+def thermalNoiseRMS(A_eff, df, dt, Tsys, nbl=1, nchan=1, ntimes=1,
+                    flux_unit='Jy', eff_Q=1.0):
+
+    """
+    -------------------------------------------------------------------------
+    Generates thermal noise RMS from instrument parameters
+
+    A_eff       [scalar or numpy array] Effective area of the interferometer.
+                Has to be in units of m^2. If only a scalar value
+                provided, it will be assumed to be identical for all the
+                interferometers. Otherwise, it must be of shape broadcastable 
+                to (nbl,nchan,ntimes). So accpeted shapes can be (1,1,1), 
+                (1,1,ntimes), (1,nchan,1), (nbl,1,1), (1,nchan,ntimes), 
+                (nbl,nchan,1), (nbl,1,ntimes), or (nbl,nchan,ntimes). Must
+                be specified. No defaults.
+
+    df          [scalar] Frequency resolution (in Hz). Must be specified. No
+                defaults.
+
+    dt          [scalar] Time resolution (in seconds). Must be specified. No
+                defaults.
+
+    Tsys        [scalar or numpy array] System temperature (in K).
+                If only a scalar value provided, it will be assumed to be 
+                identical for all the interferometers. Otherwise, it must be of 
+                shape broadcastable to (nbl,nchan,ntimes). So accpeted shapes 
+                can be (1,1,1), (1,1,ntimes), (1,nchan,1), (nbl,1,1), 
+                (1,nchan,ntimes), (nbl,nchan,1), (nbl,1,ntimes), or 
+                (nbl,nchan,ntimes). Must be specified. No defaults.
+
+    nbl         [integer] Number of baseline vectors. Default=1
+
+    nchan       [integer] Number of frequency channels. Default=1
+
+    ntimes      [integer] Number of time stamps. Default=1
+
+    flux_unit   [string] Units of thermal noise RMS to be returned. Accepted
+                values are 'K' or 'Jy' (default)
+
+    eff_Q       [scalar or numpy array] Efficiency of the interferometer(s).
+                Has to be between 0 and 1. If only a scalar value
+                provided, it will be assumed to be identical for all the
+                interferometers. Otherwise, it must be of shape broadcastable 
+                to (nbl,nchan,ntimes). So accpeted shapes can be (1,1,1), 
+                (1,1,ntimes), (1,nchan,1), (nbl,1,1), (1,nchan,ntimes), 
+                (nbl,nchan,1), (nbl,1,ntimes), or (nbl,nchan,ntimes). 
+                Default=1.0
+
+    Output:
+
+    Numpy array of thermal noise RMS (in units of K or Jy depending on 
+    flux_unit) of shape (nbl, nchan, ntimes)
+    -------------------------------------------------------------------------
+    """
+
+    try:
+        A_eff, df, dt, Tsys
+    except NameError:
+        raise NameError('Inputs A_eff, df, dt, and Tsys must be specified')
+
+    if not isinstance(df, (int,float)):
+        raise TypeError('Input channel resolution must be a scalar')
+    else:
+        df = float(df)
+
+    if not isinstance(dt, (int,float)):
+        raise TypeError('Input time resolution must be a scalar')
+    else:
+        dt = float(dt)
+
+    if not isinstance(nbl, int):
+        raise TypeError('Input nbl must be an integer')
+    else:
+        if nbl <= 0:
+            raise ValueError('Input nbl must be positive')
+
+    if not isinstance(nchan, int):
+        raise TypeError('Input nchan must be an integer')
+    else:
+        if nchan <= 0:
+            raise ValueError('Input nchan must be positive')
+
+    if not isinstance(ntimes, int):
+        raise TypeError('Input ntimes must be an integer')
+    else:
+        if ntimes <= 0:
+            raise ValueError('Input ntimes must be positive')
+
+    if not isinstance(Tsys, (int,float,list,NP.ndarray)):
+        raise TypeError('Input Tsys must be a scalar, float, list or numpy array')
+    if isinstance(Tsys, (int,float)):
+        Tsys = NP.asarray(Tsys, dtype=NP.float).reshape(1,1,1)
+    else:
+        Tsys = NP.asarray(Tsys, dtype=NP.float)
+    if NP.any(Tsys < 0.0):
+        raise ValueError('Value(s) in Tsys cannot be negative')
+    if (Tsys.shape != (1,1,1)) and (Tsys.shape != (1,nchan,1)) and (Tsys.shape != (1,1,ntimes)) and (Tsys.shape != (nbl,1,1)) and (Tsys.shape != (nbl,nchan,1)) and (Tsys.shape != (nbl,1,ntimes)) and (Tsys.shape != (1,nchan,ntimes)) and (Tsys.shape != (nbl,nchan,ntimes)):
+        raise IndexError('System temperature specified has incompatible dimensions')
+        
+    if not isinstance(A_eff, (int,float,list,NP.ndarray)):
+        raise TypeError('Input A_eff must be a scalar, float, list or numpy array')
+    if isinstance(A_eff, (int,float)):
+        A_eff = NP.asarray(A_eff, dtype=NP.float).reshape(1,1,1)
+    else:
+        A_eff = NP.asarray(A_eff, dtype=NP.float)
+    if NP.any(A_eff < 0.0):
+        raise ValueError('Value(s) in A_eff cannot be negative')
+    if (A_eff.shape != (1,1,1)) and (A_eff.shape != (1,nchan,1)) and (A_eff.shape != (1,1,ntimes)) and (A_eff.shape != (nbl,1,1)) and (A_eff.shape != (nbl,nchan,1)) and (A_eff.shape != (nbl,1,ntimes)) and (A_eff.shape != (1,nchan,ntimes)) and (A_eff.shape != (nbl,nchan,ntimes)):
+        raise IndexError('Effective area specified has incompatible dimensions')
+        
+    if not isinstance(eff_Q, (int,float,list,NP.ndarray)):
+        raise TypeError('Input eff_Q must be a scalar, float, list or numpy array')
+    if isinstance(eff_Q, (int,float)):
+        eff_Q = NP.asarray(eff_Q, dtype=NP.float).reshape(1,1,1)
+    else:
+        eff_Q = NP.asarray(eff_Q, dtype=NP.float)
+    if NP.any(eff_Q < 0.0):
+        raise ValueError('Value(s) in eff_Q cannot be negative')
+    if (eff_Q.shape != (1,1,1)) and (eff_Q.shape != (1,nchan,1)) and (eff_Q.shape != (1,1,ntimes)) and (eff_Q.shape != (nbl,1,1)) and (eff_Q.shape != (nbl,nchan,1)) and (eff_Q.shape != (nbl,1,ntimes)) and (eff_Q.shape != (1,nchan,ntimes)) and (eff_Q.shape != (nbl,nchan,ntimes)):
+        raise IndexError('Effective area specified has incompatible dimensions')
+
+    if not isinstance(flux_unit, str):
+        raise TypeError('Input flux_unit must be a string')
+    else:
+        if flux_unit.lower() not in ['k', 'jy']:
+            raise ValueError('Input flux_unit must be set to K or Jy')
+
+    if flux_unit.lower() == 'k':
+        rms = Tsys/eff_Q/NP.sqrt(2.0*dt*df)
+    else:
+        rms = 2.0 * FCNST.k / NP.sqrt(2.0*dt*df) * (Tsys/A_eff/eff_Q) / CNST.Jy
+
+    return rms
+
+################################################################################
+
+def generateNoise(noiseRMS=None, A_eff=None, df=None, dt=None, Tsys=None, nbl=1,
+                  nchan=1, ntimes=1, flux_unit='Jy', eff_Q=None):
+
+    """
+    -------------------------------------------------------------------------
+    Generates thermal noise from instrument parameters 
+
+    noiseRMS    [NoneType or scalar or numpy array] If set to None (default), 
+                the rest of the parameters are used in determining the RMS of 
+                thermal noise. If specified as scalar, all other parameters
+                will be ignored in estimating noiseRMS and this value will be
+                used instead. If specified as a numpy array, it must be of
+                shape broadcastable to (nbl,nchan,ntimes). So accpeted shapes 
+                can be (1,1,1), (1,1,ntimes), (1,nchan,1), (nbl,1,1), 
+                (1,nchan,ntimes), (nbl,nchan,1), (nbl,1,ntimes), or 
+                (nbl,nchan,ntimes). 
+
+    A_eff       [scalar or numpy array] Effective area of the interferometer.
+                Has to be in units of m^2. If only a scalar value
+                provided, it will be assumed to be identical for all the
+                interferometers. Otherwise, it must be of shape broadcastable 
+                to (nbl,nchan,ntimes). So accpeted shapes can be (1,1,1), 
+                (1,1,ntimes), (1,nchan,1), (nbl,1,1), (1,nchan,ntimes), 
+                (nbl,nchan,1), (nbl,1,ntimes), or (nbl,nchan,ntimes). Will
+                apply only if noiseRMS is set to None
+
+    df          [scalar] Frequency resolution (in Hz). Will apply only if 
+                noiseRMS is set to None
+
+    dt          [scalar] Time resolution (in seconds). Will apply only if 
+                noiseRMS is set to None
+
+    Tsys        [scalar or numpy array] System temperature (in K).
+                If only a scalar value provided, it will be assumed to be 
+                identical for all the interferometers. Otherwise, it must be of 
+                shape broadcastable to (nbl,nchan,ntimes). So accpeted shapes 
+                can be (1,1,1), (1,1,ntimes), (1,nchan,1), (nbl,1,1), 
+                (1,nchan,ntimes), (nbl,nchan,1), (nbl,1,ntimes), or 
+                (nbl,nchan,ntimes). Will apply only if noiseRMS is set to None
+
+    nbl         [integer] Number of baseline vectors. Default=1
+
+    nchan       [integer] Number of frequency channels. Default=1
+
+    ntimes      [integer] Number of time stamps. Default=1
+
+    flux_unit   [string] Units of thermal noise RMS to be returned. Accepted
+                values are 'K' or 'Jy' (default). Will onyl apply if noiseRMS
+                is set to None. Otherwise the flux_unit will be ignored and 
+                the returned value will be in same units as noiseRMS
+
+    eff_Q       [scalar or numpy array] Efficiency of the interferometer(s).
+                Has to be between 0 and 1. If only a scalar value
+                provided, it will be assumed to be identical for all the
+                interferometers. Otherwise, it must be of shape broadcastable 
+                to (nbl,nchan,ntimes). So accpeted shapes can be (1,1,1), 
+                (1,1,ntimes), (1,nchan,1), (nbl,1,1), (1,nchan,ntimes), 
+                (nbl,nchan,1), (nbl,1,ntimes), or (nbl,nchan,ntimes). 
+                Default=1.0. Will apply only if noiseRMS is set to None
+
+    Output:
+
+    Numpy array of thermal noise (units of noiseRMS if specified or in units 
+    of K or Jy depending on flux_unit) of shape (nbl, nchan, ntimes)
+    -------------------------------------------------------------------------
+    """
+
+    if noiseRMS is None:
+        noiseRMS = thermalNoiseRMS(A_eff, df, dt, Tsys, nbl=nbl, nchan=nchan, ntimes=ntimes, flux_unit=flux_unit, eff_Q=eff_Q)
+    else:
+        if not isinstance(noiseRMS, (int,float,list,NP.ndarray)):
+            raise TypeError('Input noiseRMS must be a scalar, float, list or numpy array')
+        if isinstance(noiseRMS, (int,float)):
+            noiseRMS = NP.asarray(noiseRMS, dtype=NP.float).reshape(1,1,1)
+        else:
+            noiseRMS = NP.asarray(noiseRMS, dtype=NP.float)
+        if NP.any(noiseRMS < 0.0):
+            raise ValueError('Value(s) in noiseRMS cannot be negative')
+        if (noiseRMS.shape != (1,1,1)) and (noiseRMS.shape != (1,nchan,1)) and (noiseRMS.shape != (1,1,ntimes)) and (noiseRMS.shape != (nbl,1,1)) and (noiseRMS.shape != (nbl,nchan,1)) and (noiseRMS.shape != (nbl,1,ntimes)) and (noiseRMS.shape != (1,nchan,ntimes)) and (noiseRMS.shape != (nbl,nchan,ntimes)):
+            raise IndexError('Noise RMS specified has incompatible dimensions')
+
+    return noiseRMS / NP.sqrt(2.0) * (NP.random.randn(nbl,nchan,ntimes) + 1j * NP.random.randn(nbl,nchan,ntimes)) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts
+
+################################################################################
+
 def read_gaintable(gainsfile, axes_order=None):
 
     """
@@ -6678,11 +6899,24 @@ class InterferometerArray(object):
                     smoothing is to be done such as in the case of RFI. The 
                     smoothing window parameters are specified using the
                     following keys and values:
-                    'filter_type' [string] Smoothing window type. 
+                    'op_type'     [string] Smoothing operation type. 
                                   Default='median' (currently accepts only 
-                                  'median'). 
+                                  'median' or 'interp'). 
                     'window_size' [integer] Size of smoothing window (in 
-                                  pixels) along frequency axis
+                                  pixels) along frequency axis. Applies only
+                                  if op_type is set to 'median'
+                    'maskchans'   [NoneType or numpy array] Numpy boolean array
+                                  of size nchan. False entries imply those
+                                  channels are not masked and will be used in 
+                                  in interpolation while True implies they are
+                                  masked and will not be used in determining the
+                                  interpolation function. If set to None, all
+                                  channels are assumed to be unmasked (False).
+                    'evalchans'   [NoneType or numpy array] Channel numbers at 
+                                  which visibilities are to be evaluated. Will 
+                                  be useful for filling in RFI flagged channels.
+                                  If set to None, channels masked in 'maskchans' 
+                                  will be evaluated
 
         spectral_window_info    
                     [NoneType or dictionary] Spectral window parameters to 
@@ -6766,14 +7000,37 @@ class InterferometerArray(object):
         if specsmooth_info is not None:
             if not isinstance(specsmooth_info, dict):
                 raise TypeError('Input specsmooth_info must be a dictionary')
-            if 'filter_type' not in specsmooth_info:
-                raise KeyError('Key "filter_type" not found in input specsmooth_info')
-            if specsmooth_info['filter_type'].lower() not in ['median']:
-                raise ValueError('filter_type specified in specsmooth_info currently not supported')
-            if 'window_size' not in specsmooth_info:
-                raise KeyError('Input "window_size" not found in specsmooth_info')
-            if specsmooth_info['window_size'] <= 0:
-                raise ValueError('Spectral filter window size must be positive')
+            if 'op_type' not in specsmooth_info:
+                raise KeyError('Key "op_type" not found in input specsmooth_info')
+            if specsmooth_info['op_type'].lower() not in ['median', 'interp']:
+                raise ValueError('op_type specified in specsmooth_info currently not supported')
+            if specsmooth_info['op_type'].lower() == 'median':
+                if 'window_size' not in specsmooth_info:
+                    raise KeyError('Input "window_size" not found in specsmooth_info')
+                if specsmooth_info['window_size'] <= 0:
+                    raise ValueError('Spectral filter window size must be positive')
+            if specsmooth_info['op_type'].lower() == 'interp':
+                if 'maskchans' not in specsmooth_info:
+                    specsmooth_info['maskchans'] = NP.zeros(self.channels.size, dtype=NP.bool)
+                elif specsmooth_info['maskchans'] is None:
+                    specsmooth_info['maskchans'] = NP.zeros(self.channels.size, dtype=NP.bool)
+                elif not isinstance(specsmooth_info['maskchans'], NP.ndarray):
+                    raise TypeError('Value under key "maskchans" must be a numpy array')
+                else:
+                    if specsmooth_info['maskchans'].dtype != bool:
+                        raise TypeError('Value under key "maskchans" must be a boolean numpy array')
+                    if specsmooth_info['maskchans'].size != self.channels.size:
+                        raise ValueError('Size of numpy array under key "maskchans" i not equal to the number of frequency channels')
+                    specsmooth_info['maskchans'] = specsmooth_info['maskchans'].ravel()
+                if 'evalchans' not in specsmooth_info:
+                    specsmooth_info['evalchans'] = NP.where(specsmooth_info['maskchans'])[0]
+                elif specsmooth_info['evalchans'] is None:
+                    specsmooth_info['evalchans'] = NP.where(specsmooth_info['maskchans'])[0]
+                elif not isinstance(specsmooth_info['evalchans'], (int,list,NP.ndarray)):
+                    raise TypeError('Values under key "evalchans" must be an integer, list or numpy array')
+                else:
+                    specsmooth_info['evalchans'] = NP.asarray(specsmooth_info['evalchans']).reshape(-1)
+                unmasked_chans = NP.where(NP.logical_not(specsmooth_info['maskchans']))[0]
 
         # Check if spectral windowing is to be applied
         if spectral_window_info is not None:
@@ -6881,6 +7138,9 @@ class InterferometerArray(object):
                     raise TypeError('Delay width in the filter must be a scalar value (int or float)')
             delay_width = delay_width * dtau
 
+        skyvis_freq = NP.copy(self.skyvis_freq)
+        vis_freq = NP.copy(self.vis_freq)
+        vis_noise_freq = NP.copy(self.vis_noise_freq)
         phase_skyvis123 = []
         phase_vis123 = []
         phase_noise123 = []
@@ -6905,15 +7165,15 @@ class InterferometerArray(object):
                 raise ValueError('Baseline ({0[0]:0d}, {0[1]:0d}) not found in simulated baselines'.format(bl12_id))
             ind12 = NP.where(self.labels == bl12_id_ref)[0][0]
             if not conj12:
-                skyvis12 = self.skyvis_freq[ind12,:,:]
-                vis12 = self.vis_freq[ind12,:,:]
-                noise12 = self.vis_noise_freq[ind12,:,:]
+                skyvis12 = skyvis_freq[ind12,:,:]
+                vis12 = vis_freq[ind12,:,:]
+                noise12 = vis_noise_freq[ind12,:,:]
                 blvecttriplets[-1][0,:] = self.baselines[ind12,:]
                 bpwts12 = self.bp[ind12,:,:] * self.bp_wts[ind12,:,:]
             else:
-                skyvis12 = self.skyvis_freq[ind12,:,:].conj()
-                vis12 = self.vis_freq[ind12,:,:].conj()
-                noise12 = self.vis_noise_freq[ind12,:,:].conj()
+                skyvis12 = skyvis_freq[ind12,:,:].conj()
+                vis12 = vis_freq[ind12,:,:].conj()
+                noise12 = vis_noise_freq[ind12,:,:].conj()
                 blvecttriplets[-1][0,:] = -self.baselines[ind12,:]
                 bpwts12 = self.bp[ind12,:,:].conj() * self.bp_wts[ind12,:,:].conj()
 
@@ -6928,15 +7188,15 @@ class InterferometerArray(object):
                 raise ValueError('Baseline ({0[0]:0d}, {0[1]:0d}) not found in simulated baselines'.format(bl23_id))
             ind23 = NP.where(self.labels == bl23_id_ref)[0][0]
             if not conj23:
-                skyvis23 = self.skyvis_freq[ind23,:,:]
-                vis23 = self.vis_freq[ind23,:,:]
-                noise23 = self.vis_noise_freq[ind23,:,:]
+                skyvis23 = skyvis_freq[ind23,:,:]
+                vis23 = vis_freq[ind23,:,:]
+                noise23 = vis_noise_freq[ind23,:,:]
                 blvecttriplets[-1][1,:] = self.baselines[ind23,:]
                 bpwts23 = self.bp[ind23,:,:] * self.bp_wts[ind23,:,:]
             else:
-                skyvis23 = self.skyvis_freq[ind23,:,:].conj()
-                vis23 = self.vis_freq[ind23,:,:].conj()
-                noise23 = self.vis_noise_freq[ind23,:,:].conj()
+                skyvis23 = skyvis_freq[ind23,:,:].conj()
+                vis23 = vis_freq[ind23,:,:].conj()
+                noise23 = vis_noise_freq[ind23,:,:].conj()
                 blvecttriplets[-1][1,:] = -self.baselines[ind23,:]
                 bpwts23 = self.bp[ind23,:,:].conj() * self.bp_wts[ind23,:,:].conj()
 
@@ -6951,24 +7211,56 @@ class InterferometerArray(object):
                 raise ValueError('Baseline ({0[0]:0d}, {0[1]:0d}) not found in simulated baselines'.format(bl31_id))
             ind31 = NP.where(self.labels == bl31_id_ref)[0][0]
             if not conj31:
-                skyvis31 = self.skyvis_freq[ind31,:,:]
-                vis31 = self.vis_freq[ind31,:,:]
-                noise31 = self.vis_noise_freq[ind31,:,:]
+                skyvis31 = skyvis_freq[ind31,:,:]
+                vis31 = vis_freq[ind31,:,:]
+                noise31 = vis_noise_freq[ind31,:,:]
                 blvecttriplets[-1][2,:] = self.baselines[ind31,:]
                 bpwts31 = self.bp[ind31,:,:] * self.bp_wts[ind31,:,:]
             else:
-                skyvis31 = self.skyvis_freq[ind31,:,:].conj()
-                vis31 = self.vis_freq[ind31,:,:].conj()
-                noise31 = self.vis_noise_freq[ind31,:,:].conj()
+                skyvis31 = skyvis_freq[ind31,:,:].conj()
+                vis31 = vis_freq[ind31,:,:].conj()
+                noise31 = vis_noise_freq[ind31,:,:].conj()
                 blvecttriplets[-1][2,:] = -self.baselines[ind31,:]
                 bpwts31 = self.bp[ind31,:,:].conj() * self.bp_wts[ind31,:,:].conj()
 
-            # Apply the spectral smoothing first if delay filter and / or
-            # spectral windowing is to be performed, otherwise apply later
-            # on the full array instead of inside the antenna triplet loop
+            if specsmooth_info is not None:
+                # Perform interpolation for each triplet if op_type is 'interp'.
+                # If op_type is 'median' it can be performed triplet by triplet
+                # or on all triplets as once depending on if delay-filtering
+                # and spectral windowing is set or not.
+                if specsmooth_info['op_type'].lower() == 'interp':
+                    if specsmooth_info['evalchans'].size > 0:
+                        # Obtain the noise RMS on the required baselines
+                        if 'noiseRMS' not in specsmooth_info:
+                            specsmooth_info['noiseRMS'] = NP.copy(self.vis_rms_freq[NP.ix_([ind12,ind23,ind31], specsmooth_info['evalchans'], NP.arange(skyvis12.shape[1]))])
+                        else:
+                            specsmooth_info['noiseRMS'] = specsmooth_info['noiseRMS'][:,specsmooth_info['evalchans'],:]
+                        noise123 = generateNoise(noiseRMS=specsmooth_info['noiseRMS'], nbl=3, nchan=specsmooth_info['evalchans'].size, ntimes=skyvis12.shape[1])
+                        noise12[specsmooth_info['evalchans'],:] = noise123[0,:,:]
+                        noise23[specsmooth_info['evalchans'],:] = noise123[1,:,:]
+                        noise31[specsmooth_info['evalchans'],:] = noise123[2,:,:]
+    
+                        interpfunc_skyvis12_real = interpolate.interp1d(unmasked_chans, skyvis12[unmasked_chans,:].real, axis=0, kind='cubic', bounds_error=True, assume_sorted=True)
+                        interpfunc_skyvis12_imag = interpolate.interp1d(unmasked_chans, skyvis12[unmasked_chans,:].imag, axis=0, kind='cubic', bounds_error=True, assume_sorted=True)
+                        skyvis12[specsmooth_info['evalchans'],:] = interpfunc_skyvis12_real(specsmooth_info['evalchans']) + 1j * interpfunc_skyvis12_imag(specsmooth_info['evalchans'])
+                        interpfunc_skyvis23_real = interpolate.interp1d(unmasked_chans, skyvis23[unmasked_chans,:].real, axis=0, kind='cubic', bounds_error=True, assume_sorted=True)
+                        interpfunc_skyvis23_imag = interpolate.interp1d(unmasked_chans, skyvis23[unmasked_chans,:].imag, axis=0, kind='cubic', bounds_error=True, assume_sorted=True)
+                        skyvis23[specsmooth_info['evalchans'],:] = interpfunc_skyvis23_real(specsmooth_info['evalchans']) + 1j * interpfunc_skyvis23_imag(specsmooth_info['evalchans'])
+                        interpfunc_skyvis31_real = interpolate.interp1d(unmasked_chans, skyvis31[unmasked_chans,:].real, axis=0, kind='cubic', bounds_error=True, assume_sorted=True)
+                        interpfunc_skyvis31_imag = interpolate.interp1d(unmasked_chans, skyvis31[unmasked_chans,:].imag, axis=0, kind='cubic', bounds_error=True, assume_sorted=True)
+                        skyvis31[specsmooth_info['evalchans'],:] = interpfunc_skyvis31_real(specsmooth_info['evalchans']) + 1j * interpfunc_skyvis31_imag(specsmooth_info['evalchans'])
+    
+                        vis12[specsmooth_info['evalchans'],:] = skyvis12[specsmooth_info['evalchans'],:] + noise12[specsmooth_info['evalchans'],:]
+                        vis23[specsmooth_info['evalchans'],:] = skyvis23[specsmooth_info['evalchans'],:] + noise23[specsmooth_info['evalchans'],:]
+                        vis31[specsmooth_info['evalchans'],:] = skyvis31[specsmooth_info['evalchans'],:] + noise31[specsmooth_info['evalchans'],:]
+
+            # Apply the spectral ('median') smoothing first if delay filter 
+            # and / or spectral windowing is to be performed, otherwise apply 
+            # later on the full array instead of inside the antenna triplet loop
+
             if (delay_filter_info is not None) or (spectral_window_info is not None):
                 if specsmooth_info is not None:
-                    if specsmooth_info['filter_type'].lower() == 'median':
+                    if specsmooth_info['op_type'].lower() == 'median':
                         skyvis12 = ndimage.median_filter(skyvis12.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(skyvis12.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
                         skyvis23 = ndimage.median_filter(skyvis23.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(skyvis23.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
                         skyvis31 = ndimage.median_filter(skyvis31.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(skyvis31.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
@@ -7083,7 +7375,7 @@ class InterferometerArray(object):
         # operations
         
         if (delay_filter_info is None) and (spectral_window_info is None) and (specsmooth_info is not None):
-            if specsmooth_info['filter_type'].lower() == 'median':
+            if specsmooth_info['op_type'].lower() == 'median':
                 skyvis_triplets = ndimage.median_filter(skyvis_triplets.real, size=(1,1,specsmooth_info['window_size'],1)) + 1j * ndimage.median_filter(skyvis_triplets.imag, size=(1,1,specsmooth_info['window_size'],1))
                 vis_triplets = ndimage.median_filter(vis_triplets.real, size=(1,1,specsmooth_info['window_size'],1)) + 1j * ndimage.median_filter(vis_triplets.imag, size=(1,1,specsmooth_info['window_size'],1))
                 noise_triplets = ndimage.median_filter(noise_triplets.real, size=(1,1,specsmooth_info['window_size'],1)) + 1j * ndimage.median_filter(noise_triplets.imag, size=(1,1,specsmooth_info['window_size'],1))

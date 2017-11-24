@@ -2543,11 +2543,23 @@ class DelaySpectrum(object):
                     smoothing is to be done such as in the case of RFI. The 
                     smoothing window parameters are specified using the
                     following keys and values:
-                    'filter_type' [string] Smoothing window type. 
+                    'op_type'     [string] Smoothing operation type. 
                                   Default='median' (currently accepts only 
-                                  'median'). 
+                                  'median' or 'interp'). 
                     'window_size' [integer] Size of smoothing window (in 
-                                  pixels) along frequency axis
+                                  pixels) along frequency axis. Applies only
+                                  if op_type is set to 'median'
+                    'maskchans'   [NoneType or numpy array] Numpy boolean array
+                                  of size nchan. False entries imply those
+                                  channels are not masked and will be used in 
+                                  in interpolation while True implies they are
+                                  masked and will not be used in determining the
+                                  interpolation function. If set to None, all
+                                  channels are assumed to be unmasked (False).
+                    'evalchans'   [NoneType or numpy array] Channel numbers at 
+                                  which visibilities are to be evaluated. Will 
+                                  be useful for filling in RFI flagged channels.
+                                  If set to None, all channels will be evaluated
 
         delay_filter_info
                     [NoneType or dictionary] Info containing delay filter 
