@@ -1,3 +1,19 @@
+From 6aecec0 (closure):
+======================
+
+In prisim/interferometry.py,
+
+(*) Update docstring of member function getClosurePhase() of class
+InterferometerArray to include description of value under key
+'noiseRMS' in input specsmooth_info
+
+In prisim/delay_spectrum.py,
+
+(*) Update docstring of member function
+subband_delay_transform_closure_phase() of class DelaySpectrum to
+include description of value under key 'noiseRMS' in input
+specsmooth_info
+
 From 60fa8a8 (closure):
 ======================
 

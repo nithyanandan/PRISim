@@ -6917,6 +6917,18 @@ class InterferometerArray(object):
                                   be useful for filling in RFI flagged channels.
                                   If set to None, channels masked in 'maskchans' 
                                   will be evaluated
+                    'noiseRMS'    [NoneType or scalar or numpy array] If set to 
+                                  None (default), the rest of the parameters are 
+                                  used in determining the RMS of thermal noise. 
+                                  If specified as scalar, all other parameters 
+                                  will be ignored in estimating noiseRMS and 
+                                  this value will be used instead. If specified 
+                                  as a numpy array, it must be of shape 
+                                  broadcastable to (nbl,nchan,ntimes). So 
+                                  accpeted shapes can be (1,1,1), (1,1,ntimes), 
+                                  (1,nchan,1), (nbl,1,1), (1,nchan,ntimes), 
+                                  (nbl,nchan,1), (nbl,1,ntimes), or 
+                                  (nbl,nchan,ntimes). 
 
         spectral_window_info    
                     [NoneType or dictionary] Spectral window parameters to 
