@@ -1,3 +1,17 @@
+From 99a8c08 (closure):
+======================
+
+In prisim/delay_spectrum.py,
+
+(*) Rename member function compute_closure_phase_power_spectrum()
+of class DelayPowerSpectrum to
+compute_individual_closure_phase_power_spectrum(). Update docstring
+of class and member function accordingly
+
+(*) Add member function
+compute_averaged_closure_phase_power_spectrum() to class
+DelayPowerSpectrum. Update class docstring accordingly
+
 From 5f9ea23 (closure):
 ======================
 
