@@ -1,3 +1,12 @@
+From 5f9ea23 (closure):
+======================
+
+In prisim/delay_spectrum.py,
+
+(*) Check for presence of keys in input closure_phase_delay_spectra
+in member function compute_closure_phase_power_spectrum() of class
+DelayPowerSpectrum. Update docstring accordingly
+
 From 6aecec0 (closure):
 ======================
 

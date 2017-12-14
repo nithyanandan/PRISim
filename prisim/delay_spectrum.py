@@ -4137,17 +4137,17 @@ class DelayPowerSpectrum(object):
                     determined by the difference between adjacent pixels 
                     in lags under key 'lags' which in turn is 
                     effectively inverse of the effective bandwidth 
-        'closure_phase_skyvis'
+        'closure_phase_skyvis' (optional)
                     [numpy array] subband delay spectra of closure phases
                     of noiseless sky visiblities from the specified 
                     antenna triplets. It is of size n_triplets x n_win x 
                     nlags x n_t. It must be in units of Jy Hz.
-        'closure_phase_vis'
+        'closure_phase_vis' (optional)
                     [numpy array] subband delay spectra of closure phases
                     of noisy sky visiblities from the specified antenna 
                     triplets. It is of size n_triplets x n_win x nlags x n_t.
                     It must be in units of Jy Hz.
-        'closure_phase_noise'
+        'closure_phase_noise' (optional)
                     [numpy array] subband delay spectra of closure phases
                     of noise visiblities from the specified antenna triplets.
                     It is of size n_triplets x n_win x nlags x n_t. It must be 
@@ -4225,7 +4225,8 @@ class DelayPowerSpectrum(object):
         factor = jacobian1 * jacobian2 * Jy2K**2
         conversion_factor = factor.reshape(1,-1,1,1)
         for key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
-            closure_phase_delay_power_spectra[key] = NP.abs(closure_phase_delay_spectra[key])**2 * conversion_factor
+            if key in closure_phase_delay_spectra:
+                closure_phase_delay_power_spectra[key] = NP.abs(closure_phase_delay_spectra[key])**2 * conversion_factor
 
         return closure_phase_delay_power_spectra
 
