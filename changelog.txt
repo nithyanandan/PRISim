@@ -1,3 +1,12 @@
+From 4838e42 (cp-fixes):
+=======================
+
+In prisim/delay_spectrum.py,
+
+(*) Update member function subband_delay_transform_closure_phase() in
+class DelaySpectrum to handle any dimension for closure phase inputs.
+Update member function docstring accordingly
+
 From 4bef2c2 (closure):
 ======================
 
