@@ -1,3 +1,11 @@
+From 4bef2c2 (closure):
+======================
+
+In prisim/delay_spectrum.py,
+
+(*) Change use of axis keyword throughout member function
+subband_delay_transform_closure_phase() of class DelaySpectrum
+
 From 99a8c08 (closure):
 ======================
 

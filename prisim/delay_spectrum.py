@@ -2888,13 +2888,13 @@ class DelaySpectrum(object):
         lags = DSP.spectral_axis(self.f.size + npad, delx=self.df, use_real=False, shift=True)
     
         # lag_kernel = DSP.FT1D(NP.pad(self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-        lag_kernel = DSP.FT1D(NP.pad(freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-        result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'npad': npad, 'lags': lags, 'lag_kernel': lag_kernel, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=1)}
+        lag_kernel = DSP.FT1D(NP.pad(freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'npad': npad, 'lags': lags, 'lag_kernel': lag_kernel, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=-1)}
 
         for key in cpinfo:
             if key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
                 # result[key] = DSP.FT1D(NP.pad(NP.exp(-1j*cpinfo[key][:,NP.newaxis,:,:]) * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-                result[key] = DSP.FT1D(NP.pad(NP.exp(-1j*cpinfo[key][:,NP.newaxis,:,:]) * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                result[key] = DSP.FT1D(NP.pad(NP.exp(-1j*cpinfo[key][:,NP.newaxis,:,:]) * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                 
         if verbose:
             print '\tSub-band(s) delay transform computed'
@@ -2906,11 +2906,11 @@ class DelaySpectrum(object):
     
         downsample_factor = NP.min((self.f.size + npad) * self.df / result_resampled['bw_eff'])
         result_resampled['lags'] = DSP.downsampler(result['lags'], downsample_factor, axis=-1, method='interp', kind='linear')
-        result_resampled['lag_kernel'] = DSP.downsampler(result['lag_kernel'], downsample_factor, axis=2, method='interp', kind='linear')
+        result_resampled['lag_kernel'] = DSP.downsampler(result['lag_kernel'], downsample_factor, axis=-2, method='interp', kind='linear')
         dlag = result_resampled['lags'][1] - result_resampled['lags'][0]
         result_resampled['lag_corr_length'] = (1/result['bw_eff']) / dlag
         for key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
-            result_resampled[key] = DSP.downsampler(result[key], downsample_factor, axis=2, method='FFT')
+            result_resampled[key] = DSP.downsampler(result[key], downsample_factor, axis=-2, method='FFT')
 
         if verbose:
             print '\tDownsampled Sub-band(s) delay transform computed'
