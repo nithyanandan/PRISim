@@ -1,3 +1,14 @@
+From 1638739 (cp-fixes):
+=======================
+
+In prisim/delay_spectrum.py,
+
+(*) In member function compute_averaged_closure_phase_power_spectrum()
+of class DelayPowerSpectrum, check for presence of keys in dictionary,
+shapes of various quantities, and the math of cross-power spectrum
+(*) Fix math in subband_delay_transform_closure_phase() of class
+DelayPowerSpectrum
+
 From 4838e42 (cp-fixes):
 =======================
 

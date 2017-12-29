@@ -2934,7 +2934,7 @@ class DelaySpectrum(object):
             if key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
                 available_CP_key = key
                 ndim_padtuple = [(0,0) for i in range(1+len(cpinfo[key].shape[:-2]))] + [(0,npad), (0,0)]
-                result[key] = DSP.FT1D(NP.pad(NP.exp(-1j*cpinfo[key].reshape(cpinfo[key].shape[:-2]+(1,)+cpinfo[key].shape[-2:]) * freq_wts.reshape(tuple(NP.ones(len(cpinfo[key].shape[:-2])).astype(int))+freq_wts.shape+(1,))), ndim_padtuple, mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                result[key] = DSP.FT1D(NP.pad(NP.exp(-1j*cpinfo[key].reshape(cpinfo[key].shape[:-2]+(1,)+cpinfo[key].shape[-2:])) * freq_wts.reshape(tuple(NP.ones(len(cpinfo[key].shape[:-2])).astype(int))+freq_wts.shape+(1,)), ndim_padtuple, mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                 # result[key] = DSP.FT1D(NP.pad(NP.exp(-1j*cpinfo[key][:,NP.newaxis,:,:]) * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
         lag_kernel = DSP.FT1D(NP.pad(freq_wts.reshape(tuple(NP.ones(len(cpinfo[available_CP_key].shape[:-2])).astype(int))+freq_wts.shape+(1,)), ndim_padtuple, mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
         result['lag_kernel'] = lag_kernel
@@ -4458,18 +4458,22 @@ class DelayPowerSpectrum(object):
         jacobian2 = rz_transverse**2 * drz_los / closure_phase_delay_spectra['bw_eff']
         Jy2K = wl**2 * CNST.Jy / (2*FCNST.k)
         factor = jacobian1 * jacobian2 * Jy2K**2
-        conversion_factor = factor.reshape(1,-1,1,1)
+        for key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
+            if key in closure_phase_delay_spectra:
+                ndim_shape = NP.ones(closure_phase_delay_spectra[key].ndim, dtype=int)
+                ndim_shape[-3] = -1
+                ndim_shape = tuple(ndim_shape)
+                conversion_factor = factor.reshape(ndim_shape)
 
-        cpdps = None
         for mode in ['auto', 'cross']:
-            closure_phase_delay_power_spectra[mode] = None
+            closure_phase_delay_power_spectra[mode] = {}
             for key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
-                nruns = closure_phase_delay_spectra[key].shape[0]
                 if key in closure_phase_delay_spectra:
+                    nruns = closure_phase_delay_spectra[key].shape[0]
                     if mode == 'auto':
                         closure_phase_delay_power_spectra[mode][key] = NP.mean(NP.abs(closure_phase_delay_spectra[key])**2, axis=0, keepdims=True) * conversion_factor
                     else:
-                        closure_phase_delay_power_spectra[mode][key] = 2.0 / (nruns*(nruns-1)) * (NP.abs(NP.sum(closure_phase_delay_spectra[key], axis=0, keepdims=True))**2 - nruns * closure_phase_delay_power_spectra['auto'][key]).real 
+                        closure_phase_delay_power_spectra[mode][key] = 1.0 / (nruns*(nruns-1)) * (NP.abs(NP.sum(closure_phase_delay_spectra[key], axis=0, keepdims=True))**2 - nruns * closure_phase_delay_power_spectra['auto'][key]) * conversion_factor
 
         return closure_phase_delay_power_spectra
 
