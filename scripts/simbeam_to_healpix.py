@@ -41,7 +41,7 @@ def read_FEKO(infile):
         raise IndexError('Number of frequencies do not match number of channels in gains. Requires debugging.')
     freqs = NP.asarray(freqs)
     theta_list = NP.asarray(theta_list)
-    phi_list = NP.asarray(phi_list)
+    phi_list = NP.asarray(phi_list) + 90 # This 90 deg rotation is required to be compatible with HEALPIX and general spherical coordinate convention for phi. Not sure if it must be +90 or -90 but should not make a difference if the beam has symmetry
     gaindB = NP.asarray(gaindB)
     theta = NP.linspace(theta_list.min(), theta_list.max(), ntheta)
     phi = NP.linspace(phi_list.min(), phi_list.max(), nphi)

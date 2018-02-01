@@ -1,3 +1,11 @@
+From 0c64a47 (parabolic-cylinder):
+=================================
+
+In scripts/simbeam_to_healpix.py,
+
+(*) Rotate FEKO beam by 90 deg in phi to agree with HEALPIX and
+general spherical geometry convention for phi
+
 From a46475d (parabolic-cylinder):
 =================================
 
