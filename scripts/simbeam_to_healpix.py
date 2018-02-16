@@ -231,9 +231,9 @@ if __name__ == '__main__':
         progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Channels'.format(freqs.size), PGB.ETA()], maxval=freqs.size).start()
         for freqind,freq in enumerate(freqs):
             if gridded and (interp_method == 'spline'):
-                hmap = convert_to_healpix(theta, phi, gains[pol][freqind,:,:], interp_method=interp_method, gainunit_in=gainunit_in, gainunit_out=gainunit_out, angunits='degrees')
+                hmap = convert_to_healpix(theta, phi, gains[pol][freqind,:,:], nside=nside, interp_method=interp_method, gainunit_in=gainunit_in, gainunit_out=gainunit_out, angunits='degrees')
             else:
-                hmap = convert_to_healpix(theta_list, phi_list, gains[pol][freqind,:], interp_method=interp_method, gainunit_in=gainunit_in, gainunit_out=gainunit_out, angunits='degrees')
+                hmap = convert_to_healpix(theta_list, phi_list, gains[pol][freqind,:], nside=nside, interp_method=interp_method, gainunit_in=gainunit_in, gainunit_out=gainunit_out, angunits='degrees')
             hmaps[pol] += [hmap]
             progress.update(freqind+1)
         progress.finish()

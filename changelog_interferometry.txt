@@ -1,3 +1,11 @@
+From 8711092 (parabolic-cylinder):
+=================================
+
+In scripts/simbeam_to_healpix.py,
+
+(*) Pass nside parameter in __main__ in call to function
+convert_to_healpix()
+
 From 0c64a47 (parabolic-cylinder):
 =================================
 
