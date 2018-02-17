@@ -1,3 +1,11 @@
+From 45bec1a (parabolic-cylinder):
+=================================
+
+In scripts/simbeam_to_healpix.py,
+
+(*) Check for out of bounds near boundaries while interpolating using
+'spline' method in function convert_to_healpix()
+
 From 8711092 (parabolic-cylinder):
 =================================
 

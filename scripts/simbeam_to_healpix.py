@@ -69,6 +69,9 @@ def convert_to_healpix(theta, phi, gains, nside=32, interp_method='spline', gain
         theta = NP.radians(theta)
         phi = NP.radians(phi)
 
+    phi = NP.angle(NP.exp(1j*phi)) # Bring all phi in [-pi,pi] range
+    phi[phi<0.0] += 2*NP.pi # Bring all phi in [0, 2 pi] range
+
     hmap = NP.empty(HP.nside2npix(nside))
     wtsmap = NP.empty(HP.nside2npix(nside))
     hmap.fill(NP.nan)
@@ -78,13 +81,46 @@ def convert_to_healpix(theta, phi, gains, nside=32, interp_method='spline', gain
         if gainunit_in.lower() != 'db':
             gains = 10.0 * NP.log10(gains)
         hpxtheta, hpxphi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
-        if gridded:
-            interp_func = interpolate.RectBivariateSpline(theta, phi, gains)
-            hmap = interp_func.ev(hpxtheta, hpxphi)
-        else:
-            # interp_func = interpolate.interp2d(theta, phi, gains, kind='cubic')
-            # hmap = interp_func(hpxtheta, hpxphi)
-            hmap = interpolate.griddata(NP.hstack((theta.reshape(-1,1),phi.reshape(-1,1))), gains, NP.hstack((hpxtheta.reshape(-1,1),hpxphi.reshape(-1,1))), method='cubic')
+
+        # Find the in-bound and out-of-bound indices to handle the boundaries
+        inb = NP.logical_and(NP.logical_and(hpxtheta>=theta.min(), hpxtheta<=theta.max()), NP.logical_and(hpxphi>=phi.min(), hpxphi<=phi.max()))
+        pub = hpxphi < phi.min()
+        pob = hpxphi > phi.max()
+        oob = NP.logical_not(inb)
+        inb_ind = NP.where(inb)[0]
+        oob_ind = NP.where(oob)[0]
+        pub_ind = NP.where(pub)[0]
+        pob_ind = NP.where(pob)[0]
+
+        # Perform regular interpolation in in-bound indices
+        if NP.any(inb):
+            if gridded:
+                interp_func = interpolate.RectBivariateSpline(theta, phi, gains)
+                hmap[inb_ind] = interp_func.ev(hpxtheta[inb_ind], hpxphi[inb_ind])
+            else:
+                # interp_func = interpolate.interp2d(theta, phi, gains, kind='cubic')
+                # hmap = interp_func(hpxtheta, hpxphi)
+                hmap[inb_ind] = interpolate.griddata(NP.hstack((theta.reshape(-1,1),phi.reshape(-1,1))), gains, NP.hstack((hpxtheta[inb_ind].reshape(-1,1),hpxphi[inb_ind].reshape(-1,1))), method='cubic')
+        if NP.any(pub): # Under bound at phi=0
+            phi[phi>NP.pi] -= 2*NP.pi # Bring oob phi in [-pi, pi] range
+            if gridded:
+                interp_func = interpolate.RectBivariateSpline(theta, phi, gains)
+                hmap[pub_ind] = interp_func.ev(hpxtheta[pub_ind], hpxphi[pub_ind])
+            else:
+                # interp_func = interpolate.interp2d(theta, phi, gains, kind='cubic')
+                # hmap = interp_func(hpxtheta, hpxphi)
+                hmap[pub_ind] = interpolate.griddata(NP.hstack((theta.reshape(-1,1),phi.reshape(-1,1))), gains, NP.hstack((hpxtheta[pub_ind].reshape(-1,1),hpxphi[pub_ind].reshape(-1,1))), method='cubic')
+        if NP.any(pob): # Over bound at phi=2 pi
+            phi[phi<0.0] += 2*NP.pi # Bring oob phi in [0, 2 pi] range
+            phi[phi<NP.pi] += 2*NP.pi # Bring oob phi in [pi, 3 pi] range
+            if gridded:
+                interp_func = interpolate.RectBivariateSpline(theta, phi, gains)
+                hmap[pob_ind] = interp_func.ev(hpxtheta[pob_ind], hpxphi[pob_ind])
+            else:
+                # interp_func = interpolate.interp2d(theta, phi, gains, kind='cubic')
+                # hmap = interp_func(hpxtheta, hpxphi)
+                hmap[pob_ind] = interpolate.griddata(NP.hstack((theta.reshape(-1,1),phi.reshape(-1,1))), gains, NP.hstack((hpxtheta[pob_ind].reshape(-1,1),hpxphi[pob_ind].reshape(-1,1))), method='cubic')
+
         hmap -= NP.nanmax(hmap)
         if gainunit_out.lower() != 'db':
             hmap = 10**(hmap/10)
