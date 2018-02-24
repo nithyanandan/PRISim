@@ -1,3 +1,12 @@
+From 8b5a2f3 (cp-fixes):
+=======================
+
+In prisim/delay_spectrum.py,
+
+(*) Change units of closure phase delay spectra in docstring of member
+function subband_delay_transform_closure_phase() of class
+DelaySpectrum
+
 From 1638739 (cp-fixes):
 =======================
 

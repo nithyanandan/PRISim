@@ -2521,8 +2521,7 @@ class DelaySpectrum(object):
         ------------------------------------------------------------------------
         Computes delay transform of closure phases on antenna triplets on 
         multiple frequency sub-bands with specified weights. It will have units 
-        of Jy Hz where the original visibility amplitudes of closure phase 
-        complex exponents are assumed to be 1 Jy across the band
+        of Hz
 
         Inputs:
 
@@ -2766,17 +2765,17 @@ class DelaySpectrum(object):
                     [numpy array] subband delay spectra of closure phases
                     of noiseless sky visiblities from the specified 
                     antenna triplets. It is of size n_triplets x ... n_win x 
-                    nlags x n_t. It is in units of Jy Hz
+                    nlags x n_t. It is in units of Hz
         'closure_phase_vis'
                     [numpy array] subband delay spectra of closure phases
                     of noisy sky visiblities from the specified antenna 
                     triplets. It is of size n_triplets x ... x n_win x 
-                    nlags x n_t. It is in units of Jy Hz
+                    nlags x n_t. It is in units of Hz
         'closure_phase_noise'
                     [numpy array] subband delay spectra of closure phases
                     of noise visiblities from the specified antenna triplets.
                     It is of size n_triplets x ... x n_win x nlags x n_t. It 
-                    is in units of Jy Hz
+                    is in units of Hz
 
         If action is set to 'return_resampled', the following  
         output is returned. The output is a dictionary that contains 
@@ -2827,17 +2826,17 @@ class DelaySpectrum(object):
                     [numpy array] subband delay spectra of closure phases
                     of noiseless sky visiblities from the specified 
                     antenna triplets. It is of size n_triplets x ... x n_win x 
-                    nlags x n_t. It is in units of Jy Hz
+                    nlags x n_t. It is in units of Hz
         'closure_phase_vis'
                     [numpy array] subband delay spectra of closure phases
                     of noisy sky visiblities from the specified antenna 
                     triplets. It is of size n_triplets x ... x n_win x 
-                    nlags x n_t. It is in units of Jy Hz
+                    nlags x n_t. It is in units of Hz
         'closure_phase_noise'
                     [numpy array] subband delay spectra of closure phases
                     of noise visiblities from the specified antenna triplets.
                     It is of size n_triplets x ... x n_win x nlags x n_t. It is 
-                    in units of Jy Hz
+                    in units of Hz
         ------------------------------------------------------------------------
         """
 
