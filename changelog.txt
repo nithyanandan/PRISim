@@ -1,3 +1,18 @@
+From d158bd9 (cp-fixes):
+=======================
+
+In prisim/delay_spectrum.py,
+
+(*) Modify default cosmology to Planck 2015 xiii results with
+H0=100 km/s/Mpc
+(*) In member function subband_delay_transform_closure_phase() of class
+DelaySpectrum, units of closure phase delay spectrum returned is in Hz.
+(*) In member functions compute_averaged_closure_phase_power_spectrum()
+and compute_individual_closure_phase_power_spectrum() of class
+DelayPowerSpectrum, the input closure phase delay spectra are in units
+of Hz and the output delay power spectra of closure phases are in units
+of Mpc/h.
+
 From 8b5a2f3 (cp-fixes):
 =======================
 

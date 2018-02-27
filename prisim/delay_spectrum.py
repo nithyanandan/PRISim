@@ -5,7 +5,6 @@ import itertools as IT
 import progressbar as PGB
 # import aipy as AP
 import astropy
-
 from astropy.io import fits
 import astropy.cosmology as CP
 import scipy.constants as FCNST
@@ -25,7 +24,9 @@ from prisim import baseline_delay_horizon as DLY
 
 prisim_path = prisim.__path__[0]+'/'
 
-cosmo100 = CP.FlatLambdaCDM(H0=100.0, Om0=0.27)  # Using H0 = 100 km/s/Mpc
+# cosmo100 = CP.FlatLambdaCDM(H0=100.0, Om0=0.27)  # Using H0 = 100 km/s/Mpc
+cosmoPlanck15 = CP.Planck15 # Planck 2015 cosmology
+cosmo100 = cosmoPlanck15.clone(name='Modified Planck 2015 cosmology with h=1.0', H0=100.0) # Modified Planck 2015 cosmology with h=1.0, H= 100 km/s/Mpc
 
 #################################################################################
 
@@ -4135,10 +4136,8 @@ class DelayPowerSpectrum(object):
 
         """
         ------------------------------------------------------------------------
-        Compute delay power spectrum of closure phase in units of K^2 (Mpc/h)^3 
-        from the delay spectrum in units of Jy Hz where the original visibility
-        amplitudes of closure phase complex exponents are assumed to be 1 Jy 
-        across the band
+        Compute delay power spectrum of closure phase in units of Mpc/h from the 
+        delay spectrum in units of Hz
 
         Inputs:
 
@@ -4190,17 +4189,17 @@ class DelayPowerSpectrum(object):
                     [numpy array] subband delay spectra of closure phases
                     of noiseless sky visiblities from the specified 
                     antenna triplets. It is of size n_triplets x n_win x 
-                    nlags x n_t. It must be in units of Jy Hz.
+                    nlags x n_t. It must be in units of Hz.
         'closure_phase_vis' (optional)
                     [numpy array] subband delay spectra of closure phases
                     of noisy sky visiblities from the specified antenna 
                     triplets. It is of size n_triplets x n_win x nlags x n_t.
-                    It must be in units of Jy Hz.
+                    It must be in units of Hz.
         'closure_phase_noise' (optional)
                     [numpy array] subband delay spectra of closure phases
                     of noise visiblities from the specified antenna triplets.
                     It is of size n_triplets x n_win x nlags x n_t. It must be 
-                    in units of Jy Hz.
+                    in units of Hz.
         
         Output:
 
@@ -4225,21 +4224,20 @@ class DelayPowerSpectrum(object):
                     [numpy array] subband delay power spectra of closure phases
                     of noiseless sky visiblities from the specified 
                     antenna triplets. It is of size n_triplets x n_win x 
-                    nlags x n_t. It is in units of K^2 (Mpc/h)^3. This is 
-                    returned if this key is present in the input 
-                    closure_phase_delay_spectra
+                    nlags x n_t. It is in units of Mpc/h. This is returned if 
+                    this key is present in the input closure_phase_delay_spectra
         'closure_phase_vis'
                     [numpy array] subband delay power spectra of closure phases
                     of noisy sky visiblities from the specified antenna 
                     triplets. It is of size n_triplets x n_win x nlags x n_t.
-                    It is in units of K^2 (Mpc/h)^3. This is returned if this 
-                    key is present in the input closure_phase_delay_spectra
+                    It is in units of Mpc/h. This is returned if this key is 
+                    present in the input closure_phase_delay_spectra
         'closure_phase_noise'
                     [numpy array] subband delay power spectra of closure phases
                     of noise visiblities from the specified antenna triplets.
                     It is of size n_triplets x n_win x nlags x n_t. It is in 
-                    units of K^2 (Mpc/h)^3. This is returned if this key is 
-                    present in the input closure_phase_delay_spectra
+                    units of Mpc/h. This is returned if this key is present in 
+                    the input closure_phase_delay_spectra
         ------------------------------------------------------------------------
         """
 
@@ -4269,13 +4267,15 @@ class DelayPowerSpectrum(object):
         closure_phase_delay_power_spectra['kprll'] = kprll
         closure_phase_delay_power_spectra['kperp'] = kperp
         closure_phase_delay_power_spectra['horizon_kprll_limits'] = horizon_kprll_limits
-        rz_transverse = self.comoving_transverse_distance(closure_phase_delay_power_spectra['z'], action='return')
+        # rz_transverse = self.comoving_transverse_distance(closure_phase_delay_power_spectra['z'], action='return')
         drz_los = self.comoving_los_depth(closure_phase_delay_spectra['bw_eff'], closure_phase_delay_power_spectra['z'], action='return')
-        omega_bw = self.beam3Dvol(freq_wts=closure_phase_delay_spectra['freq_wts'])
-        jacobian1 = 1 / omega_bw
-        jacobian2 = rz_transverse**2 * drz_los / closure_phase_delay_spectra['bw_eff']
-        Jy2K = wl**2 * CNST.Jy / (2*FCNST.k)
-        factor = jacobian1 * jacobian2 * Jy2K**2
+        # omega_bw = self.beam3Dvol(freq_wts=closure_phase_delay_spectra['freq_wts'])
+        # jacobian1 = 1 / omega_bw
+        # jacobian2 = rz_transverse**2 * drz_los / closure_phase_delay_spectra['bw_eff']
+        # Jy2K = wl**2 * CNST.Jy / (2*FCNST.k)
+        jacobian1 = 1 / closure_phase_delay_spectra['bw_eff']
+        jacobian2 = drz_los / closure_phase_delay_spectra['bw_eff']
+        factor = jacobian1 * jacobian2
         conversion_factor = factor.reshape(1,-1,1,1)
         for key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
             if key in closure_phase_delay_spectra:
@@ -4289,10 +4289,9 @@ class DelayPowerSpectrum(object):
 
         """
         ------------------------------------------------------------------------
-        Compute delay power spectrum of closure phase in units of K^2 (Mpc/h)^3 
-        from the delay spectrum in units of Jy Hz and average over 'auto' and 
-        'cross' modes, where the original visibility amplitudes of closure phase 
-        complex exponents are assumed to be 1 Jy across the band
+        Compute delay power spectrum of closure phase in units of Mpc/h from the 
+        delay spectrum in units of Jy Hz and average over 'auto' and 'cross' 
+        modes
 
         Inputs:
 
@@ -4344,17 +4343,17 @@ class DelayPowerSpectrum(object):
                     [numpy array] subband delay spectra of closure phases
                     of noiseless sky visiblities from the specified 
                     antenna triplets. It is of size n_triplets x n_win x 
-                    nlags x n_t. It must be in units of Jy Hz.
+                    nlags x n_t. It must be in units of Hz.
         'closure_phase_vis' (optional)
                     [numpy array] subband delay spectra of closure phases
                     of noisy sky visiblities from the specified antenna 
                     triplets. It is of size n_triplets x n_win x nlags x n_t.
-                    It must be in units of Jy Hz.
+                    It must be in units of Hz.
         'closure_phase_noise' (optional)
                     [numpy array] subband delay spectra of closure phases
                     of noise visiblities from the specified antenna triplets.
                     It is of size n_triplets x n_win x nlags x n_t. It must be 
-                    in units of Jy Hz.
+                    in units of Hz.
         
         Output:
 
@@ -4381,46 +4380,44 @@ class DelayPowerSpectrum(object):
                           [numpy array] subband delay power spectra of closure 
                           phases of noiseless sky visiblities from the specified 
                           antenna triplets. It is of size n_triplets x n_win x 
-                          nlags x n_t. It is in units of K^2 (Mpc/h)^3. This is 
-                          returned if this key is present in the input 
+                          nlags x n_t. It is in units of Mpc/h. This is returned 
+                          if this key is present in the input 
                           closure_phase_delay_spectra
                     'closure_phase_vis'
                           [numpy array] subband delay power spectra of closure 
                           phases of noisy sky visiblities from the specified 
                           antenna triplets. It is of size 
-                          1 x n_win x nlags x n_t. It is in units of 
-                          K^2 (Mpc/h)^3. This is returned if this key is present 
-                          in the input closure_phase_delay_spectra
+                          1 x n_win x nlags x n_t. It is in units of Mpc/h. This 
+                          is returned if this key is present in the input 
+                          closure_phase_delay_spectra
                     'closure_phase_noise'
                           [numpy array] subband delay power spectra of closure 
                           phases of noise visiblities from the specified antenna 
                           triplets. It is of size 1 x n_win x nlags x n_t. It is 
-                          in units of K^2 (Mpc/h)^3. This is returned if this 
-                          key is present in the input 
-                          closure_phase_delay_spectra
+                          in units of Mpc/h. This is returned if this key is 
+                          present in the input closure_phase_delay_spectra
         'cross'     [dictionary] average of off-diagonal terms in the power 
                     spectrum matrix with possibly the following keys and values:
                     'closure_phase_skyvis'
                           [numpy array] subband delay power spectra of closure 
                           phases of noiseless sky visiblities from the specified 
                           antenna triplets. It is of size n_triplets x n_win x 
-                          nlags x n_t. It is in units of K^2 (Mpc/h)^3. This is 
-                          returned if this key is present in the input 
+                          nlags x n_t. It is in units of Mpc/h. This is returned 
+                          if this key is present in the input 
                           closure_phase_delay_spectra
                     'closure_phase_vis'
                           [numpy array] subband delay power spectra of closure 
                           phases of noisy sky visiblities from the specified 
                           antenna triplets. It is of size 
-                          1 x n_win x nlags x n_t. It is in units of 
-                          K^2 (Mpc/h)^3. This is returned if this key is present 
+                          1 x n_win x nlags x n_t. It is in units of Mpc/h. This 
+                          is returned if this key is present 
                           in the input closure_phase_delay_spectra
                     'closure_phase_noise'
                           [numpy array] subband delay power spectra of closure 
                           phases of noise visiblities from the specified antenna 
                           triplets. It is of size 1 x n_win x nlags x n_t. It is 
-                          in units of K^2 (Mpc/h)^3. This is returned if this 
-                          key is present in the input 
-                          closure_phase_delay_spectra
+                          in units of Mpc/h. This is returned if this key is 
+                          present in the input closure_phase_delay_spectra
         ------------------------------------------------------------------------
         """
 
@@ -4450,13 +4447,15 @@ class DelayPowerSpectrum(object):
         closure_phase_delay_power_spectra['kprll'] = kprll
         closure_phase_delay_power_spectra['kperp'] = kperp
         closure_phase_delay_power_spectra['horizon_kprll_limits'] = horizon_kprll_limits
-        rz_transverse = self.comoving_transverse_distance(closure_phase_delay_power_spectra['z'], action='return')
+        # rz_transverse = self.comoving_transverse_distance(closure_phase_delay_power_spectra['z'], action='return')
         drz_los = self.comoving_los_depth(closure_phase_delay_spectra['bw_eff'], closure_phase_delay_power_spectra['z'], action='return')
-        omega_bw = self.beam3Dvol(freq_wts=closure_phase_delay_spectra['freq_wts'])
-        jacobian1 = 1 / omega_bw
-        jacobian2 = rz_transverse**2 * drz_los / closure_phase_delay_spectra['bw_eff']
-        Jy2K = wl**2 * CNST.Jy / (2*FCNST.k)
-        factor = jacobian1 * jacobian2 * Jy2K**2
+        # omega_bw = self.beam3Dvol(freq_wts=closure_phase_delay_spectra['freq_wts'])
+        # jacobian1 = 1 / omega_bw
+        # jacobian2 = rz_transverse**2 * drz_los / closure_phase_delay_spectra['bw_eff']
+        # Jy2K = wl**2 * CNST.Jy / (2*FCNST.k)
+        jacobian1 = 1 / closure_phase_delay_spectra['bw_eff']
+        jacobian2 = drz_los / closure_phase_delay_spectra['bw_eff']
+        factor = jacobian1 * jacobian2
         for key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
             if key in closure_phase_delay_spectra:
                 ndim_shape = NP.ones(closure_phase_delay_spectra[key].ndim, dtype=int)
@@ -4472,7 +4471,7 @@ class DelayPowerSpectrum(object):
                     if mode == 'auto':
                         closure_phase_delay_power_spectra[mode][key] = NP.mean(NP.abs(closure_phase_delay_spectra[key])**2, axis=0, keepdims=True) * conversion_factor
                     else:
-                        closure_phase_delay_power_spectra[mode][key] = 1.0 / (nruns*(nruns-1)) * (NP.abs(NP.sum(closure_phase_delay_spectra[key], axis=0, keepdims=True))**2 - nruns * closure_phase_delay_power_spectra['auto'][key]) * conversion_factor
+                        closure_phase_delay_power_spectra[mode][key] = 1.0 / (nruns*(nruns-1)) * (conversion_factor * NP.abs(NP.sum(closure_phase_delay_spectra[key], axis=0, keepdims=True))**2 - nruns * closure_phase_delay_power_spectra['auto'][key])
 
         return closure_phase_delay_power_spectra
 
