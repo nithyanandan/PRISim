@@ -1,3 +1,8 @@
+From 7c44eb3 (closure):
+======================
+
+(*) Add prisim/closure.py to repo to analyze closure phase data
+
 From d158bd9 (cp-fixes):
 =======================
 
