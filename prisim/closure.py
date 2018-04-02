@@ -78,6 +78,11 @@ class ClosurePhase(object):
     Member functions:
 
     __init__()      Initialize an instance of class ClosurePhase
+
+    expicp()        Compute and return complex exponential of the closure phase 
+                    as a masked array
+
+    save()          Save contents of attribute cpinfo in external HDF5 file
     ----------------------------------------------------------------------------
     """
     
@@ -127,6 +132,43 @@ class ClosurePhase(object):
             self.extfile = infile
 
         self.cpinfo = NMO.load_dict_from_hdf5(self.extfile)
+        if 'processed' not in self.cpinfo:
+            self.cpinfo['processed'] = {}
+            self.cpinfo['processed']['cphase'] = MA.array(self.cpinfo['raw']['cphase'], mask=self.cpinfo['raw']['flags'])
+            self.cpinfo['processed']['eicp'] = NP.exp(1j * self.cpinfo['processed']['cphase'])
+            
+    ############################################################################
+
+    def expicp(self, force_action=False):
+
+        """
+        ------------------------------------------------------------------------
+        Compute and return complex exponential of the closure phase as a masked 
+        array
+
+        Inputs:
+
+        force_action    [boolean] If set to False (default), the complex 
+                        exponential is computed only if it has not been done so
+                        already. Otherwise the computation is forced.
+
+        Output:
+
+        Complex maksed array exp(1j * cp) of same shape as the closure phase
+        data, N_triads x nchan x npol x ntimes
+        ------------------------------------------------------------------------
+        """
+
+        if 'processed' not in self.cpinfo:
+            self.cpinfo['processed'] = {}
+        if 'cphase' not in self.cpinfo['processed']:
+            self.cpinfo['processed']['cphase'] = MA.array(self.cpinfo['raw']['cphase'], mask=self.cpinfo['raw']['flags'])
+        if not force_action:
+            if 'eicp' not in self.cpinfo['processed']:
+                self.cpinfo['processed']['eicp'] = NP.exp(1j * self.cpinfo['processed']['cphase'])
+        else:
+            self.cpinfo['processed']['eicp'] = NP.exp(1j * self.cpinfo['processed']['cphase'])
+        return self.cpinfo['processed']['eicp']
 
     ############################################################################
 

@@ -1,3 +1,11 @@
+From d525933 (closure):
+======================
+
+In prisim/closure.py,
+
+(*) Add member function expicp() along with docstring to class
+ClosurePhase. Update class docstring accordingly
+
 From bdb5e6b (closure), 94f15d0 (master):
 ========================================
 
