@@ -1,7 +1,29 @@
+From bdb5e6b (closure), 94f15d0 (master):
+========================================
+
+(*) Merge master branch (94f15d0) on to closure branch (bdb5e6b)
+
 From 7c44eb3 (closure):
 ======================
 
 (*) Add prisim/closure.py to repo to analyze closure phase data
+
+From f3c3107 (phasing):
+======================
+
+In prisim/interferometry.py,
+
+(*) In member function duplicate_measurements() of class
+InterferometerArray, duplicate attribute projected_baselines to the
+required shape
+
+From 7c44eb3 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Rotate visibilities to the phase reference before duplicating the
+redundant visibilities and saving in UVFITS format. 
 
 From d158bd9 (cp-fixes):
 =======================

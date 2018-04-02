@@ -2155,8 +2155,11 @@ if rank == 0:
                 uvfits_ref_point = {'location': phase_center.reshape(1,-1), 'coords': 'radec'}
             else:
                 uvfits_ref_point = {'location': NP.asarray(save_formats['phase_center']).reshape(1,-1), 'coords': 'radec'}
-            uvfits_parms = {'ref_point': uvfits_ref_point, 'method': save_formats['uvfits_method']}
-            if save_redundant:
+
+            # Phase the visibilities to a phase reference point
+            simvis.rotate_visibilities(uvfits_ref_point)
+            uvfits_parms = {'ref_point': None, 'method': save_formats['uvfits_method']}
+            if save_redundant: # Duplicate the redundant visibilities
                 simvis.duplicate_measurements(blgroups=blgroups)
                 consolidated_outfile = rootdir+project_dir+simid+sim_dir+'all-simvis'
 
