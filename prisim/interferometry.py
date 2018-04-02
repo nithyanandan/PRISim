@@ -6670,6 +6670,7 @@ class InterferometerArray(object):
                 self.gradient[self.gradient_mode] = NP.repeat(self.gradient[self.gradient_mode], num_list, axis=1)
             self.labels = NP.asarray(uniq_inplabels, dtype=self.labels.dtype)
             self.baselines = NP.repeat(self.baselines, num_list, axis=0)
+            self.projected_baselines = NP.repeat(self.projected_baselines, num_list, axis=0)
             self.baseline_lengths = NP.repeat(self.baseline_lengths, num_list)
             if self.Tsys.shape[0] > 1:
                 self.Tsys = NP.repeat(self.Tsys, num_list, axis=0)
