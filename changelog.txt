@@ -1,3 +1,11 @@
+From 7c44eb3 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Rotate visibilities to the phase reference before duplicating the
+redundant visibilities and saving in UVFITS format. 
+
 From d158bd9 (cp-fixes):
 =======================
 
