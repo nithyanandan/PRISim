@@ -132,10 +132,17 @@ class ClosurePhase(object):
             self.extfile = infile
 
         self.cpinfo = NMO.load_dict_from_hdf5(self.extfile)
+        force_expicp = False
         if 'processed' not in self.cpinfo:
-            self.cpinfo['processed'] = {}
-            self.cpinfo['processed']['cphase'] = MA.array(self.cpinfo['raw']['cphase'], mask=self.cpinfo['raw']['flags'])
-            self.cpinfo['processed']['eicp'] = NP.exp(1j * self.cpinfo['processed']['cphase'])
+            force_expicp = True
+        else:
+            if 'native' not in self.cpinfo['processed']:
+                force_expicp = True
+
+        self.expicp(force_action=force_expicp)
+
+        if 'prelim' not in self.cpinfo['processed']:
+            self.cpinfo['processed']['prelim'] = {}
             
     ############################################################################
 
@@ -143,32 +150,32 @@ class ClosurePhase(object):
 
         """
         ------------------------------------------------------------------------
-        Compute and return complex exponential of the closure phase as a masked 
-        array
+        Compute the complex exponential of the closure phase as a masked array
 
         Inputs:
 
         force_action    [boolean] If set to False (default), the complex 
                         exponential is computed only if it has not been done so
                         already. Otherwise the computation is forced.
-
-        Output:
-
-        Complex maksed array exp(1j * cp) of same shape as the closure phase
-        data, N_triads x nchan x npol x ntimes
         ------------------------------------------------------------------------
         """
 
         if 'processed' not in self.cpinfo:
             self.cpinfo['processed'] = {}
-        if 'cphase' not in self.cpinfo['processed']:
-            self.cpinfo['processed']['cphase'] = MA.array(self.cpinfo['raw']['cphase'], mask=self.cpinfo['raw']['flags'])
+            force_action = True
+        if 'native' not in self.cpinfo['processed']:
+            self.cpinfo['processed']['native'] = {}
+            force_action = True
+        if 'cphase' not in self.cpinfo['processed']['native']:
+            self.cpinfo['processed']['native']['cphase'] = MA.array(self.cpinfo['raw']['cphase'], mask=self.cpinfo['raw']['flags'])
+            force_action = True
         if not force_action:
-            if 'eicp' not in self.cpinfo['processed']:
-                self.cpinfo['processed']['eicp'] = NP.exp(1j * self.cpinfo['processed']['cphase'])
+            if 'eicp' not in self.cpinfo['processed']['native']:
+                self.cpinfo['processed']['native']['eicp'] = NP.exp(1j * self.cpinfo['processed']['native']['cphase'])
+                self.cpinfo['processed']['native']['wts'] = NP.logical_not(self.cpinfo['raw']['flags']).astype(NP.int)
         else:
-            self.cpinfo['processed']['eicp'] = NP.exp(1j * self.cpinfo['processed']['cphase'])
-        return self.cpinfo['processed']['eicp']
+            self.cpinfo['processed']['native']['eicp'] = NP.exp(1j * self.cpinfo['processed']['native']['cphase'])
+            self.cpinfo['processed']['native']['wts'] = NP.logical_not(self.cpinfo['raw']['flags']).astype(NP.int)
 
     ############################################################################
 

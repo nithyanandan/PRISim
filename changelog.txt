@@ -1,3 +1,17 @@
+From e614307 (closure):
+======================
+
+In prisim/closure.py,
+
+(*) Modify member function __init__() to call member function expicp()
+both of class ClosurePhase. Modify structure of dictionary attribute
+cpinfo to hold 'raw' and 'processed' data containers, and the latter
+contains 'native' and 'prelim' containers, each of which contains
+'eicp' and 'wts' keys
+(*) Modify member function expicp() of class ClosurePhase to compute
+the complex exponential and weights as masked arrays under keys
+'native/eicp' and 'native/wts' respectively
+
 From d525933 (closure):
 ======================
 
