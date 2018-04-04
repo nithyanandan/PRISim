@@ -42,10 +42,10 @@ def npz2hdf5(npzfile, hdf5file):
     flagsdata = npzdata['flags']
     lstdata = npzdata['LAST']
 
-    cp = NP.asarray(cpdata)
+    cp = NP.asarray(cpdata).astype(NP.float64)
     triads = NP.asarray(triadsdata)
-    flags = NP.asarray(flagsdata)
-    lst = NP.asarray(lstdata)
+    flags = NP.asarray(flagsdata).astype(NP.bool)
+    lst = NP.asarray(lstdata).astype(NP.float64)
 
     with h5py.File(hdf5file, 'w') as fobj:
         datapool = ['raw']
@@ -81,6 +81,10 @@ class ClosurePhase(object):
 
     expicp()        Compute and return complex exponential of the closure phase 
                     as a masked array
+
+    smooth_in_tbins()
+                    Smooth the complex exponentials of closure phases in time 
+                    bins. Both mean and median smoothing is produced.
 
     save()          Save contents of attribute cpinfo in external HDF5 file
     ----------------------------------------------------------------------------
@@ -126,12 +130,12 @@ class ClosurePhase(object):
             infile_noext = infilesplit[0]
             npz2hdf5(infile, infile_noext+'.hdf5')
             self.extfile = infile_noext + '.hdf5'
+            self.cpinfo = NMO.load_dict_from_hdf5(self.extfile)
         else:
             if not isinstance(infile, h5py.File):
                 raise TypeError('Input infile is not a valid HDF5 file')
             self.extfile = infile
 
-        self.cpinfo = NMO.load_dict_from_hdf5(self.extfile)
         force_expicp = False
         if 'processed' not in self.cpinfo:
             force_expicp = True
@@ -176,6 +180,64 @@ class ClosurePhase(object):
         else:
             self.cpinfo['processed']['native']['eicp'] = NP.exp(1j * self.cpinfo['processed']['native']['cphase'])
             self.cpinfo['processed']['native']['wts'] = MA.array(NP.logical_not(self.cpinfo['raw']['flags']).astype(NP.float), mask=self.cpinfo['raw']['flags'])
+
+    ############################################################################
+
+    def smooth_in_tbins(self, tbinsize=None):
+
+        """
+        ------------------------------------------------------------------------
+        Smooth the complex exponentials of closure phases in time bins. Both
+        mean and median smoothing is produced.
+
+        Inputs:
+
+        tbinsize    [NoneType or scalar] Time-bin size (in seconds) over which
+                    mean and median are estimated
+        ------------------------------------------------------------------------
+        """
+
+        if tbinsize is not None:
+            if not isinstance(tbinsize, (int,float)):
+                raise TypeError('Input tbinsize must be a scalar')
+            tbinsize = tbinsize / 24 / 3.6e3 # in days
+            tres = self.cpinfo['raw']['lst'][1] - self.cpinfo['raw']['lst'][0] # in days
+            textent = tres * self.cpinfo['raw']['lst'].size # in seconds
+            if tbinsize > tres:
+                tbinsize = NP.clip(tbinsize, tres, textent)
+                eps = 1e-10
+                tbins = NP.arange(self.cpinfo['raw']['lst'].min(), self.cpinfo['raw']['lst'].max() + tres + eps, tbinsize)
+                tbinintervals = tbins[1:] - tbins[:-1]
+                tbincenters = tbins[:-1] + 0.5 * tbinintervals
+                counts, tbin_edges, tbinnum, ri = OPS.binned_statistic(self.cpinfo['raw']['lst'].ravel(), statistic='count', bins=tbins)
+                counts = counts.astype(NP.int)
+
+                if 'prelim' not in self.cpinfo['processed']:
+                    self.cpinfo['processed']['prelim'] = {}
+                self.cpinfo['processed']['prelim']['eicp'] = {}
+                self.cpinfo['processed']['prelim']['cphase'] = {}
+
+                wts_tbins = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size))
+                eicp_tmean = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size), dtype=NP.complex128)
+                eicp_tmedian = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size), dtype=NP.complex128)
+                cp_trms = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size))
+                cp_tmad = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size))
+
+                for binnum in xrange(counts.size):
+                    ind_tbin = ri[ri[binnum]:ri[binnum+1]]
+                    wts_tbins[:,:,:,binnum] = NP.sum(self.cpinfo['processed']['native']['wts'][:,:,:,ind_tbin], axis=3)
+                    eicp_tmean[:,:,:,binnum] = NP.exp(1j*NP.angle(MA.mean(self.cpinfo['processed']['native']['eicp'][:,:,:,ind_tbin], axis=3)))
+                    eicp_tmedian[:,:,:,binnum] = NP.exp(1j*NP.angle(MA.median(self.cpinfo['processed']['native']['eicp'][:,:,:,ind_tbin].real, axis=3) + 1j * MA.median(self.cpinfo['processed']['native']['eicp'][:,:,:,ind_tbin].imag, axis=3)))
+                    cp_trms[:,:,:,binnum] = MA.std(self.cpinfo['processed']['native']['cphase'][:,:,:,ind_tbin], axis=-1).data
+                    cp_tmad[:,:,:,binnum] = MA.median(NP.abs(self.cpinfo['processed']['native']['cphase'][:,:,:,ind_tbin] - NP.angle(eicp_tmedian[:,:,:,binnum][:,:,:,NP.newaxis])), axis=-1).data
+                mask = wts_tbins <= 0.0
+                self.cpinfo['processed']['prelim']['wts'] = MA.array(wts_tbins, mask=mask)
+                self.cpinfo['processed']['prelim']['eicp']['mean'] = MA.array(eicp_tmean, mask=mask)
+                self.cpinfo['processed']['prelim']['eicp']['median'] = MA.array(eicp_tmedian, mask=mask)
+                self.cpinfo['processed']['prelim']['cphase']['mean'] = MA.array(NP.angle(eicp_tmean), mask=mask)
+                self.cpinfo['processed']['prelim']['cphase']['median'] = MA.array(NP.angle(eicp_tmedian), mask=mask)
+                self.cpinfo['processed']['prelim']['cphase']['rms'] = MA.array(cp_trms, mask=mask)
+                self.cpinfo['processed']['prelim']['cphase']['mad'] = MA.array(cp_tmad, mask=mask)
 
     ############################################################################
 

@@ -1,3 +1,11 @@
+From fb3cfea (closure):
+======================
+
+In prisim/closure.py,
+
+(*) Add member function smooth_in_tbins() under class ClosurePhase.
+Update class docstring accordingly
+
 From b13de6f (closure):
 ======================
 
