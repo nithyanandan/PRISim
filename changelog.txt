@@ -1,3 +1,11 @@
+From aeef394 (closure):
+======================
+
+In prisim/closure.py,
+
+(*) Update docstring of class ClosurePhase
+(*) Start work on class ClosurePhaseDelaySpectrum
+
 From fb3cfea (closure):
 ======================
 

@@ -75,6 +75,39 @@ class ClosurePhase(object):
 
     Attributes:
 
+    extfile         [string] Full path to external file containing information
+                    of ClosurePhase instance. The file is in HDF5 format
+
+    cpinfo          [dictionary] Contains two top level keys, namely, 'raw' and
+                    'processed'. 
+
+                    Under key 'raw' which holds a dictionary, the subkeys 
+                    include 'cphase' (ntriads,npol,nchan,ntimes), 
+                    'triads' (ntriads,3), 'lst' (ntimes,), and 'flags' 
+                    (ntriads,npol,nchan,ntimes). 
+
+                    Under the 'processed' key are two subkeys, namely, 'native' 
+                    and 'prelim' each holding a dictionary. 
+                        Under 'native' dictionary, the subsubkeys for further 
+                        dictioanries are 'cphase' (masked array: 
+                        (ntriads,npol,nchan,ntimes)), 'eicp' (complex masked 
+                        array: (ntriads,npol,nchan,ntimes)), and 'wts' (masked 
+                        array: (ntriads,npol,nchan,ntimes)).
+
+                        Under 'prelim' dictionary, the subsubkeys for further 
+                        dictionaries are 'wts' (masked array: 
+                        (ntriads,npol,nchan,ntbins)), 'eicp' and 'cphase'. 
+                        The dictionaries under 'eicp' are indexed by keys 
+                        'mean' (complex masked array: 
+                        (ntriads,npol,nchan,ntbins)), and 'median' (complex
+                        masked array: (ntriads,npol,nchan,ntbins)). 
+                        The dictionaries under 'cphase' are indexed by keys
+                        'mean' (masked array: (ntriads,npol,nchan,ntbins)), 
+                        'median' (masked array: (ntriads,npol,nchan,ntbins)),
+                        'rms' (masked array: (ntriads,npol,nchan,ntbins)), and
+                        'mad' (masked array: (ntriads,npol,nchan,ntbins)). The
+                        last one denotes Median Absolute Deviation.
+
     Member functions:
 
     __init__()      Initialize an instance of class ClosurePhase
@@ -260,4 +293,13 @@ class ClosurePhase(object):
         
         NMO.save_dict_to_hdf5(self.cpinfo, outfile, compressinfo={'compress_fmt': 'gzip', 'compress_opts': 9})
         
-    ############################################################################
+################################################################################
+
+class ClosurePhaseDelaySpectrum(object):
+
+    def __init__(self, cPhase):
+
+        if not isinstance(cPhase, ClosurePhase):
+            raise TypeError('Input cPhase must be an instance of class ClosurePhase')
+        self.cPhase = cPhase
+        
