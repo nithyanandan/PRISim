@@ -1,3 +1,14 @@
+From b13de6f (closure):
+======================
+
+In prisim/closure.py,
+
+(*) Fix bugs in function npz2hdf5()
+(*) Update docstring of function npz2hdf5() and member function
+__init__() of class ClosurePhase
+(*) Fix bugs in member functions __init__() and expicp() of class
+ClosurePhase
+
 From e614307 (closure):
 ======================
 

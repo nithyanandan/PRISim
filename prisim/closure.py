@@ -25,11 +25,11 @@ def npz2hdf5(npzfile, hdf5file):
     npzfile     [string] Input NPZ file including full path containing closure 
                 phase data. It must have the following files/keys inside:
                 'phase'     [numpy array] Closure phase (radians). It is of 
-                            shape ntriads x nchan x npol x ntimes
+                            shape ntriads x npol x nchan x ntimes
                 'tr'        [numpy array] Array of triad tuples, of shape 
                             ntriads x 3
                 'flags'     [numpy array] Array of flags (boolean), of shape
-                            ntriads x nchan x npol x ntimes
+                            ntriads x npol x nchan x ntimes
                 'lst'       [numpy array] Array of LST, of size ntimes
 
     hdf5file    [string] Output HDF5 file including full path.
@@ -44,10 +44,10 @@ def npz2hdf5(npzfile, hdf5file):
 
     cp = NP.asarray(cpdata)
     triads = NP.asarray(triadsdata)
-    flags = NP.asarray(flags)
+    flags = NP.asarray(flagsdata)
     lst = NP.asarray(lstdata)
 
-    with h5py.File(hd5file, 'w') as fobj:
+    with h5py.File(hdf5file, 'w') as fobj:
         datapool = ['raw']
         for dpool in datapool:
             if dpool == 'raw':
@@ -61,7 +61,7 @@ def npz2hdf5(npzfile, hdf5file):
                     data = NP.copy(flags)
                 elif qty == 'lst':
                     data = NP.copy(lst)
-                dset = fobj.create_dataset('{0}/{1}'.format(dpool, qty), data=cp, compression='gzip', compression_opts=9)
+                dset = fobj.create_dataset('{0}/{1}'.format(dpool, qty), data=data, compression='gzip', compression_opts=9)
             
 ################################################################################
         
@@ -100,11 +100,11 @@ class ClosurePhase(object):
                     input infmt. If it is a NPZ file, it must contain the 
                     following keys/files:
                     'phase'     [numpy array] Closure phase (radians). It is of 
-                                shape ntriads x nchan x npol x ntimes
+                                shape ntriads x npol x nchan x ntimes
                     'tr'        [numpy array] Array of triad tuples, of shape 
                                 ntriads x 3
                     'flags'     [numpy array] Array of flags (boolean), of shape
-                                ntriads x nchan x npol x ntimes
+                                ntriads x npol x nchan x ntimes
                     'lst'       [numpy array] Array of LST, of size ntimes
 
         infmt       [string] Input file format. Accepted values are 'npz' 
@@ -125,7 +125,7 @@ class ClosurePhase(object):
             infilesplit = infile.split('.npz')
             infile_noext = infilesplit[0]
             npz2hdf5(infile, infile_noext+'.hdf5')
-            self.extfile = infile_noext + 'hdf5'
+            self.extfile = infile_noext + '.hdf5'
         else:
             if not isinstance(infile, h5py.File):
                 raise TypeError('Input infile is not a valid HDF5 file')
@@ -167,15 +167,15 @@ class ClosurePhase(object):
             self.cpinfo['processed']['native'] = {}
             force_action = True
         if 'cphase' not in self.cpinfo['processed']['native']:
-            self.cpinfo['processed']['native']['cphase'] = MA.array(self.cpinfo['raw']['cphase'], mask=self.cpinfo['raw']['flags'])
+            self.cpinfo['processed']['native']['cphase'] = MA.array(self.cpinfo['raw']['cphase'].astype(NP.float64), mask=self.cpinfo['raw']['flags'])
             force_action = True
         if not force_action:
             if 'eicp' not in self.cpinfo['processed']['native']:
                 self.cpinfo['processed']['native']['eicp'] = NP.exp(1j * self.cpinfo['processed']['native']['cphase'])
-                self.cpinfo['processed']['native']['wts'] = NP.logical_not(self.cpinfo['raw']['flags']).astype(NP.int)
+                self.cpinfo['processed']['native']['wts'] = MA.array(NP.logical_not(self.cpinfo['raw']['flags']).astype(NP.float), mask=self.cpinfo['raw']['flags'])
         else:
             self.cpinfo['processed']['native']['eicp'] = NP.exp(1j * self.cpinfo['processed']['native']['cphase'])
-            self.cpinfo['processed']['native']['wts'] = NP.logical_not(self.cpinfo['raw']['flags']).astype(NP.int)
+            self.cpinfo['processed']['native']['wts'] = MA.array(NP.logical_not(self.cpinfo['raw']['flags']).astype(NP.float), mask=self.cpinfo['raw']['flags'])
 
     ############################################################################
 
