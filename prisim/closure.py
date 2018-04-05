@@ -297,9 +297,30 @@ class ClosurePhase(object):
 
 class ClosurePhaseDelaySpectrum(object):
 
+    """
+    ----------------------------------------------------------------------------
+    Class to hold and operate on Closure Phase information.
+
+    It has the following attributes and member functions.
+
+    Attributes:
+    ----------------------------------------------------------------------------
+    """
+    
     def __init__(self, cPhase):
+
+        """
+        ------------------------------------------------------------------------
+        Initialize instance of class ClosurePhaseDelaySpectrum
+
+        Inputs:
+
+        cPhase      [class ClosurePhase] Instance of class CLosurePhase
+        ------------------------------------------------------------------------
+        """
 
         if not isinstance(cPhase, ClosurePhase):
             raise TypeError('Input cPhase must be an instance of class ClosurePhase')
         self.cPhase = cPhase
-        
+
+    ############################################################################

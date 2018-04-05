@@ -1,3 +1,12 @@
+From b5e87ff (closure):
+======================
+
+In prisim/closure.py,
+
+(*) Update docstring of class ClosurePhaseDelaySpectrum
+(*) Update docstring of __init__() member function of class
+ClosurePhaseDelaySpectrum
+
 From aeef394 (closure):
 ======================
 
