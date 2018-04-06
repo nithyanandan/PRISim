@@ -460,10 +460,12 @@ else:
         raise ValueError('Height of antenna element above ground plane must be positive.')
 
 if use_external_beam:
-    if beam_filefmt == 'fits':
+    if beam_filefmt.lower() == 'fits':
         external_beam = fits.getdata(external_beam_file, extname='BEAM_{0}'.format(beam_pol))
         external_beam_freqs = fits.getdata(external_beam_file, extname='FREQS_{0}'.format(beam_pol)) # in MHz
         external_beam = external_beam.reshape(-1,external_beam_freqs.size) # npix x nfreqs
+        prihdr = fits.getheader(external_beam_file, 0)
+        beamunit = prihdr['GAINUNIT']
     elif beam_filefmt == 'uvbeam':
         if uvbeam_module_found:
             uvbm = UVBeam()
@@ -478,8 +480,16 @@ if use_external_beam:
             external_beam_freqs = uvbm.freq_array.ravel() / 1e6 # nfreqs (in MHz)
         else:
             raise ImportError('uvbeam module not installed/found')
+    elif beam_filefmt.lower() == 'hdf5':
+        with h5py.File(external_beam_file, 'r') as fileobj:
+            external_beam = fileobj['gain_info'][beam_pol].value
+            external_beam = external_beam.T
+            external_beam_freqs = fileobj['spectral_info']['freqs'].value
+            beamunit = fileobj['header']['gainunit'].value
     else:
         raise ValueError('Specified beam file format not currently supported')
+    if beamunit.lower() == 'db':
+        external_beam = 10**(external_beam/10.0)
     beam_usage_str = 'extpb_'+beam_id
     if beam_chromaticity:
         if pbeam_spec_interp_method == 'fft':

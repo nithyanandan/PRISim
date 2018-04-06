@@ -1,0 +1,63 @@
+##### IMPORTANT INFORMATION #####
+##### DO NOT MODIFY THIS FILE #####
+##### MAKE A COPY OF THIS FILE AND CUSTOMIZE #####
+
+########## Input/Output information #########
+
+io   :
+                                # Directory information
+
+    indir           : '/path/to/input/folder/'
+                                # Input folder containing
+                                # simulated beam(s)
+
+    infile          : 'infile'
+                                # Input file name, file is in
+                                # HDF5 format
+
+    outdir          : '/path/to/output/folder/'
+                                # Output folder containing
+                                # beam converted to healpix
+                                # format
+
+    outfmt          : 'HDF5'
+                                # Output format of the
+                                # consolidated beams in
+                                # healpix format. Accepted values
+                                # are 'HDF5' (default) and 'FITS'
+
+    outfile         : 'outfile'
+                                # Output filename without
+                                # extension. The extension
+                                # will be automatically
+                                # appended depending on
+                                # outfmt -- '.hdf5'
+
+########## Processing parameters #########
+                                
+processing  :
+
+    nside_out   : null
+                                # NSIDE parameter of healpix output
+                                # If set to null (default), output
+                                # will have same nside as input.
+                                # Otherwise, a valid healpix nside
+                                # must be specified
+    
+    gainunit_out: 'dB'
+                                # Units of input gain. If set to 
+                                # 'dB' (default), they are in 
+                                # decibels. If set to null, they are 
+                                # in normal units
+
+    wait        : true
+                                # If set to true, wait after run.
+                                # Default=false
+
+########## Miscellaneous parameters #########
+
+misc        :
+
+    source      : 'somename'
+                                # Source of the beam
+                                

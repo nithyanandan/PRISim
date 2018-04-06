@@ -1,0 +1,86 @@
+##### IMPORTANT INFORMATION #####
+##### DO NOT MODIFY THIS FILE #####
+##### MAKE A COPY OF THIS FILE AND CUSTOMIZE #####
+
+########## Input/Output information #########
+
+io   :
+                                # Directory information
+
+    indir           : '/path/to/input/folder/'
+                                # Input folder containing
+                                # simulated beam(s)
+
+    infmt           : 'FEKO'
+                                # Input file format
+
+    p1infile        : 'filename1'
+                                # Input filename for pol#1.
+                                # Default=null
+
+    p2infile        : 'filename2'
+                                # Input filename for pol#2
+                                # Default=null
+
+    outdir          : '/path/to/output/folder/'
+                                # Output folder containing
+                                # beam converted to healpix
+                                # format
+
+    outfmt          : 'HDF5'
+                                # Output format of the
+                                # consolidated beams in
+                                # healpix format
+
+    outfile         : 'outfile'
+                                # Output filename without
+                                # extension. The extension
+                                # will be automatically
+                                # appended depending on
+                                # outfmt -- '.hdf5', '.fits',
+                                # etc.
+
+########## Processing parameters #########
+                                
+processing  :
+
+    is_grid     : false
+                                # If set to true, the input data can
+                                # be gridded as nchan x ntheta x nphi
+                                # else it will be used with the shape
+                                # nchan x nlocs. Setting is_grid can
+                                # make interpolation considerably
+                                # faster if using 'spline' interp
+                                # method
+
+    nside       : 32
+                                # NSIDE parameter of healpix output
+    
+    gainunit_in : 'dB'
+                                # Units of input gain. If set to 
+                                # 'dB' (default), they are in 
+                                # decibels. If set to null, they are 
+                                # in normal units
+
+    gainunit_out: 'dB'
+                                # Units of input gain. If set to 
+                                # 'dB' (default), they are in 
+                                # decibels. If set to null, they are 
+                                # in normal units
+
+    interp      : 'healpix'
+                                # Interpolation method. Accepted
+                                # values are 'spline' (default),
+                                # 'healpix' or 'nearest'
+
+    wait        : true
+                                # If set to true, wait after run.
+                                # Default=false
+
+########## Miscellaneous parameters #########
+
+misc        :
+
+    source      : 'somename'
+                                # Source of the beam
+                                

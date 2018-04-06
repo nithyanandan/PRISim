@@ -60,7 +60,8 @@ telescope:
                                 # 34.079 for VLA,
                                 # 19.0965 for GMRT
                                 # -26.82472208 for SKA low
-                                # -25.887222 for HIRAX
+                                # -25.887222 for HIRAX,
+                                # +49.321111 for CHIME
 
     longitude       : +21.4278
                                 # Longitude of observatory (in degrees)
@@ -70,15 +71,17 @@ telescope:
                                 # MWA, +21.4278 for PAPER and HERA,
                                 # +74.0497 for GMRT,
                                 # +116.7644482 for SKA-Low
-                                # +27.684722 for HIRAX
+                                # +27.684722 for HIRAX, 119.623889
+                                # for CHIME
 
     altitude        : 0.0
                                 # Specify altitude in meters.
-                                # Default = 0
+                                # Default = 0. 545m for CHIME
 
     A_eff           : 154
                                 # Effective area of antenna element
-                                # in m^2
+                                # in m^2. 154 for HERA dish, 5 for
+                                # CHIME dipole (20m x 0.25m)
 
     Trx             : 50.0
                                 # Receiver temperature (in K)
@@ -124,7 +127,8 @@ array   :                       # Parameters 'file' and 'layout'
                                 # 'HERA-61', 'HERA-91', 'HERA-127',
                                 # 'HERA-169', 'HERA-217', 'HERA-271',
                                 # 'HERA-331', 'PAPER-64', 'PAPER-112',
-                                # 'HIRAX-1024','CIRC', or null
+                                # 'HIRAX-1024', 'CHIME', 'CIRC', or
+                                # null
 
     file            : null
                                 # File containing antenna locations
@@ -361,7 +365,7 @@ beam    :
 
     pol             : 'X'
                                 # Beam polarization. Accepted values
-                                # are 'X' and 'Y'
+                                # are 'X' and 'Y', or 'P1' and 'P2'
 
     chromatic       : true
                                 # if false, the beam is the same at

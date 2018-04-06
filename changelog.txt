@@ -1,3 +1,20 @@
+From 94f15d0 (master):
+=====================
+
+(*) prisim/examples/pbparms/SKA_low_healpix_beam_to_PRISim_format.yaml
+added to repo
+(*) Add prisim/examples/pbparms/FEKO_beam_to_healpix.yaml to repo
+(*) Add scripts/SKA_low_healpix_beam_to_PRISim_format.py to repo
+(*) Add scripts/FEKO_beam_to_healpix.py to repo
+
+In scripts/run_prisim.py,
+
+(*) Add support to handle external beams in HDF5 format
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Minor updates in parameter descriptions
+
 From f3c3107 (phasing):
 ======================
 
