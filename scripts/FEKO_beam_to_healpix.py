@@ -226,7 +226,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Program to convert simulated beams into healpix format')
     
     input_group = parser.add_argument_group('Input parameters', 'Input specifications')
-    input_group.add_argument('-i', '--infile', dest='infile', default=None, type=file, required=True, help='File specifying input parameters')
+    input_group.add_argument('-i', '--infile', dest='infile', default=None, type=file, required=True, help='File specifying input parameters. Example in prisim/examples/pbparms/FEKO_beam_to_healpix.yaml')
     
     args = vars(parser.parse_args())
     

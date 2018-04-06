@@ -1,3 +1,14 @@
+From cc542b4 (parabolic-cylinder):
+=================================
+
+(*) Rename prisim/examples/pbparms/simbeam_to_healpix.yaml to
+prisim/examples/pbparms/FEKO_beam_to_healpix.yaml
+
+In scripts/FEKO_beam_to_healpix.py,
+
+(*) Point to example in
+prisim/examples/pbparms/FEKO_beam_to_healpix.yaml
+
 From c5c1118 (parabolic-cylinder):
 =================================
 
