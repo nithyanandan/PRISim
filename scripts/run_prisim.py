@@ -2,25 +2,24 @@
 
 import os, shutil, subprocess, pwd, errno
 from mpi4py import MPI
-import yaml
+import h5py, yaml
 import argparse
 import copy
 import numpy as NP
 import ephem as EP
+import healpy as HP
 from astropy.io import fits, ascii
 from astropy.coordinates import Galactic, FK5, SkyCoord
 from astropy import units
 from astropy.time import Time
 import scipy.constants as FCNST
-from scipy import interpolate
+import ipdb as PDB
 import matplotlib.pyplot as PLT
 import matplotlib.colors as PLTC
 import matplotlib.animation as MOV
-from scipy.interpolate import griddata
 import datetime as DT
 import time 
 import progressbar as PGB
-import healpy as HP
 import psutil 
 from astroutils import MPI_modules as my_MPI
 from astroutils import geometry as GEOM
@@ -39,7 +38,6 @@ except ImportError:
     uvbeam_module_found = False
 else:
     uvbeam_module_found = True
-import ipdb as PDB
 
 ## Set MPI parameters
 
@@ -462,7 +460,7 @@ else:
 if use_external_beam:
     if beam_filefmt.lower() == 'fits':
         external_beam = fits.getdata(external_beam_file, extname='BEAM_{0}'.format(beam_pol))
-        external_beam_freqs = fits.getdata(external_beam_file, extname='FREQS_{0}'.format(beam_pol)) # in MHz
+        external_beam_freqs = fits.getdata(external_beam_file, extname='FREQS_{0}'.format(beam_pol)) # in Hz
         external_beam = external_beam.reshape(-1,external_beam_freqs.size) # npix x nfreqs
         prihdr = fits.getheader(external_beam_file, 0)
         beamunit = prihdr['GAINUNIT']
@@ -477,14 +475,14 @@ if use_external_beam:
             else:
                 beam_pol_ind = 1
             external_beam = uvbm.data_array[axis_vec_ind,spw_ind,beam_pol_ind,:,:].T # npix x nfreqs
-            external_beam_freqs = uvbm.freq_array.ravel() / 1e6 # nfreqs (in MHz)
+            external_beam_freqs = uvbm.freq_array.ravel() # nfreqs (in Hz)
         else:
             raise ImportError('uvbeam module not installed/found')
     elif beam_filefmt.lower() == 'hdf5':
         with h5py.File(external_beam_file, 'r') as fileobj:
             external_beam = fileobj['gain_info'][beam_pol].value
-            external_beam = external_beam.T
-            external_beam_freqs = fileobj['spectral_info']['freqs'].value
+            external_beam = external_beam.T # npix x nfreqs
+            external_beam_freqs = fileobj['spectral_info']['freqs'].value # nfreqs (in Hz)
             beamunit = fileobj['header']['gainunit'].value
     else:
         raise ValueError('Specified beam file format not currently supported')
@@ -808,7 +806,6 @@ bl_id = arrayinfo['id']
 blgroups = arrayinfo['groups']
 bl_reversemap = arrayinfo['reversemap']
 total_baselines = bl.shape[0]
-
 try:
     labels = bl_label.tolist()
 except NameError:
@@ -873,19 +870,11 @@ if pfb_method is not None:
         pfbwin = 10 * NP.log10(NP.sum(10**(pfbdata_norm/10), axis=1))
         freq_range = [0.9*chans.min(), 1.1*chans.max()]
         useful_freq_range = NP.logical_and(pfbfreq >= freq_range[0]*1e3, pfbfreq <=freq_range[1]*1e3)
-        # pfb_interp_func = interpolate.interp1d(pfbfreq[useful_freq_range]/1e3, pfbwin[useful_freq_range])
-        # pfbwin_interp = pfb_interp_func(chans)
         pfbwin_interp = NP.interp(chans, pfbfreq[useful_freq_range]/1e3, pfbwin[useful_freq_range])
         bandpass_shape = 10**(pfbwin_interp/10)
     if flag_repeat_edge_channels:
         if NP.any(n_edge_flag > 0): 
             pfb_edge_channels = (bandpass_shape.argmin() + NP.arange(nchan/coarse_channel_width)*coarse_channel_width) % nchan
-            # pfb_edge_channels = bandpass_shape.argsort()[:int(1.0*nchan/coarse_channel_width)]
-            # wts = NP.exp(-0.5*((NP.arange(bandpass_shape.size)-0.5*bandpass_shape.size)/4.0)**2)/(4.0*NP.sqrt(2*NP.pi))
-            # wts_shift = NP.fft.fftshift(wts)
-            # freq_wts = NP.fft.fft(wts_shift)
-            # pfb_filtered = DSP.fft_filter(bandpass_shape.ravel(), wts=freq_wts.ravel(), passband='high')
-            # pfb_edge_channels = pfb_filtered.argsort()[:int(1.0*nchan/coarse_channel_width)]
 
             pfb_edge_channels = NP.hstack((pfb_edge_channels.ravel(), NP.asarray([pfb_edge_channels.min()-coarse_channel_width, pfb_edge_channels.max()+coarse_channel_width])))
             flagged_edge_channels += [range(max(0,pfb_edge-n_edge_flag[0]),min(nchan,pfb_edge+n_edge_flag[1])) for pfb_edge in pfb_edge_channels]
@@ -1784,7 +1773,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                         # interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e9, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
                         
                     else:
-                        nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs*1e6 - select_beam_freq))
+                        nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs - select_beam_freq))
                         interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e9, outloc_axis=chans*1e9, axis=1, assume_sorted=True)
                     interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)
                     interp_logbeam_max[interp_logbeam_max <= 0.0] = 0.0
@@ -1966,7 +1955,7 @@ else: # MPI based on baseline multiplexing
                         if beam_chromaticity:
                             interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e9, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
                         else:
-                            nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs*1e6 - freq))
+                            nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs - freq))
                             interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e9, outloc_axis=chans*1e9, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
                         
                         interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)

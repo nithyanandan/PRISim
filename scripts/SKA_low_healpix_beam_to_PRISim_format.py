@@ -138,9 +138,9 @@ if __name__ == '__main__':
     sortind = NP.argsort(freqs)
     freqs = freqs[sortind]
     for pi,pol in enumerate(pols):
-        net_voltage_pattern[pol] = net_voltage_pattern[pol][sortind,:] # npix x nchan
+        net_voltage_pattern[pol] = net_voltage_pattern[pol][sortind,:] # nchan x npix
         net_voltage_pattern[pol] = net_voltage_pattern[pol] / NP.amax(NP.abs(net_voltage_pattern[pol]), axis=1, keepdims=True)
-        gains[pol] = NP.abs(net_voltage_pattern[pol].T)**2 # nchan x npix
+        gains[pol] = NP.abs(net_voltage_pattern[pol])**2 # nchan x npix
         current_gainunit = 'regular'
         if nside_out is not None:
             if nside_out != nsides[pol]:

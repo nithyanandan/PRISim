@@ -1,3 +1,17 @@
+From f05b84f (reflection-constraints):
+=====================================
+
+In scripts/SKA_low_healpix_beam_to_PRISim_format.py,
+
+(*) Fix bugs to write the beam array with the right shape into the
+external HDF5 file
+
+In scripts/run_prisim.py,
+
+(*) Remove import sof scipy.interpolate
+(*) Fix bugs to read properly the antenna power pattern from the
+external HDF5 file
+
 From 94f15d0 (master):
 =====================
 
