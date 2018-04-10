@@ -1,3 +1,17 @@
+From 4bb6b15 (closure):
+======================
+
+In prisim/closure.py,
+
+(*) In member function __init__() of class ClosurePhase, add input
+freqs for initialization. Update member function docstring
+accordingly
+(*) Add class ClosurePhaseDelaySpectrum along with docstring
+(*) Add member function __init__() and FT() along with respective
+docstrings under class ClosurePhaseDelaySpectrum
+(*) Initialize attributes cPhase, f, df, and cPhaseDS in member
+function __init__() of class ClosurePhase
+
 From b5e87ff (closure):
 ======================
 

@@ -123,7 +123,7 @@ class ClosurePhase(object):
     ----------------------------------------------------------------------------
     """
     
-    def __init__(self, infile, infmt='npz'):
+    def __init__(self, infile, freqs, infmt='npz'):
 
         """
         ------------------------------------------------------------------------
@@ -144,6 +144,9 @@ class ClosurePhase(object):
                                 ntriads x npol x nchan x ntimes
                     'lst'       [numpy array] Array of LST, of size ntimes
 
+        freqs       [numpy array] Frequencies (in Hz) in the input. Size is 
+                    nchan.
+
         infmt       [string] Input file format. Accepted values are 'npz' 
                     (default) and 'hdf5'.
         ------------------------------------------------------------------------
@@ -151,6 +154,10 @@ class ClosurePhase(object):
 
         if not isinstance(infile, str):
             raise TypeError('Input infile must be a string')
+
+        if not isinstance(freqs, NP.ndarray):
+            raise TypeError('Input freqs must be a numpy array')
+        freqs = freqs.ravel()
 
         if not isinstance(infmt, str):
             raise TypeError('Input infmt must be a string')
@@ -168,6 +175,11 @@ class ClosurePhase(object):
             if not isinstance(infile, h5py.File):
                 raise TypeError('Input infile is not a valid HDF5 file')
             self.extfile = infile
+
+        if freqs.size != self.cpinfo['raw']['cphase'].shape[-2]:
+            raise ValueError('Input frequencies do not match with dimensions of the closure phase data')
+        self.f = freqs
+        self.df = freqs[1] - freqs[0]
 
         force_expicp = False
         if 'processed' not in self.cpinfo:
@@ -304,6 +316,23 @@ class ClosurePhaseDelaySpectrum(object):
     It has the following attributes and member functions.
 
     Attributes:
+
+    cPhase          [instance of class ClosurePhase] Instance of class
+                    ClosurePhase
+
+    f               [numpy array] Frequencies (in Hz) in closure phase spectra
+
+    df              [float] Frequency resolution (in Hz) in closure phase 
+                    spectra
+
+    cPhaseDS        [dictionary] Closure Phase Delay Spectrum information.
+
+    Member functions:
+
+    __init__()      Initialize instance of class ClosurePhaseDelaySpectrum
+
+    FT()            Fourier transform of complex closure phase spectra mapping 
+                    from frequency axis to delay axis.
     ----------------------------------------------------------------------------
     """
     
@@ -322,5 +351,163 @@ class ClosurePhaseDelaySpectrum(object):
         if not isinstance(cPhase, ClosurePhase):
             raise TypeError('Input cPhase must be an instance of class ClosurePhase')
         self.cPhase = cPhase
+        self.f = self.cPhase.f
+        self.df = self.cPhase.df
+        self.cPhaseDS = None
+
+    ############################################################################
+
+    def FT(self, bw_eff, freq_center=None, shape=None, fftpow=None, pad=None,
+           datapool='prelim', method='fft'):
+
+        """
+        ------------------------------------------------------------------------
+        Fourier transform of complex closure phase spectra mapping from 
+        frequency axis to delay axis.
+
+        Inputs:
+
+        bw_eff      [scalar or numpy array] effective bandwidths (in Hz) on the 
+                    selected frequency windows for subband delay transform of 
+                    closure phases. If a scalar value is provided, the same 
+                    will be applied to all frequency windows
+
+        freq_center [scalar, list or numpy array] frequency centers (in Hz) of 
+                    the selected frequency windows for subband delay transform 
+                    of closure phases. The value can be a scalar, list or numpy 
+                    array. If a scalar is provided, the same will be applied to 
+                    all frequency windows. Default=None uses the center 
+                    frequency from the class attribute named channels
+
+        shape       [string] frequency window shape for subband delay transform 
+                    of closure phases. Accepted values for the string are 
+                    'rect' or 'RECT' (for rectangular), 'bnw' and 'BNW' (for 
+                    Blackman-Nuttall), and 'bhw' or 'BHW' (for 
+                    Blackman-Harris). Default=None sets it to 'rect' 
+                    (rectangular window)
+
+        fftpow      [scalar] the power to which the FFT of the window will be 
+                    raised. The value must be a positive scalar. Default = 1.0
+
+        pad         [scalar] padding fraction relative to the number of 
+                    frequency channels for closure phases. Value must be a 
+                    non-negative scalar. For e.g., a pad of 1.0 pads the 
+                    frequency axis with zeros of the same width as the number 
+                    of channels. After the delay transform, the transformed 
+                    closure phases are downsampled by a factor of 1+pad. If a 
+                    negative value is specified, delay transform will be 
+                    performed with no padding. Default=None sets to padding 
+                    factor to 1.0
+
+        datapool    [string] Specifies which data set is to be Fourier 
+                    transformed
+
+        method      [string] Specifies Fourier transform method to be used.
+                    Accepted values are 'fft' (default) for FFT and 'nufft' for 
+                    non-uniform FFT
+        ------------------------------------------------------------------------
+        """
+        
+        try:
+            bw_eff
+        except NameError:
+            raise NameError('Effective bandwidth must be specified')
+        else:
+            if not isinstance(bw_eff, (int, float, list, NP.ndarray)):
+                raise TypeError('Value of effective bandwidth must be a scalar, list or numpy array')
+            bw_eff = NP.asarray(bw_eff).reshape(-1)
+            if NP.any(bw_eff <= 0.0):
+                raise ValueError('All values in effective bandwidth must be strictly positive')
+        if freq_center is None:
+            freq_center = NP.asarray(self.f[self.f.size/2]).reshape(-1)
+        elif isinstance(freq_center, (int, float, list, NP.ndarray)):
+            freq_center = NP.asarray(freq_center).reshape(-1)
+            if NP.any((freq_center <= self.f.min()) | (freq_center >= self.f.max())):
+                raise ValueError('Value(s) of frequency center(s) must lie strictly inside the observing band')
+        else:
+            raise TypeError('Values(s) of frequency center must be scalar, list or numpy array')
+
+        if (bw_eff.size == 1) and (freq_center.size > 1):
+            bw_eff = NP.repeat(bw_eff, freq_center.size)
+        elif (bw_eff.size > 1) and (freq_center.size == 1):
+            freq_center = NP.repeat(freq_center, bw_eff.size)
+        elif bw_eff.size != freq_center.size:
+            raise ValueError('Effective bandwidth(s) and frequency center(s) must have same number of elements')
+            
+        if shape is not None:
+            if not isinstance(shape, str):
+                raise TypeError('Window shape must be a string')
+            if shape not in ['rect', 'bhw', 'bnw', 'RECT', 'BHW', 'BNW']:
+                raise ValueError('Invalid value for window shape specified.')
+        else:
+            shape = 'rect'
+
+        if fftpow is None:
+            fftpow = 1.0
+        else:
+            if not isinstance(fftpow, (int, float)):
+                raise TypeError('Power to raise window FFT by must be a scalar value.')
+            if fftpow < 0.0:
+                raise ValueError('Power for raising FFT of window by must be positive.')
+
+        if pad is None:
+            pad = 1.0
+        else:
+            if not isinstance(pad, (int, float)):
+                raise TypeError('pad fraction must be a scalar value.')
+            if pad < 0.0:
+                pad = 0.0
+                if verbose:
+                    print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+
+        if not isinstance(datapool, str):
+            raise TypeError('Input datapool must be a string')
+
+        if datapool.lower() not in ['prelim']:
+            raise ValueError('Specified datapool not supported')
+
+        if not isinstance(method, str):
+            raise TypeError('Input method must be a string')
+
+        if method.lower() not in ['fft', 'nufft']:
+            raise ValueError('Specified FFT method not supported')
+
+        if datapool.lower() == 'prelim':
+            if method.lower() == 'fft':
+                freq_wts = NP.empty((bw_eff.size, self.f.size), dtype=NP.float_)
+                frac_width = DSP.window_N2width(n_window=None, shape=shape, fftpow=fftpow, area_normalize=False, power_normalize=True)
+                window_loss_factor = 1 / frac_width
+                n_window = NP.round(window_loss_factor * bw_eff / self.df).astype(NP.int)
+                ind_freq_center, ind_channels, dfrequency = LKP.find_1NN(self.f.reshape(-1,1), freq_center.reshape(-1,1), distance_ULIM=0.5*self.df, remove_oob=True)
+                sortind = NP.argsort(ind_channels)
+                ind_freq_center = ind_freq_center[sortind]
+                ind_channels = ind_channels[sortind]
+                dfrequency = dfrequency[sortind]
+                n_window = n_window[sortind]
+        
+                for i,ind_chan in enumerate(ind_channels):
+                    window = NP.sqrt(frac_width * n_window[i]) * DSP.window_fftpow(n_window[i], shape=shape, fftpow=fftpow, centering=True, peak=None, area_normalize=False, power_normalize=True)
+                    window_chans = self.f[ind_chan] + self.df * (NP.arange(n_window[i]) - int(n_window[i]/2))
+                    ind_window_chans, ind_chans, dfreq = LKP.find_1NN(self.f.reshape(-1,1), window_chans.reshape(-1,1), distance_ULIM=0.5*self.df, remove_oob=True)
+                    sind = NP.argsort(ind_window_chans)
+                    ind_window_chans = ind_window_chans[sind]
+                    ind_chans = ind_chans[sind]
+                    dfreq = dfreq[sind]
+                    window = window[ind_window_chans]
+                    window = NP.pad(window, ((ind_chans.min(), self.f.size-1-ind_chans.max())), mode='constant', constant_values=((0.0,0.0)))
+                    freq_wts[i,:] = window
+        
+                npad = int(self.f.size * pad)
+                lags = DSP.spectral_axis(self.f.size + npad, delx=self.df, use_real=False, shift=True)
+                result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'npad': npad, 'lags': lags, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=-1), 'processed': {'dspec': {'twts': self.cPhase['processed'][datapool]['wts']}}}
+    
+                # twts = NP.copy(self.cPhase['processed'][datapool]['wts'].value)
+                # mean_twts = NP.mean(twts, axis=-2, keepdims=True) # ntriads x npol x 1 x ntavg
+                # twts = twts.reshape(twts.shape[:-2]+(1,)+twts.shape[-2:])
+                for key in self.cPhase['processed'][datapool]['eicp']:
+                    eicp = NP.copy(self.cPhase['processed'][datapool]['eicp'][key].value)
+                    eicp = NP.transpose(eicp, axes=(1,3,0,2))[NP.newaxis,...] # (nspw=1) x npol x ntimes x ntriads x nchan
+                    ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
+                    result['processed']['dspec'][key] = DSP.FT1D(NP.pad(eicp*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
 
     ############################################################################
