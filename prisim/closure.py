@@ -4,6 +4,7 @@ import numpy.ma as MA
 import progressbar as PGB
 import h5py
 import warnings
+import copy
 from astroutils import DSP_modules as DSP
 from astroutils import nonmathops as NMO
 from astroutils import mathops as OPS
@@ -359,7 +360,7 @@ class ClosurePhaseDelaySpectrum(object):
     ############################################################################
 
     def FT(self, bw_eff, freq_center=None, shape=None, fftpow=None, pad=None,
-           datapool='prelim', method='fft'):
+           datapool='prelim', method='fft', resample=True):
 
         """
         ------------------------------------------------------------------------
@@ -403,9 +404,19 @@ class ClosurePhaseDelaySpectrum(object):
         datapool    [string] Specifies which data set is to be Fourier 
                     transformed
 
-        method      [string] Specifies Fourier transform method to be used.
+        resample    [boolean] If set to True (default), resample the delay 
+                    spectrum axis to independent samples along delay axis. If
+                    set to False, return the results as is even if they may be
+                    be oversampled and not all samples may be independent
+
+        method      [string] Specifies the Fourier transform method to be used.
                     Accepted values are 'fft' (default) for FFT and 'nufft' for 
                     non-uniform FFT
+
+        Outputs:
+
+        A dictionary that contains the delay spectrum information
+        
         ------------------------------------------------------------------------
         """
         
@@ -507,5 +518,18 @@ class ClosurePhaseDelaySpectrum(object):
                     eicp = NP.transpose(eicp, axes=(1,3,0,2))[NP.newaxis,...] # (nspw=1) x npol x ntimes x ntriads x nchan
                     ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
                     result['processed']['dspec'][key] = DSP.FT1D(NP.pad(eicp*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                result['lag_kernel'] = DSP.FT1D(NP.pad(freq_wts, [(0,0), (0,npad)], mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+
+        if resample:
+            result_resampled = copy.deepcopy(result)
+            downsample_factor = NP.min((self.f.size + npad) * self.df / bw_eff)
+            result_resampled['lags'] = DSP.downsampler(result_resampled['lags'], downsample_factor, axis=-1, method='interp', kind='linear')
+            result_resampled['lag_kernel'] = DSP.downsampler(result_resampled['lag_kernel'], downsample_factor, axis=-1, method='interp', kind='linear')
+            for key in self.cPhase.cpinfo['processed'][datapool]['eicp']:
+                result_resampled['processed']['dspec'][key] = DSP.downsampler(result_resampled['processed']['dspec'][key], downsample_factor, axis=-1, method='FFT')
+
+            return result_resampled
+        else:
+            return result
 
     ############################################################################

@@ -1,3 +1,15 @@
+From d3cd4d8 (closure):
+======================
+
+In prisim/closure.py,
+
+(*) In member function FT() of class ClosurePhaseDelaySpectrum,
+add input keyword resmaple to request for resampling of the
+delay spectra at independent samples. Update docstring accordingly.
+(*) In member function FT() of class ClosurePhaseDelaySpectrum,
+add ability to resample and return either resampled or oversampled
+results
+
 From c5237ab (closure):
 ======================
 
