@@ -1,3 +1,12 @@
+From c5237ab (closure):
+======================
+
+In prisim/closure.py,
+
+(*) Import astroutils.lookup_operations
+(*) In member function FT() of class ClosurePhaseDelaySpectrum,
+estimate the Fourier transform in subbands
+
 From 4bb6b15 (closure):
 ======================
 

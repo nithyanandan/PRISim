@@ -7,6 +7,7 @@ import warnings
 from astroutils import DSP_modules as DSP
 from astroutils import nonmathops as NMO
 from astroutils import mathops as OPS
+from astroutils import lookup_operations as LKP
 import prisim
 
 prisim_path = prisim.__path__[0]+'/'    
@@ -474,7 +475,7 @@ class ClosurePhaseDelaySpectrum(object):
 
         if datapool.lower() == 'prelim':
             if method.lower() == 'fft':
-                freq_wts = NP.empty((bw_eff.size, self.f.size), dtype=NP.float_)
+                freq_wts = NP.empty((bw_eff.size, self.f.size), dtype=NP.float_) # nspw x nchan
                 frac_width = DSP.window_N2width(n_window=None, shape=shape, fftpow=fftpow, area_normalize=False, power_normalize=True)
                 window_loss_factor = 1 / frac_width
                 n_window = NP.round(window_loss_factor * bw_eff / self.df).astype(NP.int)
@@ -499,13 +500,10 @@ class ClosurePhaseDelaySpectrum(object):
         
                 npad = int(self.f.size * pad)
                 lags = DSP.spectral_axis(self.f.size + npad, delx=self.df, use_real=False, shift=True)
-                result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'npad': npad, 'lags': lags, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=-1), 'processed': {'dspec': {'twts': self.cPhase['processed'][datapool]['wts']}}}
+                result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'npad': npad, 'lags': lags, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=-1), 'processed': {'dspec': {'twts': self.cPhase.cpinfo['processed'][datapool]['wts']}}}
     
-                # twts = NP.copy(self.cPhase['processed'][datapool]['wts'].value)
-                # mean_twts = NP.mean(twts, axis=-2, keepdims=True) # ntriads x npol x 1 x ntavg
-                # twts = twts.reshape(twts.shape[:-2]+(1,)+twts.shape[-2:])
-                for key in self.cPhase['processed'][datapool]['eicp']:
-                    eicp = NP.copy(self.cPhase['processed'][datapool]['eicp'][key].value)
+                for key in self.cPhase.cpinfo['processed'][datapool]['eicp']:
+                    eicp = NP.copy(self.cPhase.cpinfo['processed'][datapool]['eicp'][key].data)
                     eicp = NP.transpose(eicp, axes=(1,3,0,2))[NP.newaxis,...] # (nspw=1) x npol x ntimes x ntriads x nchan
                     ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
                     result['processed']['dspec'][key] = DSP.FT1D(NP.pad(eicp*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
