@@ -4,6 +4,7 @@ import multiprocessing as MP
 import itertools as IT
 import progressbar as PGB
 # import aipy as AP
+import h5py
 import astropy
 from astropy.io import fits
 import astropy.cosmology as CP
@@ -481,6 +482,86 @@ def beam3Dvol(beam, freqs, freq_wts=None, hemisphere=True):
         raise ValueError('3D volume estimated from beam exceeds the upper limit. Check normalization of the input beam')
 
     return omega_bw
+
+################################################################################
+
+# def reflection_constraints(dps, modelPSinfo, kprll_cut, bll, lst_range=None):
+
+#     """
+#     ----------------------------------------------------------------------------
+#     ----------------------------------------------------------------------------
+#     """
+
+#     if not isinstance(dps, DelayPowerSpectrum):
+#         raise TypeError('Input dps must be an instance of class DelayPowerSpectrum')
+
+#     if not isinstance(modelPSinfo, dict):
+#         raise TypeError('Input modelPSinfo must be a dictionary')
+
+#     if not isinstance(kprll_cut, NP.ndarray):
+#         raise TypeError('Input kprll_cut must be a numpy array')
+#     kprll_cut = krpll_cut.ravel()
+
+#     if not isinstance(bll, (int,float)):
+#         raise TypeError('Input bll (baseline length) must be a scalar')
+#     bll_ind = NP.where(NP.abs(dps.bl_length - bll) <= 1e-10)
+
+#     if lst_range is not None:
+#         if not isinstance(lst_range, NP.ndarray):
+#             raise TypeError('Input lst_range must be a numpy array')
+#         if lst_range.size == 2:
+#             lst_range = lst_range.reshape(1,-1)
+#         elif lst_range.ndim != 2:
+#             raise ValueError('Input lst_range must be a 2D numpy array')
+#         else:
+#             if lst_range.shape[1] != 2:
+#                 raise ValueError('Input lst_range must be a nlst x 2 array')
+#         if NP.any(lst_range[:,1] < lst_range[:,0]):
+#             raise ValueError('Input lst_range must be in the order (min,max)')
+#         lst_ind = []
+#         for ind in range(lst_range.shape[0]):
+#             lst_ind += NP.where(NP.logical_and(dps.ds.ia.lst >= lst_range[ind,0], dps.ds.ia.lst <= lst_range[ind,1]))[0].tolist()
+#         lst_ind = NP.asarray(lst_ind)
+#     else:
+#         lst_ind = NP.arange(dps.ds.ia.lst.size)
+
+#     fgmdl_power = NP.mean(dps.subband_delay_power_spectra['sim'][:,bll_ind,:,lst_ind], axis=(1,3))
+#     fgmdl_power_upper = fgmdl_power[:,fgmld_power.size//2 + 1:]
+#     fgmdl_power_lower = fgmdl_power[:,:fgmdl_power.size//2 + 1]
+#     fgpow = NP.copy(fgmdl_power_lower)
+#     fgpow[:,fgpow.size-1-fgmodl_power_upper.size:fgpow.size-1] = 0.5 * (fgpow[:,fgpow.size-1-fgmodl_power_upper.size:fgpow.size-1] + fgmdl_power_upper[:,::-1])
+#     tau_FG = -1.0 * dps.ds.subband_delay_spectra['sim']['lags'][0:fgpow.size:-1]
+#     kprll = -1.0 * dps.subband_delay_power_spectra['sim']['kprll'][zind,0:fgpow.size:-1]
+#     kperp = dps.subband_delay_power_spectra['sim']['kperp']
+
+#     modelkeys = ['z', 'k', 'PS']
+#     for modelkey in modelkeys:
+#         if modelkey not in modelPSinfo:
+#             raise KeyError('Input modelPSinfo does not contain the key {0}'.format(modelkey))
+#         if not isinstance(modelPSinfo[modelkey], NP.ndarray):
+#             raise TypeError('Value under key {0} of input modelPSinfo must be a numpy array'.format(key))
+#         modelPSinfo[modelkey] = modelPSinfo[modelkey].ravel()
+#     if modelPSinfo['k'].size != modelPSinfo['PS'].size:
+#         raise ValueError('k and PS arrays in modelPSinfo do not match in size')
+
+#     refl_constraints = NP.ones((dps.subband_delay_power_spectra['z'].size, kprll_cut.size, tau_FG.size))
+#     for zind,z_dps in enumerate(dps.subband_delay_power_spectra['z']):
+#         nearest_z_ind = NP.argmin(NP.abs(modelkeys['z'] - z_dps))
+#         interpfunc_eorPSmodel = interpolate.interp1d(NP.log10(modelPSinfo['k'][nearest_z_ind,:]), NP.log10(modelPSinfo['PS'][nearest_z_ind,:]), kind='cubic')
+#         kprll_model = kprll[zind,:]
+#         model_k = NP.sqrt(kprll[zind,:].T**2 + kperp[zind,:]**2)
+#         model_PS = 10 ** interpfunc_eorPSmodel(NP.log10(model_k.ravel())).reshape(kprll.shape[1],kperp.shape[1])
+#         for kplcutind,kpl_cut in enumerate(kprll_cut):
+#             for tauind, tau_refl in enumerate(tau_FG):
+#                 kprll_refl = kprll[zind,tauind]
+#                 fg_ind = NP.where(NP.logical_and(kprll[zind,:]>=max(kpl_cut-kprll_refl, 0.0), kprll[zind,:]<=min(kprll[zind,:].max(),kprll_model.max()-kprll_refl)))[0]
+#                 eor_ind = NP.where(NP.logical_and(kprll[zind,:]>=max(kpl_cut,kprll_refl), kprll[zind,:]<=min(krpll[zind,;].max()+kprll_refl,kprll_model.max())))[0]
+#                 if fg_ind.size != eor_ind.size:
+#                     raise ValueError('Mismatch in number of elements to compare')
+#                 refl_constraints[zind,kplcutind,:] = NP.sqrt(fgpow[NP.ix_(zind,fg_ind)] / model_PS[eor_ind,0])
+#     refl_constraints = 10.0 * NP.log10(refl_constraints)
+#     refl_constraints = NP.clip(refl_constraints, refl_constraints.min(), 0.0)
+#     return refl_constraints
 
 ################################################################################
 
@@ -3851,7 +3932,7 @@ class DelayPowerSpectrum(object):
         
     ############################################################################
 
-    def beam3Dvol(self, freq_wts=None, nside=32):
+    def beam3Dvol(self, freq_wts=None, nside=64):
 
         if self.ds.ia.simparms_file is not None:
             parms_file = open(self.ds.ia.simparms_file, 'r')
@@ -3878,8 +3959,16 @@ class DelayPowerSpectrum(object):
                 if beam_filefmt.lower() == 'fits':
                     extbeam = fits.getdata(beam_file, extname='BEAM_{0}'.format(beam_pol))
                     beam_freqs = fits.getdata(beam_file, extname='FREQS_{0}'.format(beam_pol))
+                    prihdr = fits.getheader(external_beam_file, 0)
+                    beamunit = prihdr['GAINUNIT']
                 else:
-                    raise ValueError('The external beam file format is currently not supported.')
+                    with h5py.File(beam_file, 'r') as fileobj:
+                        extbeam = fileobj['gain_info'][beam_pol].value.T # npix x nfreqs
+                        beam_freqs = fileobj['spectral_info']['freqs'].value # nfreqs (in Hz)
+                        beamunit = fileobj['header']['gainunit'].value
+
+                if beamunit.lower() == 'db':
+                    extbeam = 10**(extbeam/10.0)
                 extbeam = extbeam.reshape(-1,beam_freqs.size)
                 beam_nside = HP.npix2nside(extbeam.shape[0])
                 if beam_nside < nside:

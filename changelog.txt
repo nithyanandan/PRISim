@@ -1,3 +1,16 @@
+From 078acf1 (reflection-constraints):
+=====================================
+
+In prisim/delay_spectrum.py,
+
+(*) Import h5py
+(*) In member function beam3Dvol() of class DelayPowerSpectrum, modify
+to accept external beams in HDF5 format.
+(*) In member function beam3Dvol() of class DelayPowerSpectrum, modify
+default input nside to 64 (previously 32)
+(*) In member function beam3Dvol() of class DelayPowerSpectrum, check
+for units of external beam
+
 From f05b84f (reflection-constraints):
 =====================================
 
