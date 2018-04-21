@@ -1,3 +1,22 @@
+From 8fd1df3 (reflection-constraints):
+=====================================
+
+(*) Add prisim/examples/postprocess/ to the repository
+(*) Add prisim/examples/postprocess/reflection_constraints.yaml to repo
+(*) Add scripts/reflection_constraints.py to repo
+(*) Add .gitignore to repo
+
+In prisim/delay_spectrum.py,
+
+(*) Import scipy.interpolate
+(*) Add function dkperp_dbll() to determine the jacobian to transform
+uv-distance to kperp, along with docstring
+(*) Update docstring on cosmo input parameter in function dkprll_deta()
+(*) Update docstring on cosmo input parameter in __init__() member
+function of class DelayPowerSpectrum
+(*) Add function reflection_attenuation() to estimate constraints on
+reflection attenuation, along with docstring
+
 From 078acf1 (reflection-constraints):
 =====================================
 

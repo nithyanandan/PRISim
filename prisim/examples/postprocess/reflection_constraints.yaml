@@ -1,0 +1,119 @@
+##### IMPORTANT INFORMATION #####
+##### DO NOT MODIFY THIS FILE #####
+##### MAKE A COPY OF THIS FILE AND CUSTOMIZE #####
+
+########## Directory Structure information #########
+
+dirstruct   :
+                                # Directory information
+
+    projectdir      : '/path/to/project/directory/'
+                                # Project folder
+
+    subdir          : 'subdir/'
+                                # sub-directory under projectdir
+
+    simdir          : 'simdir/'
+                                # Simulations directory under subdir
+
+    analysisdir     : 'analysis/'
+                                # Analysis directory under subdir
+
+    outfile         : 'outfile.hdf5'
+                                # Output file (HDF5) containing
+                                # reflection attenuation constraints
+                                # estimated. It will be under
+                                # analysisdir
+
+    figdir          : 'figures/'
+                                # Figures directory under analysisdir
+
+######### EoR model ##########
+
+eorparm   :
+
+    lidz_model      : true
+                                # Use P(k) models of Adam Lidz
+
+    21cmfast_model  : true
+                                # Use 21CMFAST P(k) models of Andrei
+                                # Mesinger
+
+    lidz_modelfile  : '/path/to/EoR_models/Lidz/PS_model.fits'
+                                # Full path to Model file consisting of
+                                # P(k) models of Adam Lidz. Will be
+                                # used if lidz_model is set to true
+
+    21cmfast_modelfile: '/path/to/EoR_models/21cmFAST/PS_model.fits'
+                                # Full path to Model file consisting 
+                                # of P(k) models of 21cmFAST. Will be 
+                                # used if 21cmfast_model is set to true
+
+########## Processing parameters ##########
+
+processing  :
+                                # Processing parameters
+
+    subband         :
+                                # subband parameters
+
+            freq_center : [150000000.0]
+                                # subband center frequencies (in Hz)
+                                # as a list
+
+            bw_eff      : [43500000.0]
+                                # effective bandwidths (in Hz) of
+                                # subbands. Specify as a list with
+                                # same number of elements as in
+                                # freq_center. It is best to keep it
+                                # as high as possible but under
+                                # one-half of total bandwidth
+
+            shape       : 'bhw'
+                                # subband window shape to be applied
+                                # to each of the subband windows.
+                                # Accepted values are 'bhw'
+                                # (Blackman-Harris), 'bnw' (Blackman-
+                                # Nuttall) and 'rect' (rectangular)
+
+            fftpow      : 2.0
+                                # FFT of the window function will be
+                                # raised to this power. Default=1.0.
+                                # Value of 2 implies a window covolved
+                                # with itself to make a new window
+
+    redshifts       : [7.0, 8.0, 9.0, 10.0, 11.0]
+                                # Redshift bands at which reflection
+                                # constraints are to be estimated
+
+    kprll_cut       : [0.1, 0.125, 0.15, 0.175, 0.2]
+                                # k_prll thresholds (in h/Mpc)
+                                # beyond which the signal should be
+                                # detectable despite reflections
+
+    bllength        : 14.0
+                                # Baseline length (in m) for which
+                                # reflections have to be constrained
+
+    max_delay       : null
+                                # Max delay (in microseconds) for which 
+                                # reflection constraints are to be 
+                                # estimated. If set to null (default), 
+                                # max_delay is set to maximum delay in 
+                                # the simulated delay power spectrum
+
+    lst_range       : [0, 6, 20, 24]
+                                # LST ranges (in hours) to be included
+                                # Default=null (implies include all
+                                # LST). Otherwise different ranges
+                                # must be specified as pairs
+                                # [min1, max1, min2, max2, ...]
+
+########### Diagnosis parameters ##########
+
+diagnose    :
+                                # parameters for diagnosis
+
+    wait_after_run  : true
+                                # If set to True, waits with Python
+                                # prompt after completion
