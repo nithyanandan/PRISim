@@ -1,3 +1,21 @@
+From c5faaba (closure):
+======================
+
+In prisim/closure.py,
+
+(*) Import astropy.cosmology, scipy.constants, astroutils.constants,
+prisim.delay_spectrum
+(*) Specify default cosmology to be Planck 2015 cosmological
+parameters with H0 = 100 h km/s/Mpc
+(*) Add docstring to member function FT() of class
+ClosurePhaseDelaySpectrum
+(*) Add member function compute_power_spectrum() along with docstring
+under class ClosurePhaseDelaySpectrum. Update member function
+docstring accordingly
+(*) Update docstring of class ClosurePhaseDelaySpectrum with info on
+attribute cPhaseDS and cPhaseDS_resampled
+(*) Update docstring of class ClosurePhaseDelaySpectrum
+
 From 36465d0 (closure):
 ======================
 

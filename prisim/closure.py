@@ -5,13 +5,20 @@ import progressbar as PGB
 import h5py
 import warnings
 import copy
+import astropy.cosmology as CP
+import scipy.constants as FCNST
 from astroutils import DSP_modules as DSP
+from astroutils import constants as CNST
 from astroutils import nonmathops as NMO
 from astroutils import mathops as OPS
 from astroutils import lookup_operations as LKP
 import prisim
+from prisim import delay_spectrum as DS
 
-prisim_path = prisim.__path__[0]+'/'    
+prisim_path = prisim.__path__[0]+'/'
+
+cosmoPlanck15 = CP.Planck15 # Planck 2015 cosmology
+cosmo100 = cosmoPlanck15.clone(name='Modified Planck 2015 cosmology with h=1.0', H0=100.0) # Modified Planck 2015 cosmology with h=1.0, H= 100 km/s/Mpc
 
 ################################################################################
 
@@ -327,7 +334,12 @@ class ClosurePhaseDelaySpectrum(object):
     df              [float] Frequency resolution (in Hz) in closure phase 
                     spectra
 
-    cPhaseDS        [dictionary] Closure Phase Delay Spectrum information.
+    cPhaseDS        [dictionary] Possibly oversampled Closure Phase Delay 
+                    Spectrum information.
+
+    cPhaseDS_resampled
+                    [dictionary] Resampled Closure Phase Delay Spectrum 
+                    information.
 
     Member functions:
 
@@ -335,6 +347,10 @@ class ClosurePhaseDelaySpectrum(object):
 
     FT()            Fourier transform of complex closure phase spectra mapping 
                     from frequency axis to delay axis.
+
+    compute_power_spectrum()
+                    Compute power spectrum of closure phase data. It is in units 
+                    of Mpc/h
     ----------------------------------------------------------------------------
     """
     
@@ -346,7 +362,7 @@ class ClosurePhaseDelaySpectrum(object):
 
         Inputs:
 
-        cPhase      [class ClosurePhase] Instance of class CLosurePhase
+        cPhase      [class ClosurePhase] Instance of class ClosurePhase
         ------------------------------------------------------------------------
         """
 
@@ -416,8 +432,64 @@ class ClosurePhaseDelaySpectrum(object):
 
         Outputs:
 
-        A dictionary that contains the delay spectrum information
-        
+        A dictionary that contains the oversampled (if resample=False) or 
+        resampled (if resample=True) delay spectrum information. It has the 
+        following keys and values:
+        'freq_center'   [numpy array] contains the center frequencies 
+                        (in Hz) of the frequency subbands of the subband
+                        delay spectra. It is of size n_win. It is roughly 
+                        equivalent to redshift(s)
+        'freq_wts'      [numpy array] Contains frequency weights applied 
+                        on each frequency sub-band during the subband delay 
+                        transform. It is of size n_win x nchan. 
+        'bw_eff'        [numpy array] contains the effective bandwidths 
+                        (in Hz) of the subbands being delay transformed. It
+                        is of size n_win. It is roughly equivalent to width 
+                        in redshift or along line-of-sight
+        'shape'         [string] shape of the window function applied. 
+                        Accepted values are 'rect' (rectangular), 'bhw'
+                        (Blackman-Harris), 'bnw' (Blackman-Nuttall). 
+        'npad'          [scalar] Numbber of zero-padded channels before
+                        performing the subband delay transform. 
+        'lags'          [numpy array] lags of the subband delay spectra 
+                        after padding in frequency during the transform. It
+                        is of size nlags=nchan+npad if resample=True, where 
+                        npad is the number of frequency channels padded 
+                        specified under the key 'npad'. If resample=False, 
+                        nlags = number of delays after resampling only 
+                        independent delays. The lags roughly correspond to 
+                        k_parallel.
+        'lag_kernel'    [numpy array] delay transform of the frequency 
+                        weights under the key 'freq_wts'. It is of size
+                        n_bl x n_win x nlags x n_t. nlags=nchan+npad if 
+                        resample=True, where npad is the number of frequency 
+                        channels padded specified under the key 'npad'. If 
+                        resample=False, nlags = number of delays after 
+                        resampling only independent delays. 
+        'lag_corr_length' 
+                        [numpy array] It is the correlation timescale (in 
+                        pixels) of the subband delay spectra. It is 
+                        proportional to inverse of effective bandwidth. It
+                        is of size n_win. The unit size of a pixel is 
+                        determined by the difference between adjacent pixels 
+                        in lags under key 'lags' which in turn is 
+                        effectively inverse of the effective bandwidth of 
+                        the subband specified in bw_eff
+        'processed'     [dictionary] Contains the following keys and values:
+                        'dspec' [dictionary] Contains the following keys and 
+                                values:
+                                'twts'  [numpy array] Weights from time-based
+                                        flags that went into time-averaging.
+                                        Shape=(npol,nt,ntriads,nchan)
+                                'mean'  [numpy array] Delay spectrum of closure
+                                        phases based on their mean across time
+                                        intervals. 
+                                        Shape=(nspw,npol,nt,ntriads,nlags)
+                                'median'
+                                        [numpy array] Delay spectrum of closure
+                                        phases based on their median across time
+                                        intervals. 
+                                        Shape=(nspw,npol,nt,ntriads,nlags)
         ------------------------------------------------------------------------
         """
         
@@ -535,3 +607,139 @@ class ClosurePhaseDelaySpectrum(object):
                 return result
 
     ############################################################################
+
+    def compute_power_spectrum(self, cpds=None, incohax=None, cosmo=cosmo100):
+
+        """
+        ------------------------------------------------------------------------
+        Compute power spectrum of closure phase data. It is in units of Mpc/h
+
+        Inputs:
+
+        cpds    [dictionary] A dictionary that contains the 'oversampled' (if 
+                resample=False) or 'resampled' (if resample=True) delay spectrum 
+                information. If it is not specified the attributes 
+                cPhaseDS['processed'] and cPhaseDS_resampled['processed'] are 
+                used. It has the following keys and values:
+                'freq_center'   [numpy array] contains the center frequencies 
+                                (in Hz) of the frequency subbands of the subband
+                                delay spectra. It is of size n_win. It is 
+                                roughly equivalent to redshift(s)
+                'freq_wts'      [numpy array] Contains frequency weights applied 
+                                on each frequency sub-band during the subband 
+                                delay transform. It is of size n_win x nchan. 
+                'bw_eff'        [numpy array] contains the effective bandwidths 
+                                (in Hz) of the subbands being delay transformed. 
+                                It is of size n_win. It is roughly equivalent to 
+                                width in redshift or along line-of-sight
+                'shape'         [string] shape of the window function applied. 
+                                Accepted values are 'rect' (rectangular), 'bhw'
+                                (Blackman-Harris), 'bnw' (Blackman-Nuttall). 
+                'npad'          [scalar] Numbber of zero-padded channels before
+                                performing the subband delay transform. 
+                'lags'          [numpy array] lags of the subband delay spectra 
+                                after padding in frequency during the transform. 
+                                It is of size nlags. The lags roughly correspond 
+                                to k_parallel.
+                'lag_kernel'    [numpy array] delay transform of the frequency 
+                                weights under the key 'freq_wts'. It is of size
+                                n_bl x n_win x nlags x n_t. 
+                'lag_corr_length' 
+                                [numpy array] It is the correlation timescale 
+                                (in pixels) of the subband delay spectra. It is 
+                                proportional to inverse of effective bandwidth. 
+                                It is of size n_win. The unit size of a pixel is 
+                                determined by the difference between adjacent 
+                                pixels in lags under key 'lags' which in turn is 
+                                effectively inverse of the effective bandwidth 
+                                of the subband specified in bw_eff
+                'processed'     [dictionary] Contains the following keys and 
+                                values:
+                                'dspec' [dictionary] Contains the following keys 
+                                        and values:
+                                        'twts'  [numpy array] Weights from 
+                                                time-based flags that went into 
+                                                time-averaging. 
+                                                Shape=(ntriads,npol,nchan,nt)
+                                        'mean'  [numpy array] Delay spectrum of 
+                                                closure phases based on their 
+                                                mean across time intervals. 
+                                                Shape=(nspw,npol,nt,ntriads,nlags)
+                                        'median'
+                                                [numpy array] Delay spectrum of 
+                                                closure phases based on their 
+                                                median across time intervals. 
+                                                Shape=(nspw,npol,nt,ntriads,nlags)
+        incohax [NoneType or tuple] Specifies a tuple of axes over which the 
+                delay power spectra will be incoherently averaged. If set to 
+                None (default), it is set to (2,3) (corresponding to times and 
+                triads). 
+
+        cosmo   [instance of cosmology class from astropy] An instance of class
+                FLRW or default_cosmology of astropy cosmology module. Default
+                uses Planck 2015 cosmology, with H0=100 h km/s/Mpc
+
+        Output:
+
+        Dictionary with the keys 'oversampled' and 'resampled' corresponding to
+        whether resample was set to False or True in call to member function 
+        FT(). Each contain a dictionary with the following keys and values:
+        'z'     [numpy array] Redshifts corresponding to the band centers in 
+                'freq_center'. It has shape=(nspw,)
+        'lags'  [numpy array] Delays (in seconds). It has shape=(nlags,).
+        'kprll' [numpy array] k_parallel modes (in h/Mpc) corresponding to 
+                'lags'. It has shape=(nspw,nlags)
+        'mean'  [numpy array] Delay power spectrum incoherently averaged over 
+                the axes specified in incohax using the 'mean' key in input 
+                cpds or attribute cPhaseDS['processed']['dspec']. It has
+                shape=(nspw,npol,1,1,nlags) if incohax=(2,3). It has units of
+                Mpc/h.
+        'median'
+                [numpy array] Delay power spectrum incoherently averaged over 
+                the axes specified in incohax using the 'median' key in input 
+                cpds or attribute cPhaseDS['processed']['dspec']. It has
+                shape=(nspw,npol,1,1,nlags) if incohax=(2,3). It has units of
+                Mpc/h.
+        ------------------------------------------------------------------------
+        """
+
+        if incohax is None:
+            incohax = (2,3) # ntimes x ntriads
+
+        result = {}
+
+        if cpds is None:
+            datapool = ['oversampled', 'resampled']
+            for dpool in datapool:
+                result[dpool] = {}
+                if dpool == 'oversampled':
+                    cpds = copy.deepcopy(self.cPhaseDS)
+                else:
+                    cpds = copy.deepcopy(self.cPhaseDS_resampled)
+
+                wl = FCNST.c / cpds['freq_center']
+                z = CNST.rest_freq_HI / cpds['freq_center'] - 1
+                dz = CNST.rest_freq_HI / cpds['freq_center']**2 * cpds['bw_eff']
+                dkprll_deta = DS.dkprll_deta(z, cosmo=cosmo)
+                kprll = dkprll_deta.reshape(-1,1) * cpds['lags']
+
+                drz_los = (FCNST.c/1e3) * cpds['bw_eff'] * (1+z)**2 / CNST.rest_freq_HI / cosmo.H0.value / cosmo.efunc(z)   # in Mpc/h
+                jacobian1 = 1 / cpds['bw_eff']
+                jacobian2 = drz_los / cpds['bw_eff']
+                factor = jacobian1 * jacobian2
+
+                result[dpool]['z'] = z
+                result[dpool]['kprll'] = kprll
+                result[dpool]['lags'] = NP.copy(cpds['lags'])
+
+                for stat in ['mean', 'median']:
+                    inpshape = cpds['processed']['dspec'][stat].shape
+                    nsamples = NP.prod(NP.asarray(inpshape)[NP.asarray(incohax)])
+                    nsamples_incoh = nsamples * (nsamples - 1)
+                    result[dpool][stat] = factor.reshape(-1,1,1,1,1) / nsamples_incoh * (NP.abs(NP.sum(cpds['processed']['dspec'][stat], axis=incohax, keepdims=True))**2 - NP.sum(NP.abs(cpds['processed']['dspec'][stat])**2, axis=incohax, keepdims=True))
+                result[dpool]['nsamples'] = nsamples
+        return result
+
+    ############################################################################
+
+            
