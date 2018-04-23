@@ -356,6 +356,7 @@ class ClosurePhaseDelaySpectrum(object):
         self.f = self.cPhase.f
         self.df = self.cPhase.df
         self.cPhaseDS = None
+        self.cPhaseDS_resampled = None
 
     ############################################################################
 
@@ -520,16 +521,17 @@ class ClosurePhaseDelaySpectrum(object):
                     result['processed']['dspec'][key] = DSP.FT1D(NP.pad(eicp*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                 result['lag_kernel'] = DSP.FT1D(NP.pad(freq_wts, [(0,0), (0,npad)], mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
 
-        if resample:
-            result_resampled = copy.deepcopy(result)
-            downsample_factor = NP.min((self.f.size + npad) * self.df / bw_eff)
-            result_resampled['lags'] = DSP.downsampler(result_resampled['lags'], downsample_factor, axis=-1, method='interp', kind='linear')
-            result_resampled['lag_kernel'] = DSP.downsampler(result_resampled['lag_kernel'], downsample_factor, axis=-1, method='interp', kind='linear')
-            for key in self.cPhase.cpinfo['processed'][datapool]['eicp']:
-                result_resampled['processed']['dspec'][key] = DSP.downsampler(result_resampled['processed']['dspec'][key], downsample_factor, axis=-1, method='FFT')
-
-            return result_resampled
-        else:
-            return result
+            self.cPhaseDS = result
+            if resample:
+                result_resampled = copy.deepcopy(result)
+                downsample_factor = NP.min((self.f.size + npad) * self.df / bw_eff)
+                result_resampled['lags'] = DSP.downsampler(result_resampled['lags'], downsample_factor, axis=-1, method='interp', kind='linear')
+                result_resampled['lag_kernel'] = DSP.downsampler(result_resampled['lag_kernel'], downsample_factor, axis=-1, method='interp', kind='linear')
+                for key in self.cPhase.cpinfo['processed'][datapool]['eicp']:
+                    result_resampled['processed']['dspec'][key] = DSP.downsampler(result_resampled['processed']['dspec'][key], downsample_factor, axis=-1, method='FFT')
+                self.cPhaseDS_resampled = result_resampled
+                return result_resampled
+            else:
+                return result
 
     ############################################################################
