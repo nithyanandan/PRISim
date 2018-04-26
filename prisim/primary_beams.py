@@ -522,7 +522,7 @@ def airy_disk_pattern(diameter, skypos, frequency, skyunits='altaz', peak=1.0,
                 skyunits = dircos denoting direction cosine coordinates). If
                 skyunits = altaz, then altitude and azimuth must be in degrees
 
-    frequency   [list or numpy vector] frequencies (in GHz) at which the power 
+    frequency   [list or numpy vector] frequencies (in Hz) at which the power 
                 pattern is to be estimated. Frequencies differing by too much
                 and extending over the usual bands cannot be given. 
 
@@ -597,7 +597,7 @@ def airy_disk_pattern(diameter, skypos, frequency, skyunits='altaz', peak=1.0,
                 raise ValueError('skyunits must be "degrees", "altaz" or "dircos" in GMRT_primary_beam().')
             x = GEOM.sphdist(skypos_altaz[:,1], skypos_altaz[:,0], pc_altaz[0,1], pc_altaz[0,0])
             x = NP.radians(x)
-            zero_ind = NP.logical_or(x >= NP.pi/2, skypos_altaz[:,0] <= 0.0)   # Determine positions beyond the horizon of the sky as well as those beyond the horizon of the dish, if it is pointed away from the horizon
+            zero_ind = NP.logical_or(x >= NP.pi/2, skypos_altaz[:,0] <= 0.0)   # Determine positions beyond the horizon of the sky as well as those beyond the horizon of the dish, if it is pointed away from the zenith
 
     k = 2*NP.pi*frequency/FCNST.c
     k = k.reshape(1,-1)

@@ -1,3 +1,13 @@
+From bb58903 (reflection-constraints):
+=====================================
+
+In prisim/primary_beams.py,
+
+(*) Fix wrong info on description of frequency input parameter in
+docstring of function airy_disk_pattern()
+(*) Update comment where zero_ind is determined in function
+airy_disk_pattern()
+
 From 8fd1df3 (reflection-constraints):
 =====================================
 
