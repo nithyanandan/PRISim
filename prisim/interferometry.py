@@ -4177,7 +4177,7 @@ class ROI_parameters(object):
                  a subset corresponding to each snapshot observation.
 
         freq     [numpy vector] Frequency channels (with units specified by the
-                 attribute freq_scale)
+                 input freq_scale)
 
         pinfo    [list of dictionaries] Each dictionary element in the list
                  corresponds to a specific snapshot. It contains information
@@ -4317,6 +4317,50 @@ class ROI_parameters(object):
                               of telescope is set to 'mwa_tools', it defaults
                               to X-polarization.
 
+        roi_info
+                [dictionary] Consists of information on the regions of interest.
+                It contains the following keys and values:
+                'ind'         [numpy array] Indices in the sky model to specific
+                              locations. If this key is not present, it is 
+                              determined based on other parameters below. 
+                              Shape=(nsrc,)
+                'pbeam'       [NoneType or numpy array] If set to None, it 
+                              implies primary beam will have to be estimated
+                              analytically for each of the indices in the sky 
+                              model provided under key 'ind'. If provided as a
+                              numpy array, it must be of shape (nsrc,nchan)
+                'radius'      [NoneType or scalar] Radius (in degrees) of the
+                              region of interest. If not specified or set to 
+                              None, and indices have not been set under key
+                              'ind', radius will be set to 90 degrees. Otherwise
+                              it should be a value between 0 and 90. If indices
+                              in the sky model were not provided, this radius
+                              will be used in spherematch to estimate the 
+                              indices of sky model inside the region of interest
+                'center'      [NoneType or numpy array] If this key is not
+                              provided, and if indices to sky model in key 'ind'
+                              are unavailable, the center of region of interest
+                              will be assumed to be zenith. If provided, it 
+                              should be a 2-element array (if 
+                              center_coords='altaz', 'radec' or 'hadec') in 
+                              units of degrees or a 3-element array (if
+                              center_coords = 'dircos')
+                'center_coords'
+                              [string] Coordinate system in which 'center' of
+                              region of interest is specified. It must be
+                              specified if 'center' is not None. Accepted 
+                              values are 'altaz', 'radec', 'hadec' and 'dircos'.
+                'pbeam_chromaticity'
+                              [dictionary] Information about primary beam
+                              chromaticity. Only applies if primary beam has
+                              to be determined analytically (when value in 
+                              'pbeam' key is set to None). If the key 
+                              'pbeam_chromaticity' is absent, then the primary 
+                              beam to be estimated is assumed to be chromatic. 
+                              Otherwise it must contain a scalar frequency in 
+                              the unit specified by input freq_scale at which 
+                              the primary beam will be determined and replicated 
+                              at all frequency channels. 
         ------------------------------------------------------------------------
         """
 
@@ -4418,8 +4462,6 @@ class ROI_parameters(object):
                         raise KeyError('LST not provided for coordinate conversion')
                     hadec = NP.asarray([lst-roi_info['center'][0,0], roi_info['center'][0,1]]).reshape(1,-1)
                     self.info['center'] += [GEOM.hadec2altaz(hadec, self.telescope['latitude'], units='degrees')]
-                elif roi_info['center_coords'] == 'dircos':
-                    self.info['center'] += [GEOM.dircos2altaz(roi_info['center'], units='degrees')]
                 else:
                     raise ValueError('Invalid coordinate system specified for center')
 

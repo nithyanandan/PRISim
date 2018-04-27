@@ -1,3 +1,11 @@
+From 4348a2a (reflection-constraints):
+=====================================
+
+In prisim/interferometry.py,
+
+(*) Update docstring of member function append_settings() of class
+ROI_parameters
+
 From bb58903 (reflection-constraints):
 =====================================
 
