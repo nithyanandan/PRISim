@@ -30,7 +30,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
 
     frequency   [list or numpy vector] frequencies at which the power pattern is 
                 to be estimated. Units can be GHz, MHz or kHz (see input
-                freq_scale)
+                freq_scale). It has shape nchan
 
     telescope   [dictionary] dictionary that specifies the type of element,
                 element size and orientation. It consists of the following keys
@@ -198,7 +198,8 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
 
     Output:
 
-    [Numpy array] Power pattern at the specified sky positions. 
+    [Numpy array] Power pattern at the specified sky positions. It has shape
+    (nsrc, nchan)
     -----------------------------------------------------------------------------
     """
 
@@ -281,7 +282,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                                                                    FCNST.c/frequency, east2ax1=east2ax1,
                                                                    pointing_center=pointing_center,
                                                                    skycoords=skyunits, power=False)
-                    irap = irap[:,:,NP.newaxis]  # add an axis to be compatible with random ralizations
+                    irap = irap[:,:,NP.newaxis]  # add an axis to be compatible with random realizations
 
                 else: # Call the beamformer
                     if 'element_locs' not in telescope:

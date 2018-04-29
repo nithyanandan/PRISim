@@ -4380,13 +4380,13 @@ class ROI_parameters(object):
             raise TypeError('freq must be specified using a numpy array')
         self.freq = freq.ravel()
 
-        if (freq_scale is None) or (freq_scale == 'Hz') or (freq_scale == 'hz'):
+        if (freq_scale is None) or (freq_scale.lower() == 'hz'):
             self.freq = NP.asarray(freq)
-        elif freq_scale == 'GHz' or freq_scale == 'ghz':
+        elif freq_scale.lower() == 'ghz':
             self.freq = NP.asarray(freq) * 1.0e9
-        elif freq_scale == 'MHz' or freq_scale == 'mhz':
+        elif freq_scale.lower() == 'mhz':
             self.freq = NP.asarray(freq) * 1.0e6
-        elif freq_scale == 'kHz' or freq_scale == 'khz':
+        elif freq_scale.lower() == 'khz':
             self.freq = NP.asarray(freq) * 1.0e3
         else:
             raise ValueError('Frequency units must be "GHz", "MHz", "kHz" or "Hz". If not set, it defaults to "Hz"')
@@ -4495,7 +4495,22 @@ class ROI_parameters(object):
                 if (roi_info['center_coords'] == 'altaz') or (roi_info['center_coords'] == 'dircos') or (roi_info['center_coords'] == 'hadec') or (roi_info['center_coords'] == 'radec'):
                     self.info['center_coords'] = roi_info['center_coords']
 
-        if not pbeam_input:
+        if not pbeam_input: # primary beam has to be determined analytically
+            if 'pbeam_chromaticity' in roi_info:
+                if not isinstance(roi_info['pbeam_chromaticity'], (int,float)):
+                    raise TypeError('Value under key "pbeam_chromaticity" must be a scalar')
+                freq_for_pb_estimation = NP.asarray(roi_info['pbeam_chromaticity'])
+                if (freq_scale is None) or (freq_scale.lower() == 'hz'):
+                    freq_for_pb_estimation = NP.asarray(freq_for_pb_estimation)
+                elif freq_scale.lower() == 'ghz':
+                    freq_for_pb_estimation = NP.asarray(freq_for_pb_estimation) * 1.0e9
+                elif freq_scale.lower() == 'mhz':
+                    freq_for_pb_estimation = NP.asarray(freq_for_pb_estimation) * 1.0e6
+                elif freq_scale.lower() == 'khz':
+                    freq_for_pb_estimation = NP.asarray(freq_for_pb_estimation) * 1.0e3
+            else:
+                freq_for_pb_estimation = NP.copy(self.freq)
+                
             if pinfo is None:
                 raise ValueError('Pointing info dictionary pinfo must be specified.')
             self.pinfo += [pinfo]
@@ -4535,9 +4550,9 @@ class ROI_parameters(object):
                             self.telescope['pol'] = 'X'
                             pbeam[:,i] = pbx_MWA.ravel()
                 else:
-                    pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
+                    pbeam = NP.ones((1,self.freq.size)) * PB.primary_beam_generator(skypos_altaz[ind,:], freq_for_pb_estimation, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
             else:
-                pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
+                pbeam = NP.ones((1,self.freq.size)) * PB.primary_beam_generator(skypos_altaz[ind,:], freq_for_pb_estimation, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
 
             self.info['pbeam'] += [pbeam.astype(NP.float32)]
 

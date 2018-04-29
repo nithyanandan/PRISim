@@ -151,6 +151,9 @@ freq_resolution = parms['bandpass']['freq_resolution']
 nchan = parms['bandpass']['nchan']
 timeformat = parms['obsparm']['timeformat']
 beam_info = parms['beam']
+select_beam_freq = beam_info['select_freq']
+if select_beam_freq is None:
+    select_beam_freq = freq
 use_external_beam = beam_info['use_external']
 if use_external_beam:
     if not isinstance(beam_info['file'], str):
@@ -164,9 +167,6 @@ if use_external_beam:
         raise ValueError('Invalid beam file format specified')
     beam_pol = beam_info['pol']
     beam_id = beam_info['identifier']
-    select_beam_freq = beam_info['select_freq']
-    if select_beam_freq is None:
-        select_beam_freq = freq
     pbeam_spec_interp_method = beam_info['spec_interp']
 beam_chromaticity = beam_info['chromatic']
 gainparms = parms['gains']
@@ -1781,8 +1781,10 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                     interp_logbeam = interp_logbeam - interp_logbeam_max
                     roiinfo['pbeam'] = 10**interp_logbeam
                     # roiinfo['pbeam'] = NP.ones((roiinfo['ind'].size,chans.size), dtype=NP.float32)
-                else:
+                else: # Determine primary beam analytically
                     roiinfo['pbeam'] = None
+                    if not beam_chromaticity:
+                        roiinfo['pbeam_chromaticity'] = select_beam_freq / 1e9 # in GHz
                 roiinfo['radius'] = 90.0
                 roiinfo_center_hadec = GEOM.altaz2hadec(NP.asarray([90.0, 270.0]).reshape(1,-1), latitude, units='degrees').ravel()
                 roiinfo_center_radec = [lst[j]-roiinfo_center_hadec[0], roiinfo_center_hadec[1]]
@@ -1966,6 +1968,9 @@ else: # MPI based on baseline multiplexing
                         # roiinfo['pbeam'] = NP.ones((roiinfo['ind'].size,chans.size), dtype=NP.float32)
                     else:
                         roiinfo['pbeam'] = None
+                        if not beam_chromaticity:
+                            roiinfo['pbeam_chromaticity'] = select_beam_freq / 1e9 # in GHz
+
                     roiinfo['radius'] = 90.0
                     roiinfo_center_hadec = GEOM.altaz2hadec(NP.asarray([90.0, 270.0]).reshape(1,-1), latitude, units='degrees').ravel()
                     roiinfo_center_radec = [lst[j]-roiinfo_center_hadec[0], roiinfo_center_hadec[1]]

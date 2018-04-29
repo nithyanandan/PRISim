@@ -1,3 +1,24 @@
+From bddd78a (reflection-constraints):
+=====================================
+
+In prisim/primary_beams.py,
+
+(*) Update docstring of function primary_beam_generator()
+
+In prisim/interferometry.py,
+
+(*) Update input roi_info of member function append_settings() of
+class ROI_parameters to include information on primary beam
+chromaticity parameter
+(*) Handle analytic computation of primary beam to adapt based on
+chromaticity parameter
+(*) Other minor changes
+
+In scripts/run_prisim.py,
+
+(*) Adjust to account for achromatic primary beam estimation in case
+of analytic primary beams.
+
 From 4348a2a (reflection-constraints):
 =====================================
 
