@@ -1774,7 +1774,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                         
                     else:
                         nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs - select_beam_freq))
-                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e9, outloc_axis=chans*1e9, axis=1, assume_sorted=True)
+                        interp_logbeam = NP.zeros((1,chans.size)) + OPS.healpix_interp_along_axis(NP.log10(external_beam[:,nearest_freq_ind].reshape(-1,1)), theta_phi=theta_phi, inloc_axis=external_beam_freqs[nearest_freq_ind], outloc_axis=external_beam_freqs[nearest_freq_ind], axis=1, assume_sorted=True)
                     interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)
                     interp_logbeam_max[interp_logbeam_max <= 0.0] = 0.0
                     interp_logbeam_max = interp_logbeam_max.reshape(1,-1)

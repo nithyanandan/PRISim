@@ -1,3 +1,11 @@
+From ccf834c (reflection-constraints):
+=====================================
+
+In scripts/run_prisim.py,
+
+(*) Simplify primary beam computation when specified externally for
+the achromatic case
+
 From bddd78a (reflection-constraints):
 =====================================
 
