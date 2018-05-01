@@ -1,3 +1,11 @@
+From 3c982aa (reflection-constraints):
+=====================================
+
+In scripts/run_prisim.py,
+
+(*) Correctly assign variable beam_usage_str in case of analytical
+primary beam
+
 From ccf834c (reflection-constraints):
 =====================================
 

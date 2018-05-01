@@ -498,7 +498,10 @@ if use_external_beam:
         beam_usage_str = beam_usage_str + '_{0:.1f}_MHz'.format(select_beam_freq/1e6)+'_achromatic'
 else:
     beam_usage_str = 'funcpb'
-    beam_usage_str = beam_usage_str + '_chromatic'
+    if beam_chromaticity:
+        beam_usage_str = beam_usage_str + '_chromatic'
+    else:
+        beam_usage_str = beam_usage_str + '_{0:.1f}_MHz'.format(select_beam_freq/1e6)+'_achromatic'
 
 telescope = {}
 if telescope_id in ['mwa', 'vla', 'gmrt', 'hera', 'paper', 'mwa_dipole', 'mwa_tools', 'hirax', 'chime']:
