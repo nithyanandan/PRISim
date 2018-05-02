@@ -348,6 +348,9 @@ class ClosurePhaseDelaySpectrum(object):
     FT()            Fourier transform of complex closure phase spectra mapping 
                     from frequency axis to delay axis.
 
+    subset()        Return triad and time indices to select a subset of 
+                    processed data
+
     compute_power_spectrum()
                     Compute power spectrum of closure phase data. It is in units 
                     of Mpc/h
@@ -608,7 +611,90 @@ class ClosurePhaseDelaySpectrum(object):
 
     ############################################################################
 
-    def compute_power_spectrum(self, cpds=None, incohax=None, cosmo=cosmo100):
+    def subset(self, selection=None):
+
+        """
+        ------------------------------------------------------------------------
+        Return triad and time indices to select a subset of processed data
+
+        Inputs:
+
+        selection   [NoneType or dictionary] Selection parameters based on which
+                    triad and time indices will be returned. If set to None
+                    (default), all triad and time indices will be returned. 
+                    Otherwise it must be a dictionary with the following keys 
+                    and values:
+                    'triads'    [NoneType or list of 3-element tuples] If set
+                                to None (default), indices of all triads are
+                                returned. Otherwise, the specific triads must
+                                be specified such as [(1,2,3), (1,2,4), ...] 
+                                and their indices will be returned
+                    'time'      [NoneType, list or numpy array] If set to None
+                                (default), indices of all time stamps are 
+                                returned. Otherwise must be a list or numpy 
+                                array containing indices to time stamps. 
+
+        Outputs:
+
+        Tuple (triad_ind, time_ind) containing the triad and time indices, each
+        as a numpy array
+        ------------------------------------------------------------------------
+        """
+
+        if selection is None:
+            selsection = {}
+        else:
+            if not isinstance(selection, dict):
+                raise TypeError('Input selection must be a dictionary')
+
+        triads = map(tuple, self.cPhase.cpinfo['raw']['triads'])
+
+        if 'triads' not in selection:
+            selection['triads'] = triads
+        if selection['triads'] is None:
+            selection['triads'] = triads
+
+        triad_ind = [triads.index(triad) for triad in selection['triads']]
+        triad_ind = NP.asarray(triad_ind)
+
+        time_ind = None
+        if 'time' not in selection:
+            # time_ind_raw = NP.arange(self.cPhase.cpinfo['raw']['lst'].size)
+            if 'prelim' in self.cPhase.cpinfo['processed']:
+                time_ind = NP.arange(self.cPhase.cpinfo['processed']['prelim']['wts'].shape[3])
+        else:
+            # if 'raw' not in selection['time']:
+            #     time_ind_raw = NP.arange(self.cPhase.cpinfo['raw']['lst'].size)
+            # else:
+            #     if selection['time']['raw'] is None:
+            #         time_ind_raw = NP.arange(self.cPhase.cpinfo['raw']['lst'].size)
+            #     elif not isinstance(selection['time']['raw'], (list,NP.ndarray)):
+            #         time_ind_raw = selection['time']['raw']
+            #         if NP.any(NP.logical_or(time_ind_raw < 0, time_ind_raw >= self.cPhase.cpinfo['raw']['lst'].size)):
+            #             raise ValueError('Input raw time indices out of bounds')
+            #     else:
+            #         raise TypeError('Wrong type for raw time indices')
+
+            if selection['time'] is None:
+                if 'prelim' in self.cPhase.cpinfo['processed']:
+                    time_ind = NP.arange(self.cPhase.cpinfo['processed']['prelim']['wts'].shape[3])
+            elif isinstance(selection['time'], (list,NP.ndarray)):
+                if 'prelim' in self.cPhase.cpinfo['processed']:
+                    time_ind = selection['time']
+                    if NP.any(NP.logical_or(time_ind < 0, time_ind >= self.cPhase.cpinfo['processed']['prelim']['wts'].shape[3])):
+                        raise ValueError('Input processed time indices out of bounds')
+            else:
+                raise TypeError('Wrong type for processed time indices')
+
+        if time_ind is None:
+            raise ValueError('Time index selection could not be performed')
+                
+        return (triad_ind, time_ind)
+
+    ############################################################################
+
+    def compute_power_spectrum(self, cpds=None, selection=None, incohax=None,
+                               cosmo=cosmo100):
 
         """
         ------------------------------------------------------------------------
@@ -617,10 +703,11 @@ class ClosurePhaseDelaySpectrum(object):
         Inputs:
 
         cpds    [dictionary] A dictionary that contains the 'oversampled' (if 
-                resample=False) or 'resampled' (if resample=True) delay spectrum 
-                information. If it is not specified the attributes 
+                resample=False) and/or 'resampled' (if resample=True) delay 
+                spectrum information. If it is not specified the attributes 
                 cPhaseDS['processed'] and cPhaseDS_resampled['processed'] are 
-                used. It has the following keys and values:
+                used. Under each of these keys, it holds a dictionary that has 
+                the following keys and values:
                 'freq_center'   [numpy array] contains the center frequencies 
                                 (in Hz) of the frequency subbands of the subband
                                 delay spectra. It is of size n_win. It is 
@@ -670,6 +757,22 @@ class ClosurePhaseDelaySpectrum(object):
                                                 closure phases based on their 
                                                 median across time intervals. 
                                                 Shape=(nspw,npol,nt,ntriads,nlags)
+
+        selection   [NoneType or dictionary] Selection parameters based on which
+                    triad and time indices will be returned. If set to None
+                    (default), all triad and time indices will be returned. 
+                    Otherwise it must be a dictionary with the following keys 
+                    and values:
+                    'triads'    [NoneType or list of 3-element tuples] If set
+                                to None (default), indices of all triads are
+                                returned. Otherwise, the specific triads must
+                                be specified such as [(1,2,3), (1,2,4), ...] 
+                                and their indices will be returned
+                    'time'      [NoneType, list or numpy array] If set to None
+                                (default), indices of all time stamps are 
+                                returned. Otherwise must be a list or numpy 
+                                array containing indices to time stamps. 
+
         incohax [NoneType or tuple] Specifies a tuple of axes over which the 
                 delay power spectra will be incoherently averaged. If set to 
                 None (default), it is set to (2,3) (corresponding to times and 
@@ -706,38 +809,52 @@ class ClosurePhaseDelaySpectrum(object):
         if incohax is None:
             incohax = (2,3) # ntimes x ntriads
 
+        if selection is None:
+            selection = {'triads': None, 'time': None}
+        else:
+            if not isinstance(selection, dict):
+                raise TypeError('Input selection must be a dictionary')
+
         result = {}
 
         if cpds is None:
+            cpds = {}
             datapool = ['oversampled', 'resampled']
             for dpool in datapool:
-                result[dpool] = {}
                 if dpool == 'oversampled':
-                    cpds = copy.deepcopy(self.cPhaseDS)
+                    cpds[dpool] = copy.deepcopy(self.cPhaseDS)
                 else:
-                    cpds = copy.deepcopy(self.cPhaseDS_resampled)
+                    cpds[dpool] = copy.deepcopy(self.cPhaseDS_resampled)
 
-                wl = FCNST.c / cpds['freq_center']
-                z = CNST.rest_freq_HI / cpds['freq_center'] - 1
-                dz = CNST.rest_freq_HI / cpds['freq_center']**2 * cpds['bw_eff']
-                dkprll_deta = DS.dkprll_deta(z, cosmo=cosmo)
-                kprll = dkprll_deta.reshape(-1,1) * cpds['lags']
+        triad_ind, time_ind = self.subset(selection=selection)
 
-                drz_los = (FCNST.c/1e3) * cpds['bw_eff'] * (1+z)**2 / CNST.rest_freq_HI / cosmo.H0.value / cosmo.efunc(z)   # in Mpc/h
-                jacobian1 = 1 / cpds['bw_eff']
-                jacobian2 = drz_los / cpds['bw_eff']
-                factor = jacobian1 * jacobian2
+        for dpool in datapool:
+            result[dpool] = {}
+                
+            wl = FCNST.c / cpds[dpool]['freq_center']
+            z = CNST.rest_freq_HI / cpds[dpool]['freq_center'] - 1
+            dz = CNST.rest_freq_HI / cpds[dpool]['freq_center']**2 * cpds[dpool]['bw_eff']
+            dkprll_deta = DS.dkprll_deta(z, cosmo=cosmo)
+            kprll = dkprll_deta.reshape(-1,1) * cpds[dpool]['lags']
 
-                result[dpool]['z'] = z
-                result[dpool]['kprll'] = kprll
-                result[dpool]['lags'] = NP.copy(cpds['lags'])
+            drz_los = (FCNST.c/1e3) * cpds[dpool]['bw_eff'] * (1+z)**2 / CNST.rest_freq_HI / cosmo.H0.value / cosmo.efunc(z)   # in Mpc/h
+            jacobian1 = 1 / cpds[dpool]['bw_eff']
+            jacobian2 = drz_los / cpds[dpool]['bw_eff']
+            factor = jacobian1 * jacobian2
 
-                for stat in ['mean', 'median']:
-                    inpshape = cpds['processed']['dspec'][stat].shape
-                    nsamples = NP.prod(NP.asarray(inpshape)[NP.asarray(incohax)])
-                    nsamples_incoh = nsamples * (nsamples - 1)
-                    result[dpool][stat] = factor.reshape(-1,1,1,1,1) / nsamples_incoh * (NP.abs(NP.sum(cpds['processed']['dspec'][stat], axis=incohax, keepdims=True))**2 - NP.sum(NP.abs(cpds['processed']['dspec'][stat])**2, axis=incohax, keepdims=True))
-                result[dpool]['nsamples'] = nsamples
+            result[dpool]['z'] = z
+            result[dpool]['kprll'] = kprll
+            result[dpool]['lags'] = NP.copy(cpds[dpool]['lags'])
+
+            for stat in ['mean', 'median']:
+                inpshape = list(cpds[dpool]['processed']['dspec'][stat].shape)
+                inpshape[2] = time_ind.size
+                inpshape[3] = triad_ind.size
+                nsamples = NP.prod(NP.asarray(inpshape)[NP.asarray(incohax)])
+                nsamples_incoh = nsamples * (nsamples - 1)
+                multidim_idx = NP.ix_(NP.arange(wl.size),NP.arange(1).reshape(-1),time_ind,triad_ind,NP.arange(inpshape[4])) # shape=(nspw,1,ntimes,ntriads,nchan)
+                result[dpool][stat] = factor.reshape(-1,1,1,1,1) / nsamples_incoh * (NP.abs(NP.sum(cpds[dpool]['processed']['dspec'][stat][multidim_idx], axis=incohax, keepdims=True))**2 - NP.sum(NP.abs(cpds[dpool]['processed']['dspec'][stat][multidim_idx])**2, axis=incohax, keepdims=True))
+            result[dpool]['nsamples'] = nsamples
         return result
 
     ############################################################################

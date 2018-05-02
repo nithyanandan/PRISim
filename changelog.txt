@@ -1,3 +1,17 @@
+From d9256a3 (closure):
+======================
+
+In prisim/closure.py,
+
+(*) Add member function subset() along with docstring under class
+ClosurePhaseDelaySpectrum. Update class docstring accordingly
+(*) Add input keyword selection to member function
+compute_power_spectrum() of class ClosurePhaseDelaySpectrum. Update
+member function docstring accordingly
+(*) Update format for input keyword cpds in member function
+compute_power_spectrum() of class ClosurePhaseDelaySpectrum. Update
+member function docstring accordingly
+
 From c5faaba (closure):
 ======================
 
