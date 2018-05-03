@@ -98,13 +98,15 @@ class ClosurePhase(object):
                     Under the 'processed' key are two subkeys, namely, 'native' 
                     and 'prelim' each holding a dictionary. 
                         Under 'native' dictionary, the subsubkeys for further 
-                        dictioanries are 'cphase' (masked array: 
+                        dictionaries are 'cphase' (masked array: 
                         (ntriads,npol,nchan,ntimes)), 'eicp' (complex masked 
                         array: (ntriads,npol,nchan,ntimes)), and 'wts' (masked 
                         array: (ntriads,npol,nchan,ntimes)).
 
                         Under 'prelim' dictionary, the subsubkeys for further 
-                        dictionaries are 'wts' (masked array: 
+                        dictionaries are 'tbins' (numpy array of tbin centers 
+                        after smoothing), 'dtbins' (numpy array of tbin 
+                        intervals), 'wts' (masked array: 
                         (ntriads,npol,nchan,ntbins)), 'eicp' and 'cphase'. 
                         The dictionaries under 'eicp' are indexed by keys 
                         'mean' (complex masked array: 
@@ -270,13 +272,14 @@ class ClosurePhase(object):
                     self.cpinfo['processed']['prelim'] = {}
                 self.cpinfo['processed']['prelim']['eicp'] = {}
                 self.cpinfo['processed']['prelim']['cphase'] = {}
+                self.cpinfo['processed']['prelim']['tbins'] = tbincenters
+                self.cpinfo['processed']['prelim']['dtbins'] = tbinintervals
 
                 wts_tbins = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size))
                 eicp_tmean = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size), dtype=NP.complex128)
                 eicp_tmedian = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size), dtype=NP.complex128)
                 cp_trms = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size))
                 cp_tmad = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size))
-
                 for binnum in xrange(counts.size):
                     ind_tbin = ri[ri[binnum]:ri[binnum+1]]
                     wts_tbins[:,:,:,binnum] = NP.sum(self.cpinfo['processed']['native']['wts'][:,:,:,ind_tbin], axis=3)
@@ -784,9 +787,12 @@ class ClosurePhaseDelaySpectrum(object):
 
         Output:
 
-        Dictionary with the keys 'oversampled' and 'resampled' corresponding to
-        whether resample was set to False or True in call to member function 
-        FT(). Each contain a dictionary with the following keys and values:
+        Dictionary with the keys 'triads_ind', 'lst_ind', 'oversampled' and 
+        'resampled' corresponding to whether resample was set to False or True 
+        in call to member function FT(). Values under keys 'triads_ind' and 
+        'lst_ind' are numpy array corresponding to triad and time indices used 
+        in selecting the data. Values under keys 'oversampled' and 'resampled'
+        each contain a dictionary with the following keys and values:
         'z'     [numpy array] Redshifts corresponding to the band centers in 
                 'freq_center'. It has shape=(nspw,)
         'lags'  [numpy array] Delays (in seconds). It has shape=(nlags,).
@@ -815,8 +821,6 @@ class ClosurePhaseDelaySpectrum(object):
             if not isinstance(selection, dict):
                 raise TypeError('Input selection must be a dictionary')
 
-        result = {}
-
         if cpds is None:
             cpds = {}
             datapool = ['oversampled', 'resampled']
@@ -828,6 +832,7 @@ class ClosurePhaseDelaySpectrum(object):
 
         triad_ind, time_ind = self.subset(selection=selection)
 
+        result = {'triads': self.cPhase.cpinfo['raw']['triads'][triad_ind], 'triads_ind': triad_ind, 'lst': self.cPhase.cpinfo['processed']['prelim']['tbins'][time_ind], 'lst_ind': time_ind, 'dlst': self.cPhase.cpinfo['processed']['prelim']['dtbins'][time_ind]}
         for dpool in datapool:
             result[dpool] = {}
                 
@@ -855,6 +860,7 @@ class ClosurePhaseDelaySpectrum(object):
                 multidim_idx = NP.ix_(NP.arange(wl.size),NP.arange(1).reshape(-1),time_ind,triad_ind,NP.arange(inpshape[4])) # shape=(nspw,1,ntimes,ntriads,nchan)
                 result[dpool][stat] = factor.reshape(-1,1,1,1,1) / nsamples_incoh * (NP.abs(NP.sum(cpds[dpool]['processed']['dspec'][stat][multidim_idx], axis=incohax, keepdims=True))**2 - NP.sum(NP.abs(cpds[dpool]['processed']['dspec'][stat][multidim_idx])**2, axis=incohax, keepdims=True))
             result[dpool]['nsamples'] = nsamples
+            
         return result
 
     ############################################################################

@@ -1,3 +1,15 @@
+From 256f4aa (closure):
+======================
+
+In prisim/closure.py,
+
+(*) Add keys 'tbins' and 'dtbins' in attribute dictionary cpinfo of
+class ClosurePhase. Update docstring of class ClosurePhase accordingly
+(*) Add keys 'triads', 'triads_ind', 'lst', 'lst_ind', 'dlst' in the
+dictionary returned by mymber function compute_power_spectrum() of
+class ClosurePhaseDelaySpectrum. Update member function docstring
+accordingly.
+
 From d9256a3 (closure):
 ======================
 
