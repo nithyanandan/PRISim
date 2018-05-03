@@ -594,10 +594,14 @@ class ClosurePhaseDelaySpectrum(object):
     
                 for key in self.cPhase.cpinfo['processed'][datapool]['eicp']:
                     eicp = NP.copy(self.cPhase.cpinfo['processed'][datapool]['eicp'][key].data)
-                    eicp = NP.transpose(eicp, axes=(1,3,0,2))[NP.newaxis,...] # (nspw=1) x npol x ntimes x ntriads x nchan
+                    eicp = NP.transpose(eicp, axes=(1,3,0,2))[NP.newaxis,...] # ntriads x (npol=1) x nchan x ntimes --> (nspw=1) x (npol=1) x ntimes x ntriads x nchan
+                    wts = NP.copy(self.cPhase.cpinfo['processed'][datapool]['wts'].data)
+                    wts = NP.transpose(wts, axes=(1,3,0,2))[NP.newaxis,...] # ntriads x (npol=1) x nchan x ntimes --> (nspw=1) x (npol=1) x ntimes x ntriads x nchan
+                    wts = 1.0 * wts / NP.mean(wts, axis=-1, keepdims=True) # (nspw=1) x (npol=1) x ntimes x ntriads x nchan
                     ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
-                    result['processed']['dspec'][key] = DSP.FT1D(NP.pad(eicp*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-                result['lag_kernel'] = DSP.FT1D(NP.pad(freq_wts, [(0,0), (0,npad)], mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                    result['processed']['dspec'][key] = DSP.FT1D(NP.pad(eicp*wts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                # result['lag_kernel'] = DSP.FT1D(NP.pad(freq_wts, [(0,0), (0,npad)], mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                result['lag_kernel'] = DSP.FT1D(NP.pad(wts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
 
             self.cPhaseDS = result
             if resample:
@@ -662,22 +666,9 @@ class ClosurePhaseDelaySpectrum(object):
 
         time_ind = None
         if 'time' not in selection:
-            # time_ind_raw = NP.arange(self.cPhase.cpinfo['raw']['lst'].size)
             if 'prelim' in self.cPhase.cpinfo['processed']:
                 time_ind = NP.arange(self.cPhase.cpinfo['processed']['prelim']['wts'].shape[3])
         else:
-            # if 'raw' not in selection['time']:
-            #     time_ind_raw = NP.arange(self.cPhase.cpinfo['raw']['lst'].size)
-            # else:
-            #     if selection['time']['raw'] is None:
-            #         time_ind_raw = NP.arange(self.cPhase.cpinfo['raw']['lst'].size)
-            #     elif not isinstance(selection['time']['raw'], (list,NP.ndarray)):
-            #         time_ind_raw = selection['time']['raw']
-            #         if NP.any(NP.logical_or(time_ind_raw < 0, time_ind_raw >= self.cPhase.cpinfo['raw']['lst'].size)):
-            #             raise ValueError('Input raw time indices out of bounds')
-            #     else:
-            #         raise TypeError('Wrong type for raw time indices')
-
             if selection['time'] is None:
                 if 'prelim' in self.cPhase.cpinfo['processed']:
                     time_ind = NP.arange(self.cPhase.cpinfo['processed']['prelim']['wts'].shape[3])
@@ -787,12 +778,13 @@ class ClosurePhaseDelaySpectrum(object):
 
         Output:
 
-        Dictionary with the keys 'triads_ind', 'lst_ind', 'oversampled' and 
-        'resampled' corresponding to whether resample was set to False or True 
-        in call to member function FT(). Values under keys 'triads_ind' and 
-        'lst_ind' are numpy array corresponding to triad and time indices used 
-        in selecting the data. Values under keys 'oversampled' and 'resampled'
-        each contain a dictionary with the following keys and values:
+        Dictionary with the keys 'triads', 'triads_ind', 'tbins', 'lst', 'dlst',
+        'lst_ind', 'oversampled' and 'resampled' corresponding to whether 
+        resample was set to False or True in call to member function FT(). 
+        Values under keys 'triads_ind' and 'lst_ind' are numpy array 
+        corresponding to triad and time indices used in selecting the data. 
+        Values under keys 'oversampled' and 'resampled' each contain a 
+        dictionary with the following keys and values:
         'z'     [numpy array] Redshifts corresponding to the band centers in 
                 'freq_center'. It has shape=(nspw,)
         'lags'  [numpy array] Delays (in seconds). It has shape=(nlags,).
