@@ -1,3 +1,19 @@
+From 1f1f22b (reflection-constraints):
+=====================================
+
+(*) Rename scripts/reflection_constraints.py to
+scripts/estimate_reflection_constraints.py
+
+(*) Add prisim/reflection_constraints.py to repo
+
+In prisim/delay_spectrum.py,
+
+(*) Fix indexing error in function reflection_attenuation()
+
+In prisim/examples/postprocess/reflection_constraints.yaml,
+
+(*) Minor update to description of parameter 'analysisdir'
+
 From 3c982aa (reflection-constraints):
 =====================================
 

@@ -692,9 +692,9 @@ def reflection_attenuation(dps, modelPSinfo, redshifts, kprll_cut, bll,
 
                 if fg_ind.size != eor_ind.size:
                     raise ValueError('Mismatch in number of elements to compare')
-                attenuation[zind_FG,taucutind,tauind] = NP.nanmax(NP.sqrt(fgpow[zind_FG,fg_ind] / model_PS[eor_ind]))
+                attenuation[zind,taucutind,tauind] = NP.nanmax(NP.sqrt(fgpow[zind_FG,fg_ind] / model_PS[eor_ind]))
     attenuation = 10.0 * NP.log10(attenuation)
-    attenuation = NP.clip(attenuation, attenuation.min(), 0.0)
+    attenuation = NP.clip(attenuation, 0.0, attenuation.max())
     return {'z': z_out, 'kprll_cut': kprll_cut, 'delays': tau, 'attenuation': attenuation}
 
 ################################################################################

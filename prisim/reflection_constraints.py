@@ -1,39 +1,23 @@
-#!python
-
 import numpy as NP
-import matplotlib.pyplot as PLT
-import matplotlib.colors as PLTC
 import yaml, argparse, warnings
 from astropy.io import fits
 import h5py
-import prisim
 from prisim import interferometry as RI
 from prisim import delay_spectrum as DS
-import ipdb as PDB
 
-prisim_path = prisim.__path__[0]+'/'
+def parsefile(parmsfile):
+    with open(parmsfile, 'r') as fileobj:
+        parms = yaml.safe_load(fileobj)
+    return parms
 
-if __name__ == '__main__':
-    
-    ## Parse input arguments
-    
-    parser = argparse.ArgumentParser(description='Program to analyze closure phases')
-    
-    input_group = parser.add_argument_group('Input parameters', 'Input specifications')
-    input_group.add_argument('-i', '--infile', dest='infile', default=prisim_path+'prisim/examples/postprocess/reflection_constraints.yaml', type=str, required=False, help='File specifying input parameters')
-
-    args = vars(parser.parse_args())
-    
-    with open(args['infile'], 'r') as parms_file:
-        parms = yaml.safe_load(parms_file)
-
+def estimate(parms, action='return'):
     projectdir = parms['dirstruct']['projectdir']
     subdir = projectdir + parms['dirstruct']['subdir']
     simdir = subdir + parms['dirstruct']['simdir'] + 'simdata/'
     simfile = simdir + 'simvis'
-    analysisdir = subdir + parms['dirstruct']['analysisdir']
+    analysisdir = projectdir + parms['dirstruct']['analysisdir']
     outfile = analysisdir + parms['dirstruct']['outfile']
-    figdir = subdir + parms['dirstruct']['figdir']
+    figdir = analysisdir + parms['dirstruct']['figdir']
 
     processinfo = parms['processing']
     subbandinfo = processinfo['subband']
@@ -100,17 +84,16 @@ if __name__ == '__main__':
             raise ValueError('Specified EoR model not currently supported')
         attninfo[key] = DS.reflection_attenuation(dpsobj, eormodel, redshifts, kprll_cut, bll, max_delay=max_delay, lst_range=lst_range)
 
-    with h5py.File(outfile, 'w') as fobj:
-        for key in attninfo:
-            for subkey in ['z', 'kprll_cut', 'delays', 'attenuation']:
-                dset = fobj.create_dataset('{0}/{1}'.format(key,subkey), data=attninfo[key][subkey])
-                if subkey == 'kprll_cut':
-                    dset.attrs['units'] = 'h/Mpc'
-                elif subkey == 'delays':
-                    dset.attrs['units'] = 's'
-                elif subkey == 'attenuation':
-                    dset.attrs['units'] = 'dB'
-
-    wait_after_run = parms['diagnose']['wait_after_run']
-    if wait_after_run:
-        PDB.set_trace()
+    if action == 'save':
+        with h5py.File(outfile, 'w') as fobj:
+            for key in attninfo:
+                for subkey in ['z', 'kprll_cut', 'delays', 'attenuation']:
+                    dset = fobj.create_dataset('{0}/{1}'.format(key,subkey), data=attninfo[key][subkey])
+                    if subkey == 'kprll_cut':
+                        dset.attrs['units'] = 'h/Mpc'
+                    elif subkey == 'delays':
+                        dset.attrs['units'] = 's'
+                    elif subkey == 'attenuation':
+                        dset.attrs['units'] = 'dB'
+    else:
+        return attninfo

@@ -17,7 +17,7 @@ dirstruct   :
                                 # Simulations directory under subdir
 
     analysisdir     : 'analysis/'
-                                # Analysis directory under subdir
+                                # Analysis directory under projectdir
 
     outfile         : 'outfile.hdf5'
                                 # Output file (HDF5) containing
