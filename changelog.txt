@@ -1,3 +1,19 @@
+From 68bbba3 (reflection-constraints):
+=====================================
+
+In prisim/delay_spectrum.py,
+
+(*) Remove function reflection_attenuation()
+(*) Remove imported module scipy.interpolate
+
+In prisim/reflection_constraints.py,
+
+(*) Add function reflection_attenuation(). Adjust calls to
+delay_spectrum modules accordingly
+(*) Import scipy, scipy.constants, astropy.cosmology, and constants
+from astroutils
+(*) Define default cosmological parameters
+
 From 1f1f22b (reflection-constraints):
 =====================================
 
