@@ -383,7 +383,7 @@ class ClosurePhaseDelaySpectrum(object):
     ############################################################################
 
     def FT(self, bw_eff, freq_center=None, shape=None, fftpow=None, pad=None,
-           datapool='prelim', method='fft', resample=True):
+           datapool='prelim', method='fft', resample=True, apply_flags=True):
 
         """
         ------------------------------------------------------------------------
@@ -435,6 +435,10 @@ class ClosurePhaseDelaySpectrum(object):
         method      [string] Specifies the Fourier transform method to be used.
                     Accepted values are 'fft' (default) for FFT and 'nufft' for 
                     non-uniform FFT
+
+        apply_flags [boolean] If set to True (default), weights determined from
+                    flags will be applied. If False, no weights from flagging 
+                    will be applied, and thus even flagged data will be included
 
         Outputs:
 
@@ -563,6 +567,11 @@ class ClosurePhaseDelaySpectrum(object):
         if method.lower() not in ['fft', 'nufft']:
             raise ValueError('Specified FFT method not supported')
 
+        if not isinstance(apply_flags, bool):
+            raise TypeError('Input apply_flags must be boolean')
+
+        flagwts = 1.0
+
         if datapool.lower() == 'prelim':
             if method.lower() == 'fft':
                 freq_wts = NP.empty((bw_eff.size, self.f.size), dtype=NP.float_) # nspw x nchan
@@ -595,13 +604,16 @@ class ClosurePhaseDelaySpectrum(object):
                 for key in self.cPhase.cpinfo['processed'][datapool]['eicp']:
                     eicp = NP.copy(self.cPhase.cpinfo['processed'][datapool]['eicp'][key].data)
                     eicp = NP.transpose(eicp, axes=(1,3,0,2))[NP.newaxis,...] # ntriads x (npol=1) x nchan x ntimes --> (nspw=1) x (npol=1) x ntimes x ntriads x nchan
-                    wts = NP.copy(self.cPhase.cpinfo['processed'][datapool]['wts'].data)
-                    wts = NP.transpose(wts, axes=(1,3,0,2))[NP.newaxis,...] # ntriads x (npol=1) x nchan x ntimes --> (nspw=1) x (npol=1) x ntimes x ntriads x nchan
-                    wts = 1.0 * wts / NP.mean(wts, axis=-1, keepdims=True) # (nspw=1) x (npol=1) x ntimes x ntriads x nchan
+
+                    if apply_flags:
+                        flagwts = NP.copy(self.cPhase.cpinfo['processed'][datapool]['wts'].data)
+                        flagwts = NP.transpose(flagwts, axes=(1,3,0,2))[NP.newaxis,...] # ntriads x (npol=1) x nchan x ntimes --> (nspw=1) x (npol=1) x ntimes x ntriads x nchan
+                        flagwts = 1.0 * flagwts / NP.mean(flagwts, axis=-1, keepdims=True) # (nspw=1) x (npol=1) x ntimes x ntriads x nchan
+
                     ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
-                    result['processed']['dspec'][key] = DSP.FT1D(NP.pad(eicp*wts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                    result['processed']['dspec'][key] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                 # result['lag_kernel'] = DSP.FT1D(NP.pad(freq_wts, [(0,0), (0,npad)], mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-                result['lag_kernel'] = DSP.FT1D(NP.pad(wts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                result['lag_kernel'] = DSP.FT1D(NP.pad(flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
 
             self.cPhaseDS = result
             if resample:

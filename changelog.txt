@@ -1,3 +1,13 @@
+From 78419d3 (closure):
+======================
+
+In prisim/closure.py,
+
+(*) In member function FT() of class ClosurePhaseDelaySpectrum, add
+input keyword apply_flags to include or exclude flag information in
+the delay transform. Update member function docstring accordingly.
+Process flags accordingly
+
 From c40eac9 (closure):
 ======================
 
