@@ -1,3 +1,13 @@
+From d8380ca (closure):
+======================
+
+In prisim/closure.py,
+
+(*) In function npz2hdf5(), process based on new NPZ file format.
+Update docstring accordingly
+(*) Convert Local Apparent Sidereal Time to MJD from CASA convention
+by subtracting 6713.
+
 From 78419d3 (closure):
 ======================
 

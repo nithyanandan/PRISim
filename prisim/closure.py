@@ -33,34 +33,55 @@ def npz2hdf5(npzfile, hdf5file):
 
     npzfile     [string] Input NPZ file including full path containing closure 
                 phase data. It must have the following files/keys inside:
-                'phase'     [numpy array] Closure phase (radians). It is of 
-                            shape ntriads x npol x nchan x ntimes
-                'tr'        [numpy array] Array of triad tuples, of shape 
-                            ntriads x 3
+                'closures'  [numpy array] Closure phase (radians). It is of 
+                            shape (nlst,ndays,ntriads,nchan)
+                'triads'    [numpy array] Array of triad tuples, of shape 
+                            (ntriads,3)
                 'flags'     [numpy array] Array of flags (boolean), of shape
-                            ntriads x npol x nchan x ntimes
-                'lst'       [numpy array] Array of LST, of size ntimes
+                            (nlst,ndays,ntriads,nchan)
+                'last'      [numpy array] Array of LST for each day (CASA units 
+                            ehich is MJD+6713). Shape is (nlst,ndays)
+                'days'      [numpy array] Array of days, shape is (ndays,)
+                'averaged_closures'
+                            [numpy array] optional array of closure phases
+                            averaged across days. Shape is (nlst,ntriads,nchan)
+                'std_dev_lst'
+                            [numpy array] optional array of standard deviation
+                            of closure phases across days. Shape is 
+                            (nlst,ntriads,nchan)
+                'std_dev_triads'
+                            [numpy array] optional array of standard deviation
+                            of closure phases across triads. Shape is 
+                            (nlst,ndays,nchan)
 
     hdf5file    [string] Output HDF5 file including full path.
     ----------------------------------------------------------------------------
     """
 
     npzdata = NP.load(npzfile)
-    cpdata = npzdata['phase']
-    triadsdata = npzdata['tr']
+    cpdata = npzdata['closures']
+    triadsdata = npzdata['triads']
     flagsdata = npzdata['flags']
-    lstdata = npzdata['LAST']
+    lstdata = npzdata['last'] - 6713 # Subtract 6713 based on CASA convention to obtain MJD
+    daydata = npzdata['days']
+    day_avg_cpdata = npzdata['averaged_closures']
+    std_triads_cpdata = npzdata['std_dev_triad']
+    std_lst_cpdata = npzdata['std_dev_lst']
 
     cp = NP.asarray(cpdata).astype(NP.float64)
     triads = NP.asarray(triadsdata)
     flags = NP.asarray(flagsdata).astype(NP.bool)
     lst = NP.asarray(lstdata).astype(NP.float64)
+    days = NP.asarray(daydata).astype(NP.float64)
+    cp_dayavg = NP.asarray(day_avg_cpdata).astype(NP.float64)
+    cp_std_triads = NP.asarray(std_triads_cpdata).astype(NP.float64)
+    cp_std_lst = NP.asarray(std_lst_cpdata).astype(NP.float64)
 
     with h5py.File(hdf5file, 'w') as fobj:
         datapool = ['raw']
         for dpool in datapool:
             if dpool == 'raw':
-                qtys = ['cphase', 'triads', 'flags', 'lst']
+                qtys = ['cphase', 'triads', 'flags', 'lst', 'days', 'dayavg', 'std_triads', 'std_lst']
             for qty in qtys:
                 if qty == 'cphase':
                     data = NP.copy(cp)
@@ -70,6 +91,14 @@ def npz2hdf5(npzfile, hdf5file):
                     data = NP.copy(flags)
                 elif qty == 'lst':
                     data = NP.copy(lst)
+                elif qty == 'days':
+                    data = NP.copy(days)
+                elif qty == 'dayavg':
+                    data = NP.copy(cp_dayavg)
+                elif qty == 'std_triads':
+                    data = NP.copy(cp_std_triads)
+                elif qty == 'std_lst':
+                    data = NP.copy(cp_std_lst)
                 dset = fobj.create_dataset('{0}/{1}'.format(dpool, qty), data=data, compression='gzip', compression_opts=9)
             
 ################################################################################
