@@ -1,3 +1,13 @@
+From da41b53 (closure-adv):
+==========================
+
+In prisim/closure.py,
+
+(*) Modify attributes of class ClosurePhase to adjust for the new
+NPZ format. Update class docstring accordingly
+(*) Modify __init__() member function of class ClosurePhase to adjust
+for the new NPZ format. Update member function docstring accordingly
+
 From d8380ca (closure):
 ======================
 

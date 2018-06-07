@@ -120,32 +120,32 @@ class ClosurePhase(object):
                     'processed'. 
 
                     Under key 'raw' which holds a dictionary, the subkeys 
-                    include 'cphase' (ntriads,npol,nchan,ntimes), 
-                    'triads' (ntriads,3), 'lst' (ntimes,), and 'flags' 
-                    (ntriads,npol,nchan,ntimes). 
+                    include 'cphase' (nlst,ndays,ntriads,nchan), 
+                    'triads' (ntriads,3), 'lst' (nlst,ndays), and 'flags' 
+                    (nlst,ndays,ntriads,nchan). 
 
                     Under the 'processed' key are two subkeys, namely, 'native' 
                     and 'prelim' each holding a dictionary. 
                         Under 'native' dictionary, the subsubkeys for further 
                         dictionaries are 'cphase' (masked array: 
-                        (ntriads,npol,nchan,ntimes)), 'eicp' (complex masked 
-                        array: (ntriads,npol,nchan,ntimes)), and 'wts' (masked 
-                        array: (ntriads,npol,nchan,ntimes)).
+                        (nlst,ndays,ntriads,nchan)), 'eicp' (complex masked 
+                        array: (nlst,ndays,ntriads,nchan)), and 'wts' (masked 
+                        array: (nlst,ndays,ntriads,nchan)).
 
                         Under 'prelim' dictionary, the subsubkeys for further 
                         dictionaries are 'tbins' (numpy array of tbin centers 
                         after smoothing), 'dtbins' (numpy array of tbin 
                         intervals), 'wts' (masked array: 
-                        (ntriads,npol,nchan,ntbins)), 'eicp' and 'cphase'. 
+                        (ntbins,ndays,ntriads,nchan)), 'eicp' and 'cphase'. 
                         The dictionaries under 'eicp' are indexed by keys 
                         'mean' (complex masked array: 
-                        (ntriads,npol,nchan,ntbins)), and 'median' (complex
-                        masked array: (ntriads,npol,nchan,ntbins)). 
+                        (ntbins,ndays,ntriads,nchan)), and 'median' (complex
+                        masked array: (ntbins,ndays,ntriads,nchan)). 
                         The dictionaries under 'cphase' are indexed by keys
-                        'mean' (masked array: (ntriads,npol,nchan,ntbins)), 
-                        'median' (masked array: (ntriads,npol,nchan,ntbins)),
-                        'rms' (masked array: (ntriads,npol,nchan,ntbins)), and
-                        'mad' (masked array: (ntriads,npol,nchan,ntbins)). The
+                        'mean' (masked array: (ntbins,ndays,ntriads,nchan)), 
+                        'median' (masked array: (ntbins,ndays,ntriads,nchan)),
+                        'rms' (masked array: (ntbins,ndays,ntriads,nchan)), and
+                        'mad' (masked array: (ntbins,ndays,ntriads,nchan)). The
                         last one denotes Median Absolute Deviation.
 
     Member functions:
@@ -156,7 +156,7 @@ class ClosurePhase(object):
                     as a masked array
 
     smooth_in_tbins()
-                    Smooth the complex exponentials of closure phases in time 
+                    Smooth the complex exponentials of closure phases in LST  
                     bins. Both mean and median smoothing is produced.
 
     save()          Save contents of attribute cpinfo in external HDF5 file
@@ -176,13 +176,27 @@ class ClosurePhase(object):
                     processed data. The input file format is specified in the 
                     input infmt. If it is a NPZ file, it must contain the 
                     following keys/files:
-                    'phase'     [numpy array] Closure phase (radians). It is of 
-                                shape ntriads x npol x nchan x ntimes
-                    'tr'        [numpy array] Array of triad tuples, of shape 
-                                ntriads x 3
+                    'closures'  [numpy array] Closure phase (radians). It is of 
+                                shape (nlst,ndays,ntriads,nchan)
+                    'triads'    [numpy array] Array of triad tuples, of shape 
+                                (ntriads,3)
                     'flags'     [numpy array] Array of flags (boolean), of shape
-                                ntriads x npol x nchan x ntimes
-                    'lst'       [numpy array] Array of LST, of size ntimes
+                                (nlst,ndays,ntriads,nchan)
+                    'last'      [numpy array] Array of LST for each day (CASA 
+                                units which is MJD+6713). Shape is (nlst,ndays)
+                    'days'      [numpy array] Array of days, shape is (ndays,)
+                    'averaged_closures'
+                                [numpy array] optional array of closure phases
+                                averaged across days. Shape is 
+                                (nlst,ntriads,nchan)
+                    'std_dev_lst'
+                                [numpy array] optional array of standard 
+                                deviation of closure phases across days. Shape 
+                                is (nlst,ntriads,nchan)
+                    'std_dev_triads'
+                                [numpy array] optional array of standard 
+                                deviation of closure phases across triads. 
+                                Shape is (nlst,ndays,nchan)
 
         freqs       [numpy array] Frequencies (in Hz) in the input. Size is 
                     nchan.
@@ -216,7 +230,7 @@ class ClosurePhase(object):
                 raise TypeError('Input infile is not a valid HDF5 file')
             self.extfile = infile
 
-        if freqs.size != self.cpinfo['raw']['cphase'].shape[-2]:
+        if freqs.size != self.cpinfo['raw']['cphase'].shape[-1]:
             raise ValueError('Input frequencies do not match with dimensions of the closure phase data')
         self.f = freqs
         self.df = freqs[1] - freqs[0]
