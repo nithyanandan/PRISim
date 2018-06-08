@@ -282,7 +282,7 @@ class ClosurePhase(object):
 
     ############################################################################
 
-    def smooth_in_tbins(self, tbinsize=None):
+    def smooth_in_tbins(self, lstbinsize=None):
 
         """
         ------------------------------------------------------------------------
@@ -291,47 +291,47 @@ class ClosurePhase(object):
 
         Inputs:
 
-        tbinsize    [NoneType or scalar] Time-bin size (in seconds) over which
-                    mean and median are estimated
+        lstbinsize    [NoneType or scalar] Time-bin size (in seconds) over which
+                    mean and median are estimated across the LST
         ------------------------------------------------------------------------
         """
 
-        if tbinsize is not None:
-            if not isinstance(tbinsize, (int,float)):
-                raise TypeError('Input tbinsize must be a scalar')
-            tbinsize = tbinsize / 24 / 3.6e3 # in days
-            tres = self.cpinfo['raw']['lst'][1] - self.cpinfo['raw']['lst'][0] # in days
-            textent = tres * self.cpinfo['raw']['lst'].size # in seconds
-            if tbinsize > tres:
-                tbinsize = NP.clip(tbinsize, tres, textent)
+        if lstbinsize is not None:
+            if not isinstance(lstbinsize, (int,float)):
+                raise TypeError('Input lstbinsize must be a scalar')
+            lstbinsize = lstbinsize / 24 / 3.6e3 # in days
+            tres = self.cpinfo['raw']['lst'][1,0] - self.cpinfo['raw']['lst'][0,0] # in days
+            textent = tres * self.cpinfo['raw']['lst'].sshape[0] # in seconds
+            if lstbinsize > tres:
+                lstbinsize = NP.clip(lstbinsize, tres, textent)
                 eps = 1e-10
-                tbins = NP.arange(self.cpinfo['raw']['lst'].min(), self.cpinfo['raw']['lst'].max() + tres + eps, tbinsize)
-                tbinintervals = tbins[1:] - tbins[:-1]
-                tbincenters = tbins[:-1] + 0.5 * tbinintervals
-                counts, tbin_edges, tbinnum, ri = OPS.binned_statistic(self.cpinfo['raw']['lst'].ravel(), statistic='count', bins=tbins)
+                lstbins = NP.arange(self.cpinfo['raw']['lst'][:,0].min(), self.cpinfo['raw']['lst'][:,0].max() + tres + eps, lstbinsize)
+                lstbinintervals = lstbins[1:] - lstbins[:-1]
+                lstbincenters = lstbins[:-1] + 0.5 * lstbinintervals
+                counts, lstbin_edges, lstbinnum, ri = OPS.binned_statistic(self.cpinfo['raw']['lst'][:,0].ravel(), statistic='count', bins=lstbins)
                 counts = counts.astype(NP.int)
 
                 if 'prelim' not in self.cpinfo['processed']:
                     self.cpinfo['processed']['prelim'] = {}
                 self.cpinfo['processed']['prelim']['eicp'] = {}
                 self.cpinfo['processed']['prelim']['cphase'] = {}
-                self.cpinfo['processed']['prelim']['tbins'] = tbincenters
-                self.cpinfo['processed']['prelim']['dtbins'] = tbinintervals
+                self.cpinfo['processed']['prelim']['lstbins'] = lstbincenters
+                self.cpinfo['processed']['prelim']['dlstbins'] = lstbinintervals
 
-                wts_tbins = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size))
+                wts_lstbins = NP.zeros((counts.size, self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size))
                 eicp_tmean = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size), dtype=NP.complex128)
                 eicp_tmedian = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size), dtype=NP.complex128)
                 cp_trms = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size))
                 cp_tmad = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], self.cpinfo['processed']['native']['eicp'].shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], counts.size))
                 for binnum in xrange(counts.size):
-                    ind_tbin = ri[ri[binnum]:ri[binnum+1]]
-                    wts_tbins[:,:,:,binnum] = NP.sum(self.cpinfo['processed']['native']['wts'][:,:,:,ind_tbin], axis=3)
-                    eicp_tmean[:,:,:,binnum] = NP.exp(1j*NP.angle(MA.mean(self.cpinfo['processed']['native']['eicp'][:,:,:,ind_tbin], axis=3)))
-                    eicp_tmedian[:,:,:,binnum] = NP.exp(1j*NP.angle(MA.median(self.cpinfo['processed']['native']['eicp'][:,:,:,ind_tbin].real, axis=3) + 1j * MA.median(self.cpinfo['processed']['native']['eicp'][:,:,:,ind_tbin].imag, axis=3)))
-                    cp_trms[:,:,:,binnum] = MA.std(self.cpinfo['processed']['native']['cphase'][:,:,:,ind_tbin], axis=-1).data
-                    cp_tmad[:,:,:,binnum] = MA.median(NP.abs(self.cpinfo['processed']['native']['cphase'][:,:,:,ind_tbin] - NP.angle(eicp_tmedian[:,:,:,binnum][:,:,:,NP.newaxis])), axis=-1).data
-                mask = wts_tbins <= 0.0
-                self.cpinfo['processed']['prelim']['wts'] = MA.array(wts_tbins, mask=mask)
+                    ind_lstbin = ri[ri[binnum]:ri[binnum+1]]
+                    wts_lstbins[:,:,:,binnum] = NP.sum(self.cpinfo['processed']['native']['wts'][:,:,:,ind_lstbin], axis=3)
+                    eicp_tmean[:,:,:,binnum] = NP.exp(1j*NP.angle(MA.mean(self.cpinfo['processed']['native']['eicp'][:,:,:,ind_lstbin], axis=3)))
+                    eicp_tmedian[:,:,:,binnum] = NP.exp(1j*NP.angle(MA.median(self.cpinfo['processed']['native']['eicp'][:,:,:,ind_lstbin].real, axis=3) + 1j * MA.median(self.cpinfo['processed']['native']['eicp'][:,:,:,ind_lstbin].imag, axis=3)))
+                    cp_trms[:,:,:,binnum] = MA.std(self.cpinfo['processed']['native']['cphase'][:,:,:,ind_lstbin], axis=-1).data
+                    cp_tmad[:,:,:,binnum] = MA.median(NP.abs(self.cpinfo['processed']['native']['cphase'][:,:,:,ind_lstbin] - NP.angle(eicp_tmedian[:,:,:,binnum][:,:,:,NP.newaxis])), axis=-1).data
+                mask = wts_lstbins <= 0.0
+                self.cpinfo['processed']['prelim']['wts'] = MA.array(wts_lstbins, mask=mask)
                 self.cpinfo['processed']['prelim']['eicp']['mean'] = MA.array(eicp_tmean, mask=mask)
                 self.cpinfo['processed']['prelim']['eicp']['median'] = MA.array(eicp_tmedian, mask=mask)
                 self.cpinfo['processed']['prelim']['cphase']['mean'] = MA.array(NP.angle(eicp_tmean), mask=mask)
@@ -833,7 +833,7 @@ class ClosurePhaseDelaySpectrum(object):
 
         Output:
 
-        Dictionary with the keys 'triads', 'triads_ind', 'tbins', 'lst', 'dlst',
+        Dictionary with the keys 'triads', 'triads_ind', 'lstbins', 'lst', 'dlst',
         'lst_ind', 'oversampled' and 'resampled' corresponding to whether 
         resample was set to False or True in call to member function FT(). 
         Values under keys 'triads_ind' and 'lst_ind' are numpy array 
@@ -879,7 +879,7 @@ class ClosurePhaseDelaySpectrum(object):
 
         triad_ind, time_ind = self.subset(selection=selection)
 
-        result = {'triads': self.cPhase.cpinfo['raw']['triads'][triad_ind], 'triads_ind': triad_ind, 'lst': self.cPhase.cpinfo['processed']['prelim']['tbins'][time_ind], 'lst_ind': time_ind, 'dlst': self.cPhase.cpinfo['processed']['prelim']['dtbins'][time_ind]}
+        result = {'triads': self.cPhase.cpinfo['raw']['triads'][triad_ind], 'triads_ind': triad_ind, 'lst': self.cPhase.cpinfo['processed']['prelim']['lstbins'][time_ind], 'lst_ind': time_ind, 'dlst': self.cPhase.cpinfo['processed']['prelim']['dlstbins'][time_ind]}
         for dpool in datapool:
             result[dpool] = {}
                 

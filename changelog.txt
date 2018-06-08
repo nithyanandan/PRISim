@@ -1,3 +1,12 @@
+From 544995b (closure-adv):
+==========================
+
+In prisim/closure.py,
+
+(*) In member function smooth_in_tbins() of class ClosurePhase, and
+everywhere else, edit all occurrences of tbin to lstbin, including
+input tbinsize. Update docstring accordingly
+
 From da41b53 (closure-adv):
 ==========================
 
