@@ -1,3 +1,14 @@
+From 6d690c1 (closure-adv):
+==========================
+
+In prisim/closure.py,
+
+(*) In member function smooth_in_tbins() of class ClosurePhase,
+make corrections in LST and Day binning
+(*) In member function FT() of class ClosurePhaseDelaySpectrum,
+update with processing the right axes. Update member function
+docstring accordingly
+
 From a376965 (closure-adv):
 ==========================
 

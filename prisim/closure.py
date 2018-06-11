@@ -308,15 +308,15 @@ class ClosurePhase(object):
                 daybinsize = NP.clip(daybinsize, dres, dextent)
                 eps = 1e-10
                 daybins = NP.arange(self.cpinfo['raw']['days'].min(), self.cpinfo['raw']['days'].max() + dres + eps, daybinsize)
+                ndaybins = daybins.size
                 daybins = NP.concatenate((daybins, [daybins[-1]+daybinsize+eps]))
-                if daybins.size > 1:
+                if ndaybins > 1:
                     daybinintervals = daybins[1:] - daybins[:-1]
                     daybincenters = daybins[:-1] + 0.5 * daybinintervals
-                    counts, daybin_edges, daybinnum, ri = OPS.binned_statistic(self.cpinfo['raw']['days'], statistic='count', bins=daybins[:-1])
                 else:
                     daybinintervals = NP.asarray(daybinsize).reshape(-1)
                     daybincenters = daybins[0] + 0.5 * daybinintervals
-                    counts, daybin_edges, daybinnum, ri = OPS.binned_statistic(self.cpinfo['raw']['days'], statistic='count', bins=daybins)
+                counts, daybin_edges, daybinnum, ri = OPS.binned_statistic(self.cpinfo['raw']['days'], statistic='count', bins=daybins)
                 counts = counts.astype(NP.int)
 
                 if 'prelim' not in self.cpinfo['processed']:
@@ -357,8 +357,9 @@ class ClosurePhase(object):
                 lstbinsize = NP.clip(lstbinsize, tres, textent)
                 eps = 1e-10
                 lstbins = NP.arange(self.cpinfo['raw']['lst'][:,0].min(), self.cpinfo['raw']['lst'][:,0].max() + tres + eps, lstbinsize)
+                nlstbins = lstbins.size
                 lstbins = NP.concatenate((lstbins, [lstbins[-1]+lstbinsize+eps]))
-                if lstbins.size > 1:
+                if nlstbins > 1:
                     lstbinintervals = lstbins[1:] - lstbins[:-1]
                     lstbincenters = lstbins[:-1] + 0.5 * lstbinintervals
                 else:
@@ -584,11 +585,11 @@ class ClosurePhaseDelaySpectrum(object):
                         k_parallel.
         'lag_kernel'    [numpy array] delay transform of the frequency 
                         weights under the key 'freq_wts'. It is of size
-                        n_bl x n_win x nlags x n_t. nlags=nchan+npad if 
-                        resample=True, where npad is the number of frequency 
-                        channels padded specified under the key 'npad'. If 
-                        resample=False, nlags = number of delays after 
-                        resampling only independent delays. 
+                        n_win x nlst x ndays x ntriads x nlags. 
+                        nlags=nchan+npad if resample=True, where npad is the 
+                        number of frequency channels padded specified under 
+                        the key 'npad'. If resample=False, nlags = number of 
+                        delays after resampling only independent delays. 
         'lag_corr_length' 
                         [numpy array] It is the correlation timescale (in 
                         pixels) of the subband delay spectra. It is 
@@ -603,16 +604,16 @@ class ClosurePhaseDelaySpectrum(object):
                                 values:
                                 'twts'  [numpy array] Weights from time-based
                                         flags that went into time-averaging.
-                                        Shape=(npol,nt,ntriads,nchan)
+                                        Shape=(nlst,ndays,ntriads,nchan)
                                 'mean'  [numpy array] Delay spectrum of closure
                                         phases based on their mean across time
                                         intervals. 
-                                        Shape=(nspw,npol,nt,ntriads,nlags)
+                                        Shape=(nspw,nlst,ndays,ntriads,nlags)
                                 'median'
                                         [numpy array] Delay spectrum of closure
                                         phases based on their median across time
                                         intervals. 
-                                        Shape=(nspw,npol,nt,ntriads,nlags)
+                                        Shape=(nspw,nlst,ndays,ntriads,nlags)
         ------------------------------------------------------------------------
         """
         
@@ -716,12 +717,12 @@ class ClosurePhaseDelaySpectrum(object):
     
                 for key in self.cPhase.cpinfo['processed'][datapool]['eicp']:
                     eicp = NP.copy(self.cPhase.cpinfo['processed'][datapool]['eicp'][key].data)
-                    eicp = NP.transpose(eicp, axes=(1,3,0,2))[NP.newaxis,...] # ntriads x (npol=1) x nchan x ntimes --> (nspw=1) x (npol=1) x ntimes x ntriads x nchan
+                    eicp = eicp[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
 
                     if apply_flags:
                         flagwts = NP.copy(self.cPhase.cpinfo['processed'][datapool]['wts'].data)
-                        flagwts = NP.transpose(flagwts, axes=(1,3,0,2))[NP.newaxis,...] # ntriads x (npol=1) x nchan x ntimes --> (nspw=1) x (npol=1) x ntimes x ntriads x nchan
-                        flagwts = 1.0 * flagwts / NP.mean(flagwts, axis=-1, keepdims=True) # (nspw=1) x (npol=1) x ntimes x ntriads x nchan
+                        flagwts = flagwts[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
+                        flagwts = 1.0 * flagwts / NP.mean(flagwts, axis=-1, keepdims=True) # (nspw=1) x nlst x ndays x ntriads x nchan
 
                     ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
                     result['processed']['dspec'][key] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
