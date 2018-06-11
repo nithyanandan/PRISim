@@ -1,3 +1,17 @@
+From a376965 (closure-adv):
+==========================
+
+In prisim/closure.py,
+
+(*) Import Time module from astropy
+(*) In function npz2hdf5(), read in LST and days as instances of
+astropy Time class
+(*) In member function smooth_in_tbins() of class ClosurePhase,
+add input keyword daybinsize. Update member function docstring
+accordingly
+(*) In member function smooth_in_tbins() of class ClosurePhase,
+process smoothing along both the Day and LST axes.
+
 From 544995b (closure-adv):
 ==========================
 
