@@ -753,8 +753,8 @@ class ClosurePhaseDelaySpectrum(object):
         Inputs:
 
         selection   [NoneType or dictionary] Selection parameters based on which
-                    triad and time indices will be returned. If set to None
-                    (default), all triad and time indices will be returned. 
+                    triad, LST, and day indices will be returned. If set to None
+                    (default), all triad, LST, and day indices will be returned. 
                     Otherwise it must be a dictionary with the following keys 
                     and values:
                     'triads'    [NoneType or list of 3-element tuples] If set
@@ -762,15 +762,19 @@ class ClosurePhaseDelaySpectrum(object):
                                 returned. Otherwise, the specific triads must
                                 be specified such as [(1,2,3), (1,2,4), ...] 
                                 and their indices will be returned
-                    'time'      [NoneType, list or numpy array] If set to None
-                                (default), indices of all time stamps are 
-                                returned. Otherwise must be a list or numpy 
-                                array containing indices to time stamps. 
+                    'lst'       [NoneType, list or numpy array] If set to None
+                                (default), indices of all LST are returned. 
+                                Otherwise must be a list or numpy array 
+                                containing indices to LST.
+                    'days'      [NoneType, list or numpy array] If set to None
+                                (default), indices of all days are returned. 
+                                Otherwise must be a list or numpy array 
+                                containing indices to days. 
 
         Outputs:
 
-        Tuple (triad_ind, time_ind) containing the triad and time indices, each
-        as a numpy array
+        Tuple (triad_ind, lst_ind, day_ind) containing the triad, LST, and day 
+        indices, each as a numpy array
         ------------------------------------------------------------------------
         """
 
@@ -790,26 +794,45 @@ class ClosurePhaseDelaySpectrum(object):
         triad_ind = [triads.index(triad) for triad in selection['triads']]
         triad_ind = NP.asarray(triad_ind)
 
-        time_ind = None
-        if 'time' not in selection:
+        lst_ind = None
+        if 'lst' not in selection:
             if 'prelim' in self.cPhase.cpinfo['processed']:
-                time_ind = NP.arange(self.cPhase.cpinfo['processed']['prelim']['wts'].shape[3])
+                lst_ind = NP.arange(self.cPhase.cpinfo['processed']['prelim']['wts'].shape[0])
         else:
-            if selection['time'] is None:
+            if selection['lst'] is None:
                 if 'prelim' in self.cPhase.cpinfo['processed']:
-                    time_ind = NP.arange(self.cPhase.cpinfo['processed']['prelim']['wts'].shape[3])
-            elif isinstance(selection['time'], (list,NP.ndarray)):
+                    lst_ind = NP.arange(self.cPhase.cpinfo['processed']['prelim']['wts'].shape[0])
+            elif isinstance(selection['lst'], (list,NP.ndarray)):
                 if 'prelim' in self.cPhase.cpinfo['processed']:
-                    time_ind = selection['time']
-                    if NP.any(NP.logical_or(time_ind < 0, time_ind >= self.cPhase.cpinfo['processed']['prelim']['wts'].shape[3])):
-                        raise ValueError('Input processed time indices out of bounds')
+                    lst_ind = selection['lst']
+                    if NP.any(NP.logical_or(lst_ind < 0, lst_ind >= self.cPhase.cpinfo['processed']['prelim']['wts'].shape[0])):
+                        raise ValueError('Input processed lst indices out of bounds')
             else:
-                raise TypeError('Wrong type for processed time indices')
+                raise TypeError('Wrong type for processed lst indices')
 
-        if time_ind is None:
-            raise ValueError('Time index selection could not be performed')
+        if lst_ind is None:
+            raise ValueError('LST index selection could not be performed')
                 
-        return (triad_ind, time_ind)
+        day_ind = None
+        if 'days' not in selection:
+            if 'prelim' in self.cPhase.cpinfo['processed']:
+                day_ind = NP.arange(self.cPhase.cpinfo['processed']['prelim']['wts'].shape[1])
+        else:
+            if selection['days'] is None:
+                if 'prelim' in self.cPhase.cpinfo['processed']:
+                    day_ind = NP.arange(self.cPhase.cpinfo['processed']['prelim']['wts'].shape[1])
+            elif isinstance(selection['days'], (list,NP.ndarray)):
+                if 'prelim' in self.cPhase.cpinfo['processed']:
+                    day_ind = selection['days']
+                    if NP.any(NP.logical_or(day_ind < 0, day_ind >= self.cPhase.cpinfo['processed']['prelim']['wts'].shape[1])):
+                        raise ValueError('Input processed day indices out of bounds')
+            else:
+                raise TypeError('Wrong type for processed day indices')
+
+        if day_ind is None:
+            raise ValueError('Day index selection could not be performed')
+                
+        return (triad_ind, lst_ind, day_ind)
 
     ############################################################################
 
@@ -879,8 +902,8 @@ class ClosurePhaseDelaySpectrum(object):
                                                 Shape=(nspw,npol,nt,ntriads,nlags)
 
         selection   [NoneType or dictionary] Selection parameters based on which
-                    triad and time indices will be returned. If set to None
-                    (default), all triad and time indices will be returned. 
+                    triad, LST, and day indices will be returned. If set to None
+                    (default), all triad, LST, and day indices will be returned. 
                     Otherwise it must be a dictionary with the following keys 
                     and values:
                     'triads'    [NoneType or list of 3-element tuples] If set
@@ -888,15 +911,19 @@ class ClosurePhaseDelaySpectrum(object):
                                 returned. Otherwise, the specific triads must
                                 be specified such as [(1,2,3), (1,2,4), ...] 
                                 and their indices will be returned
-                    'time'      [NoneType, list or numpy array] If set to None
-                                (default), indices of all time stamps are 
-                                returned. Otherwise must be a list or numpy 
-                                array containing indices to time stamps. 
+                    'lst'       [NoneType, list or numpy array] If set to None
+                                (default), indices of all LST are returned. 
+                                Otherwise must be a list or numpy array 
+                                containing indices to LST.
+                    'days'      [NoneType, list or numpy array] If set to None
+                                (default), indices of all days are returned. 
+                                Otherwise must be a list or numpy array 
+                                containing indices to days. 
 
         incohax [NoneType or tuple] Specifies a tuple of axes over which the 
                 delay power spectra will be incoherently averaged. If set to 
-                None (default), it is set to (2,3) (corresponding to times and 
-                triads). 
+                None (default), it is set to (1,2,3) (corresponding to LST, days 
+                and triads respectively). 
 
         cosmo   [instance of cosmology class from astropy] An instance of class
                 FLRW or default_cosmology of astropy cosmology module. Default
@@ -934,7 +961,7 @@ class ClosurePhaseDelaySpectrum(object):
             incohax = (2,3) # ntimes x ntriads
 
         if selection is None:
-            selection = {'triads': None, 'time': None}
+            selection = {'triads': None, 'lst': None, 'days': None}
         else:
             if not isinstance(selection, dict):
                 raise TypeError('Input selection must be a dictionary')
@@ -948,9 +975,9 @@ class ClosurePhaseDelaySpectrum(object):
                 else:
                     cpds[dpool] = copy.deepcopy(self.cPhaseDS_resampled)
 
-        triad_ind, time_ind = self.subset(selection=selection)
+        triad_ind, lst_ind, day_ind = self.subset(selection=selection)
 
-        result = {'triads': self.cPhase.cpinfo['raw']['triads'][triad_ind], 'triads_ind': triad_ind, 'lst': self.cPhase.cpinfo['processed']['prelim']['lstbins'][time_ind], 'lst_ind': time_ind, 'dlst': self.cPhase.cpinfo['processed']['prelim']['dlstbins'][time_ind]}
+        result = {'triads': self.cPhase.cpinfo['raw']['triads'][triad_ind], 'triads_ind': triad_ind, 'lst': self.cPhase.cpinfo['processed']['prelim']['lstbins'][lst_ind], 'lst_ind': lst_ind, 'dlst': self.cPhase.cpinfo['processed']['prelim']['dlstbins'][lst_ind], 'days': self.cPhase.cpinfo['processed']['prelim']['daybins'][day_ind], 'day_ind': day_ind, 'dday': self.cPhase.cpinfo['processed']['prelim']['diff_dbins'][day_ind]}
         for dpool in datapool:
             result[dpool] = {}
                 

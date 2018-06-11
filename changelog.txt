@@ -1,3 +1,18 @@
+From 45acc97 (closure-adv):
+==========================
+
+In prisim/closure.py,
+
+(*) In member function subset() of class ClosurePhaseDelaySpectrum,
+update functionality to select and return indices of triads, LST, and
+days. Update member function docstring accordingly.
+(*) In member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum, update call to member function subset()
+based on the changes above. Update member function docstring
+accordingly
+(*) In member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum, update the vaiable named results
+
 From 6d690c1 (closure-adv):
 ==========================
 
