@@ -836,8 +836,8 @@ class ClosurePhaseDelaySpectrum(object):
 
     ############################################################################
 
-    def compute_power_spectrum(self, cpds=None, selection=None, incohax=None,
-                               cosmo=cosmo100):
+    def compute_power_spectrum(self, cpds=None, selection=None, cohax=None,
+                               incohax=None, cosmo=cosmo100):
 
         """
         ------------------------------------------------------------------------
@@ -920,10 +920,14 @@ class ClosurePhaseDelaySpectrum(object):
                                 Otherwise must be a list or numpy array 
                                 containing indices to days. 
 
+        cohax   [NoneType or tuple] Specifies a tuple of axes over which the 
+                delay spectra will be coherently averaged before computing power
+                spectra. If set to None (default), it is set to (2,3) 
+                (corresponding to Days, and triads respectively). 
+
         incohax [NoneType or tuple] Specifies a tuple of axes over which the 
                 delay power spectra will be incoherently averaged. If set to 
-                None (default), it is set to (1,2,3) (corresponding to LST, days 
-                and triads respectively). 
+                None (default), it is set to (1,) (corresponding to LST).
 
         cosmo   [instance of cosmology class from astropy] An instance of class
                 FLRW or default_cosmology of astropy cosmology module. Default
@@ -957,8 +961,18 @@ class ClosurePhaseDelaySpectrum(object):
         ------------------------------------------------------------------------
         """
 
+        if cohax is None:
+            cohax = (2, 3) # (ndays,ntriads)
+        else:
+            cohax = tuple(cohax)
+
         if incohax is None:
-            incohax = (2,3) # ntimes x ntriads
+            incohax = (1,) # (nlst,)
+        else:
+            incohax = tuple(incohax)
+
+        if NP.intersect1d(cohax, incohax).size > 0:
+            raise ValueError('Inputs cohax and incohax must have no intersection')
 
         if selection is None:
             selection = {'triads': None, 'lst': None, 'days': None}
@@ -998,13 +1012,29 @@ class ClosurePhaseDelaySpectrum(object):
 
             for stat in ['mean', 'median']:
                 inpshape = list(cpds[dpool]['processed']['dspec'][stat].shape)
-                inpshape[2] = time_ind.size
+                inpshape[1] = lst_ind.size
+                inpshape[2] = day_ind.size
                 inpshape[3] = triad_ind.size
+                nsamples_coh = NP.prod(NP.asarray(inpshape)[NP.asarray(cohax)])
                 nsamples = NP.prod(NP.asarray(inpshape)[NP.asarray(incohax)])
                 nsamples_incoh = nsamples * (nsamples - 1)
-                multidim_idx = NP.ix_(NP.arange(wl.size),NP.arange(1).reshape(-1),time_ind,triad_ind,NP.arange(inpshape[4])) # shape=(nspw,1,ntimes,ntriads,nchan)
-                result[dpool][stat] = factor.reshape(-1,1,1,1,1) / nsamples_incoh * (NP.abs(NP.sum(cpds[dpool]['processed']['dspec'][stat][multidim_idx], axis=incohax, keepdims=True))**2 - NP.sum(NP.abs(cpds[dpool]['processed']['dspec'][stat][multidim_idx])**2, axis=incohax, keepdims=True))
-            result[dpool]['nsamples'] = nsamples
+                twts_multidim_idx = NP.ix_(lst_ind,day_ind,triad_ind,NP.arange(1)) # shape=(nlst,ndays,ntriads,nchan)
+                dspec_multidim_idx = NP.ix_(NP.arange(wl.size),lst_ind,day_ind,triad_ind,NP.arange(inpshape[4])) # shape=(nspw,nlst,ndays,ntriads,nchan)
+                max_wt_in_chan = NP.max(NP.sum(cpds[dpool]['processed']['dspec']['twts'].data, axis=(0,1,2)))
+                select_chan = NP.argmax(NP.sum(cpds[dpool]['processed']['dspec']['twts'].data, axis=(0,1,2)))
+                twts = NP.copy(cpds[dpool]['processed']['dspec']['twts'].data[:,:,:,[select_chan]]) # shape=(nspw=1,nlst,ndays,ntriads,nlags=1)
+                dspec = NP.copy(cpds[dpool]['processed']['dspec'][stat][dspec_multidim_idx])
+                if nsamples_coh > 1:
+                    if stat == 'mean':
+                        dspec = NP.sum(twts[twts_multidim_idx][NP.newaxis,...] * cpds[dpool]['processed']['dspec'][stat][dspec_multidim_idx], axis=cohax, keepdims=True) / NP.sum(twts[twts_multidim_idx][NP.newaxis,...], axis=cohax, keepdims=True)
+                    else:
+                        dspec = NP.median(cpds[dpool]['processed']['dspec'][stat][dspec_multidim_idx], axis=cohax, keepdims=True)
+                if nsamples_incoh > 1:
+                    result[dpool][stat] = factor.reshape(-1,1,1,1,1) / nsamples_incoh * (NP.abs(NP.sum(dspec, axis=incohax, keepdims=True))**2 - NP.sum(NP.abs(dspec)**2, axis=incohax, keepdims=True))
+                else:
+                    result[dpool][stat] = factor.reshape(-1,1,1,1,1) * NP.abs(dspec)**2
+            result[dpool]['nsamples_incoh'] = nsamples_incoh
+            result[dpool]['nsamples_coh'] = nsamples_coh
             
         return result
 

@@ -1,3 +1,20 @@
+From a249439 (closure-adv):
+==========================
+
+In prisim/closure.py,
+
+(*) In member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum, add input keyword cohax to specify axes along
+which coherent averaging of clousre phases can be performed. Update
+member function docstring accordingly
+(*) Change default for keyword input incohax in member function
+compute_power_spectrum() of class ClosurePhaseDelaySpectrum. Update
+member function docstring accordingly
+(*) In member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum, perform coherent averaging of closure phase
+delay spectra before incoherent averaging of closure phase delay power
+spectra
+
 From 45acc97 (closure-adv):
 ==========================
 
