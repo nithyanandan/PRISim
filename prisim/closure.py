@@ -63,7 +63,10 @@ def npz2hdf5(npzfile, hdf5file):
     cpdata = npzdata['closures']
     triadsdata = npzdata['triads']
     flagsdata = npzdata['flags']
-    lstdata = Time(npzdata['last'].astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=('+21.4278d', '-30.7224d')).sidereal_time('apparent') # Subtract 6713 based on CASA convention to obtain MJD
+    # lstdata = Time(npzdata['last'].astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=('+21.4278d', '-30.7224d')).sidereal_time('apparent') # Subtract 6713 based on CASA convention to obtain MJD
+    lstfrac, lstint = NP.modf(npzdata['last'])
+    lstday = Time(lstint.astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=('+21.4278d', '-30.7224d')) # Subtract 6713 based on CASA convention to obtain MJD
+    lstHA = lstfrac * 24.0 # in hours
     daydata = Time(npzdata['days'].astype(NP.float64), scale='utc', format='jd', location=('+21.4278d', '-30.7224d'))
     day_avg_cpdata = npzdata['averaged_closures']
     std_triads_cpdata = npzdata['std_dev_triad']
@@ -79,7 +82,7 @@ def npz2hdf5(npzfile, hdf5file):
         datapool = ['raw']
         for dpool in datapool:
             if dpool == 'raw':
-                qtys = ['cphase', 'triads', 'flags', 'lst', 'days', 'dayavg', 'std_triads', 'std_lst']
+                qtys = ['cphase', 'triads', 'flags', 'lst', 'lst-day', 'days', 'dayavg', 'std_triads', 'std_lst']
             for qty in qtys:
                 if qty == 'cphase':
                     data = NP.copy(cp)
@@ -88,7 +91,9 @@ def npz2hdf5(npzfile, hdf5file):
                 elif qty == 'flags':
                     data = NP.copy(flags)
                 elif qty == 'lst':
-                    data = NP.copy(lstdata.value)
+                    data = NP.copy(lstHA)
+                elif qty == 'lst-day':
+                    data = NP.copy(lstday.value)
                 elif qty == 'days':
                     data = NP.copy(daydata.jd)
                 elif qty == 'dayavg':

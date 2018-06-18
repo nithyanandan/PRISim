@@ -1,3 +1,11 @@
+From 4deafc2 (closure-adv):
+==========================
+
+In prisim/closure.py,
+
+(*) In function npz2hdf5(), update LST parsing. Add key 'lst-day' to
+HDF5 file
+
 From a249439 (closure-adv):
 ==========================
 
