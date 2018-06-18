@@ -1,3 +1,12 @@
+From cd59b25 (closure-adv):
+==========================
+
+In prisim/closure.py,
+
+(*) In function npz2hdf5(), add inputs latitude and longitude. Update
+docstring accordingly. Replace hard-coded latitude and longitude with
+these inputs
+
 From 4deafc2 (closure-adv):
 ==========================
 

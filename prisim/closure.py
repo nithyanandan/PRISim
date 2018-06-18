@@ -23,7 +23,7 @@ cosmo100 = cosmoPlanck15.clone(name='Modified Planck 2015 cosmology with h=1.0',
 
 ################################################################################
 
-def npz2hdf5(npzfile, hdf5file):
+def npz2hdf5(npzfile, hdf5file, longitude=0.0, latitude=0.0):
 
     """
     ----------------------------------------------------------------------------
@@ -56,6 +56,12 @@ def npz2hdf5(npzfile, hdf5file):
                             (nlst,ndays,nchan)
 
     hdf5file    [string] Output HDF5 file including full path.
+
+    latitude    [scalar int or float] Latitude of site (in degrees). 
+                Default=0.0 deg. 
+
+    longitude   [scalar int or float] Longitude of site (in degrees). 
+                Default=0.0 deg.
     ----------------------------------------------------------------------------
     """
 
@@ -63,11 +69,12 @@ def npz2hdf5(npzfile, hdf5file):
     cpdata = npzdata['closures']
     triadsdata = npzdata['triads']
     flagsdata = npzdata['flags']
+    location = ('{0:.5f}d'.format(longitude), '{0:.5f}d'.format(latitude))
     # lstdata = Time(npzdata['last'].astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=('+21.4278d', '-30.7224d')).sidereal_time('apparent') # Subtract 6713 based on CASA convention to obtain MJD
     lstfrac, lstint = NP.modf(npzdata['last'])
-    lstday = Time(lstint.astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=('+21.4278d', '-30.7224d')) # Subtract 6713 based on CASA convention to obtain MJD
+    lstday = Time(lstint.astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=location) # Subtract 6713 based on CASA convention to obtain MJD
     lstHA = lstfrac * 24.0 # in hours
-    daydata = Time(npzdata['days'].astype(NP.float64), scale='utc', format='jd', location=('+21.4278d', '-30.7224d'))
+    daydata = Time(npzdata['days'].astype(NP.float64), scale='utc', format='jd', location=location)
     day_avg_cpdata = npzdata['averaged_closures']
     std_triads_cpdata = npzdata['std_dev_triad']
     std_lst_cpdata = npzdata['std_dev_lst']
