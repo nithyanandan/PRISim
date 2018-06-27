@@ -5,9 +5,15 @@ import progressbar as PGB
 import h5py
 import warnings
 import copy
+from skimage import img_as_float
+import skimage.morphology as morphology
+from skimage.filters import median
+from skimage.filters.rank import mean
 import astropy.cosmology as CP
+import astropy.convolution as CONV
 from astropy.time import Time
 import scipy.constants as FCNST
+from scipy import interpolate
 from astroutils import DSP_modules as DSP
 from astroutils import constants as CNST
 from astroutils import nonmathops as NMO
@@ -111,6 +117,171 @@ def npz2hdf5(npzfile, hdf5file, longitude=0.0, latitude=0.0):
                     data = NP.copy(cp_std_lst)
                 dset = fobj.create_dataset('{0}/{1}'.format(dpool, qty), data=data, compression='gzip', compression_opts=9)
             
+################################################################################
+
+def interpolate_eicp_spectrum(eicp, wts, spec_ax, interp_parms, 
+                              collapse_axes=None, collapse_stat='median'):
+
+    """
+    ----------------------------------------------------------------------------
+    Interpolate complex exponential of closure phase and fill values where 
+    values are not available. 
+
+    Inputs:
+
+    eicp    [Masked array] Complex masked array containing complex exponential 
+            of the closure phases. Usually, it has shape (nlst, ndays, ntriads, 
+            nchan)
+
+    wts     [Maksed array] Maksed array containing weights corresponding to
+            number of measurements. It has same shape as input eicp, which is 
+            usually (nlst, ndays, ntriads, nchan)
+
+    spec_ax [integer] Axis containing frequency spectra corresponding to nchan. 
+            Must be an integer.
+
+    interp_parms
+            [dictionary] Dictionary specifying interpolation parameters. It has
+            the following keys and values:
+            'op_type'       [string] Specifies the interpolating operation.
+                            Must be specified (no default). Accepted values are
+                            'interp1d' (scipy.interpolate), 'median' 
+                            (skimage.filters), 'tophat' (astropy.convolution) 
+                            and 'gaussian' (astropy.convolution)
+            'interp_kind'   [string (optional)] Specifies the interpolation 
+                            kind (if 'op_type' is set to 'interp1d'). For
+                            accepted values, see scipy.interpolate.interp1d()
+            'window_size'   [integer (optional)] Specifies the size of the
+                            interpolating/smoothing kernel. Only applies when
+                            'op_type' is set to 'median', 'tophat' or 'gaussian'
+                            The kernel is a tophat function when 'op_type' is 
+                            set to 'median' or 'tophat'. If refers to FWHM when
+                            'op_type' is set to 'gaussian'
+    collapse_axes
+            [Nonetype, int, tuple, list, or numpy array] Axes to collapse the
+            data along before interpolation. If set to None (default), no
+            collapse is performed. Otherwise, the axes specified here will be
+            collapsed in the data using statistic specified in input
+            collapse_stat. Usually, these axes are those along which closure 
+            phases can be assumed to be coherent.
+
+    collapse_stat
+            [string (optional)] Statistic used to collapse the input data along
+            the axes specified in input collapse_axes. Only applies if input
+            collapse_axes is not set to None. Accepted values are 'mean' and
+            'median' (default)
+
+    Outputs:
+
+    Tuple consisting of two elements. First element is a masked array of 
+    interpolated complex exponential of closure phases of shape (nlst, ndays, 
+    ntriads, nchan) except along the axes which were collapsed. Second element
+    is a masked array of interpolated weights of same shape as the interpolated
+    complex exponentials of closure phases.
+    ----------------------------------------------------------------------------
+    """
+
+    if not isinstance(eicp, MA.MaskedArray):
+        raise TypeError('Input eicp must be a numpy masked array')
+    if not isinstance(wts, MA.MaskedArray):
+        raise TypeError('Input wts must be a numpy masked array')
+    if eicp.shape != wts.shape:
+        raise ValueError('Inputs eicp and wts must have the same shape')
+    if not isinstance(spec_ax, int):
+        raise TypeError('Input spec_ax must be an integer')
+    if spec_ax >= eicp.ndim:
+        raise ValueError('Input spec_ax out of bounds')
+    nchan = eicp.shape[spec_ax]
+    if collapse_axes is not None:
+        if not isinstance(collapse_axes, (int,tuple,list,NP.ndarray)):
+            raise TypeError('Input collapse_axes must be an integer, list, tuple, or numpy array')
+        collapse_axes = NP.asarray(collapse_axes).ravel()
+        if NP.sum(NP.in1d(spec_ax, collapse_axes)) > 0:
+            raise ValueError('spec_ax must not be included in collapse_axes')
+        if not isinstance(collapse_stat, str):
+            raise TypeError('Input collapse_stat must be a string')
+        if collapse_stat.lower() not in ['mean', 'median']:
+            raise ValueError('Invalid input for collapse_stat') 
+        if collapse_stat.lower() == 'mean':
+            eicp_collapsed = MA.sum(eicp*wts, axis=tuple(collapse_axes), keepdims=True) / MA.sum(wts, axis=tuple(collapse_axes), keepdims=True)
+        elif collapse_stat.lower() == 'median':
+            eicp_collapsed = MA.median(eicp.real, axis=tuple(collapse_axes), keepdims=True) +1j * MA.median(eicp.imag, axis=tuple(collapse_axes), keepdims=True)
+        wts_collapsed = MA.sum(wts, axis=tuple(collapse_axes), keepdims=True)
+        eicp_collapsed /= NP.abs(eicp_collapsed) # Renormalize to unit amplitude
+    else:
+        eicp_collapsed = MA.copy(eicp)
+        wts_collapsed = MA.copy(wts)
+
+    if not isinstance(interp_parms, dict):
+        raise TypeError('Input interp_parms must be a dictionary')
+    if 'op_type' not in interp_parms:
+        raise KeyError('Key "op_type" not found in input interp_parms')
+    if interp_parms['op_type'].lower() not in ['median', 'gaussian', 'tophat', 'interp1d']:
+        raise ValueError('op_type specified in interp_parms currently not supported')
+    if interp_parms['op_type'].lower() in ['median', 'gaussian', 'tophat']:
+        if 'window_size' not in interp_parms:
+            raise KeyError('Input "window_size" not found in interp_parms')
+        if interp_parms['window_size'] <= 0:
+            raise ValueError('Spectral filter window size must be positive')
+    if interp_parms['op_type'].lower() == 'interp1d':
+        if 'interp_kind' not in interp_parms:
+            interp_parms['interp_kind'] = 'linear'
+    mask_in = eicp.mask
+    eicp_filled = MA.filled(eicp_collapsed.real, fill_value=NP.nan) + 1j * MA.filled(eicp_collapsed.imag, fill_value=NP.nan) # Both real and imaginary parts need to contain NaN for interpolation to work later separately on these parts
+    wts_filled = MA.filled(wts_collapsed, fill_value=0.0)
+    if interp_parms['op_type'].lower() == 'interp1d':
+        non_spec_ax = NP.where(NP.arange(eicp_collapsed.ndim) != spec_ax)[0]
+        collapsed_freq_mask = NP.sum(mask_in, axis=tuple(non_spec_ax)) # shape=(nchan,)
+        if NP.sum(collapsed_freq_mask.astype(NP.bool)) > 1.0/3 * collapsed_freq_mask.size:
+            raise ValueError('More than 1/3 of channels are flagged at some point or another. This will lead to failure of interp1d method. Try other interpolation options.')
+        masked_chans = NP.arange(eicp_collapsed.shape[spec_ax])[collapsed_freq_mask.astype(NP.bool)]
+        unmasked_chans = NP.arange(eicp_collapsed.shape[spec_ax])[NP.logical_not(collapsed_freq_mask.astype(NP.bool))]
+        unmasked_eicp = NP.take(eicp_filled, unmasked_chans, axis=spec_ax, mode='clip')
+        unmasked_wts = NP.take(wts_filled, unmasked_chans, axis=spec_ax, mode='clip')
+        eicp_interpfunc_real = interpolate.interp1d(unmasked_chans, unmasked_eicp.real, kind=interp_parms['interp_kind'], axis=spec_ax, bounds_error=False, fill_value=NP.nan)
+        eicp_interpfunc_imag = interpolate.interp1d(unmasked_chans, unmasked_eicp.imag, kind=interp_parms['interp_kind'], axis=spec_ax, bounds_error=False, fill_value=NP.nan)
+        wts_interpfunc = interpolate.interp1d(unmasked_chans, unmasked_wts, kind=interp_parms['interp_kind'], axis=spec_ax, bounds_error=False, fill_value=0.0)
+        wts_interped = wts_interpfunc(NP.arange(eicp_collapsed.shape[spec_ax]))
+        eicp_interped = eicp_interpfunc_real(NP.arange(eicp_collapsed.shape[spec_ax])) + 1j * eicp_interpfunc_imag(NP.arange(eicp_collapsed.shape[spec_ax]))
+    else:
+        wts_reshaped = NP.moveaxis(wts_filled, spec_ax, wts_collapsed.ndim-1) # spec_ax is the last axis
+        wts_reshaped_shape = wts_reshaped.shape
+        mask_reshaped = NP.moveaxis(wts_collapsed.mask, spec_ax, wts_collapsed.ndim-1) # spec_ax is the last axis
+        eicp_reshaped = NP.moveaxis(eicp_filled, spec_ax, eicp_collapsed.ndim-1) # spec_ax is the last axis
+        
+        if interp_parms['op_type'].lower() == 'median': # Always typecasts to int which is a problem!!! Needs to be fixed.
+            kernel = morphology.rectangle(1, interp_parms['window_size'], dtype=NP.float64)
+            maxval = NP.nanmax(NP.abs(wts_reshaped)) 
+            wts_interped = maxval * mean(img_as_float(wts_reshaped.reshape(-1,wts_reshaped_shape[-1])/maxval), kernel, mask=mask_reshaped.reshape(-1,wts_reshaped_shape[-1])) # shape=(-1,nchan), use mean not median for weights, array must be normalized to lie inside [-1,1]
+            maxval = NP.nanmax(NP.abs(eicp_reshaped))
+            eicp_interped = maxval * (median(img_as_float(eicp_reshaped.real.reshape(-1,wts_reshaped_shape[-1])/maxval), kernel, mask=mask_reshaped.reshape(-1,wts_reshaped_shape[-1])) + 1j * median(img_as_float(eicp_reshaped.imag.reshape(-1,wts_reshaped_shape[-1])/maxval), kernel, mask=mask_reshaped.reshape(-1,wts_reshaped_shape[-1]))) # array must be normalized to lie inside [-1,1]
+        else:
+            wts_filled = MA.filled(wts_collapsed, fill_value=NP.nan)
+            wts_reshaped = NP.moveaxis(wts_filled, spec_ax, wts_collapsed.ndim-1) # spec_ax is the last axis
+            if interp_parms['op_type'].lower() == 'gaussian':
+                fwhm = interp_parms['window_size']
+                x_sigma = fwhm / (2.0 * NP.sqrt(2.0 * NP.log(2.0)))
+                kernel1D = CONV.Gaussian1DKernel(x_sigma)
+            elif interp_parms['op_type'].lower() == 'tophat':
+                if interp_parms['window_size'] % 2 == 0:
+                    interp_parms['window_size'] += 1
+                kernel1D = CONV.Box1DKernel(interp_parms['window_size'])
+            kernel = CONV.CustomKernel(kernel1D.array[NP.newaxis,:]) # Make a 2D kernel from the 1D kernel where it spans only one element in the new axis
+            wts_interped = CONV.interpolate_replace_nans(wts_reshaped.reshape(-1,wts_reshaped_shape[-1]), kernel)
+            eicp_interped = CONV.interpolate_replace_nans(eicp_reshaped.real.reshape(-1,wts_reshaped_shape[-1]), kernel) + 1j * CONV.interpolate_replace_nans(eicp_reshaped.imag.reshape(-1,wts_reshaped_shape[-1]), kernel)
+        
+        wts_interped = wts_interped.reshape(wts_reshaped_shape) # back to intermediate shape with spec_ax as the last axis
+        wts_interped = NP.moveaxis(wts_interped, wts_collapsed.ndim-1, spec_ax) # Original shape
+        eicp_interped = eicp_interped.reshape(wts_reshaped_shape) # back to intermediate shape with spec_ax as the last axis
+        eicp_interped = NP.moveaxis(eicp_interped, eicp_collapsed.ndim-1, spec_ax) # Original shape
+        eicp_interped /= NP.abs(eicp_interped)
+    eps = 1e-10
+    mask_out = NP.logical_or(wts_interped < eps, NP.isnan(wts_interped))
+    wts_interped = MA.array(wts_interped, mask=mask_out)
+    eicp_interped = MA.array(eicp_interped, mask=mask_out)
+
+    return (eicp_interped, wts_interped)
+
 ################################################################################
         
 class ClosurePhase(object):

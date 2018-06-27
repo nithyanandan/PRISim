@@ -1,3 +1,16 @@
+From 8681f1b (closure-adv):
+==========================
+
+In prisim/closure.py,
+
+(*) Add function interpolate_eicp_spectrum() along with docstring to
+interpolate and fill missing values in complex exponential spectrum of
+closure phases
+
+In prisim/interferometry.py,
+
+(*) Minor correction of typo in a docstring 
+
 From cd59b25 (closure-adv):
 ==========================
 

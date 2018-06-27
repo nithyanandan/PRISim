@@ -7033,7 +7033,7 @@ class InterferometerArray(object):
                     if specsmooth_info['maskchans'].dtype != bool:
                         raise TypeError('Value under key "maskchans" must be a boolean numpy array')
                     if specsmooth_info['maskchans'].size != self.channels.size:
-                        raise ValueError('Size of numpy array under key "maskchans" i not equal to the number of frequency channels')
+                        raise ValueError('Size of numpy array under key "maskchans" is not equal to the number of frequency channels')
                     specsmooth_info['maskchans'] = specsmooth_info['maskchans'].ravel()
                 if 'evalchans' not in specsmooth_info:
                     specsmooth_info['evalchans'] = NP.where(specsmooth_info['maskchans'])[0]
