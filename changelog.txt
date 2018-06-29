@@ -1,3 +1,11 @@
+From 65321a2 (closure-adv):
+==========================
+
+In prisim/closure.py,
+
+(*) Remove function interpolate_eicp_spectrum() and related imports
+as they has been moved to AstroUtils in mathops.py
+
 From 8681f1b (closure-adv):
 ==========================
 
