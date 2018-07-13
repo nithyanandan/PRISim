@@ -76,15 +76,18 @@ def npz2hdf5(npzfile, hdf5file, longitude=0.0, latitude=0.0):
     lstday = Time(lstint.astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=location) # Subtract 6713 based on CASA convention to obtain MJD
     lstHA = lstfrac * 24.0 # in hours
     daydata = Time(npzdata['days'].astype(NP.float64), scale='utc', format='jd', location=location)
-    day_avg_cpdata = npzdata['averaged_closures']
-    std_triads_cpdata = npzdata['std_dev_triad']
-    std_lst_cpdata = npzdata['std_dev_lst']
 
     cp = cpdata.astype(NP.float64)
     flags = flagsdata.astype(NP.bool)
-    cp_dayavg = day_avg_cpdata.astype(NP.float64)
-    cp_std_triads = std_triads_cpdata.astype(NP.float64)
-    cp_std_lst = std_lst_cpdata.astype(NP.float64)
+    if 'averaged_closure' in npzdata:
+        day_avg_cpdata = npzdata['averaged_closures']
+        cp_dayavg = day_avg_cpdata.astype(NP.float64)
+    if 'std_dev_triad' in npzdata:
+        std_triads_cpdata = npzdata['std_dev_triad']
+        cp_std_triads = std_triads_cpdata.astype(NP.float64)
+    if 'std_dev_lst' in npzdata:
+        std_lst_cpdata = npzdata['std_dev_lst']
+        cp_std_lst = std_lst_cpdata.astype(NP.float64)
 
     with h5py.File(hdf5file, 'w') as fobj:
         datapool = ['raw']
@@ -92,6 +95,7 @@ def npz2hdf5(npzfile, hdf5file, longitude=0.0, latitude=0.0):
             if dpool == 'raw':
                 qtys = ['cphase', 'triads', 'flags', 'lst', 'lst-day', 'days', 'dayavg', 'std_triads', 'std_lst']
             for qty in qtys:
+                data = None
                 if qty == 'cphase':
                     data = NP.copy(cp)
                 elif qty == 'triads':
@@ -105,12 +109,16 @@ def npz2hdf5(npzfile, hdf5file, longitude=0.0, latitude=0.0):
                 elif qty == 'days':
                     data = NP.copy(daydata.jd)
                 elif qty == 'dayavg':
-                    data = NP.copy(cp_dayavg)
+                    if 'averaged_closures' in npzdata:
+                        data = NP.copy(cp_dayavg)
                 elif qty == 'std_triads':
-                    data = NP.copy(cp_std_triads)
+                    if 'std_dev_triad' in npzdata:
+                        data = NP.copy(cp_std_triads)
                 elif qty == 'std_lst':
-                    data = NP.copy(cp_std_lst)
-                dset = fobj.create_dataset('{0}/{1}'.format(dpool, qty), data=data, compression='gzip', compression_opts=9)
+                    if 'std_dev_lst' in npzdata:
+                        data = NP.copy(cp_std_lst)
+                if data is not None:
+                    dset = fobj.create_dataset('{0}/{1}'.format(dpool, qty), data=data, compression='gzip', compression_opts=9)
             
 ################################################################################
 
