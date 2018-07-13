@@ -1,3 +1,16 @@
+From d1d2465 (closure-adv):
+==========================
+
+In prisim/closure.py,
+
+(*) Add function loadnpz() along with docstring to read an input NPZ
+file and return the loaded data
+(*) In member function __init__() of class ClosurePhase, update the
+loading of data through loadnpz() instead of through npz2hdf5()
+(*) In member function smooth_in_tbins() of class ClosurePhase, check
+for presence of certain 'prelim' under 'processed' before assigning
+them.
+
 From cd8ad7f (closure-adv):
 ==========================
 

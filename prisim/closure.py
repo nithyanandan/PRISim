@@ -24,6 +24,102 @@ cosmo100 = cosmoPlanck15.clone(name='Modified Planck 2015 cosmology with h=1.0',
 
 ################################################################################
 
+def loadnpz(npzfile, longitude=0.0, latitude=0.0):
+
+    """
+    ----------------------------------------------------------------------------
+    Read an input NPZ file containing closure phase data output from CASA and
+    return a dictionary
+
+    Inputs:
+
+    npzfile     [string] Input NPZ file including full path containing closure 
+                phase data. It must have the following files/keys inside:
+                'closures'  [numpy array] Closure phase (radians). It is of 
+                            shape (nlst,ndays,ntriads,nchan)
+                'triads'    [numpy array] Array of triad tuples, of shape 
+                            (ntriads,3)
+                'flags'     [numpy array] Array of flags (boolean), of shape
+                            (nlst,ndays,ntriads,nchan)
+                'last'      [numpy array] Array of LST for each day (CASA units 
+                            ehich is MJD+6713). Shape is (nlst,ndays)
+                'days'      [numpy array] Array of days, shape is (ndays,)
+                'averaged_closures'
+                            [numpy array] optional array of closure phases
+                            averaged across days. Shape is (nlst,ntriads,nchan)
+                'std_dev_lst'
+                            [numpy array] optional array of standard deviation
+                            of closure phases across days. Shape is 
+                            (nlst,ntriads,nchan)
+                'std_dev_triads'
+                            [numpy array] optional array of standard deviation
+                            of closure phases across triads. Shape is 
+                            (nlst,ndays,nchan)
+
+    latitude    [scalar int or float] Latitude of site (in degrees). 
+                Default=0.0 deg. 
+
+    longitude   [scalar int or float] Longitude of site (in degrees). 
+                Default=0.0 deg.
+
+    Output:
+
+    cpinfo          [dictionary] Contains one top level keys, namely, 'raw' 
+
+                    Under key 'raw' which holds a dictionary, the subkeys 
+                    include 'cphase' (nlst,ndays,ntriads,nchan), 
+                    'triads' (ntriads,3), 'lst' (nlst,ndays), and 'flags' 
+                    (nlst,ndays,ntriads,nchan), and some other optional keys
+    ----------------------------------------------------------------------------
+    """
+
+    npzdata = NP.load(npzfile)
+    cpdata = npzdata['closures']
+    triadsdata = npzdata['triads']
+    flagsdata = npzdata['flags']
+    location = ('{0:.5f}d'.format(longitude), '{0:.5f}d'.format(latitude))
+    # lstdata = Time(npzdata['last'].astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=('+21.4278d', '-30.7224d')).sidereal_time('apparent') # Subtract 6713 based on CASA convention to obtain MJD
+    lstfrac, lstint = NP.modf(npzdata['last'])
+    lstday = Time(lstint.astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=location) # Subtract 6713 based on CASA convention to obtain MJD
+    lstHA = lstfrac * 24.0 # in hours
+    daydata = Time(npzdata['days'].astype(NP.float64), scale='utc', format='jd', location=location)
+
+    cp = cpdata.astype(NP.float64)
+    flags = flagsdata.astype(NP.bool)
+
+    cpinfo = {}
+    datapool = ['raw']
+    for dpool in datapool:
+        cpinfo[dpool] = {}
+        if dpool == 'raw':
+            qtys = ['cphase', 'triads', 'flags', 'lst', 'lst-day', 'days', 'dayavg', 'std_triads', 'std_lst']
+        for qty in qtys:
+            if qty == 'cphase':
+                cpinfo[dpool][qty] = NP.copy(cp)
+            elif qty == 'triads':
+                cpinfo[dpool][qty] = NP.copy(triadsdata)
+            elif qty == 'flags':
+                cpinfo[dpool][qty] = NP.copy(flags)
+            elif qty == 'lst':
+                cpinfo[dpool][qty] = NP.copy(lstHA)
+            elif qty == 'lst-day':
+                cpinfo[dpool][qty] = NP.copy(lstday.value)
+            elif qty == 'days':
+                cpinfo[dpool][qty] = NP.copy(daydata.jd)
+            elif qty == 'dayavg':
+                if 'averaged_closures' in npzdata:
+                    cpinfo[dpool][qty] = NP.copy(cp_dayavg)
+            elif qty == 'std_triads':
+                if 'std_dev_triad' in npzdata:
+                    cpinfo[dpool][qty] = NP.copy(cp_std_triads)
+            elif qty == 'std_lst':
+                if 'std_dev_lst' in npzdata:
+                    cpinfo[dpool][qty] = NP.copy(cp_std_lst)
+    
+    return cpinfo
+
+################################################################################
+
 def npz2hdf5(npzfile, hdf5file, longitude=0.0, latitude=0.0):
 
     """
@@ -241,13 +337,14 @@ class ClosurePhase(object):
         if infmt.lower() == 'npz':
             infilesplit = infile.split('.npz')
             infile_noext = infilesplit[0]
-            npz2hdf5(infile, infile_noext+'.hdf5')
+            self.cpinfo = loadnpz(infile)
+            # npz2hdf5(infile, infile_noext+'.hdf5')
             self.extfile = infile_noext + '.hdf5'
-            self.cpinfo = NMO.load_dict_from_hdf5(self.extfile)
         else:
-            if not isinstance(infile, h5py.File):
-                raise TypeError('Input infile is not a valid HDF5 file')
+            # if not isinstance(infile, h5py.File):
+            #     raise TypeError('Input infile is not a valid HDF5 file')
             self.extfile = infile
+            self.cpinfo = NMO.load_dict_from_hdf5(self.extfile)
 
         if freqs.size != self.cpinfo['raw']['cphase'].shape[-1]:
             raise ValueError('Input frequencies do not match with dimensions of the closure phase data')
@@ -424,8 +521,12 @@ class ClosurePhase(object):
                         
                 mask = wts_lstbins <= 0.0
                 self.cpinfo['processed']['prelim']['wts'] = MA.array(wts_lstbins, mask=mask)
+                if 'eicp' not in self.cpinfo['processed']['prelim']:
+                    self.cpinfo['processed']['prelim']['eicp'] = {}
                 self.cpinfo['processed']['prelim']['eicp']['mean'] = MA.array(eicp_tmean, mask=mask)
                 self.cpinfo['processed']['prelim']['eicp']['median'] = MA.array(eicp_tmedian, mask=mask)
+                if 'cphase' not in self.cpinfo['processed']['prelim']:
+                    self.cpinfo['processed']['prelim']['cphase'] = {}
                 self.cpinfo['processed']['prelim']['cphase']['mean'] = MA.array(NP.angle(eicp_tmean), mask=mask)
                 self.cpinfo['processed']['prelim']['cphase']['median'] = MA.array(NP.angle(eicp_tmedian), mask=mask)
                 self.cpinfo['processed']['prelim']['cphase']['rms'] = MA.array(cp_trms, mask=mask)
