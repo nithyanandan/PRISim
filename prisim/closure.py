@@ -814,7 +814,7 @@ class ClosurePhaseDelaySpectrum(object):
                 frac_width = DSP.window_N2width(n_window=None, shape=shape, fftpow=fftpow, area_normalize=False, power_normalize=True)
                 window_loss_factor = 1 / frac_width
                 n_window = NP.round(window_loss_factor * bw_eff / self.df).astype(NP.int)
-                ind_freq_center, ind_channels, dfrequency = LKP.find_1NN(self.f.reshape(-1,1), freq_center.reshape(-1,1), distance_ULIM=0.5*self.df, remove_oob=True)
+                ind_freq_center, ind_channels, dfrequency = LKP.find_1NN(self.f.reshape(-1,1), freq_center.reshape(-1,1), distance_ULIM=0.51*self.df, remove_oob=True)
                 sortind = NP.argsort(ind_channels)
                 ind_freq_center = ind_freq_center[sortind]
                 ind_channels = ind_channels[sortind]
@@ -824,7 +824,7 @@ class ClosurePhaseDelaySpectrum(object):
                 for i,ind_chan in enumerate(ind_channels):
                     window = NP.sqrt(frac_width * n_window[i]) * DSP.window_fftpow(n_window[i], shape=shape, fftpow=fftpow, centering=True, peak=None, area_normalize=False, power_normalize=True)
                     window_chans = self.f[ind_chan] + self.df * (NP.arange(n_window[i]) - int(n_window[i]/2))
-                    ind_window_chans, ind_chans, dfreq = LKP.find_1NN(self.f.reshape(-1,1), window_chans.reshape(-1,1), distance_ULIM=0.5*self.df, remove_oob=True)
+                    ind_window_chans, ind_chans, dfreq = LKP.find_1NN(self.f.reshape(-1,1), window_chans.reshape(-1,1), distance_ULIM=0.51*self.df, remove_oob=True)
                     sind = NP.argsort(ind_window_chans)
                     ind_window_chans = ind_window_chans[sind]
                     ind_chans = ind_chans[sind]
@@ -1049,7 +1049,7 @@ class ClosurePhaseDelaySpectrum(object):
 
         incohax [NoneType or tuple] Specifies a tuple of axes over which the 
                 delay power spectra will be incoherently averaged. If set to 
-                None (default), it is set to (1,) (corresponding to LST).
+                None (default), no incoherent averaging is performed.
 
         cosmo   [instance of cosmology class from astropy] An instance of class
                 FLRW or default_cosmology of astropy cosmology module. Default
@@ -1088,10 +1088,10 @@ class ClosurePhaseDelaySpectrum(object):
         else:
             cohax = tuple(cohax)
 
-        if incohax is None:
-            incohax = (1,) # (nlst,)
-        else:
+        if incohax is not None:
             incohax = tuple(incohax)
+        else:
+            incohax = []
 
         if NP.intersect1d(cohax, incohax).size > 0:
             raise ValueError('Inputs cohax and incohax must have no intersection')
@@ -1138,8 +1138,11 @@ class ClosurePhaseDelaySpectrum(object):
                 inpshape[2] = day_ind.size
                 inpshape[3] = triad_ind.size
                 nsamples_coh = NP.prod(NP.asarray(inpshape)[NP.asarray(cohax)])
-                nsamples = NP.prod(NP.asarray(inpshape)[NP.asarray(incohax)])
-                nsamples_incoh = nsamples * (nsamples - 1)
+                if len(incohax) > 0:
+                    nsamples = NP.prod(NP.asarray(inpshape)[NP.asarray(incohax)])
+                    nsamples_incoh = nsamples * (nsamples - 1)
+                else:
+                    nsamples_incoh = 1
                 twts_multidim_idx = NP.ix_(lst_ind,day_ind,triad_ind,NP.arange(1)) # shape=(nlst,ndays,ntriads,nchan)
                 dspec_multidim_idx = NP.ix_(NP.arange(wl.size),lst_ind,day_ind,triad_ind,NP.arange(inpshape[4])) # shape=(nspw,nlst,ndays,ntriads,nchan)
                 max_wt_in_chan = NP.max(NP.sum(cpds[dpool]['processed']['dspec']['twts'].data, axis=(0,1,2)))

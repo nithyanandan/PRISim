@@ -1,3 +1,14 @@
+From 2c2c7e1 (closure-adv):
+==========================
+
+In prisim/closure.py,
+
+(*) In member function FT() of class ClosurePhaseDelaySpectrum, fix
+interval in call to LKP.find_1NN()
+(*) In member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum, change default behavior of input incohax.
+Update member function docstring accordingly
+
 From d1d2465 (closure-adv):
 ==========================
 
