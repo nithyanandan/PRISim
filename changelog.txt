@@ -1,3 +1,8 @@
+From e0a90a1 (closure-adv):
+==========================
+
+(*) Rename prisim/closure.py to prisim/bispectrum_phase.py
+
 From 2c2c7e1 (closure-adv):
 ==========================
 
