@@ -1,3 +1,10 @@
+From f5a1dec (closure-adv):
+==========================
+
+In setup.py,
+
+(*) Update Astropy version range in setup.py 
+
 From e0a90a1 (closure-adv):
 ==========================
 
