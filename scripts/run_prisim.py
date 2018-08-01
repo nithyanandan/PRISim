@@ -334,7 +334,7 @@ if telescope_id not in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'custom', 'p
 
 if element_shape is None:
     element_shape = 'delta'
-elif element_shape not in ['dish', 'delta', 'dipole']:
+elif element_shape not in ['dish', 'delta', 'dipole', 'gaussian']:
     raise ValueError('Invalid antenna element shape specified')
 
 if element_shape != 'delta':
@@ -509,7 +509,7 @@ if A_eff is None:
         A_eff = (0.5*FCNST.c/freq)**2
         if (telescope_id == 'mwa') or phased_array:
             A_eff *= 16
-    if telescope['shape'] == 'dish':
+    if (telescope['shape'] == 'dish') or (telescope['shape'] == 'gaussian'):
         A_eff = NP.pi * (0.5*element_size)**2
 
 element_locs = None
@@ -1727,7 +1727,6 @@ if mpi_on_src: # MPI based on source multiplexing
             # comm.Send([ia.skyvis_freq, ia.skyvis_freq.size, MPI.DOUBLE_COMPLEX])
 
 elif mpi_on_freq: # MPI based on frequency multiplexing
-
     for k in range(n_sky_sectors):
         if n_sky_sectors == 1:
             sky_sector_str = '_all_sky_'

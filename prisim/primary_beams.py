@@ -40,11 +40,12 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                               values are 'mwa', 'vla', 'gmrt', 'hera', 'paper', 
                               'hirax', and 'chime' 
                 'shape'       [string] Shape of antenna element. Accepted values
-                              are 'dipole', 'delta', 'dish', 'rect' and 'square'. 
-                              Will be ignored if key 'id' is set. 'delta' denotes 
-                              a delta function for the antenna element which has 
-                              an isotropic radiation pattern. 'delta' is the 
-                              default when keys 'id' and 'shape' are not set.
+                              are 'dipole', 'delta', 'dish', 'gaussian', 'rect' 
+                              and 'square'. Will be ignored if key 'id' is set. 
+                              'delta' denotes a delta function for the antenna 
+                              element which has an isotropic radiation pattern. 
+                              'delta' is the default when keys 'id' and 'shape' 
+                              are not set.
                 'size'        [scalar or 2-element list/numpy array] Diameter of 
                               the telescope dish (in meters) if the key 'shape' 
                               is set to 'dish', side of the square aperture (in 
@@ -70,17 +71,17 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                               specifying all three direction cosines or a two-
                               element coordinate in Alt-Az system. If not provided 
                               it defaults to an eastward pointing dipole. If key
-                              'shape' is set to 'dish', the orientation refers 
-                              to the pointing center of the dish on the sky. It
-                              can be provided in Alt-Az system as a two-element
-                              vector or in the direction cosine coordinate
-                              system as a two- or three-element vector. If not
-                              set in the case of a dish element, it defaults to 
-                              zenith. This is not to be confused with the key
-                              'pointing_center' in dictionary 'pointing_info' 
-                              which refers to the beamformed pointing center of
-                              the array. The coordinate system is specified by 
-                              the key 'ocoords'
+                              'shape' is set to 'dish' or 'gaussian', the 
+                              orientation refers to the pointing center of the 
+                              dish on the sky. It can be provided in Alt-Az 
+                              system as a two-element vector or in the direction 
+                              cosine coordinate system as a two- or three-element 
+                              vector. If not set in the case of a dish element, 
+                              it defaults to zenith. This is not to be confused 
+                              with the key 'pointing_center' in dictionary 
+                              'pointing_info' which refers to the beamformed 
+                              pointing center of the array. The coordinate system 
+                              is specified by the key 'ocoords'
                 'ocoords'     [scalar string] specifies the coordinate system 
                               for key 'orientation'. Accepted values are 'altaz'
                               and 'dircos'. 
@@ -369,6 +370,10 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                                    peak=1.0, pointing_center=pointing_center, 
                                    gaussian=False, power=False, small_angle_tol=1e-10)
             ep = ep[:,:,NP.newaxis]   # add an axis to be compatible with random ralizations
+        elif telescope['shape'] == 'gaussian':
+            ep = gaussian_beam(telescope['size'], skypos, frequency, skyunits=skyunits,
+                                   pointing_center=pointing_center, power=False)
+            ep = ep[:,:,NP.newaxis]   # add an axis to be compatible with random ralizations
         elif telescope['shape'] == 'rect':
             ep = uniform_rectangular_aperture(telescope['size'], skypos, frequency, skyunits=skyunits, east2ax1=east2ax1, pointing_center=pointing_center, power=False)
         elif telescope['shape'] == 'square':
@@ -615,6 +620,111 @@ def airy_disk_pattern(diameter, skypos, frequency, skyunits='altaz', peak=1.0,
         
     pattern *= peak / maxval 
     
+    return pattern
+
+##########################################################################
+
+def gaussian_beam(diameter, skypos, frequency, skyunits='altaz', 
+                  pointing_center=None, pointing_coords=None, power=True):
+
+    """
+    -----------------------------------------------------------------------------
+    Field/power pattern of a Gaussian illumination
+
+    Inputs:
+
+    diameter    [scalar] FWHM diameter of the dish (in m)
+
+    skypos      [list or numpy vector] Sky positions at which the power pattern 
+                is to be estimated. Size is M x N where M is the number of 
+                locations and N = 1 (if skyunits = degrees), N = 2 (if
+                skyunits = altaz denoting Alt-Az coordinates), or N = 3 (if
+                skyunits = dircos denoting direction cosine coordinates). If
+                skyunits = altaz, then altitude and azimuth must be in degrees
+
+    frequency   [list or numpy vector] frequencies (in GHz) at which the power 
+                pattern is to be estimated. Frequencies differing by too much
+                and extending over the usual bands cannot be given. 
+
+    skyunits    [string] string specifying the coordinate system of the sky 
+                positions. Accepted values are 'degrees', 'altaz', and 'dircos'.
+                Default = 'degrees'. If 'dircos', the direction cosines are 
+                aligned with the local East, North, and Up. If 'altaz', then 
+                altitude and azimuth must be in degrees.
+
+    pointing_center
+                [numpy array] 1xN numpy array, where N is the same as in skypos.
+                If None specified, pointing_center is assumed to be at zenith.
+                
+    pointing_coords
+                [string] Coordiantes of the pointing center. If None specified, 
+                it is assumed to be same as skyunits. Same allowed values as 
+                skyunits. Default = None.
+
+    power       [boolean] If set to True (default), compute power pattern,
+                otherwise compute field pattern.
+
+    Output:
+
+    [Numpy array] Field or Power pattern at the specified sky positions. 
+    -----------------------------------------------------------------------------
+    """
+    try:
+        diameter, skypos, frequency
+    except NameError:
+        raise NameError('diameter, skypos and frequency are required in airy_disk_pattern().')
+
+    skypos = NP.asarray(skypos)
+    frequency = NP.asarray(frequency).ravel()
+
+    if pointing_center is None:
+        if skyunits == 'degrees':
+            x = NP.radians(skypos)
+        elif skyunits == 'altaz':
+            x = NP.radians(90.0 - skypos[:,0])
+        elif skyunits == 'dircos':
+            x = NP.arcsin(NP.sqrt(skypos[:,0]**2 + skypos[:,1]**2))
+        else:
+            raise ValueError('skyunits must be "degrees", "altaz" or "dircos" in GMRT_primary_beam().')
+        zero_ind = x >= NP.pi/2   # Determine positions beyond the horizon
+    else:
+        if pointing_coords is None:
+            pointing_coords = skyunits
+        if skyunits == 'degrees':
+            x = NP.radians(skypos)
+        else:
+            pc_altaz = pointing_center.reshape(1,-1)
+            if pointing_coords == 'altaz':
+                if pc_altaz.size != 2:
+                    raise IndexError('Pointing center in Alt-Az coordinates must contain exactly two elements.')
+            elif pointing_coords == 'dircos':
+                if pc_altaz.size != 3:
+                    raise IndexError('Pointing center in direction cosine coordinates must contain exactly three elements.')
+                pc_altaz = GEOM.dircos2altaz(pc_altaz, units='degrees')
+
+            skypos_altaz = NP.copy(skypos)
+            if skyunits == 'dircos':
+                skypos_altaz = GEOM.dircos2altaz(skypos, units='degrees')
+            elif skyunits != 'altaz':
+                raise ValueError('skyunits must be "degrees", "altaz" or "dircos" in GMRT_primary_beam().')
+            x = GEOM.sphdist(skypos_altaz[:,1], skypos_altaz[:,0], pc_altaz[0,1], pc_altaz[0,0])
+            x = NP.radians(x)
+            zero_ind = NP.logical_or(x >= NP.pi/2, skypos_altaz[:,0] <= 0.0)   # Determine positions beyond the horizon of the sky as well as those beyond the horizon of the dish, if it is pointed away from the horizon
+
+    x = x.reshape(-1,1) # nsrc x 1
+    sigma_aprtr = diameter / (2.0 * NP.sqrt(2.0 * NP.log(2.0))) / (FCNST.c/frequency) # in units of "u"
+    # exp(-a t**2) <--> exp(-(pi*f)**2/a)
+    # 2 x sigma_aprtr**2 = 1/a
+    # 2 x sigma_dircos**2 = a / pi**2 = 1 / (2 * pi**2 * sigma_aprtr**2)
+    sigma_dircos = 1.0 / (2 * NP.pi * sigma_aprtr)
+    sigma_dircos = sigma_dircos.reshape(1,-1) # 1 x nchan
+    dircos = NP.sin(x)
+    pattern = NP.exp(-0.5 * (dircos/sigma_dircos)**2)
+    pattern[zero_ind,:] = 0.0   # Blank all values beyond the horizon
+
+    if power:
+        pattern = NP.abs(pattern)**2
+        
     return pattern
 
 ##########################################################################

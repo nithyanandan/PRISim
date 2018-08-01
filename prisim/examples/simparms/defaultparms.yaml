@@ -254,12 +254,13 @@ antenna  :
     shape           : 'dish'      
                                 # Shape of antenna element
                                 # Accepted values are 'dish', 'dipole',
-                                # and 'delta' or null (defaults to
-                                # 'delta')
+                                # 'gaussian', and 'delta' or null 
+                                # (defaults to 'delta')
 
     size            : 14.0
                                 # Size of antenna element (in m)
-                                # diameter for dish, linear size for
+                                # diameter for dish, FWHM for
+                                # gaussian, linear size for
                                 # dipole
                     
     orientation     : [90.0, 270.0]

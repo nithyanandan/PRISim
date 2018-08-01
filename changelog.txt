@@ -1,3 +1,24 @@
+From 8cee83e (closure-adv):
+==========================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add 'gaussian' as one of the available antenna element shape
+parameters
+
+In prisim/primary_beams.py,
+
+(*) Add function gaussian_beam() along with docstring to compute
+a Gaussian voltage or power pattern.
+(*) In function primary_beam_generator(), include call to
+gaussian_beam() if telescope shape parameter is set to 'gaussian'.
+Update function docstring accordingly
+
+In scripts/run_prisim.py,
+
+(*) Add checks and accept inputs for antenna aperture shape that is
+'gaussian' in accordance with the changes above.
+
 From f5a1dec (closure-adv):
 ==========================
 
@@ -420,7 +441,6 @@ In prisim/delay_spectrum.py,
 of class DelayPowerSpectrum to
 compute_individual_closure_phase_power_spectrum(). Update docstring
 of class and member function accordingly
-
 (*) Add member function
 compute_averaged_closure_phase_power_spectrum() to class
 DelayPowerSpectrum. Update class docstring accordingly
