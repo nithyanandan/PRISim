@@ -1,3 +1,13 @@
+From 0076c70 (pbeam):
+====================
+
+In prisim/primary_beams.py,
+
+(*) In function airy_disk_pattern(), remove keyword input
+gaussian_approx. Update function docstring accordingly
+(*) In function primary_beam_generator(), remove usage of keyword
+input gaussian_approx in calls to airy_disk_pattern()
+
 From 8cee83e (closure-adv):
 ==========================
 

@@ -243,7 +243,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
             pb = airy_disk_pattern(dish_dia, skypos, frequency, skyunits=skyunits,
                                    peak=1.0, pointing_center=telescope['orientation'], 
                                    pointing_coords=telescope['ocoords'],
-                                   gaussian=False, power=True, small_angle_tol=1e-10)
+                                   power=True, small_angle_tol=1e-10)
         elif telescope['id'] == 'mwa':
             if (skyunits == 'altaz') or (skyunits == 'dircos'):
                 if ('orientation' in telescope) and ('ocoords' in telescope):
@@ -368,7 +368,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
         elif telescope['shape'] == 'dish':
             ep = airy_disk_pattern(telescope['size'], skypos, frequency, skyunits=skyunits,
                                    peak=1.0, pointing_center=pointing_center, 
-                                   gaussian=False, power=False, small_angle_tol=1e-10)
+                                   power=False, small_angle_tol=1e-10)
             ep = ep[:,:,NP.newaxis]   # add an axis to be compatible with random ralizations
         elif telescope['shape'] == 'gaussian':
             ep = gaussian_beam(telescope['size'], skypos, frequency, skyunits=skyunits,
@@ -510,7 +510,7 @@ def VLA_primary_beam_PBCOR(skypos, frequency, skyunits='degrees'):
 
 def airy_disk_pattern(diameter, skypos, frequency, skyunits='altaz', peak=1.0, 
                       pointing_center=None, pointing_coords=None,
-                      small_angle_tol=1e-10, power=True, gaussian=False):
+                      small_angle_tol=1e-10, power=True):
 
     """
     -----------------------------------------------------------------------------
@@ -545,10 +545,6 @@ def airy_disk_pattern(diameter, skypos, frequency, skyunits='altaz', peak=1.0,
                 [string] Coordiantes of the pointing center. If None specified, 
                 it is assumed to be same as skyunits. Same allowed values as 
                 skyunits. Default = None.
-
-    gaussian    [boolean] If set to True, use a gaussian shape to approximate
-                the power pattern. If False, use the standard airy pattern.
-                Default = False
 
     power       [boolean] If set to True (default), compute power pattern,
                 otherwise compute field pattern.
