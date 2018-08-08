@@ -919,7 +919,7 @@ def ground_plane_field_pattern(height, skypos, skycoords=None, wavelength=1.0,
                     if skypos.shape[1] == 3:
                         eps = 1.0e-10
                         if NP.any(NP.abs(NP.sqrt(NP.sum(skypos**2, axis=1)) - 1.0) > eps) or NP.any(skypos[:,2] < 0.0):
-                            print 'Warning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                            print('Warning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                             skypos[:,2] = 1.0 - NP.sqrt(NP.sum(skypos[:,:2]**2,axis=1))
                     else:
                         skypos = NP.hstack((skypos, 1.0 - NP.asarray(NP.sqrt(NP.sum(skypos[:,:2]**2,axis=1))).reshape(-1,1)))
@@ -1126,7 +1126,7 @@ def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None,
                     if skypos.shape[1] == 3:
                         eps = 1.0e-10
                         if NP.any(NP.abs(NP.sqrt(NP.sum(skypos**2, axis=1)) - 1.0) > eps) or NP.any(skypos[:,2] < 0.0):
-                            print 'Warning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                            print('Warning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                             skypos[:,2] = 1.0 - NP.sqrt(NP.sum(skypos[:,:2]**2,axis=1))
                     else:
                         skypos = NP.hstack((skypos, 1.0 - NP.asarray(NP.sqrt(NP.sum(skypos[:,:2]**2,axis=1))).reshape(-1,1)))
@@ -1174,7 +1174,7 @@ def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None,
                         if dipole_orientation.shape[1] == 3:
                             eps = 1.0e-10
                             if NP.any(NP.abs(NP.sqrt(NP.sum(dipole_orientation**2, axis=1)) - 1.0) > eps) or NP.any(dipole_orientation[:,2] < 0.0):
-                                print 'Warning: dipole_orientation in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                                print('Warning: dipole_orientation in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                                 dipole_orientation[:,2] = 1.0 - NP.sqrt(NP.sum(dipole_orientation[:,:2]**2,axis=1))
                         else:
                             dipole_orientation = NP.hstack((dipole_orientation, 1.0 - NP.asarray(NP.sqrt(NP.sum(dipole_orientation[:,:2]**2,axis=1))).reshape(-1,1)))
@@ -1361,7 +1361,7 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
                     eps = 1.0e-10
                     if NP.any(NP.abs(NP.sum(skypos**2, axis=1) - 1.0) > eps) or NP.any(skypos[:,2] < 0.0):
                         if verbose:
-                            print '\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                            print('\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                         skypos[:,2] = NP.sqrt(1.0 - NP.sum(skypos[:2]**2, axis=1))
     else:
         raise ValueError('skycoords has not been set.')
@@ -1401,7 +1401,7 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
                 eps = 1.0e-10
                 if (NP.abs(NP.sum(pointing_center**2) - 1.0) > eps) or (pointing_center[2] < 0.0):
                     if verbose:
-                        print '\tWarning: pointing_center in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                        print('\tWarning: pointing_center in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                     pointing_center[2] = NP.sqrt(1.0 - NP.sum(pointing_center[:2]**2))
 
     # skypos_dircos_relative = NP.empty((skypos.shape[0],3))
@@ -1689,7 +1689,7 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', pointing_info=None,
                     eps = 1.0e-10
                     if NP.any(NP.abs(NP.sum(skypos**2, axis=1) - 1.0) > eps) or NP.any(skypos[:,2] < 0.0):
                         if verbose:
-                            print '\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                            print('\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                         skypos[:,2] = NP.sqrt(1.0 - NP.sum(skypos[:2]**2, axis=1))
     else:
         raise ValueError('skycoords has not been set.')
@@ -1868,7 +1868,7 @@ def uniform_rectangular_aperture(sides, skypos, frequency, skyunits='altaz',
                     eps = 1.0e-10
                     if NP.any(NP.abs(NP.sum(skypos**2, axis=1) - 1.0) > eps) or NP.any(skypos[:,2] < 0.0):
                         if verbose:
-                            print '\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                            print('\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                         skypos[:,2] = NP.sqrt(1.0 - NP.sum(skypos[:2]**2, axis=1))
     else:
         raise ValueError('skycoords has not been set.')
@@ -1908,7 +1908,7 @@ def uniform_rectangular_aperture(sides, skypos, frequency, skyunits='altaz',
                 eps = 1.0e-10
                 if (NP.abs(NP.sum(pointing_center**2) - 1.0) > eps) or (pointing_center[2] < 0.0):
                     if verbose:
-                        print '\tWarning: pointing_center in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                        print('\tWarning: pointing_center in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                     pointing_center[2] = NP.sqrt(1.0 - NP.sum(pointing_center[:2]**2))
 
     if east2ax1 is not None:

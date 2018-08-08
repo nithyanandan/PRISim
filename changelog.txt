@@ -1,3 +1,15 @@
+From 7c18537 (pbeam):
+====================
+
+Throughout the PRISim package,
+
+(*) Change print statements to print functions to be compatible with
+Python 3
+
+In prisim/interferometry.py,
+
+(*) Change some print functions to warnings
+
 From d6dd62c (pbeam):
 ====================
 

@@ -43,18 +43,18 @@ def delay_envelope(bl, dircos, units='mks'):
     try:
         dircos
     except NameError:
-        print 'No sky position in direction cosine units provided. Assuming zenith for phase center in delay_envelope().'
+        print('No sky position in direction cosine units provided. Assuming zenith for phase center in delay_envelope().')
         dircos = NP.zeros(3).reshape(1,3)
 
     try:
         units
     except NameError:
-        print 'No units provided. Assuming MKS units.'
+        print('No units provided. Assuming MKS units.')
         units = 'mks'
 
     if (units != 'mks') and (units != 'cgs'):
-        print 'Units should be specified to be one of MKS or CGS. Default=MKS'
-        print 'Proceeding with MKS units.'
+        print('Units should be specified to be one of MKS or CGS. Default=MKS')
+        print('Proceeding with MKS units.')
         units = 'mks'
 
     # Set the speed of light in MKS or CGS units
@@ -181,12 +181,12 @@ def geometric_delay(baselines, skypos, altaz=False, dircos=False, hadec=True,
     try:
         units
     except NameError:
-        print 'No units provided. Assuming MKS units.'
+        print('No units provided. Assuming MKS units.')
         units = 'mks'
 
     if (units != 'mks') and (units != 'cgs'):
-        print 'Units should be specified to be one of MKS or CGS. Default=MKS'
-        print 'Proceeding with MKS units.'
+        print('Units should be specified to be one of MKS or CGS. Default=MKS')
+        print('Proceeding with MKS units.')
         units = 'mks'
 
     if not isinstance(baselines, NP.ndarray):

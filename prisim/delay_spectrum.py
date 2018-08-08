@@ -75,7 +75,7 @@ def _astropy_columns(cols, tabtype='BinTableHDU'):
 #                   verbose=False, autoscale=True):
 
 #     if verbose:
-#         print "Performing gentle clean..."
+#         print("Performing gentle clean...")
 
 #     scale_factor = 1.0
 #     if autoscale:
@@ -91,14 +91,14 @@ def _astropy_columns(cols, tabtype='BinTableHDU'):
 #     inside_res = NP.std(dd[area!=0])
 #     outside_res = NP.std(dd[area==0])
 #     initial_res = inside_res
-#     #print inside_res,'->',
+#     #print(inside_res,'->',)
 #     ncycle=0
 #     if verbose:
-#         print "inside_res outside_res"
-#         print inside_res, outside_res
+#         print("inside_res outside_res")
+#         print(inside_res, outside_res)
 #     inside_res = 2*outside_res #just artifically bump up the inside res so the loop runs at least once
 #     while(inside_res>outside_res and maxiter>0):
-#         if verbose: print '.',
+#         if verbose: print('.',)
 #         _d_cl, info = AP.deconv.clean(dd, _w, tol=tol, area=area, stop_if_div=stop_if_div, maxiter=maxiter, verbose=verbose, pos_def=True)
 #         res = info['res']
 #         inside_res = NP.std(res[area!=0])
@@ -106,7 +106,7 @@ def _astropy_columns(cols, tabtype='BinTableHDU'):
 #         dd = info['res']
 #         cc += _d_cl
 #         ncycle += 1
-#         if verbose: print inside_res*scale_factor, outside_res*scale_factor
+#         if verbose: print(inside_res*scale_factor, outside_res*scale_factor)
 #         if ncycle>1000: break
 
 #     info['ncycle'] = ncycle-1
@@ -171,7 +171,7 @@ def complex1dClean(inp, kernel, cbox=None, gain=0.1, maxiter=10000,
              set to 'asbolute' it is the actual value down to which inp should 
              be cleaned. Default='relative'
 
-    verbose  [boolean] If set to True (default), print diagnostic and progress 
+    verbose  [boolean] If set to True (default), print diagnostic and progress
              messages. If set to False, no such messages are printed.
 
     progressbar 
@@ -932,7 +932,7 @@ class DelaySpectrum(object):
                 hdulist = fits.open(init_file)
             except IOError:
                 argument_init = True
-                print '\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...'
+                print('\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...')
 
             extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,len(hdulist))]
             try:
@@ -1255,21 +1255,21 @@ class DelaySpectrum(object):
                     transformed quantities. If set to 'store', these quantities
                     will be stored as internal attributes
 
-        verbose     [boolean] If set to True (default), print diagnostic and 
+        verbose     [boolean] If set to True (default), print diagnostic and
                     progress messages. If set to False, no such messages are
                     printed.
         ------------------------------------------------------------------------
         """
 
         if verbose:
-            print 'Preparing to compute delay transform...\n\tChecking input parameters for compatibility...'
+            print('Preparing to compute delay transform...\n\tChecking input parameters for compatibility...')
 
         if not isinstance(pad, (int, float)):
             raise TypeError('pad fraction must be a scalar value.')
         if pad < 0.0:
             pad = 0.0
             if verbose:
-                print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                print('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
 
         if freq_wts is not None:
             if freq_wts.size == self.f.size:
@@ -1285,13 +1285,13 @@ class DelaySpectrum(object):
         else:
             freq_wts = self.bp_wts
         if verbose:
-            print '\tFrequency window weights assigned.'
+            print('\tFrequency window weights assigned.')
 
         if not isinstance(downsample, bool):
             raise TypeError('Input downsample must be of boolean type')
 
         if verbose:
-            print '\tInput parameters have been verified to be compatible.\n\tProceeding to compute delay transform.'
+            print('\tInput parameters have been verified to be compatible.\n\tProceeding to compute delay transform.')
             
         result = {}
         result['freq_wts'] = freq_wts
@@ -1303,7 +1303,7 @@ class DelaySpectrum(object):
             result['vis_noise_lag'] = DSP.FT1D(self.ia.vis_noise_freq * self.bp * freq_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
             result['lag_kernel'] = DSP.FT1D(self.bp * freq_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
             if verbose:
-                print '\tDelay transform computed without padding.'
+                print('\tDelay transform computed without padding.')
         else:
             npad = int(self.f.size * pad)
             result['vis_lag'] = DSP.FT1D(NP.pad(self.ia.vis_freq * self.bp * freq_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
@@ -1311,7 +1311,7 @@ class DelaySpectrum(object):
             result['vis_noise_lag'] = DSP.FT1D(NP.pad(self.ia.vis_noise_freq * self.bp * freq_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
             result['lag_kernel'] = DSP.FT1D(NP.pad(self.bp * freq_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
             if verbose:
-                print '\tDelay transform computed with padding fraction {0:.1f}'.format(pad)
+                print('\tDelay transform computed with padding fraction {0:.1f}'.format(pad))
 
         if downsample:
             result['vis_lag'] = DSP.downsampler(result['vis_lag'], 1+pad, axis=1)
@@ -1321,8 +1321,8 @@ class DelaySpectrum(object):
             result['lags'] = DSP.downsampler(result['lags'], 1+pad)
             result['lags'] = result['lags'].flatten()
             if verbose:
-                print '\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad)
-                print 'delay_transform() completed successfully.'
+                print('\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad))
+                print('delay_transform() completed successfully.')
 
         if action == 'store':
             self.pad = pad
@@ -1367,7 +1367,7 @@ class DelaySpectrum(object):
     #                 array. Default (None) will not apply windowing and only the
     #                 inherent bandpass will be used.
 
-    #     verbose     [boolean] If set to True (default), print diagnostic and 
+    #     verbose     [boolean] If set to True (default), print diagnostic and
     #                 progress messages. If set to False, no such messages are
     #                 printed.
     #     ------------------------------------------------------------------------
@@ -1378,7 +1378,7 @@ class DelaySpectrum(object):
     #     if pad < 0.0:
     #         pad = 0.0
     #         if verbose:
-    #             print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+    #             print('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
     
     #     if freq_wts is not None:
     #         if freq_wts.size == self.f.size:
@@ -1393,7 +1393,7 @@ class DelaySpectrum(object):
     #             raise ValueError('window shape dimensions incompatible with number of channels and/or number of tiemstamps.')
     #         self.bp_wts = freq_wts
     #         if verbose:
-    #             print '\tFrequency window weights assigned.'
+    #             print('\tFrequency window weights assigned.')
 
     #     bw = self.df * self.f.size
     #     pc = self.ia.phase_center
@@ -1505,7 +1505,7 @@ class DelaySpectrum(object):
                     False, no downsampling will be done even if the original 
                     quantities were padded 
 
-        verbose     [boolean] If set to True (default), print diagnostic and 
+        verbose     [boolean] If set to True (default), print diagnostic and
                     progress messages. If set to False, no such messages are
                     printed.
 
@@ -1532,7 +1532,7 @@ class DelaySpectrum(object):
         """
 
         if verbose:
-            print 'Preparing to compute delay transform...\n\tChecking input parameters for compatibility...'
+            print('Preparing to compute delay transform...\n\tChecking input parameters for compatibility...')
 
         try:
             vis
@@ -1557,7 +1557,7 @@ class DelaySpectrum(object):
         if pad < 0.0:
             pad = 0.0
             if verbose:
-                print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                print('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
 
         if freq_wts is not None:
             if freq_wts.shape == self.f.shape:
@@ -1574,13 +1574,13 @@ class DelaySpectrum(object):
             freq_wts = self.bp_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+self.bp_wts.shape)
         bp = self.bp.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+self.bp.shape)
         if verbose:
-            print '\tFrequency window weights assigned.'
+            print('\tFrequency window weights assigned.')
 
         if not isinstance(downsample, bool):
             raise TypeError('Input downsample must be of boolean type')
 
         if verbose:
-            print '\tInput parameters have been verified to be compatible.\n\tProceeding to compute delay transform.'
+            print('\tInput parameters have been verified to be compatible.\n\tProceeding to compute delay transform.')
             
         result = {}
         result['freq_wts'] = freq_wts
@@ -1590,7 +1590,7 @@ class DelaySpectrum(object):
             result['vis_lag'] = DSP.FT1D(vis * bp * freq_wts, ax=-2, inverse=True, use_real=False, shift=True) * self.f.size * self.df
             result['lag_kernel'] = DSP.FT1D(bp * freq_wts, ax=-2, inverse=True, use_real=False, shift=True) * self.f.size * self.df
             if verbose:
-                print '\tDelay transform computed without padding.'
+                print('\tDelay transform computed without padding.')
         else:
             npad = int(self.f.size * pad)
             pad_shape = NP.zeros((len(vis.shape[:-3]),2), dtype=NP.int).tolist()
@@ -1598,7 +1598,7 @@ class DelaySpectrum(object):
             result['vis_lag'] = DSP.FT1D(NP.pad(vis * bp * freq_wts, pad_shape, mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
             result['lag_kernel'] = DSP.FT1D(NP.pad(bp * freq_wts, pad_shape, mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
             if verbose:
-                print '\tDelay transform computed with padding fraction {0:.1f}'.format(pad)
+                print('\tDelay transform computed with padding fraction {0:.1f}'.format(pad))
 
         if downsample:
             result['vis_lag'] = DSP.downsampler(result['vis_lag'], 1+pad, axis=-2)
@@ -1606,8 +1606,8 @@ class DelaySpectrum(object):
             result['lags'] = DSP.downsampler(result['lags'], 1+pad)
             result['lags'] = result['lags'].flatten()
             if verbose:
-                print '\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad)
-                print 'delay_transform() completed successfully.'
+                print('\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad))
+                print('delay_transform() completed successfully.')
 
         return result
 
@@ -1686,7 +1686,7 @@ class DelaySpectrum(object):
                  cores in the system minus one to avoid locking the system out 
                  for other processes
 
-        verbose  [boolean] If set to True (default), print diagnostic and 
+        verbose  [boolean] If set to True (default), print diagnostic and
                  progress messages. If set to False, no such messages are
                  printed.
         ------------------------------------------------------------------------
@@ -1697,7 +1697,7 @@ class DelaySpectrum(object):
         if pad < 0.0:
             pad = 0.0
             if verbose:
-                print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                print('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
     
         if freq_wts is not None:
             if freq_wts.size == self.f.size:
@@ -1712,7 +1712,7 @@ class DelaySpectrum(object):
                 raise ValueError('window shape dimensions incompatible with number of channels and/or number of tiemstamps.')
             self.bp_wts = freq_wts
             if verbose:
-                print '\tFrequency window weights assigned.'
+                print('\tFrequency window weights assigned.')
 
         bw = self.df * self.f.size
         pc = self.ia.phase_center
@@ -1904,7 +1904,7 @@ class DelaySpectrum(object):
                      dictionary corresponding to resampled/downsampled delay
                      space quantities and updates the attribute.
 
-        verbose      [boolean] If set to True (default), print diagnostic and 
+        verbose      [boolean] If set to True (default), print diagnostic and
                      progress messages. If set to False, no such messages are
                      printed.
 
@@ -2136,7 +2136,7 @@ class DelaySpectrum(object):
                 if pad[key] < 0.0:
                     pad[key] = 0.0
                     if verbose:
-                        print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                        print('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
 
         if not isinstance(bpcorrect, bool):
             raise TypeError('Input keyword bpcorrect must be of boolean type')
@@ -2205,7 +2205,7 @@ class DelaySpectrum(object):
                 else:
                     result[key]['vis_noise_lag'] = vis_noise_lag
         if verbose:
-            print '\tSub-band(s) delay transform computed'
+            print('\tSub-band(s) delay transform computed')
 
         self.subband_delay_spectra = result
 
@@ -2231,7 +2231,7 @@ class DelaySpectrum(object):
                 else:
                     result_resampled[key]['vis_noise_lag'] = DSP.downsampler(result[key]['vis_noise_lag'], downsample_factor, axis=2, method='FFT')
         if verbose:
-            print '\tDownsampled Sub-band(s) delay transform computed'
+            print('\tDownsampled Sub-band(s) delay transform computed')
 
         self.subband_delay_spectra_resampled = result_resampled
 
@@ -2297,7 +2297,7 @@ class DelaySpectrum(object):
                      output dictionary corresponding to resampled/downsampled 
                      delay space quantities.
 
-        verbose      [boolean] If set to True (default), print diagnostic and 
+        verbose      [boolean] If set to True (default), print diagnostic and
                      progress messages. If set to False, no such messages are
                      printed.
 
@@ -2449,7 +2449,7 @@ class DelaySpectrum(object):
             if pad < 0.0:
                 pad = 0.0
                 if verbose:
-                    print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                    print('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
 
         result = {}
         freq_wts = NP.empty((bw_eff.size, self.f.size), dtype=NP.float_)
@@ -2487,7 +2487,7 @@ class DelaySpectrum(object):
         result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'npad': npad, 'lags': lags, 'vis_lag': vis_lag, 'lag_kernel': lag_kernel, 'lag_corr_length': self.f.size / NP.squeeze(NP.sum(freq_wts, axis=-2))}
 
         if verbose:
-            print '\tSub-band(s) delay transform computed'
+            print('\tSub-band(s) delay transform computed')
 
         if action is not None:
             action = 'return_resampled'
@@ -2505,7 +2505,7 @@ class DelaySpectrum(object):
             raise ValueError('Invalid value specified for keyword input action')
 
         if verbose:
-            print '\tDownsampled Sub-band(s) delay transform computed'
+            print('\tDownsampled Sub-band(s) delay transform computed')
 
     #############################################################################
 
@@ -2891,7 +2891,7 @@ class DelaySpectrum(object):
             if pad < 0.0:
                 pad = 0.0
                 if verbose:
-                    print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                    print('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
 
         if cpinfo is not None:
             if not isinstance(cpinfo, dict):
@@ -2939,7 +2939,7 @@ class DelaySpectrum(object):
         lag_kernel = DSP.FT1D(NP.pad(freq_wts.reshape(tuple(NP.ones(len(cpinfo[available_CP_key].shape[:-2])).astype(int))+freq_wts.shape+(1,)), ndim_padtuple, mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
         result['lag_kernel'] = lag_kernel
         if verbose:
-            print '\tSub-band(s) delay transform computed'
+            print('\tSub-band(s) delay transform computed')
 
         result_resampled = {'antenna_triplets': cpinfo['antenna_triplets'], 'baseline_triplets': cpinfo['baseline_triplets']}
         result_resampled['freq_center'] = result['freq_center']
@@ -2956,7 +2956,7 @@ class DelaySpectrum(object):
                 result_resampled[key] = DSP.downsampler(result[key], downsample_factor, axis=-2, method='FFT')
 
         if verbose:
-            print '\tDownsampled Sub-band(s) delay transform computed'
+            print('\tDownsampled Sub-band(s) delay transform computed')
 
         if (action is None) or (action.lower() == 'return_resampled'):
             return result_resampled
@@ -3076,13 +3076,13 @@ class DelaySpectrum(object):
             raise NameError('Both delay spectrum and interferometer array output filenames must be specified. Aborting DelaySpectrum.save()...')
 
         if verbose:
-            print '\nSaving information about interferometer array...'
+            print('\nSaving information about interferometer array...')
 
         self.ia.save(ia_outfile, tabtype=tabtype, overwrite=overwrite,
                      verbose=verbose)
 
         if verbose:
-            print '\nSaving information about delay spectra...'
+            print('\nSaving information about delay spectra...')
 
         hdulist = []
         hdulist += [fits.PrimaryHDU()]
@@ -3096,7 +3096,7 @@ class DelaySpectrum(object):
         hdulist[0].header['IARRAY'] = (ia_outfile+'.fits', 'Location of InterferometerArray simulated visibilities')
 
         if verbose:
-            print '\tCreated a primary HDU.'
+            print('\tCreated a primary HDU.')
 
         # cols = []
         # cols += [fits.Column(name='frequency', format='D', array=self.f)]
@@ -3106,30 +3106,30 @@ class DelaySpectrum(object):
         # tbhdu.header.set('EXTNAME', 'SPECTRAL INFO')
         # hdulist += [tbhdu]
         # if verbose:
-        #     print '\tCreated an extension for spectral information.'
+        #     print('\tCreated an extension for spectral information.')
 
         hdulist += [fits.ImageHDU(self.f, name='FREQUENCIES')]
         hdulist += [fits.ImageHDU(self.lags, name='LAGS')]
         if verbose:
-            print '\tCreated an extension for spectral information.'
+            print('\tCreated an extension for spectral information.')
 
         hdulist += [fits.ImageHDU(self.horizon_delay_limits, name='HORIZON LIMITS')]
         if verbose:
-            print '\tCreated an extension for horizon delay limits of size {0[0]} x {0[1]} x {0[2]} as a function of snapshot instance, baseline, and (min,max) limits'.format(self.horizon_delay_limits.shape)
+            print('\tCreated an extension for horizon delay limits of size {0[0]} x {0[1]} x {0[2]} as a function of snapshot instance, baseline, and (min,max) limits'.format(self.horizon_delay_limits.shape))
 
         hdulist += [fits.ImageHDU(self.bp, name='BANDPASS')]
         if verbose:
-            print '\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape)
+            print('\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape))
 
         hdulist += [fits.ImageHDU(self.bp_wts, name='BANDPASS WEIGHTS')]
         if verbose:
-            print '\tCreated an extension for bandpass weights of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp_wts.shape)
+            print('\tCreated an extension for bandpass weights of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp_wts.shape))
 
         if self.lag_kernel is not None:
             hdulist += [fits.ImageHDU(self.lag_kernel.real, name='LAG KERNEL REAL')]
             hdulist += [fits.ImageHDU(self.lag_kernel.imag, name='LAG KERNEL IMAG')]
             if verbose:
-                print '\tCreated an extension for convolving lag kernel of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.lag_kernel.shape)
+                print('\tCreated an extension for convolving lag kernel of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.lag_kernel.shape))
         
         if self.skyvis_lag is not None:
             hdulist += [fits.ImageHDU(self.skyvis_lag.real, name='NOISELESS DELAY SPECTRA REAL')]
@@ -3146,13 +3146,13 @@ class DelaySpectrum(object):
         if self.cc_lags is not None:
             hdulist += [fits.ImageHDU(self.cc_lags, name='CLEAN LAGS')]
         if verbose:
-            print '\tCreated an extension for spectral axes of clean components'
+            print('\tCreated an extension for spectral axes of clean components')
 
         if self.cc_lag_kernel is not None:
             hdulist += [fits.ImageHDU(self.cc_lag_kernel.real, name='CLEAN LAG KERNEL REAL')]
             hdulist += [fits.ImageHDU(self.cc_lag_kernel.imag, name='CLEAN LAG KERNEL IMAG')]
             if verbose:
-                print '\tCreated an extension for deconvolving lag kernel of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.cc_lag_kernel.shape)
+                print('\tCreated an extension for deconvolving lag kernel of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.cc_lag_kernel.shape))
 
         if self.cc_skyvis_lag is not None:
             hdulist += [fits.ImageHDU(self.cc_skyvis_lag.real, name='CLEAN NOISELESS DELAY SPECTRA REAL')]
@@ -3187,7 +3187,7 @@ class DelaySpectrum(object):
             hdulist += [fits.ImageHDU(self.cc_vis_res_freq.imag, name='CLEAN NOISY VISIBILITIES RESIDUALS IMAG')]
         
         if verbose:
-            print '\tCreated extensions for clean components of noiseless, noisy and residuals of visibilities in frequency and delay coordinates of size {0[0]} x {0[1]} x {0[2]} as a function of baselines, lags/frequency and snapshot instance'.format(self.lag_kernel.shape)
+            print('\tCreated extensions for clean components of noiseless, noisy and residuals of visibilities in frequency and delay coordinates of size {0[0]} x {0[1]} x {0[2]} as a function of baselines, lags/frequency and snapshot instance'.format(self.lag_kernel.shape))
 
         if self.subband_delay_spectra:
             hdulist[0].header['SBDS'] = (1, 'Presence of Subband Delay Spectra')
@@ -3218,7 +3218,7 @@ class DelaySpectrum(object):
                     hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['vis_res_lag'].imag, name='{0}-SBDS-VISRESLAG-IMAG'.format(key))]
 
             if verbose:
-                print '\tCreated extensions for information on subband delay spectra for simulated and clean components of visibilities as a function of baselines, lags/frequency and snapshot instance'
+                print('\tCreated extensions for information on subband delay spectra for simulated and clean components of visibilities as a function of baselines, lags/frequency and snapshot instance')
 
         if self.subband_delay_spectra_resampled:
             hdulist[0].header['SBDS-RS'] = (1, 'Presence of Resampled Subband Delay Spectra')
@@ -3244,7 +3244,7 @@ class DelaySpectrum(object):
                     hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['vis_res_lag'].imag, name='{0}-SBDSRS-VISRESLAG-IMAG'.format(key))]
 
             if verbose:
-                print '\tCreated extensions for information on resampled subband delay spectra for simulated and clean components of visibilities as a function of baselines, lags/frequency and snapshot instance'
+                print('\tCreated extensions for information on resampled subband delay spectra for simulated and clean components of visibilities as a function of baselines, lags/frequency and snapshot instance')
                 
         hdu = fits.HDUList(hdulist)
         hdu.writeto(ds_outfile+'.ds.fits', clobber=overwrite)

@@ -1674,7 +1674,7 @@ process_complete = False
 if mpi_on_src: # MPI based on source multiplexing
 
     for i in range(len(bl_chunk)):
-        print 'Working on baseline chunk # {0:0d} ...'.format(bl_chunk[i])
+        print('Working on baseline chunk # {0:0d} ...'.format(bl_chunk[i]))
 
         ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo, blgroupinfo={'groups': blgroups, 'reversemap': bl_reversemap})
 
@@ -1703,19 +1703,19 @@ if mpi_on_src: # MPI based on source multiplexing
                 ts0 = ts
             ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
             te = time.time()
-            # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
+            # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
             progress.update(j+1)
         progress.finish()
     
         # svf = NP.zeros_like(ia.skyvis_freq.astype(NP.complex128), dtype='complex128')
         if rank == 0:
             for k in range(1,nproc):
-                print 'receiving from process {0}'.format(k)
+                print('receiving from process {0}'.format(k))
                 ia.skyvis_freq = ia.skyvis_freq + comm.recv(source=k)
                 # comm.Recv([svf, svf.size, MPI.DOUBLE_COMPLEX], source=i)
                 # ia.skyvis_freq = ia.skyvis_freq + svf
             te0 = time.time()
-            print 'Time on process 0 was {0:.1f} seconds'.format(te0-ts0)
+            print('Time on process 0 was {0:.1f} seconds'.format(te0-ts0))
             ia.t_obs = t_obs
             # ia.generate_noise()
             # ia.add_noise()
@@ -1807,7 +1807,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
 
         frequency_bin_indices_bounds = frequency_bin_indices + [nchan]
         for i in range(cumm_freq_chunks[rank], cumm_freq_chunks[rank+1]):
-            print 'Process {0:0d} working on frequency chunk # {1:0d} ... ({2:0d}/{3:0d})'.format(rank, freq_chunk[i], i-cumm_freq_chunks[rank]+1, n_freq_chunk_per_rank[rank])
+            print('Process {0:0d} working on frequency chunk # {1:0d} ... ({2:0d}/{3:0d})'.format(rank, freq_chunk[i], i-cumm_freq_chunks[rank]+1, n_freq_chunk_per_rank[rank]))
 
             chans_chunk_indices = NP.arange(frequency_bin_indices_bounds[i], frequency_bin_indices_bounds[i+1])
             chans_chunk = NP.asarray(chans[chans_chunk_indices]).reshape(-1)
@@ -1834,14 +1834,14 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
               
                 ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
                 te = time.time()
-                # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
+                # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
                 del roi_ind_snap
                 del roi_pbeam_snap
                 progress.update(j+1)
             progress.finish()
 
             te0 = time.time()
-            print 'Process {0:0d} took {1:.1f} minutes to complete frequency chunk # {2:0d} ({3:0d}/{4:0d})'.format(rank, (te0-ts0)/60, freq_chunk[i], i-cumm_freq_chunks[rank]+1, n_freq_chunk_per_rank[rank])
+            print('Process {0:0d} took {1:.1f} minutes to complete frequency chunk # {2:0d} ({3:0d}/{4:0d})'.format(rank, (te0-ts0)/60, freq_chunk[i], i-cumm_freq_chunks[rank]+1, n_freq_chunk_per_rank[rank]))
             # ia.t_obs = t_obs
             # ia.generate_noise()
             # ia.add_noise()
@@ -1851,7 +1851,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
 else: # MPI based on baseline multiplexing
 
     if mpi_async: # does not impose equal volume per process
-        print 'Processing next baseline chunk asynchronously...'
+        print('Processing next baseline chunk asynchronously...')
         processed_chunks = []
         process_sequence = []
         counter = my_MPI.Counter(comm)
@@ -1863,7 +1863,7 @@ else: # MPI based on baseline multiplexing
             if count < len(bl_chunk):
                 processed_chunks.append(count)
                 process_sequence.append(rank)
-                print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, count)
+                print('Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, count))
 
                 outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(count)
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[count]:min(baseline_bin_indices[count]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo, blgroupinfo={'groups': blgroups, 'reversemap': bl_reversemap})
@@ -1890,12 +1890,12 @@ else: # MPI based on baseline multiplexing
                         ts0 = ts
                     ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
                     te = time.time()
-                    # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
+                    # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
                     progress.update(j+1)
                 progress.finish()
 
                 te0 = time.time()
-                print 'Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60, count)
+                print('Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60, count))
                 ia.t_obs = t_obs
                 # ia.generate_noise()
                 # ia.add_noise()
@@ -2023,7 +2023,7 @@ else: # MPI based on baseline multiplexing
                         fig.subplots_adjust(right=0.88)
 
             for i in range(cumm_bl_chunks[rank], cumm_bl_chunks[rank+1]):
-                print 'Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i])
+                print('Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i]))
         
                 outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
                 ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo, blgroupinfo={'groups': blgroups, 'reversemap': bl_reversemap})
@@ -2044,14 +2044,14 @@ else: # MPI based on baseline multiplexing
                   
                     ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
                     te = time.time()
-                    # print '{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j)
+                    # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
                     del roi_ind_snap
                     del roi_pbeam_snap
                     progress.update(j+1)
                 progress.finish()
 
                 te0 = time.time()
-                print 'Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60, bl_chunk[i])
+                print('Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60, bl_chunk[i]))
                 ia.t_obs = t_obs
                 # ia.generate_noise()
                 # ia.add_noise()
@@ -2172,6 +2172,6 @@ if rank == 0:
         dir_to_be_removed = rootdir+project_dir+simid+roi_dir
         shutil.rmtree(dir_to_be_removed, ignore_errors=True)
             
-print 'Process {0} has completed.'.format(rank)
+print('Process {0} has completed.'.format(rank))
 if diagnosis_parms['wait_after_run']:
     PDB.set_trace()

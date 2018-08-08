@@ -22,14 +22,14 @@ def download(url=None, outfile=None, verbose=True):
         raise TypeError('outfile must be a string')
 
     if verbose:
-        print 'Downloading PRISim package data from {0} ...'.format(url)
+        print('Downloading PRISim package data from {0} ...'.format(url))
 
     r = requests.get(url)
     with open(outfile, 'wb') as fhandle:
         fhandle.write(r.content)
 
     if verbose:
-        print 'Downloaded PRISim package data into {0}'.format(outfile)
+        print('Downloaded PRISim package data into {0}'.format(outfile))
 
 def extract(infile=None, outdir=None, verbose=True):
     if infile is None:
@@ -42,13 +42,13 @@ def extract(infile=None, outdir=None, verbose=True):
         raise TypeError('outdir must be a string')
     
     if verbose:
-        print 'Extracting PRISim package data from {0} ...'.format(infile)
+        print('Extracting PRISim package data from {0} ...'.format(infile))
 
     with tarfile.open(infile, 'r:gz') as tar:
         tar.extractall(outdir)
 
     if verbose:
-        print 'Extracted PRISim package data into {0}'.format(outdir)
+        print('Extracted PRISim package data into {0}'.format(outdir))
 
 def cleanup(infile=None, verbose=True):
     if infile is None:
@@ -57,13 +57,13 @@ def cleanup(infile=None, verbose=True):
         raise TypeError('infile must be a string')
 
     if verbose:
-        print 'Cleaning up intermediate file {0} of PRISim package data ...'.format(infile)
+        print('Cleaning up intermediate file {0} of PRISim package data ...'.format(infile))
 
     if os.path.isfile(infile):
         os.remove(infile)
         
     if verbose:
-        print 'Cleaned up PRISim package data.'
+        print('Cleaned up PRISim package data.')
 
 if __name__ == '__main__':
 
@@ -101,4 +101,4 @@ if __name__ == '__main__':
             else:
                 cleanup(infile=parms[action_type]['fname'], verbose=parms['verbose'])
     if parms['verbose']:
-        print 'PRISim package data successfully set up.'
+        print('PRISim package data successfully set up.')

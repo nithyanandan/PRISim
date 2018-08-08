@@ -789,7 +789,7 @@ class ClosurePhaseDelaySpectrum(object):
             if pad < 0.0:
                 pad = 0.0
                 if verbose:
-                    print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                    print('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
 
         if not isinstance(datapool, str):
             raise TypeError('Input datapool must be a string')

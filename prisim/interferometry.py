@@ -1215,7 +1215,7 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
     try:
         antenna_locations
     except NameError:
-        print 'No antenna locations supplied. Returning from baseline_generator()'
+        warnings.warn('No antenna locations supplied. Returning from baseline_generator()')
         return None
 
     inp_type = 'tbd'
@@ -1229,19 +1229,19 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
                 antenna_locations = [(tuple(loc) if len(loc) == 3 else (tuple([loc[0],0.0,0.0]) if len(loc) == 1 else (tuple([loc[0],loc[1],0.0]) if len(loc) == 2 else (tuple([loc[0],loc[1],loc[2]]))))) for loc in antenna_locations if len(loc) != 0] # Remove empty tuples and validate the data range and data type for antenna locations. Force it to have three components for every antenna location.
         elif isinstance(antenna_locations, GEOM.Point):
             if not auto:
-                print 'No non-zero spacings found since auto=False.'
+                warnings.warn('No non-zero spacings found since auto=False.')
                 return None
             else:
                 return GEOM.Point()
         elif isinstance(antenna_locations, tuple):
             if not auto:
-                print 'No non-zero spacings found since auto=False.'
+                warnings.warn('No non-zero spacings found since auto=False.')
                 return None
             else:
                 return (0.0,0.0,0.0)
         else:
             if not auto:
-                print 'No non-zero spacings found since auto=False.'
+                warnings.warn('No non-zero spacings found since auto=False.')
                 return None
             else:
                 return (0.0,0.0,0.0)
@@ -1249,7 +1249,7 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
         inp_type = 'npa' # A numpy array
         if antenna_locations.shape[0] == 1:
             if not auto:
-                print 'No non-zero spacings found since auto=False.'
+                warnings.warn('No non-zero spacings found since auto=False.')
                 return None
             else:
                 return NP.zeros(1,3)
@@ -4024,7 +4024,7 @@ class ROI_parameters(object):
                 hdulist = fits.open(init_file)
             except IOError:
                 argument_init = True
-                print '\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...'
+                warnings.warn('\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...')
             if not argument_init:
                 n_obs = hdulist[0].header['n_obs']
                 extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,len(hdulist))]
@@ -4540,7 +4540,7 @@ class ROI_parameters(object):
         filename = infile + '.fits'
 
         if verbose:
-            print '\nSaving information about regions of interest...'
+            print('\nSaving information about regions of interest...')
 
         hdulist = []
 
@@ -4567,14 +4567,14 @@ class ROI_parameters(object):
 
         hdulist += [fits.ImageHDU(self.telescope['orientation'], name='Antenna element orientation')]
         if verbose:
-            print '\tCreated an extension for antenna element orientation.'
+            print('\tCreated an extension for antenna element orientation.')
 
         if 'element_locs' in self.telescope:
             hdulist += [fits.ImageHDU(self.telescope['element_locs'], name='Antenna element locations')]
 
         hdulist += [fits.ImageHDU(self.freq, name='FREQ')]
         if verbose:
-            print '\t\tCreated an extension HDU of {0:0d} frequency channels'.format(self.freq.size)
+            print('\t\tCreated an extension HDU of {0:0d} frequency channels'.format(self.freq.size))
 
         for i in range(len(self.info['ind'])):
             hdulist += [fits.ImageHDU(self.info['ind'][i], name='IND_{0:0d}'.format(i))]
@@ -4596,16 +4596,16 @@ class ROI_parameters(object):
                         raise KeyError('Key "pointing_coords" not found in attribute pinfo.')
 
         if verbose:
-            print '\t\tCreated HDU extensions for {0:0d} observations containing ROI indices and primary beams'.format(len(self.info['ind']))
+            print('\t\tCreated HDU extensions for {0:0d} observations containing ROI indices and primary beams'.format(len(self.info['ind'])))
 
         if verbose:
-            print '\tNow writing FITS file to disk...'
+            print('\tNow writing FITS file to disk...')
 
         hdu = fits.HDUList(hdulist)
         hdu.writeto(filename, clobber=overwrite)
 
         if verbose:
-            print '\tRegions of interest information written successfully to FITS file on disk:\n\t\t{0}\n'.format(filename)
+            print('\tRegions of interest information written successfully to FITS file on disk:\n\t\t{0}\n'.format(filename))
 
 #################################################################################
 
@@ -5265,7 +5265,7 @@ class InterferometerArray(object):
                     hdulist = fits.open(init_file+'.fits')
                 except IOError:
                     argument_init = True
-                    print '\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...'
+                    warnings.warn('\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...')
 
                 extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,len(hdulist))]
 
@@ -5291,19 +5291,19 @@ class InterferometerArray(object):
                 try:
                     self.latitude = hdulist[0].header['latitude']
                 except KeyError:
-                    print '\tKeyword "latitude" not found in header. Assuming 34.0790 degrees for attribute latitude.'
+                    warnings.warn('\tKeyword "latitude" not found in header. Assuming 34.0790 degrees for attribute latitude.')
                     self.latitude = 34.0790
 
                 try:
                     self.longitude = hdulist[0].header['longitude']
                 except KeyError:
-                    print '\tKeyword "longitude" not found in header. Assuming 0.0 degrees for attribute longitude.'
+                    warnings.warn('\tKeyword "longitude" not found in header. Assuming 0.0 degrees for attribute longitude.')
                     self.longitude = 0.0
 
                 try:
                     self.altitude = hdulist[0].header['altitude']
                 except KeyError:
-                    print '\tKeyword "altitude" not found in header. Assuming 0m for attribute altitude.'
+                    warnings.warn('\tKeyword "altitude" not found in header. Assuming 0m for attribute altitude.')
                     self.altitude = 0.0
                 self.telescope = {}
                 if 'telescope' in hdulist[0].header:
@@ -5312,13 +5312,13 @@ class InterferometerArray(object):
                 try:
                     self.telescope['shape'] = hdulist[0].header['element_shape']
                 except KeyError:
-                    print '\tKeyword "element_shape" not found in header. Assuming "delta" for attribute antenna element shape.'
+                    warnings.warn('\tKeyword "element_shape" not found in header. Assuming "delta" for attribute antenna element shape.')
                     self.telescope['shape'] = 'delta'
 
                 try:
                     self.telescope['size'] = hdulist[0].header['element_size']
                 except KeyError:
-                    print '\tKeyword "element_size" not found in header. Assuming 25.0m for attribute antenna element size.'
+                    warnings.warn('\tKeyword "element_size" not found in header. Assuming 25.0m for attribute antenna element size.')
                     self.telescope['size'] = 1.0
 
                 try:
@@ -5339,31 +5339,31 @@ class InterferometerArray(object):
                 try:
                     self.baseline_coords = hdulist[0].header['baseline_coords']
                 except KeyError:
-                    print '\tKeyword "baseline_coords" not found in header. Assuming "localenu" for attribute baseline_coords.'
+                    warnings.warn('\tKeyword "baseline_coords" not found in header. Assuming "localenu" for attribute baseline_coords.')
                     self.baseline_coords = 'localenu'
 
                 try:
                     self.pointing_coords = hdulist[0].header['pointing_coords']
                 except KeyError:
-                    print '\tKeyword "pointing_coords" not found in header. Assuming "hadec" for attribute pointing_coords.'
+                    warnings.warn('\tKeyword "pointing_coords" not found in header. Assuming "hadec" for attribute pointing_coords.')
                     self.pointing_coords = 'hadec'
 
                 try:
                     self.phase_center_coords = hdulist[0].header['phase_center_coords']
                 except KeyError:
-                    print '\tKeyword "phase_center_coords" not found in header. Assuming "hadec" for attribute phase_center_coords.'
+                    warnings.warn('\tKeyword "phase_center_coords" not found in header. Assuming "hadec" for attribute phase_center_coords.')
                     self.phase_center_coords = 'hadec'
 
                 try:
                     self.skycoords = hdulist[0].header['skycoords']
                 except KeyError:
-                    print '\tKeyword "skycoords" not found in header. Assuming "radec" for attribute skycoords.'
+                    warnings.warn('\tKeyword "skycoords" not found in header. Assuming "radec" for attribute skycoords.')
                     self.skycoords = 'radec'
 
                 try:
                     self.flux_unit = hdulist[0].header['flux_unit']
                 except KeyError:
-                    print '\tKeyword "flux_unit" not found in header. Assuming "jy" for attribute flux_unit.'
+                    warnings.warn('\tKeyword "flux_unit" not found in header. Assuming "jy" for attribute flux_unit.')
                     self.flux_unit = 'JY'
 
                 if 'POINTING AND PHASE CENTER INFO' not in extnames:
@@ -5486,7 +5486,7 @@ class InterferometerArray(object):
                 try:
                     gainsfile = hdulist[0].header['gainsfile']
                 except KeyError:
-                    print '\tKeyword "gainsfile" not found in header. Assuming default unity gains.'
+                    warnings.warn('\tKeyword "gainsfile" not found in header. Assuming default unity gains.')
                     self.gaininfo = None
                 else:
                     self.gaininfo = GainInfo(init_file=gainsfile, axes_order=['label', 'frequency', 'time'])
@@ -6146,12 +6146,12 @@ class InterferometerArray(object):
                             if gradient_mode.lower() == 'baseline':
                                 skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * NP.exp(-1j*phase_matrix[:,NP.newaxis,:,:]), axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
             else:
-                print '\t\tDetecting memory shortage. Serializing over sky direction.'
+                warnings.warn('\t\tDetecting memory shortage. Serializing over sky direction.')
                 downsize_factor = NP.ceil(memory_required/float(memory_available))
                 n_src_stepsize = int(len(m2)/downsize_factor)
                 src_indices = range(0,len(m2),n_src_stepsize)
                 if memsave:
-                    print '\t\tEnforcing single precision computations.'
+                    warnings.warn('\t\tEnforcing single precision computations.')
                     for i in xrange(len(src_indices)):
                         phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float32) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32) - pc_delay_offsets.astype(NP.float32).reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64, copy=False)
                         if vis_wts is not None:
@@ -6288,8 +6288,8 @@ class InterferometerArray(object):
         """
 
         if verbose:
-            print 'Preparing an observing run...\n'
-            print '\tVerifying input arguments to observing_run()...'
+            print('Preparing an observing run...\n')
+            print('\tVerifying input arguments to observing_run()...')
 
         try:
             pointing_init, skymodel, t_acc, duration, bpass, Tsys, lst_init
@@ -6319,12 +6319,12 @@ class InterferometerArray(object):
 
         if duration <= t_acc:
             if verbose:
-                print '\t\tDuration specified to be shorter than t_acc. Will set it equal to t_acc'
+                warnings.warn('\t\tDuration specified to be shorter than t_acc. Will set it equal to t_acc')
             duration = t_acc
 
         n_acc = int(duration / t_acc)
         if verbose:
-            print '\t\tObserving run will have {0} accumulations.'.format(n_acc)
+            print('\t\tObserving run will have {0} accumulations.'.format(n_acc))
 
         if isinstance(channels, list):
             channels = NP.asarray(channels)
@@ -6350,11 +6350,11 @@ class InterferometerArray(object):
         if bpass.size == self.channels.size:
             bpass = NP.expand_dims(NP.repeat(bpass.reshape(1,-1), self.baselines.shape[0], axis=0), axis=2)
             if verbose:
-                print '\t\tSame bandpass will be applied to all baselines and all accumulations in the observing run.'
+                warnings.warn('\t\tSame bandpass will be applied to all baselines and all accumulations in the observing run.')
         elif bpass.size == self.baselines.shape[0] * self.channels.size:
             bpass = NP.expand_dims(bpass.reshape(-1,self.channels.size), axis=2)
             if verbose:
-                print '\t\tSame bandpass will be applied to all accumulations in the observing run.'
+                warnings.warn('\t\tSame bandpass will be applied to all accumulations in the observing run.')
         elif bpass.size == self.baselines.shape[0] * self.channels.size * n_acc:
             bpass = bpass.reshape(-1,self.channels.size,n_acc)
         else:
@@ -6367,20 +6367,20 @@ class InterferometerArray(object):
 
         if Tsys.size == 1:
             if verbose:
-                print '\t\tTsys = {0:.1f} K will be assumed for all frequencies, baselines, and accumulations.'.format(Tsys[0])
+                warnings.warn('\t\tTsys = {0:.1f} K will be assumed for all frequencies, baselines, and accumulations.'.format(Tsys[0]))
             Tsys = Tsys + NP.zeros((self.baselines.shape[0], self.channels.size, 1))
         elif Tsys.size == self.channels.size:
             Tsys = NP.expand_dims(NP.repeat(Tsys.reshape(1,-1), self.baselines.shape[0], axis=0), axis=2)
             if verbose:
-                print '\t\tSame Tsys will be assumed for all baselines and all accumulations in the observing run.'
+                warnings.warn('\t\tSame Tsys will be assumed for all baselines and all accumulations in the observing run.')
         elif Tsys.size == self.baselines.shape[0]:
             Tsys = NP.expand_dims(NP.repeat(Tsys.reshape(-1,1), self.channels.size, axis=1), axis=2)
             if verbose:
-                print '\t\tSame Tsys will be assumed for all frequency channels and all accumulations in the observing run.'
+                warnings.warn('\t\tSame Tsys will be assumed for all frequency channels and all accumulations in the observing run.')
         elif Tsys.size == self.baselines.shape[0] * self.channels.size:
             Tsys = NP.expand_dims(Tsys.reshape(-1,self.channels.size), axis=2)
             if verbose:
-                print '\t\tSame Tsys will be assumed for all accumulations in the observing run.'
+                warnings.warn('\t\tSame Tsys will be assumed for all accumulations in the observing run.')
         elif Tsys.size == self.baselines.shape[0] * self.channels.size * n_acc:
             Tsys = Tsys.reshape(-1,self.channels.size,n_acc)
         else:
@@ -6390,12 +6390,12 @@ class InterferometerArray(object):
             raise TypeError('Starting LST should be a scalar')
 
         if verbose:
-            print '\tVerified input arguments.'
-            print '\tProceeding to schedule the observing run...'
+            print('\tVerified input arguments.')
+            print('\tProceeding to schedule the observing run...')
 
         lst = (lst_init + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 # in degrees
         if verbose:
-            print '\tCreated LST range for observing run.'
+            print('\tCreated LST range for observing run.')
 
         if mode == 'track':
             if pointing_coords == 'hadec':
@@ -6422,14 +6422,12 @@ class InterferometerArray(object):
             self.phase_center_coords = 'hadec'
 
         if verbose:
-            print '\tPreparing to observe in {0} mode'.format(mode)
+            print('\tPreparing to observe in {0} mode'.format(mode))
 
         if verbose:
             milestones = range(max(1,int(n_acc/10)), int(n_acc), max(1,int(n_acc/10)))
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
         for i in range(n_acc):
-            # if (verbose) and (i in milestones):
-            #     print '\t\tObserving run {0:.1f} % complete...'.format(100.0*i/n_acc)
             timestamp = str(DT.datetime.now())
             self.observe(timestamp, Tsys[:,:,i%Tsys.shape[2]],
                          bpass[:,:,i%bpass.shape[2]], pointing, skymodel,
@@ -6442,13 +6440,10 @@ class InterferometerArray(object):
         if verbose:
             progress.finish()
 
-        # if verbose:
-        #     print '\t\tObserving run 100 % complete.'
-
         self.t_obs = duration
         self.n_acc = n_acc
         if verbose:
-            print 'Observing run completed successfully.'
+            print('Observing run completed successfully.')
 
     #############################################################################
 
@@ -7634,7 +7629,7 @@ class InterferometerArray(object):
             self.vis_noise_freq = self.vis_noise_freq * NP.exp(-1j * 2 * NP.pi * b_dot_l[:,NP.newaxis,:] * self.channels.reshape(1,-1,1) / FCNST.c)
         if do_delay_transform:
             self.delay_transform()
-            print 'Running delay_transform() with defaults inside phase_centering() after rotating visibility phases. Run delay_transform() again with appropriate inputs.'
+            print('Running delay_transform() with defaults inside phase_centering() after rotating visibility phases. Run delay_transform() again with appropriate inputs.')
 
     #############################################################################
 
@@ -7798,7 +7793,7 @@ class InterferometerArray(object):
                 self.projected_baselines[ind,:,:] = -self.projected_baselines[ind,:,:]
 
             if verbose:
-                print 'Certain baselines have been flipped and their visibilities conjugated. Use delay_transform() to update the delay spectra.'
+                warnings.warn('Certain baselines have been flipped and their visibilities conjugated. Use delay_transform() to update the delay spectra.')
 
     #############################################################################
 
@@ -7837,14 +7832,14 @@ class InterferometerArray(object):
         """
 
         if verbose:
-            print 'Preparing to compute delay transform...\n\tChecking input parameters for compatibility...'
+            print('Preparing to compute delay transform...\n\tChecking input parameters for compatibility...')
 
         if not isinstance(pad, (int, float)):
             raise TypeError('pad fraction must be a scalar value.')
         if pad < 0.0:
             pad = 0.0
             if verbose:
-                print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                warnings.warn('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
 
         if freq_wts is not None:
             if freq_wts.size == self.channels.size:
@@ -7859,10 +7854,10 @@ class InterferometerArray(object):
                 raise ValueError('window shape dimensions incompatible with number of channels and/or number of tiemstamps.')
             self.bp_wts = freq_wts
             if verbose:
-                print '\tFrequency window weights assigned.'
+                print('\tFrequency window weights assigned.')
 
         if verbose:
-            print '\tInput parameters have been verified to be compatible.\n\tProceeding to compute delay transform.'
+            print('\tInput parameters have been verified to be compatible.\n\tProceeding to compute delay transform.')
 
         self.lags = DSP.spectral_axis(self.channels.size, delx=self.freq_resolution, use_real=False, shift=True)
         if pad == 0.0:
@@ -7871,7 +7866,7 @@ class InterferometerArray(object):
             self.vis_noise_lag = DSP.FT1D(self.vis_noise_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.channels.size * self.freq_resolution
             self.lag_kernel = DSP.FT1D(self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.channels.size * self.freq_resolution
             if verbose:
-                print '\tDelay transform computed without padding.'
+                print('\tDelay transform computed without padding.')
         else:
             npad = int(self.channels.size * pad)
             self.vis_lag = DSP.FT1D(NP.pad(self.vis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.channels.size) * self.freq_resolution
@@ -7880,14 +7875,14 @@ class InterferometerArray(object):
             self.lag_kernel = DSP.FT1D(NP.pad(self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.channels.size) * self.freq_resolution
 
             if verbose:
-                print '\tDelay transform computed with padding fraction {0:.1f}'.format(pad)
+                print('\tDelay transform computed with padding fraction {0:.1f}'.format(pad))
             self.vis_lag = DSP.downsampler(self.vis_lag, 1+pad, axis=1)
             self.skyvis_lag = DSP.downsampler(self.skyvis_lag, 1+pad, axis=1)
             self.vis_noise_lag = DSP.downsampler(self.vis_noise_lag, 1+pad, axis=1)
             self.lag_kernel = DSP.downsampler(self.lag_kernel, 1+pad, axis=1)
             if verbose:
-                print '\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad)
-                print 'delay_transform() completed successfully.'
+                print('\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad))
+                print('delay_transform() completed successfully.')
 
     #############################################################################
 
@@ -7989,7 +7984,7 @@ class InterferometerArray(object):
         if pad < 0.0:
             pad = 0.0
             if verbose:
-                print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                warnings.warn('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
 
         freq_wts = NP.empty((bw_eff.size, self.channels.size))
         frac_width = DSP.window_N2width(n_window=None, shape=shape)
@@ -8021,7 +8016,7 @@ class InterferometerArray(object):
             vis_noise_lag = DSP.FT1D(self.vis_noise_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ax=2, inverse=True, use_real=False, shift=True) * self.channels.size * self.freq_resolution
             lag_kernel = DSP.FT1D(self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ax=2, inverse=True, use_real=False, shift=True) * self.channels.size * self.freq_resolution
             if verbose:
-                print '\tMulti-window delay transform computed without padding.'
+                print('\tMulti-window delay transform computed without padding.')
         else:
             npad = int(self.channels.size * pad)
             skyvis_lag = DSP.FT1D(NP.pad(self.skyvis_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.channels.size) * self.freq_resolution
@@ -8029,13 +8024,13 @@ class InterferometerArray(object):
             lag_kernel = DSP.FT1D(NP.pad(self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.channels.size) * self.freq_resolution
 
             if verbose:
-                print '\tMulti-window delay transform computed with padding fraction {0:.1f}'.format(pad)
+                print('\tMulti-window delay transform computed with padding fraction {0:.1f}'.format(pad))
             skyvis_lag = DSP.downsampler(skyvis_lag, 1+pad, axis=2)
             vis_noise_lag = DSP.downsampler(vis_noise_lag, 1+pad, axis=2)
             lag_kernel = DSP.downsampler(lag_kernel, 1+pad, axis=2)
             if verbose:
-                print '\tMulti-window delay transform products downsampled by factor of {0:.1f}'.format(1+pad)
-                print 'multi_window_delay_transform() completed successfully.'
+                print('\tMulti-window delay transform products downsampled by factor of {0:.1f}'.format(1+pad))
+                print('multi_window_delay_transform() completed successfully.')
 
         return {'skyvis_lag': skyvis_lag, 'vis_noise_lag': vis_noise_lag, 'lag_kernel': lag_kernel, 'lag_corr_length': self.channels.size / NP.sum(freq_wts, axis=1)}
 
@@ -8244,7 +8239,7 @@ class InterferometerArray(object):
             filename = outfile + '.' + fmt.lower()
 
         if verbose:
-            print '\nSaving information about interferometer...'
+            print('\nSaving information about interferometer...')
 
         if fmt.lower() == 'fits':
             use_ascii = False
@@ -8281,11 +8276,11 @@ class InterferometerArray(object):
             hdulist[0].header['EXTNAME'] = 'PRIMARY'
 
             if verbose:
-                print '\tCreated a primary HDU.'
+                print('\tCreated a primary HDU.')
 
             hdulist += [fits.ImageHDU(self.telescope['orientation'], name='Antenna element orientation')]
             if verbose:
-                print '\tCreated an extension for antenna element orientation.'
+                print('\tCreated an extension for antenna element orientation.')
 
             cols = []
             if self.lst:
@@ -8301,7 +8296,7 @@ class InterferometerArray(object):
             tbhdu.header.set('EXTNAME', 'POINTING AND PHASE CENTER INFO')
             hdulist += [tbhdu]
             if verbose:
-                print '\tCreated pointing and phase center information table.'
+                print('\tCreated pointing and phase center information table.')
 
             label_lengths = [len(label[0]) for label in self.labels]
             maxlen = max(label_lengths)
@@ -8317,16 +8312,16 @@ class InterferometerArray(object):
             tbhdu.header.set('EXTNAME', 'LABELS')
             hdulist += [tbhdu]
             if verbose:
-                print '\tCreated extension table containing baseline labels.'
+                print('\tCreated extension table containing baseline labels.')
 
             hdulist += [fits.ImageHDU(self.baselines, name='baselines')]
             if verbose:
-                print '\tCreated an extension for baseline vectors.'
+                print('\tCreated an extension for baseline vectors.')
 
             if self.projected_baselines is not None:
                 hdulist += [fits.ImageHDU(self.projected_baselines, name='proj_baselines')]
                 if verbose:
-                    print '\tCreated an extension for projected baseline vectors.'
+                    print('\tCreated an extension for projected baseline vectors.')
 
             if self.layout:
                 label_lengths = [len(label) for label in self.layout['labels']]
@@ -8343,11 +8338,11 @@ class InterferometerArray(object):
 
             hdulist += [fits.ImageHDU(self.A_eff, name='Effective area')]
             if verbose:
-                print '\tCreated an extension for effective area.'
+                print('\tCreated an extension for effective area.')
 
             hdulist += [fits.ImageHDU(self.eff_Q, name='Interferometer efficiency')]
             if verbose:
-                print '\tCreated an extension for interferometer efficiency.'
+                print('\tCreated an extension for interferometer efficiency.')
 
             cols = []
             cols += [fits.Column(name='frequency', format='D', array=self.channels)]
@@ -8360,12 +8355,12 @@ class InterferometerArray(object):
             tbhdu.header.set('EXTNAME', 'SPECTRAL INFO')
             hdulist += [tbhdu]
             if verbose:
-                print '\tCreated spectral information table.'
+                print('\tCreated spectral information table.')
 
             if self.t_acc:
                 hdulist += [fits.ImageHDU(self.t_acc, name='t_acc')]
                 if verbose:
-                    print '\tCreated an extension for accumulation times.'
+                    print('\tCreated an extension for accumulation times.')
 
             cols = []
             if isinstance(self.timestamp[0], str):
@@ -8381,7 +8376,7 @@ class InterferometerArray(object):
             tbhdu.header.set('EXTNAME', 'TIMESTAMPS')
             hdulist += [tbhdu]
             if verbose:
-                print '\tCreated extension table containing timestamps.'
+                print('\tCreated extension table containing timestamps.')
 
             if self.Tsysinfo:
                 cols = []
@@ -8396,71 +8391,71 @@ class InterferometerArray(object):
 
             hdulist += [fits.ImageHDU(self.Tsys, name='Tsys')]
             if verbose:
-                print '\tCreated an extension for Tsys.'
+                print('\tCreated an extension for Tsys.')
 
             if self.vis_rms_freq is not None:
                 hdulist += [fits.ImageHDU(self.vis_rms_freq, name='freq_channel_noise_rms_visibility')]
                 if verbose:
-                    print '\tCreated an extension for simulated visibility noise rms per channel.'
+                    print('\tCreated an extension for simulated visibility noise rms per channel.')
 
             if self.vis_freq is not None:
                 hdulist += [fits.ImageHDU(self.vis_freq.real, name='real_freq_obs_visibility')]
                 hdulist += [fits.ImageHDU(self.vis_freq.imag, name='imag_freq_obs_visibility')]
                 if verbose:
-                    print '\tCreated extensions for real and imaginary parts of observed visibility frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_freq.shape)
+                    print('\tCreated extensions for real and imaginary parts of observed visibility frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_freq.shape))
 
             if self.skyvis_freq is not None:
                 hdulist += [fits.ImageHDU(self.skyvis_freq.real, name='real_freq_sky_visibility')]
                 hdulist += [fits.ImageHDU(self.skyvis_freq.imag, name='imag_freq_sky_visibility')]
                 if verbose:
-                    print '\tCreated extensions for real and imaginary parts of noiseless sky visibility frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.skyvis_freq.shape)
+                    print('\tCreated extensions for real and imaginary parts of noiseless sky visibility frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.skyvis_freq.shape))
 
             if self.vis_noise_freq is not None:
                 hdulist += [fits.ImageHDU(self.vis_noise_freq.real, name='real_freq_noise_visibility')]
                 hdulist += [fits.ImageHDU(self.vis_noise_freq.imag, name='imag_freq_noise_visibility')]
                 if verbose:
-                    print '\tCreated extensions for real and imaginary parts of visibility noise frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_noise_freq.shape)
+                    print('\tCreated extensions for real and imaginary parts of visibility noise frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_noise_freq.shape))
 
             if self.gradient_mode is not None:
                 for gradkey in self.gradient:
                     hdulist += [fits.ImageHDU(self.gradient[gradkey].real, name='real_freq_sky_visibility_gradient_wrt_{0}'.format(gradkey))]
                     hdulist += [fits.ImageHDU(self.gradient[gradkey].imag, name='imag_freq_sky_visibility_gradient_wrt_{0}'.format(gradkey))]
                     if verbose:
-                        print '\tCreated extensions for real and imaginary parts of gradient of sky visibility frequency spectrum wrt {0} of size {1[0]} x {1[1]} x {1[2]} x {1[3]}'.format(gradkey, self.gradient[gradkey].shape)
+                        print('\tCreated extensions for real and imaginary parts of gradient of sky visibility frequency spectrum wrt {0} of size {1[0]} x {1[1]} x {1[2]} x {1[3]}'.format(gradkey, self.gradient[gradkey].shape))
 
             hdulist += [fits.ImageHDU(self.bp, name='bandpass')]
             if verbose:
-                print '\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape)
+                print('\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape))
 
             hdulist += [fits.ImageHDU(self.bp_wts, name='bandpass_weights')]
             if verbose:
-                print '\tCreated an extension for bandpass weights of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp_wts.shape)
+                print('\tCreated an extension for bandpass weights of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp_wts.shape))
 
             # hdulist += [fits.ImageHDU(self.lag_kernel.real, name='lag_kernel_real')]
             # hdulist += [fits.ImageHDU(self.lag_kernel.imag, name='lag_kernel_imag')]
             # if verbose:
-            #     print '\tCreated an extension for impulse response of frequency bandpass shape of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.lag_kernel.shape)
+            #     print('\tCreated an extension for impulse response of frequency bandpass shape of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.lag_kernel.shape))
 
             if self.vis_lag is not None:
                 hdulist += [fits.ImageHDU(self.vis_lag.real, name='real_lag_visibility')]
                 hdulist += [fits.ImageHDU(self.vis_lag.imag, name='imag_lag_visibility')]
                 if verbose:
-                    print '\tCreated extensions for real and imaginary parts of observed visibility delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_lag.shape)
+                    print('\tCreated extensions for real and imaginary parts of observed visibility delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_lag.shape))
 
             if self.skyvis_lag is not None:
                 hdulist += [fits.ImageHDU(self.skyvis_lag.real, name='real_lag_sky_visibility')]
                 hdulist += [fits.ImageHDU(self.skyvis_lag.imag, name='imag_lag_sky_visibility')]
                 if verbose:
-                    print '\tCreated extensions for real and imaginary parts of noiseless sky visibility delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.skyvis_lag.shape)
+                    print('\tCreated extensions for real and imaginary parts of noiseless sky visibility delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.skyvis_lag.shape))
 
             if self.vis_noise_lag is not None:
                 hdulist += [fits.ImageHDU(self.vis_noise_lag.real, name='real_lag_noise_visibility')]
                 hdulist += [fits.ImageHDU(self.vis_noise_lag.imag, name='imag_lag_noise_visibility')]
                 if verbose:
-                    print '\tCreated extensions for real and imaginary parts of visibility noise delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_noise_lag.shape)
+                    print('\tCreated extensions for real and imaginary parts of visibility noise delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_noise_lag.shape))
 
             if verbose:
-                print '\tNow writing FITS file to disk...'
+                print('\tNow writing FITS file to disk...')
             hdu = fits.HDUList(hdulist)
             hdu.writeto(filename, clobber=overwrite)
             if self.gaininfo is not None:
@@ -8596,7 +8591,7 @@ class InterferometerArray(object):
                         revmap[str(blkey)] = self.bl_reversemap[blkey]
                     
         if verbose:
-            print '\tInterferometer array information written successfully to file on disk:\n\t\t{0}\n'.format(filename)
+            print('\tInterferometer array information written successfully to file on disk:\n\t\t{0}\n'.format(filename))
 
         if npz:
             if (self.vis_freq is not None) and (self.vis_noise_freq is not None):
@@ -8604,7 +8599,7 @@ class InterferometerArray(object):
             else:
                 NP.savez_compressed(outfile+'.npz', skyvis_freq=self.skyvis_freq, lst=self.lst, freq=self.channels, timestamp=self.timestamp, bl=self.baselines, bl_length=self.baseline_lengths)
             if verbose:
-                print '\tInterferometer array information written successfully to NPZ file on disk:\n\t\t{0}\n'.format(outfile+'.npz')
+                print('\tInterferometer array information written successfully to NPZ file on disk:\n\t\t{0}\n'.format(outfile+'.npz'))
 
         if uvfits_parms is not None:
             self.write_uvfits(outfile, uvfits_parms=uvfits_parms, overwrite=overwrite, verbose=verbose)
@@ -9362,7 +9357,7 @@ class InterferometerData(object):
                         warnings.warn('Output through UVData module did not work. Trying with built-in UVFITS writer')
                 else:
                     write_successful = True
-                    print 'Data successfully written using uvdata module to {0}'.format(outfile)
+                    print('Data successfully written using uvdata module to {0}'.format(outfile))
                     return
 
             # Try with in-house UVFITS writer
@@ -9558,11 +9553,11 @@ class InterferometerData(object):
                 hdulist = fits.HDUList(hdus=[hdu, ant_hdu])
                 hdulist.writeto(outfile, clobber=overwrite)
             except Exception as xption2:
-                print xption2
+                print(xption2)
                 raise IOError('Could not write to UVFITS file')
             else:
                 write_successful = True
-                print 'Data successfully written using in-house uvfits writer to {0}'.format(outfile)
+                print('Data successfully written using in-house uvfits writer to {0}'.format(outfile))
                 return
 
 #################################################################################
