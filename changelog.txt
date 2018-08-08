@@ -1,3 +1,13 @@
+From d6dd62c (pbeam):
+====================
+
+In prisim/interferometry.py,
+
+(*) In member function append_settings() of class ROI_parameters,
+handle appropriately when ROI ind is passed as an empty array.
+(*) In member function observe() of class InterferometerArray,
+handle appropriately when ROI ind is passed as an empty array.
+
 From 0076c70 (pbeam):
 ====================
 

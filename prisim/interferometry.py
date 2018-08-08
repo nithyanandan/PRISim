@@ -4361,37 +4361,38 @@ class ROI_parameters(object):
         if 'ind' in roi_info:
             if roi_info['ind'] is not None:
                 self.info['ind'] += [roi_info['ind']]
-                if 'pbeam' in roi_info:
-                    if roi_info['pbeam'] is not None:
-                        try:
-                            pb = roi_info['pbeam'].reshape(-1,self.freq.size)
-                        except ValueError:
-                            raise ValueError('Number of columns of primary beam in key "pbeam" of dictionary roi_info must be equal to number of frequency channels.')
-
-                        if NP.asarray(roi_info['ind']).size == pb.shape[0]:
-                            self.info['pbeam'] += [roi_info['pbeam'].astype(NP.float32)]
+                if roi_info['ind'].size > 0:
+                    if 'pbeam' in roi_info:
+                        if roi_info['pbeam'] is not None:
+                            try:
+                                pb = roi_info['pbeam'].reshape(-1,self.freq.size)
+                            except ValueError:
+                                raise ValueError('Number of columns of primary beam in key "pbeam" of dictionary roi_info must be equal to number of frequency channels.')
+    
+                            if NP.asarray(roi_info['ind']).size == pb.shape[0]:
+                                self.info['pbeam'] += [roi_info['pbeam'].astype(NP.float32)]
+                            else:
+                                raise ValueError('Number of elements in values in key "ind" and number of rows of values in key "pbeam" must be identical.')
+                            pbeam_input = True
+    
+                    if not pbeam_input: # Will require sky positions in Alt-Az coordinates
+                        if skymodel.coords == 'radec':
+                            if self.telescope['latitude'] is None:
+                                raise ValueError('Latitude of the observatory must be provided.')
+                            if lst is None:
+                                raise ValueError('LST must be provided.')
+                            skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')
+                        elif skymodel.coords == 'hadec':
+                            if self.telescope['latitude'] is None:
+                                raise ValueError('Latitude of the observatory must be provided.')
+                            skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
+    
+                        elif skymodel.coords == 'dircos':
+                            skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
+                        elif skymodel.coords == 'altaz':
+                            skypos_altaz = skymodel.location
                         else:
-                            raise ValueError('Number of elements in values in key "ind" and number of rows of values in key "pbeam" must be identical.')
-                        pbeam_input = True
-
-                if not pbeam_input: # Will require sky positions in Alt-Az coordinates
-                    if skymodel.coords == 'radec':
-                        if self.telescope['latitude'] is None:
-                            raise ValueError('Latitude of the observatory must be provided.')
-                        if lst is None:
-                            raise ValueError('LST must be provided.')
-                        skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')
-                    elif skymodel.coords == 'hadec':
-                        if self.telescope['latitude'] is None:
-                            raise ValueError('Latitude of the observatory must be provided.')
-                        skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
-
-                    elif skymodel.coords == 'dircos':
-                        skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
-                    elif skymodel.coords == 'altaz':
-                        skypos_altaz = skymodel.location
-                    else:
-                        raise KeyError('skycoords invalid or unspecified in skymodel')
+                            raise KeyError('skycoords invalid or unspecified in skymodel')
             if 'radius' in roi_info:
                 self.info['radius'] += [roi_info['radius']]
             if 'center' in roi_info:
@@ -4474,30 +4475,33 @@ class ROI_parameters(object):
                     self.pinfo[-1]['pointing_coords'] = 'altaz'
 
             ind = self.info['ind'][-1]
-            if 'id' in self.telescope:
-                if self.telescope['id'] == 'mwa_tools':
-                    if not mwa_tools_found:
-                        raise ImportError('MWA_Tools could not be imported which is required for power pattern computation.')
-
-                    pbeam = NP.empty((ind.size, self.freq.size))
-                    for i in xrange(self.freq.size):
-                        pbx_MWA, pby_MWA = MWAPB.MWA_Tile_advanced(NP.radians(90.0-skypos_altaz[ind,0]).reshape(-1,1), NP.radians(skypos_altaz[ind,1]).reshape(-1,1), freq=self.freq[i], delays=self.pinfo[-1]['delays']/435e-12)
-                        if 'pol' in self.telescope:
-                            if (self.telescope['pol'] == 'X') or (self.telescope['pol'] == 'x'):
-                                pbeam[:,i] = pbx_MWA.ravel()
-                            elif (self.telescope['pol'] == 'Y') or (self.telescope['pol'] == 'y'):
-                                pbeam[:,i] = pby_MWA.ravel()
+            if ind.size > 0:
+                if 'id' in self.telescope:
+                    if self.telescope['id'] == 'mwa_tools':
+                        if not mwa_tools_found:
+                            raise ImportError('MWA_Tools could not be imported which is required for power pattern computation.')
+    
+                        pbeam = NP.empty((ind.size, self.freq.size))
+                        for i in xrange(self.freq.size):
+                            pbx_MWA, pby_MWA = MWAPB.MWA_Tile_advanced(NP.radians(90.0-skypos_altaz[ind,0]).reshape(-1,1), NP.radians(skypos_altaz[ind,1]).reshape(-1,1), freq=self.freq[i], delays=self.pinfo[-1]['delays']/435e-12)
+                            if 'pol' in self.telescope:
+                                if (self.telescope['pol'] == 'X') or (self.telescope['pol'] == 'x'):
+                                    pbeam[:,i] = pbx_MWA.ravel()
+                                elif (self.telescope['pol'] == 'Y') or (self.telescope['pol'] == 'y'):
+                                    pbeam[:,i] = pby_MWA.ravel()
+                                else:
+                                    raise ValueError('Key "pol" in attribute dictionary telescope is invalid.')
                             else:
-                                raise ValueError('Key "pol" in attribute dictionary telescope is invalid.')
-                        else:
-                            self.telescope['pol'] = 'X'
-                            pbeam[:,i] = pbx_MWA.ravel()
+                                self.telescope['pol'] = 'X'
+                                pbeam[:,i] = pbx_MWA.ravel()
+                    else:
+                        pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
                 else:
                     pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
+    
+                self.info['pbeam'] += [pbeam.astype(NP.float64)]
             else:
-                pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
-
-            self.info['pbeam'] += [pbeam.astype(NP.float32)]
+                self.info['pbeam'] += [NP.asarray([])]
 
     #############################################################################
 
@@ -6018,15 +6022,15 @@ class InterferometerArray(object):
                 raise KeyError('Both "ind" and "pbeam" keys must be present in dictionary roi_info')
 
             if (roi_info['ind'] is not None) and (roi_info['pbeam'] is not None):
-                try:
-                    pb = roi_info['pbeam'].reshape(-1,len(self.channels))
-                except ValueError:
-                    raise ValueError('Number of columns of primary beam in key "pbeam" of dictionary roi_info must be equal to number of frequency channels.')
+                m2 = roi_info['ind']
+                if m2.size > 0:
+                    try:
+                        pb = roi_info['pbeam'].reshape(-1,len(self.channels))
+                    except ValueError:
+                        raise ValueError('Number of columns of primary beam in key "pbeam" of dictionary roi_info must be equal to number of frequency channels.')
 
-                if NP.asarray(roi_info['ind']).size == pb.shape[0]:
-                    m2 = roi_info['ind']
-                else:
-                    raise ValueError('Values in keys ind and pbeam in must carry same number of elements.')
+                    if NP.asarray(roi_info['ind']).size != pb.shape[0]:
+                        raise ValueError('Values in keys ind and pbeam in must carry same number of elements.')
         else:
             if roi_radius is None:
                 roi_radius = 90.0
@@ -6172,7 +6176,7 @@ class InterferometerArray(object):
                                 skyvis_gradient += NP.sum(skypos_dircos_roi[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis,NP.newaxis].astype(NP.float64) * phase_matrix[:,NP.newaxis,:,:], axis=0)
             self.obs_catalog_indices = self.obs_catalog_indices + [m2]
         else:
-            print 'No sources found in the catalog within matching radius. Simply populating the observed visibilities and/or gradients with noise.'
+            warnings.warn('No sources found in the catalog within matching radius. Simply populating the observed visibilities and/or gradients with noise.')
             if gradient_mode is not None:
                 if gradient_mode.lower() == 'baseline':
                     skyvis_gradient = NP.zeros( (3, self.baselines.shape[0], self.channels.size), dtype=datatype)
