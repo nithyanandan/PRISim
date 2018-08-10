@@ -1,3 +1,26 @@
+From 26dbdb0 (master):
+=====================
+
+In prisim/bispectrum_phase.py,
+
+(*) Import reduce from functools module
+(*) Add member functions rescale_power_spectrum() and
+average_rescaled_power_spectrum() to class ClosurePhaseDelaySpectrum
+with docstrings to rescale the power spectrum of ratio to power of a
+quantity with physical units and to average this rescaled power along
+the specified axes respectively. Update docstring accordingly
+(*) Include values under keys 'fftpow' in output of member function
+FT() of class ClosurePhaseDelaySpectrum. Update member function
+docstring accordingly
+(*) Include values under keys 'fftpow', 'freq_center', 'freq_wts',
+'bw_eff', 'shape', 'lag_corr_length' and 'fftpow' in output dictionary 
+of member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum. Update member function docstring
+accordingly.
+(*) Additional minor updates to docstring of member function
+compute_power_spectrum() of class ClosurePhaseDelaySpectrum.
+
+
 From 7c18537 (pbeam):
 ====================
 

@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as NP
+from functools import reduce
 import numpy.ma as MA
 import progressbar as PGB
 import h5py
@@ -593,6 +594,15 @@ class ClosurePhaseDelaySpectrum(object):
     compute_power_spectrum()
                     Compute power spectrum of closure phase data. It is in units 
                     of Mpc/h
+
+    rescale_power_spectrum()
+                    Rescale power spectrum to dimensional quantity by converting 
+                    the ratio given visibility amplitude information
+
+    average_rescaled_power_spectrum()
+                    Average the rescaled power spectrum with physical units 
+                    along certain axes with inverse variance or regular 
+                    averaging
     ----------------------------------------------------------------------------
     """
     
@@ -695,6 +705,9 @@ class ClosurePhaseDelaySpectrum(object):
         'shape'         [string] shape of the window function applied. 
                         Accepted values are 'rect' (rectangular), 'bhw'
                         (Blackman-Harris), 'bnw' (Blackman-Nuttall). 
+        'fftpow'        [scalar] the power to which the FFT of the window was 
+                        raised. The value is be a positive scalar with 
+                        default = 1.0
         'npad'          [scalar] Numbber of zero-padded channels before
                         performing the subband delay transform. 
         'lags'          [numpy array] lags of the subband delay spectra 
@@ -835,7 +848,7 @@ class ClosurePhaseDelaySpectrum(object):
         
                 npad = int(self.f.size * pad)
                 lags = DSP.spectral_axis(self.f.size + npad, delx=self.df, use_real=False, shift=True)
-                result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'npad': npad, 'lags': lags, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=-1), 'processed': {'dspec': {'twts': self.cPhase.cpinfo['processed'][datapool]['wts']}}}
+                result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'fftpow': fftpow, 'npad': npad, 'lags': lags, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=-1), 'processed': {'dspec': {'twts': self.cPhase.cpinfo['processed'][datapool]['wts']}}}
     
                 for key in self.cPhase.cpinfo['processed'][datapool]['eicp']:
                     eicp = NP.copy(self.cPhase.cpinfo['processed'][datapool]['eicp'][key].data)
@@ -987,6 +1000,9 @@ class ClosurePhaseDelaySpectrum(object):
                 'shape'         [string] shape of the window function applied. 
                                 Accepted values are 'rect' (rectangular), 'bhw'
                                 (Blackman-Harris), 'bnw' (Blackman-Nuttall). 
+                'fftpow'        [scalar] the power to which the FFT of the window 
+                                was raised. The value is be a positive scalar 
+                                with default = 1.0
                 'npad'          [scalar] Numbber of zero-padded channels before
                                 performing the subband delay transform. 
                 'lags'          [numpy array] lags of the subband delay spectra 
@@ -1069,17 +1085,42 @@ class ClosurePhaseDelaySpectrum(object):
         'lags'  [numpy array] Delays (in seconds). It has shape=(nlags,).
         'kprll' [numpy array] k_parallel modes (in h/Mpc) corresponding to 
                 'lags'. It has shape=(nspw,nlags)
+        'freq_center'   
+                [numpy array] contains the center frequencies (in Hz) of the 
+                frequency subbands of the subband delay spectra. It is of size 
+                n_win. It is roughly equivalent to redshift(s)
+        'freq_wts'      
+                [numpy array] Contains frequency weights applied on each 
+                frequency sub-band during the subband delay transform. It is 
+                of size n_win x nchan. 
+        'bw_eff'        
+                [numpy array] contains the effective bandwidths (in Hz) of the 
+                subbands being delay transformed. It is of size n_win. It is 
+                roughly equivalent to width in redshift or along line-of-sight
+        'shape' [string] shape of the frequency window function applied. Usual
+                values are 'rect' (rectangular), 'bhw' (Blackman-Harris), 
+                'bnw' (Blackman-Nuttall). 
+        'fftpow'
+                [scalar] the power to which the FFT of the window was raised. 
+                The value is be a positive scalar with default = 1.0
+        'lag_corr_length' 
+                [numpy array] It is the correlation timescale (in pixels) of 
+                the subband delay spectra. It is proportional to inverse of 
+                effective bandwidth. It is of size n_win. The unit size of a 
+                pixel is determined by the difference between adjacent pixels 
+                in lags under key 'lags' which in turn is effectively inverse 
+                of the effective bandwidth of the subband specified in bw_eff
         'mean'  [numpy array] Delay power spectrum incoherently averaged over 
                 the axes specified in incohax using the 'mean' key in input 
                 cpds or attribute cPhaseDS['processed']['dspec']. It has
-                shape=(nspw,npol,1,1,nlags) if incohax=(2,3). It has units of
-                Mpc/h.
+                shape=(nspw,nlst,ndays,ntriads,nchan). It has units of
+                Mpc/h. If incohax was set, those axes will be set to 1.
         'median'
                 [numpy array] Delay power spectrum incoherently averaged over 
                 the axes specified in incohax using the 'median' key in input 
                 cpds or attribute cPhaseDS['processed']['dspec']. It has
-                shape=(nspw,npol,1,1,nlags) if incohax=(2,3). It has units of
-                Mpc/h.
+                shape=(nspw,nlst,ndays,ntriads,nchan). It has units of
+                Mpc/h. If incohax was set, those axes will be set to 1.
         ------------------------------------------------------------------------
         """
 
@@ -1131,6 +1172,11 @@ class ClosurePhaseDelaySpectrum(object):
             result[dpool]['z'] = z
             result[dpool]['kprll'] = kprll
             result[dpool]['lags'] = NP.copy(cpds[dpool]['lags'])
+            result[dpool]['freq_center'] = cpds[dpool]['freq_center']
+            result[dpool]['bw_eff'] = cpds[dpool]['bw_eff']
+            result[dpool]['shape'] = cpds[dpool]['shape']
+            result[dpool]['freq_wts'] = cpds[dpool]['freq_wts']
+            result[dpool]['lag_corr_length'] = cpds[dpool]['lag_corr_length']
 
             for stat in ['mean', 'median']:
                 inpshape = list(cpds[dpool]['processed']['dspec'][stat].shape)
@@ -1165,4 +1211,280 @@ class ClosurePhaseDelaySpectrum(object):
 
     ############################################################################
 
+    def rescale_power_spectrum(self, cpdps, visfile, blindex, visunits='Jy'):
+
+        """
+        ------------------------------------------------------------------------
+        Rescale power spectrum to dimensional quantity by converting the ratio
+        given visibility amplitude information
+
+        Inputs:
+
+        cpdps       [dictionary] Dictionary with the keys 'triads', 
+                    'triads_ind', 'lstbins', 'lst', 'dlst', 'lst_ind', 
+                    'oversampled' and 'resampled' corresponding to whether 
+                    resample was set to False or True in call to member function 
+                    FT(). Values under keys 'triads_ind' and 'lst_ind' are numpy 
+                    array corresponding to triad and time indices used in 
+                    selecting the data. Values under keys 'oversampled' and 
+                    'resampled' each contain a dictionary with the following keys 
+                    and values:
+                    'z'     [numpy array] Redshifts corresponding to the band 
+                            centers in 'freq_center'. It has shape=(nspw,)
+                    'lags'  [numpy array] Delays (in seconds). It has 
+                            shape=(nlags,).
+                    'kprll' [numpy array] k_parallel modes (in h/Mpc) 
+                            corresponding to 'lags'. It has shape=(nspw,nlags)
+                    'freq_center'   
+                            [numpy array] contains the center frequencies (in 
+                            Hz) of the frequency subbands of the subband delay 
+                            spectra. It is of size n_win. It is roughly 
+                            equivalent to redshift(s)
+                    'freq_wts'      
+                            [numpy array] Contains frequency weights applied on 
+                            each frequency sub-band during the subband delay 
+                            transform. It is of size n_win x nchan. 
+                    'bw_eff'        
+                            [numpy array] contains the effective bandwidths (in 
+                            Hz) of the subbands being delay transformed. It is 
+                            of size n_win. It is roughly equivalent to width in 
+                            redshift or along line-of-sight
+                    'shape' [string] shape of the frequency window function 
+                            applied. Usual values are 'rect' (rectangular), 
+                            'bhw' (Blackman-Harris), 'bnw' (Blackman-Nuttall). 
+                    'fftpow'
+                            [scalar] the power to which the FFT of the window 
+                            was raised. 
+                            The value is be a positive scalar with default = 1.0
+                    'mean'  [numpy array] Delay power spectrum incoherently 
+                            averaged over the axes specified in incohax using 
+                            the 'mean' key in input cpds or attribute 
+                            cPhaseDS['processed']['dspec']. It has 
+                            shape=(nspw,nlst,ndays,ntriads,nchan). It has units 
+                            of Mpc/h. If incohax was set, those axes will be set 
+                            to 1.
+                    'median'
+                            [numpy array] Delay power spectrum incoherently 
+                            averaged over the axes specified in incohax using 
+                            the 'median' key in input cpds or attribute 
+                            cPhaseDS['processed']['dspec']. It has 
+                            shape=(nspw,nlst,ndays,ntriads,nchan). It has units 
+                            of Mpc/h. If incohax was set, those axes will be set 
+                            to 1.
+
+        visfile     [string] Full path to the visibility file in NPZ format that
+                    consists of the following keys and values:
+                    'vis'   [numpy array] Complex visibilities averaged over 
+                            all redundant baselines of different classes of 
+                            baselines. It is of shape (nlst,nbl,nchan)
+                    'last'  [numpy array] Array of LST in units of days where
+                            the fractional part is LST in days.
+                            
+        blindex     [numpy array] 3-element array of baseline indices to use in
+                    selecting the triad corresponding to closure phase power
+                    spectrum in cpdps. It will index into the 'vis' array in
+                    NPZ file visfile 
+
+        visunits    [string] Units of visibility in visfile. Accepted values
+                    are 'Jy' (default; for Jansky) and 'K' (for Kelvin)
+
+        Outputs:
+
+        Same dictionary as input cpdps except it has the following additional
+        keys and values. Under 'resampled' and 'oversampled' keys, there are 
+        now new keys called 'mean-absscale' and 'median-absscale' keys which 
+        are each dictionaries with the following keys and values: 
+        'converted' [numpy array] Values of power (in units of visunits^2) with
+                    same shape as the values under 'mean' and 'median' keys --
+                    (nspw,nlst,ndays,ntriads,nchan) unless some of those axes
+                    have already been averaged coherently or incoherently
+        'units'     [string] Units of power in key 'converted'. Its values are
+                    square of the input visunits -- 'Jy^2' or 'K^2'
+        ------------------------------------------------------------------------
+        """
+
+        if not isinstance(cpdps, dict):
+            raise TypeError('Input cpdps must be a dictionary')
+        if not isinstance(visfile, str):
+            raise TypeError('Input visfile must be a string containing full file path')
+        if isinstance(blindex, NP.ndarray):
+            raise TypeError('Input blindex must be a numpy array')
+        if blindex.size != 3:
+            raise ValueError('Input blindex must be a 3-element array')
+        if not isinstance(visunits, str):
+            raise TypeError('Input visunits must be a string')
+        if visunits not in ['Jy', 'K']:
+            raise ValueError('Input visunits currently not accepted')
+
+        datapool = []
+        for dpool in ['resampled', 'oversampled']:
+            if dpool in cpdps:
+                datapool += [dpool]
+        scaleinfo = NP.load(visfile)
+        
+        vis = scaleinfo['vis'][:,blindex,:] # shape=(nlst,nbl,nchan)
+        vis_lstfrac, vis_lstint = NP.modf(scaleinfo['last']) # shape=(nlst,)
+        vis_lstHA = vis_lstfrac * 24.0 # in hours
+        vis_lstdeg = vis_lstHA * 15.0 # in degrees
+        cpdps_lstdeg = 15.0*cpdps['lst'] # in degrees
+        lstmatrix = cpdps_lstdeg.reshape(-1,1) - vis_lstdeg.reshape(1,-1)
+        lstmatrix[NP.abs(lstmatrix) > 180.0] -= 360.0
+        ind_minlstsep = NP.argmin(NP.abs(lstmatrix), axis=1)
+
+        vis_nearestLST = vis[blindex,ind_minlstsep,:] # nlst x nbl x nchan
+        for dpool in datapool:
+            freq_wts = cpdps[dpool]['freq_wts'] # nspw x nchan
+            freqwtd_avgvis_nearestLST = NP.sum(freq_wts[:,NP.newaxis,NP.newaxis,:] * vis_nearestLST[NP.newaxis,:,:,:], axis=-1, keepdims=True) / NP.sum(freq_wts[:,NP.newaxis,NP.newaxis,:], axis=-1, keepdims=True) # nspw x nlst x nbl x (nchan=1)
+            vis_square_multscalar = 1 / NP.sum(1/NP.abs(freqwtd_avgvis_nearestLST)**2, axis=2, keepdims=True) # nspw x nlst x (nbl=1) x (nchan=1)
+            for stat in ['mean', 'median']:
+                cpdps[dpool][stat+'-absscale'] = {}
+                cpdps[dpool][stat+'-absscale']['converted'] = cpdps[dpool][stat] * vis_square_multscalar[:,:,NP.newaxis,:,:] # nspw x nlst x ndays x ntriads x nlags
+                cpdps[dpool][stat+'-absscale']['units'] = '{0}^2'.format(visunits)
+
+        return cpdps
             
+    ############################################################################
+
+    def average_rescaled_power_spectrum(rcpdps, avgax, kprll_llim=None):
+
+        """
+        ------------------------------------------------------------------------
+        Average the rescaled power spectrum with physical units along certain 
+        axes with inverse variance or regular averaging
+
+        Inputs:
+
+        rcpdps      [dictionary] Dictionary with the keys 'triads', 
+                    'triads_ind', 'lstbins', 'lst', 'dlst', 'lst_ind', 
+                    'oversampled' and 'resampled' corresponding to whether 
+                    resample was set to False or True in call to member function 
+                    FT(). Values under keys 'triads_ind' and 'lst_ind' are numpy 
+                    array corresponding to triad and time indices used in 
+                    selecting the data. Values under keys 'oversampled' and 
+                    'resampled' each contain a dictionary with the following keys 
+                    and values:
+                    'z'     [numpy array] Redshifts corresponding to the band 
+                            centers in 'freq_center'. It has shape=(nspw,)
+                    'lags'  [numpy array] Delays (in seconds). It has 
+                            shape=(nlags,).
+                    'kprll' [numpy array] k_parallel modes (in h/Mpc) 
+                            corresponding to 'lags'. It has shape=(nspw,nlags)
+                    'freq_center'   
+                            [numpy array] contains the center frequencies (in 
+                            Hz) of the frequency subbands of the subband delay 
+                            spectra. It is of size n_win. It is roughly 
+                            equivalent to redshift(s)
+                    'freq_wts'      
+                            [numpy array] Contains frequency weights applied on 
+                            each frequency sub-band during the subband delay 
+                            transform. It is of size n_win x nchan. 
+                    'bw_eff'        
+                            [numpy array] contains the effective bandwidths (in 
+                            Hz) of the subbands being delay transformed. It is 
+                            of size n_win. It is roughly equivalent to width in 
+                            redshift or along line-of-sight
+                    'shape' [string] shape of the frequency window function 
+                            applied. Usual values are 'rect' (rectangular), 
+                            'bhw' (Blackman-Harris), 'bnw' (Blackman-Nuttall). 
+                    'fftpow'
+                            [scalar] the power to which the FFT of the window 
+                            was raised. 
+                            The value is be a positive scalar with default = 1.0
+                    'mean'  [numpy array] Delay power spectrum incoherently 
+                            averaged over the axes specified in incohax using 
+                            the 'mean' key in input cpds or attribute 
+                            cPhaseDS['processed']['dspec']. It has 
+                            shape=(nspw,nlst,ndays,ntriads,nchan). It has units 
+                            of Mpc/h. If incohax was set, those axes will be set 
+                            to 1.
+                    'median'
+                            [numpy array] Delay power spectrum incoherently 
+                            averaged over the axes specified in incohax using 
+                            the 'median' key in input cpds or attribute 
+                            cPhaseDS['processed']['dspec']. It has 
+                            shape=(nspw,nlst,ndays,ntriads,nchan). It has units 
+                            of Mpc/h. If incohax was set, those axes will be set 
+                            to 1.
+                    'mean-absscale' and 'median-absscale'
+                            [dictionary] Each dictionary consists of the 
+                            following keys and values:
+                            'converted' [numpy array] Values of power (in units 
+                                        of value in key 'units') with same shape 
+                                        as the values under 'mean' and 'median' 
+                                        keys -- (nspw,nlst,ndays,ntriads,nchan) 
+                                        unless some of those axes have already 
+                                        been averaged coherently or incoherently
+                            'units'     [string] Units of power in key 
+                                        'converted'. Its values are square of 
+                                        either 'Jy^2' or 'K^2'
+
+        avgax       [int, list, tuple] Specifies the axes over which the power
+                    in absolute scale (with physical units) should be averaged.
+                    This counts as incoherent averaging. The averaging is done
+                    with inverse-variance weighting if the input kprll_llim is
+                    set to choose the range of kprll from which the variance 
+                    and inverse variance will be determined. Otherwise, a 
+                    regular averaging is performed. 
+
+        kprll_llim  [float] Lower limit of absolute value of kprll (in Mpc/h) 
+                    beyond which the variance will be determined in order to 
+                    estimate the inverse variance weights. If set to None, the 
+                    weights are uniform. If set to a value, values beyond this 
+                    kprll_llim are used to estimate the variance and hence the
+                    inverse-variance weights. 
+
+        Outputs:
+
+        Dictionary with the same structure as the input dictionary rcpdps except
+        with the following additional keys and values. Under the dictionaries 
+        under keys 'mean-absscale' and 'median-absscale', there is an additional
+        key-value pair:
+        'avg'   [numpy array] Values of power (in units of value in key 'units') 
+                with same shape as the values under 'converted' -- 
+                (nspw,nlst,ndays,ntriads,nchan) except those axes which were 
+                averaged in this member function, and those axes will be 
+                retained but with axis size=1. 
+        ------------------------------------------------------------------------
+        """
+
+        if not isinstance(rcpdps, dict):
+            raise TypeError('Input rcpdps must be a dictionary')
+
+        if isinstance(avgax, int):
+            if avgax >= 4:
+                raise ValueError('Input avgax has a value greater than the maximum axis number over which averaging can be performed')
+            avgax = NP.asarray(avgax)
+        elif isinstance(avgax, (list,tuple)):
+            avgax = NP.asarray(avgax)
+            if NP.any(avgax >= 4):
+                raise ValueError('Input avgax contains a value greater than the maximum axis number over which averaging can be performed')
+        else:
+            raise TypeError('Input avgax must be an integer, list, or tuple')
+
+        if kprll_llim is not None:
+            if not isinstance(kprll_llim, (int,float)):
+                raise TypeError('Input kprll_llim must be a scalar')
+            kprll_llim = NP.abs(kprll_llim)
+
+        for dpool in datapool:
+            for stat in ['mean', 'median']:
+                wts = NP.ones((1,1,1,1,1))
+                if kprll_llim is not None:
+                    kprll_ind = NP.abs(rcpdps[dpool]['kprll']) >= kprll_llim # nspw x nlags
+                    
+                    if NP.any(kprll_ind):
+                        if rcpdps[dpool]['z'].size > 1:
+                            indsets = [NP.where(kprll_ind[i,:])[0] for i in range(rcpdps[dpool]['z'].size)]
+                            common_kprll_ind = reduce(NP.intersect1d(indsets))
+                            multidim_idx = NP.ix_(NP.arange(rcpdps[dpool]['freq_center'].size), NP.arange(rcpdps['lst'].size), NP.arange(rcpdps['days'].size), NP.arange(rcpdps['triads'].size), common_kprll_ind)
+                        else:
+                            multidim_idx = NP.ix_(NP.arange(rcpdps[dpool]['freq_center'].size), NP.arange(rcpdps['lst'].size), NP.arange(rcpdps['days'].size), NP.arange(rcpdps['triads'].size), kprll_ind[0,:])
+                    else:
+                        multidim_idx = NP.ix_(NP.arange(rcpdps[dpool]['freq_center'].size), NP.arange(rcpdps['lst'].size), NP.arange(rcpdps['days'].size), NP.arange(rcpdps['triads'].size), rcpdps[dpool]['lags'].size)
+                    wts = 1 / NP.var(rcpdps[dpool][stat]['absscale']['rescale'][multidim_idx], axis=avgax, keepdims=True)
+                rcpdps[dpool][stat]['absscale']['avg'] = NP.sum(wts * rcpdps[dpool][stat]['absscale']['rescale'], axis=avgax, keepdims=True) / NP.sum(wts, axis=avgax, keepdims=True)
+
+        return rcpdps
+        
+    ############################################################################
+
