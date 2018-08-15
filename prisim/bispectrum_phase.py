@@ -972,7 +972,7 @@ class ClosurePhaseDelaySpectrum(object):
     ############################################################################
 
     def compute_power_spectrum(self, cpds=None, selection=None, cohax=None,
-                               incohax=None, cosmo=cosmo100):
+                               incohax=None, outmode='expand', cosmo=cosmo100):
 
         """
         ------------------------------------------------------------------------
@@ -1067,6 +1067,16 @@ class ClosurePhaseDelaySpectrum(object):
                 delay power spectra will be incoherently averaged. If set to 
                 None (default), no incoherent averaging is performed.
 
+        outmode [string] Specifies if the full products of cross delay power
+                spectra of every pairwise combination along the incoherent axes
+                or only the average of this full combination. Accepted values 
+                are 'expand' (default for full cross products) and 'collapse' 
+                (for only the average of the cross products). 'expand' is useful
+                if the different cross products are to be weighted differently
+                before averaging. outmode determines the shape of the delay 
+                power spectrum in the ouput. Read description of output for more
+                details.
+
         cosmo   [instance of cosmology class from astropy] An instance of class
                 FLRW or default_cosmology of astropy cosmology module. Default
                 uses Planck 2015 cosmology, with H0=100 h km/s/Mpc
@@ -1112,15 +1122,25 @@ class ClosurePhaseDelaySpectrum(object):
                 of the effective bandwidth of the subband specified in bw_eff
         'mean'  [numpy array] Delay power spectrum incoherently averaged over 
                 the axes specified in incohax using the 'mean' key in input 
-                cpds or attribute cPhaseDS['processed']['dspec']. It has
-                shape=(nspw,nlst,ndays,ntriads,nchan). It has units of
-                Mpc/h. If incohax was set, those axes will be set to 1.
+                cpds or attribute cPhaseDS['processed']['dspec'] corresponding 
+                to setting outmode='collapse'. It has
+                shape=(nspw,nlst,ndays,ntriads,nchan). If incohax was set, those 
+                axes will be set to 1. However, if outmode='expand' the full 
+                cross-products are returned. For example, if incohax=[1,3], the 
+                out cross delay power spectrum has shape 
+                (nspw,nlst,nlst,ndays,ntriads,ntriads,nchan). It has units of 
+                Mpc/h. 
         'median'
                 [numpy array] Delay power spectrum incoherently averaged over 
                 the axes specified in incohax using the 'median' key in input 
-                cpds or attribute cPhaseDS['processed']['dspec']. It has
-                shape=(nspw,nlst,ndays,ntriads,nchan). It has units of
-                Mpc/h. If incohax was set, those axes will be set to 1.
+                cpds or attribute cPhaseDS['processed']['dspec'] corresponding 
+                to setting outmode='collapse'. It has
+                shape=(nspw,nlst,ndays,ntriads,nchan). If incohax was set, those 
+                axes will be set to 1. However, if outmode='expand' the full 
+                cross-products are returned. For example, if incohax=[1,3], the 
+                out cross delay power spectrum has shape 
+                (nspw,nlst,nlst,ndays,ntriads,ntriads,nchan). It has units of 
+                Mpc/h. 
         ------------------------------------------------------------------------
         """
 
@@ -1136,6 +1156,11 @@ class ClosurePhaseDelaySpectrum(object):
 
         if NP.intersect1d(cohax, incohax).size > 0:
             raise ValueError('Inputs cohax and incohax must have no intersection')
+
+        if not isinstance(outmode, str):
+            raise TypeError('Input outmode must be a string')
+        if outmode.lower() not in ['expand', 'collapse']:
+            raise ValueError('Invalid input specified for outmode')
 
         if selection is None:
             selection = {'triads': None, 'lst': None, 'days': None}
@@ -1201,9 +1226,18 @@ class ClosurePhaseDelaySpectrum(object):
                     else:
                         dspec = NP.median(cpds[dpool]['processed']['dspec'][stat][dspec_multidim_idx], axis=cohax, keepdims=True)
                 if nsamples_incoh > 1:
-                    result[dpool][stat] = factor.reshape(-1,1,1,1,1) / nsamples_incoh * (NP.abs(NP.sum(dspec, axis=incohax, keepdims=True))**2 - NP.sum(NP.abs(dspec)**2, axis=incohax, keepdims=True))
+                    if outmode.lower() == 'collapse':
+                        result[dpool][stat] = factor.reshape(-1,1,1,1,1) / nsamples_incoh * (NP.abs(NP.sum(dspec, axis=incohax, keepdims=True))**2 - NP.sum(NP.abs(dspec)**2, axis=incohax, keepdims=True))
+                    else:
+                        dspec1 = NP.copy(dspec)
+                        dspec2 = NP.copy(dspec)
+                        for incax in NP.sort(incohax)[::-1]:
+                            dspec1 = NP.expand_dims(dspec1, axis=incax)
+                            dspec2 = NP.expand_dims(dspec2, axis=incax+1)
+                            # dspec2 = NP.swapaxes(dspec1, incax, incax+1)
+                        result[dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec1.ndim-1, dtype=NP.int))) * dspec1 * dspec2.conj()
                 else:
-                    result[dpool][stat] = factor.reshape(-1,1,1,1,1) * NP.abs(dspec)**2
+                    result[dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec.ndim-1, dtype=NP.int))) * NP.abs(dspec)**2
             result[dpool]['nsamples_incoh'] = nsamples_incoh
             result[dpool]['nsamples_coh'] = nsamples_coh
             
@@ -1487,4 +1521,3 @@ class ClosurePhaseDelaySpectrum(object):
         return rcpdps
         
     ############################################################################
-

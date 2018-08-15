@@ -1,3 +1,14 @@
+From 1d5505c (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Add input keyword outmode in input to member function
+compute_power_spectrum() of class ClosurePhaseDelaySpectrum. This
+will allow the member function to return the full cross power
+spectrum without averaging. Update member function docstring
+accordingly
+
 From 26dbdb0 (master):
 =====================
 
