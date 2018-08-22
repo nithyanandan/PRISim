@@ -1,3 +1,13 @@
+From 6dba85e (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum, add input keywords autoinfo, xinfo to
+provide options for auto-power and cross-power spectra. Docstring
+of member function yet to be updated
+
 From 1d5505c (closure-adv):
 ==========================
 

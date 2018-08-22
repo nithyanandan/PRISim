@@ -972,7 +972,8 @@ class ClosurePhaseDelaySpectrum(object):
     ############################################################################
 
     def compute_power_spectrum(self, cpds=None, selection=None, cohax=None,
-                               incohax=None, outmode='expand', cosmo=cosmo100):
+                               incohax=None, autoinfo=None, xinfo=None,
+                               outmode='expand', weights=None, cosmo=cosmo100):
 
         """
         ------------------------------------------------------------------------
@@ -1144,23 +1145,119 @@ class ClosurePhaseDelaySpectrum(object):
         ------------------------------------------------------------------------
         """
 
-        if cohax is None:
-            cohax = (2, 3) # (ndays,ntriads)
-        else:
-            cohax = tuple(cohax)
+        if autoinfo is None:
+            autoinfo = {'axes': None, 'wts': [NP.ones(1, dtpye=NP.float)]}
+        elif not isinstance(autoinfo, dict):
+            raise TypeError('Input autoinfo must be a dictionary')
 
-        if incohax is not None:
-            incohax = tuple(incohax)
+        if 'axes' not in autoinfo:
+            autoinfo['axes'] = None
         else:
+            if not isinstance(autoinfo['axes'], (list,tuple,NP.ndarray,int)):
+                raise TypeError('Value under key axes in input autoinfo must be an integer, list, tuple or numpy array')
+            else:
+                autoinfo['axes'] = NP.asarray(autoinfo['axes']).reshape(-1)
+
+        if 'wts' not in autoinfo:
+            if autoinfo['axes'] is not None:
+                autoinfo['wts'] = [NP.ones(1, dtype=NP.float)] * len(autoinfo['axes'])
+            else:
+                autoinfo['wts'] = [NP.ones(1, dtype=NP.float)]
+        else:
+            if autoinfo['axes'] is not None:
+                if not isinstance(autoinfo['wts'], list):
+                    raise TypeError('wts in input autoinfo must be a list of numpy arrays')
+                else:
+                    if len(autoinfo['wts']) != len(autoinfo['axes']):
+                        raise ValueError('Input list of wts must be same as length of autoinfo axes')
+            else:
+                autoinfo['wts'] = [NP.ones(1, dtype=NP.float)]
+
+        if xinfo is None:
+            xinfo = {'axes': None, 'wts': {'preX': [NP.ones(1, dtpye=NP.float)], 'postX': [NP.ones(1, dtpye=NP.float)], 'preXnorm': False, 'postXnorm': False}}
+        elif not isinstance(xinfo, dict):
+            raise TypeError('Input xinfo must be a dictionary')
+
+        if 'axes' not in xinfo:
+            xinfo['axes'] = None
+        else:
+            if not isinstance(xinfo['axes'], (list,tuple,NP.ndarray,int)):
+                raise TypeError('Value under key axes in input xinfo must be an integer, list, tuple or numpy array')
+            else:
+                xinfo['axes'] = NP.asarray(xinfo['axes']).reshape(-1)
+
+        if 'wts' not in xinfo:
+            xinfo['wts'] = {}
+            for xkey in ['preX', 'postX']:
+                if xinfo['axes'] is not None:
+                    xinfo['wts'][xkey] = [NP.ones(1, dtype=NP.float)] * len(xinfo['axes'])
+                else:
+                    xinfo['wts'][xkey] = [NP.ones(1, dtype=NP.float)]
+            xinfo['wts']['preXnorm'] = False
+            xinfo['wts']['postXnorm'] = False
+        else:
+            if xinfo['axes'] is not None:
+                if not isinstance(xinfo['wts'], dict):
+                    raise TypeError('wts in input xinfo must be a dictionary')
+                for xkey in ['preX', 'postX']:
+                    if not isinstance(xinfo['wts'][xkey], list):
+                        raise TypeError('{0} wts in input xinfo must be a list of numpy arrays'.format(xkey))
+                    else:
+                        if len(xinfo['wts'][xkey]) != len(xinfo['axes']):
+                            raise ValueError('Input list of {0} wts must be same as length of xinfo axes'.format(xkey))
+            else:
+                for xkey in ['preX', 'postX']:
+                    xinfo['wts'][xkey] = [NP.ones(1, dtype=NP.float)]
+
+            if 'preXnorm' not in xinfo['wts']:
+                xinfo['wts']['preXnorm'] = False
+            if 'postXnorm' not in xinfo['wts']:
+                xinfo['wts']['postXnorm'] = False
+            if not isinstance(xinfo['wts']['preXnorm'], NP.bool):
+                raise TypeError('preXnorm in input xinfo must be a boolean')
+            if not isinstance(xinfo['wts']['postXnorm'], NP.bool):
+                raise TypeError('postXnorm in input xinfo must be a boolean')
+
+        if 'avgcov' not in xinfo:
+            xinfo['avgcov'] = False
+        if not isinstance(xinfo['avgcov'], NP.bool):
+            raise TypeError('avgcov under input xinfo must be boolean')
+
+        if 'collapse_axes' not in xinfo:
+            xinfo['collapse_axes'] = []
+        if not isinstance(xinfo['collapse_axes'], (int,list,tuple,NP.ndarray)):
+            raise TypeError('collapse_axes under input xinfo must be an integer, tuple, list or numpy array')
+        else:
+            xinfo['collapse_axes'] = NP.asarray(xinfo['collapse_axes']).reshape(-1)
+
+        if (autoinfo['axes'] is not None) and (xinfo['axes'] is not None):
+            if NP.intersect1d(autoinfo['axes'], xinfo['axes']).size > 0:
+                raise ValueError("Inputs autoinfo['axes'] and xinfo['axes'] must have no intersection")
+
+        cohax = autoinfo['axes']
+        if cohax is None:
+            cohax = []
+        incohax = xinfo['axes']
+        if incohax is None:
             incohax = []
 
-        if NP.intersect1d(cohax, incohax).size > 0:
-            raise ValueError('Inputs cohax and incohax must have no intersection')
+        # if cohax is None:
+        #     cohax = (2, 3) # (ndays,ntriads)
+        # else:
+        #     cohax = tuple(cohax)
 
-        if not isinstance(outmode, str):
-            raise TypeError('Input outmode must be a string')
-        if outmode.lower() not in ['expand', 'collapse']:
-            raise ValueError('Invalid input specified for outmode')
+        # if incohax is not None:
+        #     incohax = tuple(incohax)
+        # else:
+        #     incohax = []
+
+        # if NP.intersect1d(cohax, incohax).size > 0:
+        #     raise ValueError('Inputs cohax and incohax must have no intersection')
+
+        # if not isinstance(outmode, str):
+        #     raise TypeError('Input outmode must be a string')
+        # if outmode.lower() not in ['expand', 'collapse']:
+        #     raise ValueError('Invalid input specified for outmode')
 
         if selection is None:
             selection = {'triads': None, 'lst': None, 'days': None}
@@ -1208,7 +1305,10 @@ class ClosurePhaseDelaySpectrum(object):
                 inpshape[1] = lst_ind.size
                 inpshape[2] = day_ind.size
                 inpshape[3] = triad_ind.size
-                nsamples_coh = NP.prod(NP.asarray(inpshape)[NP.asarray(cohax)])
+                if len(cohax) > 0:
+                    nsamples_coh = NP.prod(NP.asarray(inpshape)[NP.asarray(cohax)])
+                else:
+                    nsamples_coh = 1
                 if len(incohax) > 0:
                     nsamples = NP.prod(NP.asarray(inpshape)[NP.asarray(incohax)])
                     nsamples_incoh = nsamples * (nsamples - 1)
@@ -1221,23 +1321,105 @@ class ClosurePhaseDelaySpectrum(object):
                 twts = NP.copy(cpds[dpool]['processed']['dspec']['twts'].data[:,:,:,[select_chan]]) # shape=(nspw=1,nlst,ndays,ntriads,nlags=1)
                 dspec = NP.copy(cpds[dpool]['processed']['dspec'][stat][dspec_multidim_idx])
                 if nsamples_coh > 1:
+                    awts_shape = tuple(NP.ones(cpds[dpool]['processed']['dspec'][stat].ndim, dtype=NP.int))
+                    awts = NP.ones(awts_shape, dtype=NP.complex)
+                    awts_shape = NP.asarray(awts_shape)
+                    for caxind,caxis in enumerate(autoinfo['axes']):
+                        curr_awts_shape = NP.copy(awts_shape)
+                        curr_awts_shape[caxis] = -1
+                        awts = awts * autoinfo['wts'][caxind].reshape(tuple(curr_awts_shape))
                     if stat == 'mean':
-                        dspec = NP.sum(twts[twts_multidim_idx][NP.newaxis,...] * cpds[dpool]['processed']['dspec'][stat][dspec_multidim_idx], axis=cohax, keepdims=True) / NP.sum(twts[twts_multidim_idx][NP.newaxis,...], axis=cohax, keepdims=True)
+                        dspec = NP.sum(twts[twts_multidim_idx][NP.newaxis,...] * awts * cpds[dpool]['processed']['dspec'][stat][dspec_multidim_idx], axis=cohax, keepdims=True) / NP.sum(twts[twts_multidim_idx][NP.newaxis,...] * awts, axis=cohax, keepdims=True)
                     else:
                         dspec = NP.median(cpds[dpool]['processed']['dspec'][stat][dspec_multidim_idx], axis=cohax, keepdims=True)
                 if nsamples_incoh > 1:
-                    if outmode.lower() == 'collapse':
-                        result[dpool][stat] = factor.reshape(-1,1,1,1,1) / nsamples_incoh * (NP.abs(NP.sum(dspec, axis=incohax, keepdims=True))**2 - NP.sum(NP.abs(dspec)**2, axis=incohax, keepdims=True))
-                    else:
-                        dspec1 = NP.copy(dspec)
-                        dspec2 = NP.copy(dspec)
-                        for incax in NP.sort(incohax)[::-1]:
-                            dspec1 = NP.expand_dims(dspec1, axis=incax)
-                            dspec2 = NP.expand_dims(dspec2, axis=incax+1)
-                            # dspec2 = NP.swapaxes(dspec1, incax, incax+1)
-                        result[dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec1.ndim-1, dtype=NP.int))) * dspec1 * dspec2.conj()
+                    expandax_map = {}
+                    wts_shape = tuple(NP.ones(dspec.ndim, dtype=NP.int))
+                    preXwts = NP.ones(wts_shape, dtype=NP.complex)
+                    wts_shape = NP.asarray(wts_shape)
+                    for incaxind,incaxis in enumerate(xinfo['axes']):
+                        curr_wts_shape = NP.copy(wts_shape)
+                        curr_wts_shape[incaxis] = -1
+                        preXwts = preXwts * xinfo['wts']['preX'][incaxind].reshape(tuple(curr_wts_shape))
+                    dspec1 = NP.copy(dspec)
+                    dspec2 = NP.copy(dspec)
+                    preXwts1 = NP.copy(preXwts)
+                    preXwts2 = NP.copy(preXwts)
+                    for incax in NP.sort(incohax)[::-1]:
+                        dspec1 = NP.expand_dims(dspec1, axis=incax)
+                        dspec2 = NP.expand_dims(dspec2, axis=incax+1)
+                        preXwts1 = NP.expand_dims(preXwts1, axis=incax)
+                        preXwts2 = NP.expand_dims(preXwts2, axis=incax+1)
+                        expandax_map[incax] = incax + NP.arange(2)
+                        for ekey in expandax_map:
+                            if ekey > incax:
+                                expandax_map[ekey] += 1
+                                
+                    # for incaxind,incax in enumerate(NP.sort(incohax)):
+                    #     expandax_map[]
+                        
+                    result[dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec1.ndim-1, dtype=NP.int))) * (dspec1 * preXwts1) * (dspec2 * preXwts2).conj()
+                    if xinfo['wts']['preXnorm']:
+                        result[dpool][stat] = result[dpool][stat] / NP.sum(preXwts1 * preXwts2.conj(), axis=NP.union1d(NP.where(logical_or(NP.asarray(preXwts1.shape)>1, NP.asarray(preXwts2.shape)>1))), keepdims=True) # Normalize by summing the weights over the expanded axes
+
+                    if (len(xinfo['collapse_axes']) > 0) or (xinfo['avgcov']):
+
+                        # if any one of collapsing of incoherent axes or averaging
+                        # of full covariance is requested
+
+                        diagoffsets = [] # Stores the correlation index difference along each axis.
+                        for colaxind, colax in enumerate(xinfo['collapse_axes']):
+                            result[dpool][stat], offsets = OPS.array_trace(result[dpool][stat], offsets=None, axis1=expandax_map[colax][0], axis2=expandax_map[colax][1], outaxis='axis1')
+                            for ekey in expandax_map:
+                                if ekey > colax:
+                                    expandax_map[ekey] -= 1
+                            expandax_map[colax] = NP.asarray(expandax_map[colax][0]).ravel()
+
+                            diagoffsets += [offsets]
+
+
+                        wts_shape = tuple(NP.ones(result[dpool][stat].ndim, dtype=NP.int))
+                        postXwts = NP.ones(wts_shape, dtype=NP.complex)
+                        wts_shape = NP.asarray(wts_shape)
+                        for colaxind, colax in enumerate(xinfo['collapse_axes']):
+                            curr_wts_shape = NP.copy(wts_shape)
+                            curr_wts_shape[expandax_map[colax]] = -1
+                            postXwts = postXwts * xinfo['wts']['postX'][colaxind].reshape(tuple(curr_wts_shape))
+                            
+                        result[dpool][stat] = result[dpool][stat] * postXwts
+
+                        axes_to_sum = tuple(NP.asarray([expandax_map[colax] for colax in xinfo['collapse_axes']]).ravel())
+
+                        if xinfo['wts']['postXnorm']:
+                            result[dpool][stat] = result[dpool][stat] / NP.sum(postXwts, axis=axes_to_sum, keepdims=True) # Normalize by summing the weights over the collapsed axes
+                        if not xinfo['avgcov']:
+
+                            # collapse the axes further (postXwts have already
+                            # been applied)
+
+                            result[dpool][stat] = NP.nanmean(result[dpool][stat], axis=axes_to_sum, keepdims=True)
+                            for colaxind, colax in enumerate(xinfo['collapse_axes']):
+                                del diagoffsets[colaxind]
+
+                    # if outmode.lower() == 'collapse':
+                    #     result[dpool][stat] = factor.reshape(-1,1,1,1,1) / nsamples_incoh * (NP.abs(NP.sum(dspec, axis=incohax, keepdims=True))**2 - NP.sum(NP.abs(dspec)**2, axis=incohax, keepdims=True))
+                    # else:
+                    #     dspec1 = NP.copy(dspec)
+                    #     dspec2 = NP.copy(dspec)
+                    #     for incax in NP.sort(incohax)[::-1]:
+                    #         dspec1 = NP.expand_dims(dspec1, axis=incax)
+                    #         dspec2 = NP.expand_dims(dspec2, axis=incax+1)
+                    #         # dspec2 = NP.swapaxes(dspec1, incax, incax+1)
+                    #     result[dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec1.ndim-1, dtype=NP.int))) * dspec1 * dspec2.conj()
+                    #     result[dpool][stat], offsets = OPS.array_trace(result[dpool][stat], offsets=None, axis1=incohax[0], axis2=incohax[0]+1, outaxis='axis1')
                 else:
                     result[dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec.ndim-1, dtype=NP.int))) * NP.abs(dspec)**2
+                    diagoffsets = []
+                    expandax_map = {}
+
+            result[dpool]['diagoffsets'] = diagoffsets
+            result[dpool]['axesmap'] = expandax_map
+
             result[dpool]['nsamples_incoh'] = nsamples_incoh
             result[dpool]['nsamples_coh'] = nsamples_coh
             
