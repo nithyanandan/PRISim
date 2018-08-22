@@ -1,3 +1,13 @@
+From 8e46be9 (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum, remove commented lines, and obsolete
+keyword inputs cohax, incohax, and outmode. Docstring of member
+function yet to be updated.
+
 From 6dba85e (closure-adv):
 ==========================
 

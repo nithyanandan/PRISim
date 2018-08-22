@@ -971,9 +971,8 @@ class ClosurePhaseDelaySpectrum(object):
 
     ############################################################################
 
-    def compute_power_spectrum(self, cpds=None, selection=None, cohax=None,
-                               incohax=None, autoinfo=None, xinfo=None,
-                               outmode='expand', weights=None, cosmo=cosmo100):
+    def compute_power_spectrum(self, cpds=None, selection=None, autoinfo=None,
+                               xinfo=None, cosmo=cosmo100):
 
         """
         ------------------------------------------------------------------------
@@ -1241,24 +1240,6 @@ class ClosurePhaseDelaySpectrum(object):
         if incohax is None:
             incohax = []
 
-        # if cohax is None:
-        #     cohax = (2, 3) # (ndays,ntriads)
-        # else:
-        #     cohax = tuple(cohax)
-
-        # if incohax is not None:
-        #     incohax = tuple(incohax)
-        # else:
-        #     incohax = []
-
-        # if NP.intersect1d(cohax, incohax).size > 0:
-        #     raise ValueError('Inputs cohax and incohax must have no intersection')
-
-        # if not isinstance(outmode, str):
-        #     raise TypeError('Input outmode must be a string')
-        # if outmode.lower() not in ['expand', 'collapse']:
-        #     raise ValueError('Invalid input specified for outmode')
-
         if selection is None:
             selection = {'triads': None, 'lst': None, 'days': None}
         else:
@@ -1400,18 +1381,6 @@ class ClosurePhaseDelaySpectrum(object):
                             result[dpool][stat] = NP.nanmean(result[dpool][stat], axis=axes_to_sum, keepdims=True)
                             for colaxind, colax in enumerate(xinfo['collapse_axes']):
                                 del diagoffsets[colaxind]
-
-                    # if outmode.lower() == 'collapse':
-                    #     result[dpool][stat] = factor.reshape(-1,1,1,1,1) / nsamples_incoh * (NP.abs(NP.sum(dspec, axis=incohax, keepdims=True))**2 - NP.sum(NP.abs(dspec)**2, axis=incohax, keepdims=True))
-                    # else:
-                    #     dspec1 = NP.copy(dspec)
-                    #     dspec2 = NP.copy(dspec)
-                    #     for incax in NP.sort(incohax)[::-1]:
-                    #         dspec1 = NP.expand_dims(dspec1, axis=incax)
-                    #         dspec2 = NP.expand_dims(dspec2, axis=incax+1)
-                    #         # dspec2 = NP.swapaxes(dspec1, incax, incax+1)
-                    #     result[dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec1.ndim-1, dtype=NP.int))) * dspec1 * dspec2.conj()
-                    #     result[dpool][stat], offsets = OPS.array_trace(result[dpool][stat], offsets=None, axis1=incohax[0], axis2=incohax[0]+1, outaxis='axis1')
                 else:
                     result[dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec.ndim-1, dtype=NP.int))) * NP.abs(dspec)**2
                     diagoffsets = []
