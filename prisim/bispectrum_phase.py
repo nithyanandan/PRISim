@@ -629,7 +629,8 @@ class ClosurePhaseDelaySpectrum(object):
     ############################################################################
 
     def FT(self, bw_eff, freq_center=None, shape=None, fftpow=None, pad=None,
-           datapool='prelim', method='fft', resample=True, apply_flags=True):
+           datapool='prelim', visscaleinfo=None, method='fft', resample=True,
+           apply_flags=True):
 
         """
         ------------------------------------------------------------------------
@@ -673,6 +674,43 @@ class ClosurePhaseDelaySpectrum(object):
         datapool    [string] Specifies which data set is to be Fourier 
                     transformed
 
+        visscaleinfo
+                    [dictionary] Dictionary containing reference visibilities
+                    based on which the closure phases will be scaled to units
+                    of visibilities. It contains the following keys and values:
+                    'vis'   [numpy array] Reference visibilities from the 
+                            baselines that form the triad. It must be of shape 
+                            (nbl, nlst_vis, nchan). The nearest LST will be 
+                            looked up and applied after smoothing along LST
+                            based on the smoothing parameter 'smooth'
+                    'lst'   [numpy array] Reference LST (in hours). It is of
+                            shape (nlst_vis,)
+                    'smoothinfo'
+                            [dictionary] Dictionary specifying smoothing and/or 
+                            interpolation parameters. It has the following keys
+                            and values:
+                            'op_type'       [string] Specifies the interpolating 
+                                            operation. Must be specified (no 
+                                            default). Accepted values are 
+                                            'interp1d' (scipy.interpolate), 
+                                            'median' (skimage.filters), 'tophat' 
+                                            (astropy.convolution) and 'gaussian' 
+                                            (astropy.convolution)
+                            'interp_kind'   [string (optional)] Specifies the 
+                                            interpolation kind (if 'op_type' is 
+                                            set to 'interp1d'). For accepted 
+                                            values, see 
+                                            scipy.interpolate.interp1d()
+                            'window_size'   [integer (optional)] Specifies the 
+                                            size of the interpolating/smoothing 
+                                            kernel. Only applies when 'op_type' 
+                                            is set to 'median', 'tophat' or 
+                                            'gaussian' The kernel is a tophat 
+                                            function when 'op_type' is set to 
+                                            'median' or 'tophat'. If refers to 
+                                            FWHM when 'op_type' is set to 
+                                            'gaussian'
+                            
         resample    [boolean] If set to True (default), resample the delay 
                     spectrum axis to independent samples along delay axis. If
                     set to False, return the results as is even if they may be
@@ -810,6 +848,19 @@ class ClosurePhaseDelaySpectrum(object):
         if datapool.lower() not in ['prelim']:
             raise ValueError('Specified datapool not supported')
 
+        if visscaleinfo is not None:
+            if not isinstance(visscaleinfo, dict):
+                raise TypeError('Input visscaleinfo must be a dictionary')
+            for vkey in ['vis', 'lst']:
+                if vkey not in visscaleinfo:
+                    raise KeyError('Input visscaleinfo does not contain key "{0}"'.format(vkey))
+            lst_vis = visscaleinfo['lst'] * 15.0
+            lst_out = self.cPhase.cpinfo['processed']['prelim']['lstbins'] * 15.0
+            if not isinstance(visscaleinfo['vis'], MA.MaskedArray):
+                visscaleinfo['vis'] = MA.array(visscaleinfo['vis'], mask=NP.isnan(visscaleinfo['vis']))
+            viswts = MA.array(NP.ones_like(visscaleinfo['vis'].data), mask=visscaleinfo['vis'].mask, dtype=NP.float)
+            vis_ref, wts_ref = OPS.interpolate_masked_array_1D(visscaleinfo['vis'], viswts, 1, visscaleinfo['smoothinfo'], inploc=lst_vis, outloc=lst_out)
+
         if not isinstance(method, str):
             raise TypeError('Input method must be a string')
 
@@ -820,6 +871,7 @@ class ClosurePhaseDelaySpectrum(object):
             raise TypeError('Input apply_flags must be boolean')
 
         flagwts = 1.0
+        visscale = 1.0
 
         if datapool.lower() == 'prelim':
             if method.lower() == 'fft':
@@ -859,8 +911,12 @@ class ClosurePhaseDelaySpectrum(object):
                         flagwts = flagwts[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
                         flagwts = 1.0 * flagwts / NP.mean(flagwts, axis=-1, keepdims=True) # (nspw=1) x nlst x ndays x ntriads x nchan
 
+                    if visscaleinfo is not None:
+                        visscale = NP.nansum(NP.transpose(vis_ref[NP.newaxis,NP.newaxis,:,:,:], axes=(0,3,1,2,4)) * freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], axis=-1, keepdims=True) / NP.nansum(freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], axis=-1, keepdims=True) # nspw x nlst x (ndays=1) x ntriads x (nchan=1)
+                        visscale = NP.sqrt(1.0/NP.nansum(1/NP.abs(visscale)**2, axis=-2, keepdims=True)) # nspw x nlst x (ndays=1) x (ntriads=1) x (nchan=1)
+
                     ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
-                    result['processed']['dspec'][key] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                    result['processed']['dspec'][key] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale, ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                 # result['lag_kernel'] = DSP.FT1D(NP.pad(freq_wts, [(0,0), (0,npad)], mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                 result['lag_kernel'] = DSP.FT1D(NP.pad(flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
 

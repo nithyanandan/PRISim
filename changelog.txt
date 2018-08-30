@@ -1,3 +1,14 @@
+From ba6b657 (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function FT() of class ClosurePhaseDelaySpectrum,
+add keyword input visscaleinfo to scale the closure phase Fourier
+transform by the visibility to get the result in units of the
+visibility. Process visscaleinfo appropriately. Update member
+function docstring accordingly
+
 From 8e46be9 (closure-adv):
 ==========================
 
