@@ -1114,24 +1114,98 @@ class ClosurePhaseDelaySpectrum(object):
                                 Otherwise must be a list or numpy array 
                                 containing indices to days. 
 
-        cohax   [NoneType or tuple] Specifies a tuple of axes over which the 
-                delay spectra will be coherently averaged before computing power
-                spectra. If set to None (default), it is set to (2,3) 
-                (corresponding to Days, and triads respectively). 
+        autoinfo
+                [NoneType or dictionary] Specifies parameters for processing 
+                before power spectrum in auto or cross modes. If set to None, 
+                a dictionary will be created with the default values as 
+                described below. The dictionary must have the following keys
+                and values:
+                'axes'  [NoneType/int/list/tuple/numpy array] Axes that will
+                        be averaged coherently before squaring (for auto) or
+                        cross-multiplying (for cross) power spectrum. If set 
+                        to None (default), no axes are averaged coherently. 
+                        If set to int, list, tuple or numpy array, those axes
+                        will be averaged coherently after applying the weights
+                        specified under key 'wts' along those axes.
+                'wts'   [NoneType/list/numpy array] If not provided (equivalent
+                        to setting it to None) or set to None (default), it is
+                        set to a one element list which is a one element numpy
+                        array of unity. Otherwise, it must be a list of same
+                        number of elements as in key 'axes' and each of these
+                        must be a numpy broadcast compatible array corresponding
+                        to each of the axis specified in 'axes'
 
-        incohax [NoneType or tuple] Specifies a tuple of axes over which the 
-                delay power spectra will be incoherently averaged. If set to 
-                None (default), no incoherent averaging is performed.
-
-        outmode [string] Specifies if the full products of cross delay power
-                spectra of every pairwise combination along the incoherent axes
-                or only the average of this full combination. Accepted values 
-                are 'expand' (default for full cross products) and 'collapse' 
-                (for only the average of the cross products). 'expand' is useful
-                if the different cross products are to be weighted differently
-                before averaging. outmode determines the shape of the delay 
-                power spectrum in the ouput. Read description of output for more
-                details.
+        xinfo   [NoneType or dictionary] Specifies parameters for processing 
+                cross power spectrum. If set to None, a dictionary will be 
+                created with the default values as described below. The 
+                dictionary must have the following keys and values:
+                'axes'  [NoneType/int/list/tuple/numpy array] Axes over which 
+                        power spectrum will be computed incoherently by cross-
+                        multiplication. If set to None (default), no cross-
+                        power spectrum is computed. If set to int, list, tuple 
+                        or numpy array, cross-power over those axes will be 
+                        computed incoherently by cross-multiplication. The 
+                        cross-spectrum over these axes will be computed after
+                        applying the pre- and post- cross-multiplication 
+                        weights specified in key 'wts'.
+                'collapse_axes'
+                        [list] The axes that will be collpased after the
+                        cross-power matrix is produced by cross-multiplication.
+                        If this key is not set, it will be initialized to an
+                        empty list (default), in which case none of the axes 
+                        is collapsed and the full cross-power matrix will be
+                        output. it must be a subset of values under key 'axes'.
+                        This will reduce it from a square matrix along that axis
+                        to collapsed values along each of the leading diagonals.
+                'avgcov'
+                        [boolean] It specifies if the collapse of square 
+                        covariance matrix is to be collapsed further to a single
+                        number after applying 'postX' weights. If not set or
+                        set to False (default), this late stage collapse will
+                        not be performed. Otherwise, it will be averaged in a 
+                        weighted average sense where the 'postX' weights would
+                        have already been applied during the collapsing 
+                        operation
+                'wts'   [NoneType or Dictionary] If not set, a default 
+                        dictionary (see default values below) will be created. 
+                        It must have the follwoing keys and values:
+                        'preX'  [list of numpy arrays] It contains pre-cross-
+                                multiplication weights. It is a list where 
+                                each element in the list is a numpy array, and
+                                the number of elements in the list must match 
+                                the number of entries in key 'axes'. If 'axes'
+                                is set None, 'preX' may be set to a list 
+                                with one element which is a numpy array of ones.
+                                The number of elements in each of the numpy 
+                                arrays must be numpy broadcastable into the 
+                                number of elements along that axis in the 
+                                delay spectrum.
+                        'preXnorm'
+                                [boolean] If False (default), no normalization
+                                is done after the application of weights. If 
+                                set to True, the delay spectrum will be 
+                                normalized by the sum of the weights. 
+                        'postX' [list of numpy arrays] It contains post-cross-
+                                multiplication weights. It is a list where 
+                                each element in the list is a numpy array, and
+                                the number of elements in the list must match 
+                                the number of entries in key 'axes'. If 'axes'
+                                is set None, 'preX' may be set to a list 
+                                with one element which is a numpy array of ones.
+                                The number of elements in each of the numpy 
+                                arrays must be numpy broadcastable into the 
+                                number of elements along that axis in the 
+                                delay spectrum. 
+                        'preXnorm'
+                                [boolean] If False (default), no normalization
+                                is done after the application of 'preX' weights. 
+                                If set to True, the delay spectrum will be 
+                                normalized by the sum of the weights. 
+                        'postXnorm'
+                                [boolean] If False (default), no normalization
+                                is done after the application of postX weights. 
+                                If set to True, the delay cross power spectrum 
+                                will be normalized by the sum of the weights. 
 
         cosmo   [instance of cosmology class from astropy] An instance of class
                 FLRW or default_cosmology of astropy cosmology module. Default
@@ -1139,10 +1213,10 @@ class ClosurePhaseDelaySpectrum(object):
 
         Output:
 
-        Dictionary with the keys 'triads', 'triads_ind', 'lstbins', 'lst', 'dlst',
-        'lst_ind', 'oversampled' and 'resampled' corresponding to whether 
-        resample was set to False or True in call to member function FT(). 
-        Values under keys 'triads_ind' and 'lst_ind' are numpy array 
+        Dictionary with the keys 'triads', 'triads_ind', 'lstbins', 'lst', 
+        'dlst', 'lst_ind', 'oversampled' and 'resampled' corresponding to 
+        whether resample was set to False or True in call to member function 
+        FT(). Values under keys 'triads_ind' and 'lst_ind' are numpy array 
         corresponding to triad and time indices used in selecting the data. 
         Values under keys 'oversampled' and 'resampled' each contain a 
         dictionary with the following keys and values:
@@ -1176,27 +1250,93 @@ class ClosurePhaseDelaySpectrum(object):
                 pixel is determined by the difference between adjacent pixels 
                 in lags under key 'lags' which in turn is effectively inverse 
                 of the effective bandwidth of the subband specified in bw_eff
-        'mean'  [numpy array] Delay power spectrum incoherently averaged over 
-                the axes specified in incohax using the 'mean' key in input 
-                cpds or attribute cPhaseDS['processed']['dspec'] corresponding 
-                to setting outmode='collapse'. It has
-                shape=(nspw,nlst,ndays,ntriads,nchan). If incohax was set, those 
-                axes will be set to 1. However, if outmode='expand' the full 
-                cross-products are returned. For example, if incohax=[1,3], the 
-                out cross delay power spectrum has shape 
-                (nspw,nlst,nlst,ndays,ntriads,ntriads,nchan). It has units of 
-                Mpc/h. 
+        'mean'  [numpy array] Delay power spectrum incoherently estiamted over 
+                the axes specified in xinfo['axes'] using the 'mean' key in input 
+                cpds or attribute cPhaseDS['processed']['dspec']. It has shape 
+                that depends on the combination of input parameters. See 
+                examples below. If both collapse_axes and avgcov are not set, 
+                those axes will be replaced with square covariance matrices. If 
+                collapse_axes is provided bu avgcov is False, those axes will be 
+                of shape 2*Naxis-1. 
         'median'
                 [numpy array] Delay power spectrum incoherently averaged over 
                 the axes specified in incohax using the 'median' key in input 
-                cpds or attribute cPhaseDS['processed']['dspec'] corresponding 
-                to setting outmode='collapse'. It has
-                shape=(nspw,nlst,ndays,ntriads,nchan). If incohax was set, those 
-                axes will be set to 1. However, if outmode='expand' the full 
-                cross-products are returned. For example, if incohax=[1,3], the 
-                out cross delay power spectrum has shape 
-                (nspw,nlst,nlst,ndays,ntriads,ntriads,nchan). It has units of 
-                Mpc/h. 
+                cpds or attribute cPhaseDS['processed']['dspec']. It has shape 
+                that depends on the combination of input parameters. See 
+                examples below. If both collapse_axes and avgcov are not set, 
+                those axes will be replaced with square covariance matrices. If 
+                collapse_axes is provided bu avgcov is False, those axes will be 
+                of shape 2*Naxis-1. 
+        'diagoffsets' 
+                [list of numpy arrays] A list with one element each for a 
+                corresponding entry in value under key 'collapse_axes' in input.
+                If 'avgcov' was set, those entries will be removed from 
+                'diagoffsets' since all the leading diagonal elements have been
+                collapsed (averaged) further. Each element is a numpy array 
+                where each element in the array corresponds to the index of that
+                leading diagonal. This should match the size of the output along 
+                that axis in 'mean' or 'median' above. 
+        'axesmap'
+                [dictionary] If covariance in cross-power is calculated but is 
+                not collapsed, the number of dimensions in the output will have
+                changed. This parameter tracks where the original axis is now 
+                placed. The keys are the original axes that are involved in 
+                incoherent cross-power, and the values are the new locations of 
+                those original axes in the output. 
+
+        Examples: 
+
+        (1)
+        Input delay spectrum of shape (Nspw, Nlst, Ndays, Ntriads, Nlags)
+        autoinfo = {'axes': 2, 'wts': None}
+        xinfo = {'axes': None, 'avgcov': False, 'collapse_axes': [], 
+                 'wts':{'preX': None, 'preXnorm': False, 
+                        'postX': None, 'postXnorm': False}}
+        Output delay power spectrum has shape (Nspw, Nlst, 1, Ntriads, Nlags)
+
+        (2) 
+        Input delay spectrum of shape (Nspw, Nlst, Ndays, Ntriads, Nlags)
+        autoinfo = {'axes': 2, 'wts': None}
+        xinfo = {'axes': [1,3], 'avgcov': False, 'collapse_axes': [], 
+                 'wts':{'preX': None, 'preXnorm': False, 
+                        'postX': None, 'postXnorm': False}}
+        Output delay power spectrum has shape 
+        (Nspw, Nlst, Nlst, 1, Ntriads, Ntriads, Nlags)
+        diagoffsets = [], axesmap = {1: [1,2], 3: [4,5]}
+
+        (3) 
+        Input delay spectrum of shape (Nspw, Nlst, Ndays, Ntriads, Nlags)
+        autoinfo = {'axes': 2, 'wts': None}
+        xinfo = {'axes': [1,3], 'avgcov': False, 'collapse_axes': [3]}
+        Output delay power spectrum has shape 
+        (Nspw, Nlst, Nlst, 1, 2*Ntriads-1, Nlags)
+        diagoffsets = [NP.arange(-Ntriads,Ntriads)], 
+        axesmap = {1: [1,2], 3: [4]}
+
+        (4) 
+        Input delay spectrum of shape (Nspw, Nlst, Ndays, Ntriads, Nlags)
+        autoinfo = {'axes': None, 'wts': None}
+        xinfo = {'axes': [1,3], 'avgcov': False, 'collapse_axes': [1,3]}
+        Output delay power spectrum has shape 
+        (Nspw, 2*Nlst-1, Ndays, 2*Ntriads-1, Nlags)
+        diagoffsets = [NP.arange(-Ndays,Ndays), NP.arange(-Ntriads,Ntriads)], 
+        axesmap = {1: [1], 3: [3]}
+
+        (5) 
+        Input delay spectrum of shape (Nspw, Nlst, Ndays, Ntriads, Nlags)
+        autoinfo = {'axes': None, 'wts': None}
+        xinfo = {'axes': [1,3], 'avgcov': True, 'collapse_axes': [3]}
+        Output delay power spectrum has shape 
+        (Nspw, Nlst, Nlst, Ndays, 1, Nlags)
+        diagoffsets = [], axesmap = {1: [1,2], 3: [4]}
+
+        (6) 
+        Input delay spectrum of shape (Nspw, Nlst, Ndays, Ntriads, Nlags)
+        autoinfo = {'axes': None, 'wts': None}
+        xinfo = {'axes': [1,3], 'avgcov': True, 'collapse_axes': []}
+        Output delay power spectrum has shape 
+        (Nspw, 1, Ndays, 1, Nlags)
+        diagoffsets = [], axesmap = {1: [1], 3: [3]}
         ------------------------------------------------------------------------
         """
 

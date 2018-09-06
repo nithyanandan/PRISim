@@ -1,3 +1,12 @@
+From 7970b83 (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum, make major updates to docstring to match
+description of input and output correctly
+
 From ba6b657 (closure-adv):
 ==========================
 
