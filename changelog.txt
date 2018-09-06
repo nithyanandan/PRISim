@@ -1,3 +1,12 @@
+From 1ce14c6 (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum, fix bug in the boolean interpretation of
+when avgcov is to be applied or not
+
 From 7970b83 (closure-adv):
 ==========================
 

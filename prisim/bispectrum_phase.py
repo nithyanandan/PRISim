@@ -1569,7 +1569,7 @@ class ClosurePhaseDelaySpectrum(object):
 
                         if xinfo['wts']['postXnorm']:
                             result[dpool][stat] = result[dpool][stat] / NP.sum(postXwts, axis=axes_to_sum, keepdims=True) # Normalize by summing the weights over the collapsed axes
-                        if not xinfo['avgcov']:
+                        if xinfo['avgcov']:
 
                             # collapse the axes further (postXwts have already
                             # been applied)
