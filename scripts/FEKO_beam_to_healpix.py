@@ -260,7 +260,7 @@ if __name__ == '__main__':
                 freqs, theta_list, phi_list, theta, phi, gaindB = read_FEKO(infiles[pi])
                 if gridded and (interp_method == 'spline'):
                     gaindB = NP.transpose(gaindB.reshape(freqs.size,phi.size,theta.size), (0,2,1)) # nchan x ntheta x nphi
-                gains[pol] = NP.copy(gaindB)
+                gains[pol] = NP.copy(gaindB).astype(NP.float64)
     
     hmaps = {pol: [] for pol in pols}
     for pi,pol in enumerate(pols):

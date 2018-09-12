@@ -1,3 +1,10 @@
+From 894f46f (parabolic-cylinder):
+=================================
+
+In scripts/FEKO_beam_to_healpix.py,
+
+(*) Save output beam in double precision
+
 From cc542b4 (parabolic-cylinder):
 =================================
 
