@@ -1,3 +1,15 @@
+From 1d5505c (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add option to specify sky model as 'noise'
+
+In scripts/run_prisim.py,
+
+(*) Accommodate ability to run sky model that looks like random
+Gaussian noise
+
 From 26dbdb0 (master):
 =====================
 

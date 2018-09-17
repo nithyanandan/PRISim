@@ -744,6 +744,7 @@ use_CSM = False
 use_SUMSS = False
 use_GLEAM = False
 use_USM = False
+use_noise = False
 use_MSS = False
 use_custom = False
 use_skymod = False
@@ -753,7 +754,7 @@ use_HI_cube = False
 use_HI_fluctuations = False
 use_MSS=False
 
-if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations', 'skymod_file']:
+if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'noise', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations', 'skymod_file']:
     raise ValueError('Invalid foreground model string specified.')
 
 if fg_str == 'asm':
@@ -774,6 +775,8 @@ elif fg_str == 'nvss':
     use_NVSS = True
 elif fg_str == 'usm':
     use_USM = True
+elif fg_str == 'noise':
+    use_noise = True
 elif fg_str == 'HI_monopole':
     use_HI_monopole = True
 elif fg_str == 'HI_fluctuations':
@@ -962,7 +965,6 @@ if spindex_seed is not None:
     if not isinstance(spindex_seed, (int, float)):
         raise TypeError('Spectral index random seed must be a scalar')
     spindex_seed_str = '{0:0d}_'.format(spindex_seed)
-
 
 if use_HI_fluctuations or use_HI_cube:
     # if freq_resolution != 80e3:
@@ -1242,6 +1244,21 @@ elif use_USM:
     # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes_USM.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
   
+elif use_noise:
+    pixres = HP.nside2pixarea(nside)
+    npix = HP.nside2npix(nside)
+    theta, phi = HP.pix2ang(nside, NP.arange(npix))
+    dec = NP.pi/2 - theta
+    flux_unit = 'Jy'
+    spec_type = 'spectrum'
+    majax = NP.degrees(HP.nside2resol(nside)) * NP.ones(npix)
+    minax = NP.degrees(HP.nside2resol(nside)) * NP.ones(npix)
+    skyspec = NP.random.randn(npix,chans.size) * (2.0 * FCNST.k * (1e9*chans.reshape(1,-1) / FCNST.c)**2) * pixres / CNST.Jy
+    spec_parms = {}
+    catlabel = 'noise-sky'
+    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((NP.degrees(phi).reshape(-1,1), NP.degrees(dec).reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'spectrum': skyspec, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(npix).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+
 elif use_CSM:
     freq_SUMSS = 0.843 # in GHz
     catalog = NP.loadtxt(SUMSS_file, usecols=(0,1,2,3,4,5,10,12,13,14,15,16))
