@@ -1575,8 +1575,14 @@ class ClosurePhaseDelaySpectrum(object):
                             # been applied)
 
                             result[dpool][stat] = NP.nanmean(result[dpool][stat], axis=axes_to_sum, keepdims=True)
-                            for colaxind, colax in enumerate(xinfo['collapse_axes']):
+                            for colaxind in zip(*sorted(zip(NP.arange(xinfo['collapse_axes'].size), xinfo['collapse_axes']), reverse=True))[0]:
+
+                                # It is import to sort the collapsable axes in
+                                # reverse order before deleting elements below,
+                                # otherwise the axes ordering may be get messed up
+
                                 del diagoffsets[colaxind]
+
                 else:
                     result[dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec.ndim-1, dtype=NP.int))) * NP.abs(dspec)**2
                     diagoffsets = []
