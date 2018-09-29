@@ -533,9 +533,46 @@ class ClosurePhase(object):
                 self.cpinfo['processed']['prelim']['cphase']['rms'] = MA.array(cp_trms, mask=mask)
                 self.cpinfo['processed']['prelim']['cphase']['mad'] = MA.array(cp_tmad, mask=mask)
 
+    # ############################################################################
+
+    # def subtract(self, cpObj=None, cpInfo=None):
+
+    #     """
+    #     ------------------------------------------------------------------------
+    #     Subtract closure phase from the current instance
+
+    #     Inputs:
+
+    #     cpObj       [instance of class ClosurePhase (optional)] Must be an 
+    #                 instance of class ClosurePhase. One and only one of cpObj
+    #                 and cpInfo must be set
+
+    #     cpInfo      [dictionary] Holds closure phase information with the same
+    #                 structure as attribute cpinfo of class ClosurePhase. One 
+    #                 and only one of cpObj and cpInof must be set. 
+
+    #     Output:
+
+    #     cpOut       [instance of class ClosurePhase] An instance of class 
+    #                 ClosurePhase with the specified closure phase removed from
+    #                 the original instance
+    #     ------------------------------------------------------------------------
+    #     """
+
+    #     if (cpObj is None) and (cpInfo is None):
+    #         raise NameError('One and only one of the inputs cpObj and cpInfo must be specified')
+
+    #     if (cpObj is not None) and (cpInfo is not None):
+    #         raise NameError('One and only one of the inputs cpObj and cpInfo must be specified')
+
+    #     if cpInfo is not None:
+    #         pass
+    #     else:
+    #         cpInfo = cpObj.cpinfo
+        
     ############################################################################
 
-    def save(outfile=None):
+    def save(self, outfile=None):
 
         """
         ------------------------------------------------------------------------
