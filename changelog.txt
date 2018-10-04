@@ -1,3 +1,11 @@
+From 0cf9822 (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Add member function subtract() along with docstring under class
+ClosurePhase. Update class docstring accordingly
+
 From 8668be2 (closure-adv):
 ==========================
 

@@ -240,8 +240,9 @@ class ClosurePhase(object):
                     'triads' (ntriads,3), 'lst' (nlst,ndays), and 'flags' 
                     (nlst,ndays,ntriads,nchan). 
 
-                    Under the 'processed' key are two subkeys, namely, 'native' 
-                    and 'prelim' each holding a dictionary. 
+                    Under the 'processed' key are more subkeys, namely, 
+                    'native', 'prelim', and optionally 'submodel' and 'residual' 
+                    each holding a dictionary. 
                         Under 'native' dictionary, the subsubkeys for further 
                         dictionaries are 'cphase' (masked array: 
                         (nlst,ndays,ntriads,nchan)), 'eicp' (complex masked 
@@ -264,6 +265,22 @@ class ClosurePhase(object):
                         'mad' (masked array: (ntbins,ndays,ntriads,nchan)). The
                         last one denotes Median Absolute Deviation.
 
+                        Under 'submodel' dictionary, the subsubkeys for further
+                        dictionaries are 'cphase' (masked array: 
+                        (nlst,ndays,ntriads,nchan)), and 'eicp' (complex masked 
+                        array: (nlst,ndays,ntriads,nchan)). 
+
+                        Under 'residual' dictionary, the subsubkeys for further
+                        dictionaries are 'cphase' and 'eicp'. These are 
+                        dictionaries too. The dictionaries under 'eicp' are 
+                        indexed by keys 'mean' (complex masked array: 
+                        (ntbins,ndays,ntriads,nchan)), and 'median' (complex
+                        masked array: (ntbins,ndays,ntriads,nchan)). 
+                        The dictionaries under 'cphase' are indexed by keys
+                        'mean' (masked array: (ntbins,ndays,ntriads,nchan)), 
+                        and 'median' (masked array: 
+                        (ntbins,ndays,ntriads,nchan)).
+
     Member functions:
 
     __init__()      Initialize an instance of class ClosurePhase
@@ -274,6 +291,10 @@ class ClosurePhase(object):
     smooth_in_tbins()
                     Smooth the complex exponentials of closure phases in LST  
                     bins. Both mean and median smoothing is produced.
+
+    subtract()      Subtract bispectrum phase from the current instance and 
+                    updates the cpinfo attribute
+
 
     save()          Save contents of attribute cpinfo in external HDF5 file
     ----------------------------------------------------------------------------
@@ -533,42 +554,48 @@ class ClosurePhase(object):
                 self.cpinfo['processed']['prelim']['cphase']['rms'] = MA.array(cp_trms, mask=mask)
                 self.cpinfo['processed']['prelim']['cphase']['mad'] = MA.array(cp_tmad, mask=mask)
 
-    # ############################################################################
+    ############################################################################
 
-    # def subtract(self, cpObj=None, cpInfo=None):
+    def subtract(self, cphase):
 
-    #     """
-    #     ------------------------------------------------------------------------
-    #     Subtract closure phase from the current instance
+        """
+        ------------------------------------------------------------------------
+        Subtract bispectrum phase from the current instance and updates the 
+        cpinfo attribute
 
-    #     Inputs:
+        Inputs:
 
-    #     cpObj       [instance of class ClosurePhase (optional)] Must be an 
-    #                 instance of class ClosurePhase. One and only one of cpObj
-    #                 and cpInfo must be set
+        cphase      [masked array] Bispectrum phase array as a maked array. It 
+                    must be of same size as freqs along the axis specified in 
+                    input axis.
 
-    #     cpInfo      [dictionary] Holds closure phase information with the same
-    #                 structure as attribute cpinfo of class ClosurePhase. One 
-    #                 and only one of cpObj and cpInof must be set. 
+        Action:     Updates 'submodel' and 'residual' keys under attribute
+                    cpinfo under key 'processed'
+        ------------------------------------------------------------------------
+        """
 
-    #     Output:
-
-    #     cpOut       [instance of class ClosurePhase] An instance of class 
-    #                 ClosurePhase with the specified closure phase removed from
-    #                 the original instance
-    #     ------------------------------------------------------------------------
-    #     """
-
-    #     if (cpObj is None) and (cpInfo is None):
-    #         raise NameError('One and only one of the inputs cpObj and cpInfo must be specified')
-
-    #     if (cpObj is not None) and (cpInfo is not None):
-    #         raise NameError('One and only one of the inputs cpObj and cpInfo must be specified')
-
-    #     if cpInfo is not None:
-    #         pass
-    #     else:
-    #         cpInfo = cpObj.cpinfo
+        if not isinstance(cphase, NP.ndarray):
+            raise TypeError('Input cphase must be a numpy array')
+        
+        if not isinstance(cphase, MA.MaskedArray):
+            cphase = MA.array(cphase, mask=NP.isnan(cphase))
+    
+        if not OPS.is_broadcastable(cphase.shape, self.cpinfo['processed']['prelim']['cphase']['median'].shape):
+            raise ValueError('Input cphase has shape incompatible with that in instance attribute')
+        else:
+            minshape = tuple(NP.ones(self.cpinfo['processed']['prelim']['cphase']['median'].ndim - cphase.ndim, dtype=NP.int)) + cphase.shape
+            cphase = cphase.reshape(minshape)
+            # cphase = NP.broadcast_to(cphase, minshape)
+    
+        eicp = NP.exp(1j*cphase)
+        
+        self.cpinfo['processed']['submodel'] = {}
+        self.cpinfo['processed']['submodel']['cphase'] = cphase
+        self.cpinfo['processed']['submodel']['eicp'] = eicp
+        self.cpinfo['processed']['residual'] = {'eicp': {}, 'cphase': {}}
+        for key in ['mean', 'median']:
+            self.cpinfo['processed']['residual']['eicp'][key] = self.cpinfo['processed']['prelim']['eicp'][key] / eicp
+            self.cpinfo['processed']['residual']['cphase'][key] = MA.array(NP.angle(self.cpinfo['processed']['residual']['eicp'][key].data), mask=self.cpinfo['processed']['residual']['eicp'][key].mask)
         
     ############################################################################
 
