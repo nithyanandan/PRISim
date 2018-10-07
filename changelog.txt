@@ -1,3 +1,11 @@
+From 708a945 (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Remove comments in member function FT() of class
+ClosurePhaseDelaySpectrum
+
 From 817f6a7 (closure-adv):
 ==========================
 

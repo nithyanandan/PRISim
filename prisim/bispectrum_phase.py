@@ -994,20 +994,6 @@ class ClosurePhaseDelaySpectrum(object):
                                     result[dpool]['dspec'][key] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale, ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                 result['lag_kernel'] = DSP.FT1D(NP.pad(flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
 
-                # for key in self.cPhase.cpinfo['processed'][datapool]['eicp']:
-                #     eicp = NP.copy(self.cPhase.cpinfo['processed'][datapool]['eicp'][key].data)
-                #     eicp = eicp[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
-
-                #     if apply_flags:
-                #         flagwts = NP.copy(self.cPhase.cpinfo['processed'][datapool]['wts'].data)
-                #         flagwts = flagwts[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
-                #         flagwts = 1.0 * flagwts / NP.mean(flagwts, axis=-1, keepdims=True) # (nspw=1) x nlst x ndays x ntriads x nchan
-
-                #     ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
-                #     result['whole']['dspec'][key] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale, ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-                # # result['lag_kernel'] = DSP.FT1D(NP.pad(freq_wts, [(0,0), (0,npad)], mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-                # result['lag_kernel'] = DSP.FT1D(NP.pad(flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-
             self.cPhaseDS = result
             if resample:
                 result_resampled = copy.deepcopy(result)
@@ -1025,9 +1011,6 @@ class ClosurePhaseDelaySpectrum(object):
                                     result_resampled['whole']['dspec'][key] = DSP.downsampler(result_resampled['whole']['dspec'][key], downsample_factor, axis=-1, method='FFT')
                                 else:
                                     result_resampled[dpool]['dspec'][key] = DSP.downsampler(result_resampled[dpool]['dspec'][key], downsample_factor, axis=-1, method='FFT')
-
-                # for key in self.cPhase.cpinfo['processed'][datapool]['eicp']:
-                #     result_resampled['whole']['dspec'][key] = DSP.downsampler(result_resampled['whole']['dspec'][key], downsample_factor, axis=-1, method='FFT')
 
                 self.cPhaseDS_resampled = result_resampled
                 return result_resampled
