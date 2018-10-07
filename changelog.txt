@@ -1,3 +1,11 @@
+From bb0ef3c (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Update docstring of member function FT() of class
+ClosurePhaseDelaySpectrum
+
 From 708a945 (closure-adv):
 ==========================
 

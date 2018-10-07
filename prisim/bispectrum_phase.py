@@ -836,7 +836,32 @@ class ClosurePhaseDelaySpectrum(object):
                         in lags under key 'lags' which in turn is 
                         effectively inverse of the effective bandwidth of 
                         the subband specified in bw_eff
-        'processed'     [dictionary] Contains the following keys and values:
+        'whole'         [dictionary] Delay spectrum results corresponding to 
+                        bispectrum phase in 'prelim' key of attribute cpinfo. 
+                        Contains the following keys and values:
+                        'dspec' [dictionary] Contains the following keys and 
+                                values:
+                                'twts'  [numpy array] Weights from time-based
+                                        flags that went into time-averaging.
+                                        Shape=(nlst,ndays,ntriads,nchan)
+                                'mean'  [numpy array] Delay spectrum of closure
+                                        phases based on their mean across time
+                                        intervals. 
+                                        Shape=(nspw,nlst,ndays,ntriads,nlags)
+                                'median'
+                                        [numpy array] Delay spectrum of closure
+                                        phases based on their median across time
+                                        intervals. 
+                                        Shape=(nspw,nlst,ndays,ntriads,nlags)
+        'submodel'      [dictionary] Delay spectrum results corresponding to 
+                        bispectrum phase in 'submodel' key of attribute cpinfo. 
+                        Contains the following keys and values:
+                        'dspec' [numpy array] Delay spectrum of closure phases 
+                                Shape=(nspw,nlst,ndays,ntriads,nlags)
+        'residual'      [dictionary] Delay spectrum results corresponding to 
+                        bispectrum phase in 'residual' key of attribute cpinfo
+                        after subtracting 'submodel' bispectrum phase from that
+                        of 'prelim'. It contains the following keys and values:
                         'dspec' [dictionary] Contains the following keys and 
                                 values:
                                 'twts'  [numpy array] Weights from time-based
