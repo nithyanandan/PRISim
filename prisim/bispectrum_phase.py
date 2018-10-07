@@ -964,25 +964,49 @@ class ClosurePhaseDelaySpectrum(object):
         
                 npad = int(self.f.size * pad)
                 lags = DSP.spectral_axis(self.f.size + npad, delx=self.df, use_real=False, shift=True)
-                result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'fftpow': fftpow, 'npad': npad, 'lags': lags, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=-1), 'processed': {'dspec': {'twts': self.cPhase.cpinfo['processed'][datapool]['wts']}}}
+                result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'fftpow': fftpow, 'npad': npad, 'lags': lags, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=-1), 'whole': {'dspec': {'twts': self.cPhase.cpinfo['processed'][datapool]['wts']}}, 'residual': {'dspec': {'twts': self.cPhase.cpinfo['processed'][datapool]['wts']}}, 'submodel': {}}
     
-                for key in self.cPhase.cpinfo['processed'][datapool]['eicp']:
-                    eicp = NP.copy(self.cPhase.cpinfo['processed'][datapool]['eicp'][key].data)
-                    eicp = eicp[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
+                if visscaleinfo is not None:
+                    visscale = NP.nansum(NP.transpose(vis_ref[NP.newaxis,NP.newaxis,:,:,:], axes=(0,3,1,2,4)) * freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], axis=-1, keepdims=True) / NP.nansum(freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], axis=-1, keepdims=True) # nspw x nlst x (ndays=1) x ntriads x (nchan=1)
+                    visscale = NP.sqrt(1.0/NP.nansum(1/NP.abs(visscale)**2, axis=-2, keepdims=True)) # nspw x nlst x (ndays=1) x (ntriads=1) x (nchan=1)
 
-                    if apply_flags:
-                        flagwts = NP.copy(self.cPhase.cpinfo['processed'][datapool]['wts'].data)
-                        flagwts = flagwts[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
-                        flagwts = 1.0 * flagwts / NP.mean(flagwts, axis=-1, keepdims=True) # (nspw=1) x nlst x ndays x ntriads x nchan
+                for dpool in ['prelim', 'submodel', 'residual']:
+                    if dpool in self.cPhase.cpinfo['processed']:
+                        if apply_flags:
+                            flagwts = NP.copy(self.cPhase.cpinfo['processed'][datapool]['wts'].data)
+                            flagwts = flagwts[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
+                            flagwts = 1.0 * flagwts / NP.mean(flagwts, axis=-1, keepdims=True) # (nspw=1) x nlst x ndays x ntriads x nchan
 
-                    if visscaleinfo is not None:
-                        visscale = NP.nansum(NP.transpose(vis_ref[NP.newaxis,NP.newaxis,:,:,:], axes=(0,3,1,2,4)) * freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], axis=-1, keepdims=True) / NP.nansum(freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], axis=-1, keepdims=True) # nspw x nlst x (ndays=1) x ntriads x (nchan=1)
-                        visscale = NP.sqrt(1.0/NP.nansum(1/NP.abs(visscale)**2, axis=-2, keepdims=True)) # nspw x nlst x (ndays=1) x (ntriads=1) x (nchan=1)
-
-                    ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
-                    result['processed']['dspec'][key] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale, ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
-                # result['lag_kernel'] = DSP.FT1D(NP.pad(freq_wts, [(0,0), (0,npad)], mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                        if dpool == 'submodel':
+                            eicp = NP.copy(self.cPhase.cpinfo['processed'][dpool]['eicp'].data) # Minimum shape as stored
+                            eicp = NP.broadcast_to(eicp, self.cPhase.cpinfo['processed'][datapool]['eicp']['mean'].shape) # Broadcast to final shape
+                            eicp = eicp[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
+                            ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
+                            result[dpool]['dspec'] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale, ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                        else:
+                            for key in self.cPhase.cpinfo['processed'][dpool]['eicp']:
+                                eicp = NP.copy(self.cPhase.cpinfo['processed'][dpool]['eicp'][key].data)
+                                eicp = eicp[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
+                                ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
+                                if dpool == 'prelim':
+                                    result['whole']['dspec'][key] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale, ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                                else:
+                                    result[dpool]['dspec'][key] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale, ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                 result['lag_kernel'] = DSP.FT1D(NP.pad(flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+
+                # for key in self.cPhase.cpinfo['processed'][datapool]['eicp']:
+                #     eicp = NP.copy(self.cPhase.cpinfo['processed'][datapool]['eicp'][key].data)
+                #     eicp = eicp[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
+
+                #     if apply_flags:
+                #         flagwts = NP.copy(self.cPhase.cpinfo['processed'][datapool]['wts'].data)
+                #         flagwts = flagwts[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
+                #         flagwts = 1.0 * flagwts / NP.mean(flagwts, axis=-1, keepdims=True) # (nspw=1) x nlst x ndays x ntriads x nchan
+
+                #     ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
+                #     result['whole']['dspec'][key] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale, ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                # # result['lag_kernel'] = DSP.FT1D(NP.pad(freq_wts, [(0,0), (0,npad)], mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                # result['lag_kernel'] = DSP.FT1D(NP.pad(flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
 
             self.cPhaseDS = result
             if resample:
@@ -990,8 +1014,21 @@ class ClosurePhaseDelaySpectrum(object):
                 downsample_factor = NP.min((self.f.size + npad) * self.df / bw_eff)
                 result_resampled['lags'] = DSP.downsampler(result_resampled['lags'], downsample_factor, axis=-1, method='interp', kind='linear')
                 result_resampled['lag_kernel'] = DSP.downsampler(result_resampled['lag_kernel'], downsample_factor, axis=-1, method='interp', kind='linear')
-                for key in self.cPhase.cpinfo['processed'][datapool]['eicp']:
-                    result_resampled['processed']['dspec'][key] = DSP.downsampler(result_resampled['processed']['dspec'][key], downsample_factor, axis=-1, method='FFT')
+
+                for dpool in ['prelim', 'submodel', 'residual']:
+                    if dpool in self.cPhase.cpinfo['processed']:
+                        if dpool == 'submodel':
+                            result_resampled[dpool]['dspec'] = DSP.downsampler(result_resampled[dpool]['dspec'], downsample_factor, axis=-1, method='FFT')
+                        else:
+                            for key in self.cPhase.cpinfo['processed'][datapool]['eicp']:
+                                if dpool == 'prelim':
+                                    result_resampled['whole']['dspec'][key] = DSP.downsampler(result_resampled['whole']['dspec'][key], downsample_factor, axis=-1, method='FFT')
+                                else:
+                                    result_resampled[dpool]['dspec'][key] = DSP.downsampler(result_resampled[dpool]['dspec'][key], downsample_factor, axis=-1, method='FFT')
+
+                # for key in self.cPhase.cpinfo['processed'][datapool]['eicp']:
+                #     result_resampled['whole']['dspec'][key] = DSP.downsampler(result_resampled['whole']['dspec'][key], downsample_factor, axis=-1, method='FFT')
+
                 self.cPhaseDS_resampled = result_resampled
                 return result_resampled
             else:
