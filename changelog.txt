@@ -1,3 +1,11 @@
+From f099889 (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Minor update in member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum
+
 From bb0ef3c (closure-adv):
 ==========================
 

@@ -1553,41 +1553,41 @@ class ClosurePhaseDelaySpectrum(object):
 
         if cpds is None:
             cpds = {}
-            datapool = ['oversampled', 'resampled']
-            for dpool in datapool:
-                if dpool == 'oversampled':
-                    cpds[dpool] = copy.deepcopy(self.cPhaseDS)
+            sampling = ['oversampled', 'resampled']
+            for smplng in sampling:
+                if smplng == 'oversampled':
+                    cpds[smplng] = copy.deepcopy(self.cPhaseDS)
                 else:
-                    cpds[dpool] = copy.deepcopy(self.cPhaseDS_resampled)
+                    cpds[smplng] = copy.deepcopy(self.cPhaseDS_resampled)
 
         triad_ind, lst_ind, day_ind = self.subset(selection=selection)
 
         result = {'triads': self.cPhase.cpinfo['raw']['triads'][triad_ind], 'triads_ind': triad_ind, 'lst': self.cPhase.cpinfo['processed']['prelim']['lstbins'][lst_ind], 'lst_ind': lst_ind, 'dlst': self.cPhase.cpinfo['processed']['prelim']['dlstbins'][lst_ind], 'days': self.cPhase.cpinfo['processed']['prelim']['daybins'][day_ind], 'day_ind': day_ind, 'dday': self.cPhase.cpinfo['processed']['prelim']['diff_dbins'][day_ind]}
-        for dpool in datapool:
-            result[dpool] = {}
+        for smplng in sampling:
+            result[smplng] = {}
                 
-            wl = FCNST.c / cpds[dpool]['freq_center']
-            z = CNST.rest_freq_HI / cpds[dpool]['freq_center'] - 1
-            dz = CNST.rest_freq_HI / cpds[dpool]['freq_center']**2 * cpds[dpool]['bw_eff']
+            wl = FCNST.c / cpds[smplng]['freq_center']
+            z = CNST.rest_freq_HI / cpds[smplng]['freq_center'] - 1
+            dz = CNST.rest_freq_HI / cpds[smplng]['freq_center']**2 * cpds[smplng]['bw_eff']
             dkprll_deta = DS.dkprll_deta(z, cosmo=cosmo)
-            kprll = dkprll_deta.reshape(-1,1) * cpds[dpool]['lags']
+            kprll = dkprll_deta.reshape(-1,1) * cpds[smplng]['lags']
 
-            drz_los = (FCNST.c/1e3) * cpds[dpool]['bw_eff'] * (1+z)**2 / CNST.rest_freq_HI / cosmo.H0.value / cosmo.efunc(z)   # in Mpc/h
-            jacobian1 = 1 / cpds[dpool]['bw_eff']
-            jacobian2 = drz_los / cpds[dpool]['bw_eff']
+            drz_los = (FCNST.c/1e3) * cpds[smplng]['bw_eff'] * (1+z)**2 / CNST.rest_freq_HI / cosmo.H0.value / cosmo.efunc(z)   # in Mpc/h
+            jacobian1 = 1 / cpds[smplng]['bw_eff']
+            jacobian2 = drz_los / cpds[smplng]['bw_eff']
             factor = jacobian1 * jacobian2
 
-            result[dpool]['z'] = z
-            result[dpool]['kprll'] = kprll
-            result[dpool]['lags'] = NP.copy(cpds[dpool]['lags'])
-            result[dpool]['freq_center'] = cpds[dpool]['freq_center']
-            result[dpool]['bw_eff'] = cpds[dpool]['bw_eff']
-            result[dpool]['shape'] = cpds[dpool]['shape']
-            result[dpool]['freq_wts'] = cpds[dpool]['freq_wts']
-            result[dpool]['lag_corr_length'] = cpds[dpool]['lag_corr_length']
+            result[smplng]['z'] = z
+            result[smplng]['kprll'] = kprll
+            result[smplng]['lags'] = NP.copy(cpds[smplng]['lags'])
+            result[smplng]['freq_center'] = cpds[smplng]['freq_center']
+            result[smplng]['bw_eff'] = cpds[smplng]['bw_eff']
+            result[smplng]['shape'] = cpds[smplng]['shape']
+            result[smplng]['freq_wts'] = cpds[smplng]['freq_wts']
+            result[smplng]['lag_corr_length'] = cpds[smplng]['lag_corr_length']
 
             for stat in ['mean', 'median']:
-                inpshape = list(cpds[dpool]['processed']['dspec'][stat].shape)
+                inpshape = list(cpds[smplng]['processed']['dspec'][stat].shape)
                 inpshape[1] = lst_ind.size
                 inpshape[2] = day_ind.size
                 inpshape[3] = triad_ind.size
@@ -1602,12 +1602,12 @@ class ClosurePhaseDelaySpectrum(object):
                     nsamples_incoh = 1
                 twts_multidim_idx = NP.ix_(lst_ind,day_ind,triad_ind,NP.arange(1)) # shape=(nlst,ndays,ntriads,nchan)
                 dspec_multidim_idx = NP.ix_(NP.arange(wl.size),lst_ind,day_ind,triad_ind,NP.arange(inpshape[4])) # shape=(nspw,nlst,ndays,ntriads,nchan)
-                max_wt_in_chan = NP.max(NP.sum(cpds[dpool]['processed']['dspec']['twts'].data, axis=(0,1,2)))
-                select_chan = NP.argmax(NP.sum(cpds[dpool]['processed']['dspec']['twts'].data, axis=(0,1,2)))
-                twts = NP.copy(cpds[dpool]['processed']['dspec']['twts'].data[:,:,:,[select_chan]]) # shape=(nspw=1,nlst,ndays,ntriads,nlags=1)
-                dspec = NP.copy(cpds[dpool]['processed']['dspec'][stat][dspec_multidim_idx])
+                max_wt_in_chan = NP.max(NP.sum(cpds[smplng]['processed']['dspec']['twts'].data, axis=(0,1,2)))
+                select_chan = NP.argmax(NP.sum(cpds[smplng]['processed']['dspec']['twts'].data, axis=(0,1,2)))
+                twts = NP.copy(cpds[smplng]['processed']['dspec']['twts'].data[:,:,:,[select_chan]]) # shape=(nspw=1,nlst,ndays,ntriads,nlags=1)
+                dspec = NP.copy(cpds[smplng]['processed']['dspec'][stat][dspec_multidim_idx])
                 if nsamples_coh > 1:
-                    awts_shape = tuple(NP.ones(cpds[dpool]['processed']['dspec'][stat].ndim, dtype=NP.int))
+                    awts_shape = tuple(NP.ones(cpds[smplng]['processed']['dspec'][stat].ndim, dtype=NP.int))
                     awts = NP.ones(awts_shape, dtype=NP.complex)
                     awts_shape = NP.asarray(awts_shape)
                     for caxind,caxis in enumerate(autoinfo['axes']):
@@ -1615,9 +1615,9 @@ class ClosurePhaseDelaySpectrum(object):
                         curr_awts_shape[caxis] = -1
                         awts = awts * autoinfo['wts'][caxind].reshape(tuple(curr_awts_shape))
                     if stat == 'mean':
-                        dspec = NP.sum(twts[twts_multidim_idx][NP.newaxis,...] * awts * cpds[dpool]['processed']['dspec'][stat][dspec_multidim_idx], axis=cohax, keepdims=True) / NP.sum(twts[twts_multidim_idx][NP.newaxis,...] * awts, axis=cohax, keepdims=True)
+                        dspec = NP.sum(twts[twts_multidim_idx][NP.newaxis,...] * awts * cpds[smplng]['processed']['dspec'][stat][dspec_multidim_idx], axis=cohax, keepdims=True) / NP.sum(twts[twts_multidim_idx][NP.newaxis,...] * awts, axis=cohax, keepdims=True)
                     else:
-                        dspec = NP.median(cpds[dpool]['processed']['dspec'][stat][dspec_multidim_idx], axis=cohax, keepdims=True)
+                        dspec = NP.median(cpds[smplng]['processed']['dspec'][stat][dspec_multidim_idx], axis=cohax, keepdims=True)
                 if nsamples_incoh > 1:
                     expandax_map = {}
                     wts_shape = tuple(NP.ones(dspec.ndim, dtype=NP.int))
@@ -1644,9 +1644,9 @@ class ClosurePhaseDelaySpectrum(object):
                     # for incaxind,incax in enumerate(NP.sort(incohax)):
                     #     expandax_map[]
                         
-                    result[dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec1.ndim-1, dtype=NP.int))) * (dspec1 * preXwts1) * (dspec2 * preXwts2).conj()
+                    result[smplng][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec1.ndim-1, dtype=NP.int))) * (dspec1 * preXwts1) * (dspec2 * preXwts2).conj()
                     if xinfo['wts']['preXnorm']:
-                        result[dpool][stat] = result[dpool][stat] / NP.sum(preXwts1 * preXwts2.conj(), axis=NP.union1d(NP.where(logical_or(NP.asarray(preXwts1.shape)>1, NP.asarray(preXwts2.shape)>1))), keepdims=True) # Normalize by summing the weights over the expanded axes
+                        result[smplng][stat] = result[smplng][stat] / NP.sum(preXwts1 * preXwts2.conj(), axis=NP.union1d(NP.where(logical_or(NP.asarray(preXwts1.shape)>1, NP.asarray(preXwts2.shape)>1))), keepdims=True) # Normalize by summing the weights over the expanded axes
 
                     if (len(xinfo['collapse_axes']) > 0) or (xinfo['avgcov']):
 
@@ -1655,7 +1655,7 @@ class ClosurePhaseDelaySpectrum(object):
 
                         diagoffsets = [] # Stores the correlation index difference along each axis.
                         for colaxind, colax in enumerate(xinfo['collapse_axes']):
-                            result[dpool][stat], offsets = OPS.array_trace(result[dpool][stat], offsets=None, axis1=expandax_map[colax][0], axis2=expandax_map[colax][1], outaxis='axis1')
+                            result[smplng][stat], offsets = OPS.array_trace(result[smplng][stat], offsets=None, axis1=expandax_map[colax][0], axis2=expandax_map[colax][1], outaxis='axis1')
                             for ekey in expandax_map:
                                 if ekey > colax:
                                     expandax_map[ekey] -= 1
@@ -1664,7 +1664,7 @@ class ClosurePhaseDelaySpectrum(object):
                             diagoffsets += [offsets]
 
 
-                        wts_shape = tuple(NP.ones(result[dpool][stat].ndim, dtype=NP.int))
+                        wts_shape = tuple(NP.ones(result[smplng][stat].ndim, dtype=NP.int))
                         postXwts = NP.ones(wts_shape, dtype=NP.complex)
                         wts_shape = NP.asarray(wts_shape)
                         for colaxind, colax in enumerate(xinfo['collapse_axes']):
@@ -1672,18 +1672,18 @@ class ClosurePhaseDelaySpectrum(object):
                             curr_wts_shape[expandax_map[colax]] = -1
                             postXwts = postXwts * xinfo['wts']['postX'][colaxind].reshape(tuple(curr_wts_shape))
                             
-                        result[dpool][stat] = result[dpool][stat] * postXwts
+                        result[smplng][stat] = result[smplng][stat] * postXwts
 
                         axes_to_sum = tuple(NP.asarray([expandax_map[colax] for colax in xinfo['collapse_axes']]).ravel())
 
                         if xinfo['wts']['postXnorm']:
-                            result[dpool][stat] = result[dpool][stat] / NP.sum(postXwts, axis=axes_to_sum, keepdims=True) # Normalize by summing the weights over the collapsed axes
+                            result[smplng][stat] = result[smplng][stat] / NP.sum(postXwts, axis=axes_to_sum, keepdims=True) # Normalize by summing the weights over the collapsed axes
                         if xinfo['avgcov']:
 
                             # collapse the axes further (postXwts have already
                             # been applied)
 
-                            result[dpool][stat] = NP.nanmean(result[dpool][stat], axis=axes_to_sum, keepdims=True)
+                            result[smplng][stat] = NP.nanmean(result[smplng][stat], axis=axes_to_sum, keepdims=True)
                             for colaxind in zip(*sorted(zip(NP.arange(xinfo['collapse_axes'].size), xinfo['collapse_axes']), reverse=True))[0]:
 
                                 # It is import to sort the collapsable axes in
@@ -1693,15 +1693,15 @@ class ClosurePhaseDelaySpectrum(object):
                                 del diagoffsets[colaxind]
 
                 else:
-                    result[dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec.ndim-1, dtype=NP.int))) * NP.abs(dspec)**2
+                    result[smplng][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec.ndim-1, dtype=NP.int))) * NP.abs(dspec)**2
                     diagoffsets = []
                     expandax_map = {}
 
-            result[dpool]['diagoffsets'] = diagoffsets
-            result[dpool]['axesmap'] = expandax_map
+            result[smplng]['diagoffsets'] = diagoffsets
+            result[smplng]['axesmap'] = expandax_map
 
-            result[dpool]['nsamples_incoh'] = nsamples_incoh
-            result[dpool]['nsamples_coh'] = nsamples_coh
+            result[smplng]['nsamples_incoh'] = nsamples_incoh
+            result[smplng]['nsamples_coh'] = nsamples_coh
             
         return result
 
