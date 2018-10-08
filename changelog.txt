@@ -1,3 +1,12 @@
+From aaf29f9 (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Major updates to member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum. Now computes under three data pools, namely,
+"whole", "submodel", and "residual". Docstring yet to be updated.
+
 From f099889 (closure-adv):
 ==========================
 

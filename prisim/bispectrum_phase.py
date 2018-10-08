@@ -1586,122 +1586,245 @@ class ClosurePhaseDelaySpectrum(object):
             result[smplng]['freq_wts'] = cpds[smplng]['freq_wts']
             result[smplng]['lag_corr_length'] = cpds[smplng]['lag_corr_length']
 
-            for stat in ['mean', 'median']:
-                inpshape = list(cpds[smplng]['processed']['dspec'][stat].shape)
-                inpshape[1] = lst_ind.size
-                inpshape[2] = day_ind.size
-                inpshape[3] = triad_ind.size
-                if len(cohax) > 0:
-                    nsamples_coh = NP.prod(NP.asarray(inpshape)[NP.asarray(cohax)])
-                else:
-                    nsamples_coh = 1
-                if len(incohax) > 0:
-                    nsamples = NP.prod(NP.asarray(inpshape)[NP.asarray(incohax)])
-                    nsamples_incoh = nsamples * (nsamples - 1)
-                else:
-                    nsamples_incoh = 1
-                twts_multidim_idx = NP.ix_(lst_ind,day_ind,triad_ind,NP.arange(1)) # shape=(nlst,ndays,ntriads,nchan)
-                dspec_multidim_idx = NP.ix_(NP.arange(wl.size),lst_ind,day_ind,triad_ind,NP.arange(inpshape[4])) # shape=(nspw,nlst,ndays,ntriads,nchan)
-                max_wt_in_chan = NP.max(NP.sum(cpds[smplng]['processed']['dspec']['twts'].data, axis=(0,1,2)))
-                select_chan = NP.argmax(NP.sum(cpds[smplng]['processed']['dspec']['twts'].data, axis=(0,1,2)))
-                twts = NP.copy(cpds[smplng]['processed']['dspec']['twts'].data[:,:,:,[select_chan]]) # shape=(nspw=1,nlst,ndays,ntriads,nlags=1)
-                dspec = NP.copy(cpds[smplng]['processed']['dspec'][stat][dspec_multidim_idx])
-                if nsamples_coh > 1:
-                    awts_shape = tuple(NP.ones(cpds[smplng]['processed']['dspec'][stat].ndim, dtype=NP.int))
-                    awts = NP.ones(awts_shape, dtype=NP.complex)
-                    awts_shape = NP.asarray(awts_shape)
-                    for caxind,caxis in enumerate(autoinfo['axes']):
-                        curr_awts_shape = NP.copy(awts_shape)
-                        curr_awts_shape[caxis] = -1
-                        awts = awts * autoinfo['wts'][caxind].reshape(tuple(curr_awts_shape))
-                    if stat == 'mean':
-                        dspec = NP.sum(twts[twts_multidim_idx][NP.newaxis,...] * awts * cpds[smplng]['processed']['dspec'][stat][dspec_multidim_idx], axis=cohax, keepdims=True) / NP.sum(twts[twts_multidim_idx][NP.newaxis,...] * awts, axis=cohax, keepdims=True)
+            for dpool in ['whole', 'submodel', 'residual']:
+                if dpool in cpds[smplng]:
+                    result[smplng][dpool] = {}
+                    inpshape = list(cpds[smplng]['whole']['dspec']['mean'].shape)
+                    inpshape[1] = lst_ind.size
+                    inpshape[2] = day_ind.size
+                    inpshape[3] = triad_ind.size
+                    if len(cohax) > 0:
+                        nsamples_coh = NP.prod(NP.asarray(inpshape)[NP.asarray(cohax)])
                     else:
-                        dspec = NP.median(cpds[smplng]['processed']['dspec'][stat][dspec_multidim_idx], axis=cohax, keepdims=True)
-                if nsamples_incoh > 1:
-                    expandax_map = {}
-                    wts_shape = tuple(NP.ones(dspec.ndim, dtype=NP.int))
-                    preXwts = NP.ones(wts_shape, dtype=NP.complex)
-                    wts_shape = NP.asarray(wts_shape)
-                    for incaxind,incaxis in enumerate(xinfo['axes']):
-                        curr_wts_shape = NP.copy(wts_shape)
-                        curr_wts_shape[incaxis] = -1
-                        preXwts = preXwts * xinfo['wts']['preX'][incaxind].reshape(tuple(curr_wts_shape))
-                    dspec1 = NP.copy(dspec)
-                    dspec2 = NP.copy(dspec)
-                    preXwts1 = NP.copy(preXwts)
-                    preXwts2 = NP.copy(preXwts)
-                    for incax in NP.sort(incohax)[::-1]:
-                        dspec1 = NP.expand_dims(dspec1, axis=incax)
-                        dspec2 = NP.expand_dims(dspec2, axis=incax+1)
-                        preXwts1 = NP.expand_dims(preXwts1, axis=incax)
-                        preXwts2 = NP.expand_dims(preXwts2, axis=incax+1)
-                        expandax_map[incax] = incax + NP.arange(2)
-                        for ekey in expandax_map:
-                            if ekey > incax:
-                                expandax_map[ekey] += 1
-                                
-                    # for incaxind,incax in enumerate(NP.sort(incohax)):
-                    #     expandax_map[]
-                        
-                    result[smplng][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec1.ndim-1, dtype=NP.int))) * (dspec1 * preXwts1) * (dspec2 * preXwts2).conj()
-                    if xinfo['wts']['preXnorm']:
-                        result[smplng][stat] = result[smplng][stat] / NP.sum(preXwts1 * preXwts2.conj(), axis=NP.union1d(NP.where(logical_or(NP.asarray(preXwts1.shape)>1, NP.asarray(preXwts2.shape)>1))), keepdims=True) # Normalize by summing the weights over the expanded axes
+                        nsamples_coh = 1
+                    if len(incohax) > 0:
+                        nsamples = NP.prod(NP.asarray(inpshape)[NP.asarray(incohax)])
+                        nsamples_incoh = nsamples * (nsamples - 1)
+                    else:
+                        nsamples_incoh = 1
+                    twts_multidim_idx = NP.ix_(lst_ind,day_ind,triad_ind,NP.arange(1)) # shape=(nlst,ndays,ntriads,nchan)
+                    dspec_multidim_idx = NP.ix_(NP.arange(wl.size),lst_ind,day_ind,triad_ind,NP.arange(inpshape[4])) # shape=(nspw,nlst,ndays,ntriads,nchan)
+                    max_wt_in_chan = NP.max(NP.sum(cpds[smplng]['whole']['dspec']['twts'].data, axis=(0,1,2)))
+                    select_chan = NP.argmax(NP.sum(cpds[smplng]['whole']['dspec']['twts'].data, axis=(0,1,2)))
+                    twts = NP.copy(cpds[smplng]['whole']['dspec']['twts'].data[:,:,:,[select_chan]]) # shape=(nspw=1,nlst,ndays,ntriads,nlags=1)
 
-                    if (len(xinfo['collapse_axes']) > 0) or (xinfo['avgcov']):
+                    if nsamples_coh > 1:
+                        awts_shape = tuple(NP.ones(cpds[smplng]['whole']['dspec']['mean'].ndim, dtype=NP.int))
+                        awts = NP.ones(awts_shape, dtype=NP.complex)
+                        awts_shape = NP.asarray(awts_shape)
+                        for caxind,caxis in enumerate(autoinfo['axes']):
+                            curr_awts_shape = NP.copy(awts_shape)
+                            curr_awts_shape[caxis] = -1
+                            awts = awts * autoinfo['wts'][caxind].reshape(tuple(curr_awts_shape))
 
-                        # if any one of collapsing of incoherent axes or averaging
-                        # of full covariance is requested
-
-                        diagoffsets = [] # Stores the correlation index difference along each axis.
-                        for colaxind, colax in enumerate(xinfo['collapse_axes']):
-                            result[smplng][stat], offsets = OPS.array_trace(result[smplng][stat], offsets=None, axis1=expandax_map[colax][0], axis2=expandax_map[colax][1], outaxis='axis1')
-                            for ekey in expandax_map:
-                                if ekey > colax:
-                                    expandax_map[ekey] -= 1
-                            expandax_map[colax] = NP.asarray(expandax_map[colax][0]).ravel()
-
-                            diagoffsets += [offsets]
-
-
-                        wts_shape = tuple(NP.ones(result[smplng][stat].ndim, dtype=NP.int))
-                        postXwts = NP.ones(wts_shape, dtype=NP.complex)
-                        wts_shape = NP.asarray(wts_shape)
-                        for colaxind, colax in enumerate(xinfo['collapse_axes']):
-                            curr_wts_shape = NP.copy(wts_shape)
-                            curr_wts_shape[expandax_map[colax]] = -1
-                            postXwts = postXwts * xinfo['wts']['postX'][colaxind].reshape(tuple(curr_wts_shape))
+                    for stat in ['mean', 'median']:
+                        if dpool == 'submodel':
+                            dspec = NP.copy(cpds[smplng][dpool]['dspec'][dspec_multidim_idx])
+                        else:
+                            dspec = NP.copy(cpds[smplng][dpool]['dspec'][stat][dspec_multidim_idx])
+                        if nsamples_coh > 1:
+                            if stat == 'mean':
+                                dspec = NP.sum(twts[twts_multidim_idx][NP.newaxis,...] * awts * dspec[dspec_multidim_idx], axis=cohax, keepdims=True) / NP.sum(twts[twts_multidim_idx][NP.newaxis,...] * awts, axis=cohax, keepdims=True)
+                            else:
+                                dspec = NP.median(dspec[dspec_multidim_idx], axis=cohax, keepdims=True)
+                        if nsamples_incoh > 1:
+                            expandax_map = {}
+                            wts_shape = tuple(NP.ones(dspec.ndim, dtype=NP.int))
+                            preXwts = NP.ones(wts_shape, dtype=NP.complex)
+                            wts_shape = NP.asarray(wts_shape)
+                            for incaxind,incaxis in enumerate(xinfo['axes']):
+                                curr_wts_shape = NP.copy(wts_shape)
+                                curr_wts_shape[incaxis] = -1
+                                preXwts = preXwts * xinfo['wts']['preX'][incaxind].reshape(tuple(curr_wts_shape))
+                            dspec1 = NP.copy(dspec)
+                            dspec2 = NP.copy(dspec)
+                            preXwts1 = NP.copy(preXwts)
+                            preXwts2 = NP.copy(preXwts)
+                            for incax in NP.sort(incohax)[::-1]:
+                                dspec1 = NP.expand_dims(dspec1, axis=incax)
+                                dspec2 = NP.expand_dims(dspec2, axis=incax+1)
+                                preXwts1 = NP.expand_dims(preXwts1, axis=incax)
+                                preXwts2 = NP.expand_dims(preXwts2, axis=incax+1)
+                                expandax_map[incax] = incax + NP.arange(2)
+                                for ekey in expandax_map:
+                                    if ekey > incax:
+                                        expandax_map[ekey] += 1
+                                        
+                            result[smplng][dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec1.ndim-1, dtype=NP.int))) * (dspec1 * preXwts1) * (dspec2 * preXwts2).conj()
+                            if xinfo['wts']['preXnorm']:
+                                result[smplng][dpool][stat] = result[smplng][dpool][stat] / NP.sum(preXwts1 * preXwts2.conj(), axis=NP.union1d(NP.where(logical_or(NP.asarray(preXwts1.shape)>1, NP.asarray(preXwts2.shape)>1))), keepdims=True) # Normalize by summing the weights over the expanded axes
+        
+                            if (len(xinfo['collapse_axes']) > 0) or (xinfo['avgcov']):
+        
+                                # if any one of collapsing of incoherent axes or averaging
+                                # of full covariance is requested
+        
+                                diagoffsets = [] # Stores the correlation index difference along each axis.
+                                for colaxind, colax in enumerate(xinfo['collapse_axes']):
+                                    result[smplng][dpool][stat], offsets = OPS.array_trace(result[smplng][dpool][stat], offsets=None, axis1=expandax_map[colax][0], axis2=expandax_map[colax][1], outaxis='axis1')
+                                    for ekey in expandax_map:
+                                        if ekey > colax:
+                                            expandax_map[ekey] -= 1
+                                    expandax_map[colax] = NP.asarray(expandax_map[colax][0]).ravel()
+        
+                                    diagoffsets += [offsets]
+        
+        
+                                wts_shape = tuple(NP.ones(result[smplng][dpool][stat].ndim, dtype=NP.int))
+                                postXwts = NP.ones(wts_shape, dtype=NP.complex)
+                                wts_shape = NP.asarray(wts_shape)
+                                for colaxind, colax in enumerate(xinfo['collapse_axes']):
+                                    curr_wts_shape = NP.copy(wts_shape)
+                                    curr_wts_shape[expandax_map[colax]] = -1
+                                    postXwts = postXwts * xinfo['wts']['postX'][colaxind].reshape(tuple(curr_wts_shape))
+                                    
+                                result[smplng][dpool][stat] = result[smplng][dpool][stat] * postXwts
+        
+                                axes_to_sum = tuple(NP.asarray([expandax_map[colax] for colax in xinfo['collapse_axes']]).ravel())
+        
+                                if xinfo['wts']['postXnorm']:
+                                    result[smplng][dpool][stat] = result[smplng][dpool][stat] / NP.sum(postXwts, axis=axes_to_sum, keepdims=True) # Normalize by summing the weights over the collapsed axes
+                                if xinfo['avgcov']:
+        
+                                    # collapse the axes further (postXwts have already
+                                    # been applied)
+        
+                                    result[smplng][dpool][stat] = NP.nanmean(result[smplng][dpool][stat], axis=axes_to_sum, keepdims=True)
+                                    for colaxind in zip(*sorted(zip(NP.arange(xinfo['collapse_axes'].size), xinfo['collapse_axes']), reverse=True))[0]:
+        
+                                        # It is import to sort the collapsable axes in
+                                        # reverse order before deleting elements below,
+                                        # otherwise the axes ordering may be get messed up
+        
+                                        del diagoffsets[colaxind]
+        
+                        else:
+                            result[smplng][dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec.ndim-1, dtype=NP.int))) * NP.abs(dspec)**2
+                            diagoffsets = []
+                            expandax_map = {}                            
                             
-                        result[smplng][stat] = result[smplng][stat] * postXwts
+                    result[smplng][dpool]['diagoffsets'] = diagoffsets
+                    result[smplng][dpool]['axesmap'] = expandax_map
 
-                        axes_to_sum = tuple(NP.asarray([expandax_map[colax] for colax in xinfo['collapse_axes']]).ravel())
+                    result[smplng][dpool]['nsamples_incoh'] = nsamples_incoh
+                    result[smplng][dpool]['nsamples_coh'] = nsamples_coh
 
-                        if xinfo['wts']['postXnorm']:
-                            result[smplng][stat] = result[smplng][stat] / NP.sum(postXwts, axis=axes_to_sum, keepdims=True) # Normalize by summing the weights over the collapsed axes
-                        if xinfo['avgcov']:
+            # for stat in ['mean', 'median']:
+            #     inpshape = list(cpds[smplng]['whole']['dspec'][stat].shape)
+            #     inpshape[1] = lst_ind.size
+            #     inpshape[2] = day_ind.size
+            #     inpshape[3] = triad_ind.size
+            #     if len(cohax) > 0:
+            #         nsamples_coh = NP.prod(NP.asarray(inpshape)[NP.asarray(cohax)])
+            #     else:
+            #         nsamples_coh = 1
+            #     if len(incohax) > 0:
+            #         nsamples = NP.prod(NP.asarray(inpshape)[NP.asarray(incohax)])
+            #         nsamples_incoh = nsamples * (nsamples - 1)
+            #     else:
+            #         nsamples_incoh = 1
+            #     twts_multidim_idx = NP.ix_(lst_ind,day_ind,triad_ind,NP.arange(1)) # shape=(nlst,ndays,ntriads,nchan)
+            #     dspec_multidim_idx = NP.ix_(NP.arange(wl.size),lst_ind,day_ind,triad_ind,NP.arange(inpshape[4])) # shape=(nspw,nlst,ndays,ntriads,nchan)
+            #     max_wt_in_chan = NP.max(NP.sum(cpds[smplng]['whole']['dspec']['twts'].data, axis=(0,1,2)))
+            #     select_chan = NP.argmax(NP.sum(cpds[smplng]['whole']['dspec']['twts'].data, axis=(0,1,2)))
+            #     twts = NP.copy(cpds[smplng]['whole']['dspec']['twts'].data[:,:,:,[select_chan]]) # shape=(nspw=1,nlst,ndays,ntriads,nlags=1)
+            #     dspec = NP.copy(cpds[smplng]['whole']['dspec'][stat][dspec_multidim_idx])
+            #     if nsamples_coh > 1:
+            #         awts_shape = tuple(NP.ones(cpds[smplng]['whole']['dspec'][stat].ndim, dtype=NP.int))
+            #         awts = NP.ones(awts_shape, dtype=NP.complex)
+            #         awts_shape = NP.asarray(awts_shape)
+            #         for caxind,caxis in enumerate(autoinfo['axes']):
+            #             curr_awts_shape = NP.copy(awts_shape)
+            #             curr_awts_shape[caxis] = -1
+            #             awts = awts * autoinfo['wts'][caxind].reshape(tuple(curr_awts_shape))
+            #         if stat == 'mean':
+            #             dspec = NP.sum(twts[twts_multidim_idx][NP.newaxis,...] * awts * cpds[smplng]['whole']['dspec'][stat][dspec_multidim_idx], axis=cohax, keepdims=True) / NP.sum(twts[twts_multidim_idx][NP.newaxis,...] * awts, axis=cohax, keepdims=True)
+            #         else:
+            #             dspec = NP.median(cpds[smplng]['whole']['dspec'][stat][dspec_multidim_idx], axis=cohax, keepdims=True)
+            #     if nsamples_incoh > 1:
+            #         expandax_map = {}
+            #         wts_shape = tuple(NP.ones(dspec.ndim, dtype=NP.int))
+            #         preXwts = NP.ones(wts_shape, dtype=NP.complex)
+            #         wts_shape = NP.asarray(wts_shape)
+            #         for incaxind,incaxis in enumerate(xinfo['axes']):
+            #             curr_wts_shape = NP.copy(wts_shape)
+            #             curr_wts_shape[incaxis] = -1
+            #             preXwts = preXwts * xinfo['wts']['preX'][incaxind].reshape(tuple(curr_wts_shape))
+            #         dspec1 = NP.copy(dspec)
+            #         dspec2 = NP.copy(dspec)
+            #         preXwts1 = NP.copy(preXwts)
+            #         preXwts2 = NP.copy(preXwts)
+            #         for incax in NP.sort(incohax)[::-1]:
+            #             dspec1 = NP.expand_dims(dspec1, axis=incax)
+            #             dspec2 = NP.expand_dims(dspec2, axis=incax+1)
+            #             preXwts1 = NP.expand_dims(preXwts1, axis=incax)
+            #             preXwts2 = NP.expand_dims(preXwts2, axis=incax+1)
+            #             expandax_map[incax] = incax + NP.arange(2)
+            #             for ekey in expandax_map:
+            #                 if ekey > incax:
+            #                     expandax_map[ekey] += 1
+                                
+            #         # for incaxind,incax in enumerate(NP.sort(incohax)):
+            #         #     expandax_map[]
+                        
+            #         result[smplng][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec1.ndim-1, dtype=NP.int))) * (dspec1 * preXwts1) * (dspec2 * preXwts2).conj()
+            #         if xinfo['wts']['preXnorm']:
+            #             result[smplng][stat] = result[smplng][stat] / NP.sum(preXwts1 * preXwts2.conj(), axis=NP.union1d(NP.where(logical_or(NP.asarray(preXwts1.shape)>1, NP.asarray(preXwts2.shape)>1))), keepdims=True) # Normalize by summing the weights over the expanded axes
 
-                            # collapse the axes further (postXwts have already
-                            # been applied)
+            #         if (len(xinfo['collapse_axes']) > 0) or (xinfo['avgcov']):
 
-                            result[smplng][stat] = NP.nanmean(result[smplng][stat], axis=axes_to_sum, keepdims=True)
-                            for colaxind in zip(*sorted(zip(NP.arange(xinfo['collapse_axes'].size), xinfo['collapse_axes']), reverse=True))[0]:
+            #             # if any one of collapsing of incoherent axes or averaging
+            #             # of full covariance is requested
 
-                                # It is import to sort the collapsable axes in
-                                # reverse order before deleting elements below,
-                                # otherwise the axes ordering may be get messed up
+            #             diagoffsets = [] # Stores the correlation index difference along each axis.
+            #             for colaxind, colax in enumerate(xinfo['collapse_axes']):
+            #                 result[smplng][stat], offsets = OPS.array_trace(result[smplng][stat], offsets=None, axis1=expandax_map[colax][0], axis2=expandax_map[colax][1], outaxis='axis1')
+            #                 for ekey in expandax_map:
+            #                     if ekey > colax:
+            #                         expandax_map[ekey] -= 1
+            #                 expandax_map[colax] = NP.asarray(expandax_map[colax][0]).ravel()
 
-                                del diagoffsets[colaxind]
+            #                 diagoffsets += [offsets]
 
-                else:
-                    result[smplng][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec.ndim-1, dtype=NP.int))) * NP.abs(dspec)**2
-                    diagoffsets = []
-                    expandax_map = {}
 
-            result[smplng]['diagoffsets'] = diagoffsets
-            result[smplng]['axesmap'] = expandax_map
+            #             wts_shape = tuple(NP.ones(result[smplng][stat].ndim, dtype=NP.int))
+            #             postXwts = NP.ones(wts_shape, dtype=NP.complex)
+            #             wts_shape = NP.asarray(wts_shape)
+            #             for colaxind, colax in enumerate(xinfo['collapse_axes']):
+            #                 curr_wts_shape = NP.copy(wts_shape)
+            #                 curr_wts_shape[expandax_map[colax]] = -1
+            #                 postXwts = postXwts * xinfo['wts']['postX'][colaxind].reshape(tuple(curr_wts_shape))
+                            
+            #             result[smplng][stat] = result[smplng][stat] * postXwts
 
-            result[smplng]['nsamples_incoh'] = nsamples_incoh
-            result[smplng]['nsamples_coh'] = nsamples_coh
+            #             axes_to_sum = tuple(NP.asarray([expandax_map[colax] for colax in xinfo['collapse_axes']]).ravel())
+
+            #             if xinfo['wts']['postXnorm']:
+            #                 result[smplng][stat] = result[smplng][stat] / NP.sum(postXwts, axis=axes_to_sum, keepdims=True) # Normalize by summing the weights over the collapsed axes
+            #             if xinfo['avgcov']:
+
+            #                 # collapse the axes further (postXwts have already
+            #                 # been applied)
+
+            #                 result[smplng][stat] = NP.nanmean(result[smplng][stat], axis=axes_to_sum, keepdims=True)
+            #                 for colaxind in zip(*sorted(zip(NP.arange(xinfo['collapse_axes'].size), xinfo['collapse_axes']), reverse=True))[0]:
+
+            #                     # It is import to sort the collapsable axes in
+            #                     # reverse order before deleting elements below,
+            #                     # otherwise the axes ordering may be get messed up
+
+            #                     del diagoffsets[colaxind]
+
+            #     else:
+            #         result[smplng][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec.ndim-1, dtype=NP.int))) * NP.abs(dspec)**2
+            #         diagoffsets = []
+            #         expandax_map = {}
+
+            # result[smplng]['diagoffsets'] = diagoffsets
+            # result[smplng]['axesmap'] = expandax_map
+
+            # result[smplng]['nsamples_incoh'] = nsamples_incoh
+            # result[smplng]['nsamples_coh'] = nsamples_coh
             
         return result
 
