@@ -1,3 +1,11 @@
+From d44b053 (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Remove commented lines in member function compute_power_spectrum()
+of class ClosurePhaseDelaySpectrum
+
 From 9fc66a8 (closure-adv):
 ==========================
 
