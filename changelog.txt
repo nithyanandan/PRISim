@@ -1,3 +1,13 @@
+From 774df2a (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Rename member function compute_power_spectrum() under class
+ClosurePhaseDelaySpectrum to compute_power_spectrum_old() which is
+now deprecated and replaced by a new compute_power_spectrum(). Update
+member function and class docstrings accordingly
+
 From d44b053 (closure-adv):
 ==========================
 
