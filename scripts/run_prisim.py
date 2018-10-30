@@ -475,7 +475,7 @@ if use_external_beam:
             else:
                 beam_pol_ind = 1
             external_beam = uvbm.data_array[axis_vec_ind,spw_ind,beam_pol_ind,:,:].T # npix x nfreqs
-            external_beam_freqs = uvbm.freq_array.ravel() / 1e6 # nfreqs (in MHz)
+            external_beam_freqs = uvbm.freq_array.ravel() # nfreqs (in Hz)
         else:
             raise ImportError('uvbeam module not installed/found')
     else:
@@ -1770,10 +1770,8 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                     theta_phi = NP.hstack((NP.pi/2-NP.radians(src_altaz_current[roi_subset,0]).reshape(-1,1), NP.radians(src_altaz_current[roi_subset,1]).reshape(-1,1)))
                     if beam_chromaticity:
                         interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e9, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
-                        # interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e9, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
-                        
                     else:
-                        nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs*1e6 - select_beam_freq))
+                        nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs - select_beam_freq))
                         interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e9, outloc_axis=chans*1e9, axis=1, assume_sorted=True)
                     interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)
                     interp_logbeam_max[interp_logbeam_max <= 0.0] = 0.0

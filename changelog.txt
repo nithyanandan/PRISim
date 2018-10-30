@@ -1,3 +1,11 @@
+From 86e7149 (closure-adv):
+==========================
+
+In scripts/run_prisim.py,
+
+(*) Adjust external beam frequencies to be in Hz before any
+interpolation, and remove a redundant commented line
+
 From 9145c64 (closure-adv):
 ==========================
 
