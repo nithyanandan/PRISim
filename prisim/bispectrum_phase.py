@@ -16,12 +16,118 @@ from astroutils import nonmathops as NMO
 from astroutils import mathops as OPS
 from astroutils import lookup_operations as LKP
 import prisim
+from prisim import interferometry as RI
 from prisim import delay_spectrum as DS
 
 prisim_path = prisim.__path__[0]+'/'
 
 cosmoPlanck15 = CP.Planck15 # Planck 2015 cosmology
 cosmo100 = cosmoPlanck15.clone(name='Modified Planck 2015 cosmology with h=1.0', H0=100.0) # Modified Planck 2015 cosmology with h=1.0, H= 100 km/s/Mpc
+
+################################################################################
+
+def write_PRISim_bispectrum_phase_to_npz(prisim_file_prefix, bltriplet,
+                                         npzfile_prefix, blltol=0.1):
+
+    """
+    ----------------------------------------------------------------------------
+    Write closure phases computed in a PRISim simulation to a NPZ file with
+    appropriate format for further analysis.
+
+    Inputs:
+
+    prisim_file_prefix 
+                [string] HDF5 file created by a PRISim simulation
+
+    bltriplet   [numpy array] 3x3 numpy array containing the 3 baseline vectors.
+                The first axis denotes the three baselines, the second axis 
+                denotes the East, North, Up coordinates of the baseline vector.
+                Units are in m.
+
+    npzfile_prefix
+                [string] Prefix of the NPZ file. It will be appended by 
+                '_skyvis', '_vis', and '_noise' and further by extension '.npz'
+
+    blltol      [scalar] Baseline length tolerance (in m) for matching baseline
+                vectors in triads. It must be a scalar. Default = 0.1 m.
+    ----------------------------------------------------------------------------
+    """
+
+    if not isinstance(prisim_file_prefix, str):
+        raise TypeError('Input prisim_file_prefix must be a string')
+    if not isinstance(npzfile_prefix, str):
+        raise TypeError('Input npzfile_prefix must be a string')
+    if not isinstance(bltriplet, NP.ndarray):
+        raise TypeError('Input bltriplet must be a numpy array')
+    if not isinstance(blltol, (int,float)):
+        raise TypeError('Input blltol must be a scalar')
+
+    if bltriplet.ndim != 2:
+        raise ValueError('Input bltriplet must be a 2D numpy array')
+    if bltriplet.shape[0] != 3:
+        raise ValueError('Input bltriplet must contain three baseline vectors')
+    if bltriplet.shape[1] != 3:
+        raise ValueError('Input bltriplet must contain baseline vectors along three corrdinates in the ENU frame')
+
+    try:
+        simvis = RI.InterferometerArray(None, None, None, init_file=prisim_file_prefix)
+    except:
+        raise IOError('Input PRISim file does not contain a valid PRISim output')
+
+    latitude = simvis.latitude
+    longitude = simvis.longitude
+    location = ('{0:.5f}d'.format(longitude), '{0:.5f}d'.format(latitude))
+    last = simvis.lst / 15.0 / 24.0 # from degrees to fraction of day
+    last = last.reshape(-1,1)
+    daydata = NP.asarray(simvis.timestamp[0]).ravel()
+
+    prisim_BSP_info = simvis.getClosurePhase(antenna_triplets=None,
+                                             delay_filter_info=None,
+                                             specsmooth_info=None,
+                                             spectral_window_info=None)
+    triads = NP.asarray(prisim_BSP_info['antenna_triplets']).reshape(-1,3)
+    bltriplets = NP.asarray(prisim_BSP_info['baseline_triplets'])
+
+    blinds = []
+    matchinfo = LKP.find_NN(bltriplet, bltriplets.reshape(-1,3), distance_ULIM=blltol)
+    revind = []
+    for blnum in NP.arange(bltriplet.shape[0]):
+        if len(matchinfo[0][blnum]) == 0:
+            revind += [blnum]
+    if len(revind) > 0:
+        flip_factor = NP.ones(3, dtype=NP.float)
+        flip_factor[NP.array(revind)] = -1
+        rev_bltriplet = bltriplet * flip_factor
+        matchinfo = LKP.find_NN(rev_bltriplet, bltriplets.reshape(-1,3), distance_ULIM=blltol)
+        for blnum in NP.arange(bltriplet.shape[0]):
+            if len(matchinfo[0][blnum]) == 0:
+                raise ValueError('Some baselines in the triplet are not found in the model triads')
+    triadinds = []
+    for blnum in NP.arange(bltriplet.shape[0]):
+        triadind, blind = NP.unravel_index(NP.asarray(matchinfo[0][blnum]), (bltriplets.shape[0], bltriplets.shape[1]))
+        triadinds += [triadind]
+    
+    triadind_intersection = NP.intersect1d(triadinds[0], NP.intersect1d(triadinds[1], triadinds[2]))
+    if triadind_intersection.size == 0:
+        raise ValueError('Specified triad not found in the PRISim model. Try other permutations of the baseline vectors and/or reverse individual baseline vectors in the triad before giving up.')
+
+    triads = triads[triadind_intersection,:]
+    selected_bltriplets = bltriplets[triadind_intersection,:,:].reshape(-1,3,3)
+
+    for outkey in ['skyvis', 'vis', 'noise']:
+        if outkey == 'skyvis':
+            cpdata = prisim_BSP_info['closure_phase_skyvis'][triadind_intersection,:,:]
+            npzfile = npzfile_prefix + '_skyvis.npz'
+        if outkey == 'vis':
+            cpdata = prisim_BSP_info['closure_phase_vis'][triadind_intersection,:,:]
+            npzfile = npzfile_prefix + '_vis.npz'
+        if outkey == 'noise':
+            cpdata = prisim_BSP_info['closure_phase_noise'][triadind_intersection,:,:]
+            npzfile = npzfile_prefix + '_noise.npz'
+        cpdata = NP.rollaxis(cpdata, 2, start=0)[:,NP.newaxis,:,:]
+        flagsdata = NP.zeros(cpdata.shape, dtype=NP.bool)
+        NP.savez_compressed(npzfile, closures=cpdata, flags=flagsdata,
+                            triads=triads, last=last, days=daydata)
 
 ################################################################################
 
@@ -43,7 +149,7 @@ def loadnpz(npzfile, longitude=0.0, latitude=0.0):
                 'flags'     [numpy array] Array of flags (boolean), of shape
                             (nlst,ndays,ntriads,nchan)
                 'last'      [numpy array] Array of LST for each day (CASA units 
-                            ehich is MJD+6713). Shape is (nlst,ndays)
+                            which is MJD+6713). Shape is (nlst,ndays)
                 'days'      [numpy array] Array of days, shape is (ndays,)
                 'averaged_closures'
                             [numpy array] optional array of closure phases

@@ -1,3 +1,20 @@
+From 9145c64 (closure-adv):
+==========================
+
+(*) Add script write_PRISim_bispectrum_phase_to_npz.py to the
+repository in the scripts/ folder to write bispectrum phase from a
+PRISim simulation output to a NPZ file for further processing.
+
+(*) Add the YAML file containing input parameters to the repository
+for the script scripts/write_PRISim_bispectrum_phase_to_npz.py to
+read and process
+
+In prisim/bispectrum_phase.py,
+
+(*) Add function write_PRISim_bispectrum_phase_to_npz() along with
+docstring to write bispectrum phase from a PRISim simulation output
+to a NPZ file for further processing
+
 From 774df2a (closure-adv):
 ==========================
 
