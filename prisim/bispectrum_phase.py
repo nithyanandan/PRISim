@@ -282,7 +282,7 @@ def npz2hdf5(npzfile, hdf5file, longitude=0.0, latitude=0.0):
 
     cp = cpdata.astype(NP.float64)
     flags = flagsdata.astype(NP.bool)
-    if 'averaged_closure' in npzdata:
+    if 'averaged_closures' in npzdata:
         day_avg_cpdata = npzdata['averaged_closures']
         cp_dayavg = day_avg_cpdata.astype(NP.float64)
     if 'std_dev_triad' in npzdata:

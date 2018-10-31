@@ -1,3 +1,11 @@
+From dba8f0f (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Fix bug in function npz2hdf5() by reading the correct key in the
+NPZ file
+
 From e697c68 (closure-adv):
 ==========================
 
