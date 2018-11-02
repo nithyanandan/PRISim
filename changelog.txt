@@ -1,3 +1,13 @@
+From adf4ca3 (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Add input keyword ndaybins in member function smooth_in_tbins()
+of class ClosurePhase, which can be used to specify ndaybins as an
+alternative to the other input daybinsize. Update member function
+docstring accordingly
+
 From dba8f0f (closure-adv):
 ==========================
 

@@ -526,7 +526,7 @@ class ClosurePhase(object):
 
     ############################################################################
 
-    def smooth_in_tbins(self, daybinsize=None, lstbinsize=None):
+    def smooth_in_tbins(self, daybinsize=None, ndaybins=None, lstbinsize=None):
 
         """
         ------------------------------------------------------------------------
@@ -537,7 +537,16 @@ class ClosurePhase(object):
 
         daybinsize  [Nonetype or scalar] Day bin size (in days) over which mean
                     and median are estimated across different days for a fixed
-                    LST bin. If set to None, no smoothing is performed
+                    LST bin. If set to None, it will look for value in input
+                    ndaybins. If both are None, no smoothing is performed. Only
+                    one of daybinsize or ndaybins must be set to non-None value.
+
+        ndaybins    [NoneType or integer] Number of bins along day axis. Only 
+                    if daybinsize is set to None. It produces bins that roughly 
+                    consist of equal number of days in each bin regardless of
+                    how much the days in each bin are separated from each other. 
+                    If both are None, no smoothing is performed. Only one of 
+                    daybinsize or ndaybins must be set to non-None value.
 
         lstbinsize  [NoneType or scalar] LST bin size (in seconds) over which
                     mean and median are estimated across the LST. If set to 
@@ -545,54 +554,104 @@ class ClosurePhase(object):
         ------------------------------------------------------------------------
         """
 
-        if daybinsize is not None:
-            if not isinstance(daybinsize, (int,float)):
-                raise TypeError('Input daybinsize must be a scalar')
-            dres = NP.diff(self.cpinfo['raw']['days']).min() # in days
-            dextent = self.cpinfo['raw']['days'].max() - self.cpinfo['raw']['days'].min() + dres # in days
-            if daybinsize > dres:
-                daybinsize = NP.clip(daybinsize, dres, dextent)
-                eps = 1e-10
-                daybins = NP.arange(self.cpinfo['raw']['days'].min(), self.cpinfo['raw']['days'].max() + dres + eps, daybinsize)
-                ndaybins = daybins.size
-                daybins = NP.concatenate((daybins, [daybins[-1]+daybinsize+eps]))
-                if ndaybins > 1:
-                    daybinintervals = daybins[1:] - daybins[:-1]
-                    daybincenters = daybins[:-1] + 0.5 * daybinintervals
-                else:
-                    daybinintervals = NP.asarray(daybinsize).reshape(-1)
-                    daybincenters = daybins[0] + 0.5 * daybinintervals
-                counts, daybin_edges, daybinnum, ri = OPS.binned_statistic(self.cpinfo['raw']['days'], statistic='count', bins=daybins)
-                counts = counts.astype(NP.int)
+        if (ndaybins is not None) and (daybinsize is not None):
+            raise ValueError('Only one of daybinsize or ndaybins should be set')
 
-                if 'prelim' not in self.cpinfo['processed']:
-                    self.cpinfo['processed']['prelim'] = {}
-                self.cpinfo['processed']['prelim']['eicp'] = {}
-                self.cpinfo['processed']['prelim']['cphase'] = {}
-                self.cpinfo['processed']['prelim']['daybins'] = daybincenters
-                self.cpinfo['processed']['prelim']['diff_dbins'] = daybinintervals
+        if (daybinsize is not None) or (ndaybins is not None):
+            if daybinsize is not None:
+                if not isinstance(daybinsize, (int,float)):
+                    raise TypeError('Input daybinsize must be a scalar')
+                dres = NP.diff(self.cpinfo['raw']['days']).min() # in days
+                dextent = self.cpinfo['raw']['days'].max() - self.cpinfo['raw']['days'].min() + dres # in days
+                if daybinsize > dres:
+                    daybinsize = NP.clip(daybinsize, dres, dextent)
+                    eps = 1e-10
+                    daybins = NP.arange(self.cpinfo['raw']['days'].min(), self.cpinfo['raw']['days'].max() + dres + eps, daybinsize)
+                    ndaybins = daybins.size
+                    daybins = NP.concatenate((daybins, [daybins[-1]+daybinsize+eps]))
+                    if ndaybins > 1:
+                        daybinintervals = daybins[1:] - daybins[:-1]
+                        daybincenters = daybins[:-1] + 0.5 * daybinintervals
+                    else:
+                        daybinintervals = NP.asarray(daybinsize).reshape(-1)
+                        daybincenters = daybins[0] + 0.5 * daybinintervals
+                    counts, daybin_edges, daybinnum, ri = OPS.binned_statistic(self.cpinfo['raw']['days'], statistic='count', bins=daybins)
+                    counts = counts.astype(NP.int)
+    
+                    # if 'prelim' not in self.cpinfo['processed']:
+                    #     self.cpinfo['processed']['prelim'] = {}
+                    # self.cpinfo['processed']['prelim']['eicp'] = {}
+                    # self.cpinfo['processed']['prelim']['cphase'] = {}
+                    # self.cpinfo['processed']['prelim']['daybins'] = daybincenters
+                    # self.cpinfo['processed']['prelim']['diff_dbins'] = daybinintervals
+    
+                    wts_daybins = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]))
+                    eicp_dmean = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]), dtype=NP.complex128)
+                    eicp_dmedian = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]), dtype=NP.complex128)
+                    cp_drms = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]))
+                    cp_dmad = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]))
+                    for binnum in xrange(counts.size):
+                        ind_daybin = ri[ri[binnum]:ri[binnum+1]]
+                        wts_daybins[:,binnum,:,:] = NP.sum(self.cpinfo['processed']['native']['wts'][:,ind_daybin,:,:].data, axis=1)
+                        eicp_dmean[:,binnum,:,:] = NP.exp(1j*NP.angle(MA.mean(self.cpinfo['processed']['native']['eicp'][:,ind_daybin,:,:], axis=1)))
+                        eicp_dmedian[:,binnum,:,:] = NP.exp(1j*NP.angle(MA.median(self.cpinfo['processed']['native']['eicp'][:,ind_daybin,:,:].real, axis=1) + 1j * MA.median(self.cpinfo['processed']['native']['eicp'][:,ind_daybin,:,:].imag, axis=1)))
+                        cp_drms[:,binnum,:,:] = MA.std(self.cpinfo['processed']['native']['cphase'][:,ind_daybin,:,:], axis=1).data
+                        cp_dmad[:,binnum,:,:] = MA.median(NP.abs(self.cpinfo['processed']['native']['cphase'][:,ind_daybin,:,:] - NP.angle(eicp_dmedian[:,binnum,:,:][:,NP.newaxis,:,:])), axis=1).data
+                    # mask = wts_daybins <= 0.0
+                    # self.cpinfo['processed']['prelim']['wts'] = MA.array(wts_daybins, mask=mask)
+                    # self.cpinfo['processed']['prelim']['eicp']['mean'] = MA.array(eicp_dmean, mask=mask)
+                    # self.cpinfo['processed']['prelim']['eicp']['median'] = MA.array(eicp_dmedian, mask=mask)
+                    # self.cpinfo['processed']['prelim']['cphase']['mean'] = MA.array(NP.angle(eicp_dmean), mask=mask)
+                    # self.cpinfo['processed']['prelim']['cphase']['median'] = MA.array(NP.angle(eicp_dmedian), mask=mask)
+                    # self.cpinfo['processed']['prelim']['cphase']['rms'] = MA.array(cp_drms, mask=mask)
+                    # self.cpinfo['processed']['prelim']['cphase']['mad'] = MA.array(cp_dmad, mask=mask)
+            else:
+                if not isinstance(ndaybins, int):
+                    raise TypeError('Input ndaybins must be an integer')
+                if ndaybins <= 0:
+                    raise ValueError('Input ndaybins must be positive')
+                days_split = NP.array_split(self.cpinfo['raw']['days'], ndaybins)
+                daybincenters = NP.asarray([NP.mean(days) for days in days_split])
+                daybinintervals = NP.asarray([days.max()-days.min() for days in days_split])
+                counts = NP.asarray([days.size for days in days_split])
+    
+                wts_split = NP.array_split(self.cpinfo['processed']['native']['wts'].data, ndaybins, axis=1)
+                # mask_split = NP.array_split(self.cpinfo['processed']['native']['wts'].mask, ndaybins, axis=1)
+                wts_daybins = NP.asarray([NP.sum(wtsitem, axis=1) for wtsitem in wts_split]) # ndaybins x nlst x ntriads x nchan
+                wts_daybins = NP.moveaxis(wts_daybins, 0, 1) # nlst x ndaybins x ntriads x nchan
+                mask_split = NP.array_split(self.cpinfo['processed']['native']['eicp'].mask, ndaybins, axis=1)
+                eicp_split = NP.array_split(self.cpinfo['processed']['native']['eicp'].data, ndaybins, axis=1)
+                eicp_dmean = MA.array([MA.mean(MA.array(eicp_split[i], mask=mask_split[i]), axis=1) for i in range(daybincenters.size)]) # ndaybins x nlst x ntriads x nchan
+                eicp_dmean = NP.exp(1j * NP.angle(eicp_dmean))
+                eicp_dmean = NP.moveaxis(eicp_dmean, 0, 1) # nlst x ndaybins x ntriads x nchan
+    
+                eicp_dmedian = MA.array([MA.median(MA.array(eicp_split[i].real, mask=mask_split[i]), axis=1) + 1j * MA.median(MA.array(eicp_split[i].imag, mask=mask_split[i]), axis=1) for i in range(daybincenters.size)]) # ndaybins x nlst x ntriads x nchan
+                eicp_dmedian = NP.exp(1j * NP.angle(eicp_dmedian))
+                eicp_dmedian = NP.moveaxis(eicp_dmedian, 0, 1) # nlst x ndaybins x ntriads x nchan
+                
+                cp_split = NP.array_split(self.cpinfo['processed']['native']['cphase'].data, ndaybins, axis=1)
+                cp_drms = NP.array([MA.std(MA.array(cp_split[i], mask=mask_split[i]), axis=1).data for i in range(daybincenters.size)]) # ndaybins x nlst x ntriads x nchan
+                cp_drms = NP.moveaxis(cp_drms, 0, 1) # nlst x ndaybins x ntriads x nchan
+    
+                cp_dmad = NP.array([MA.median(NP.abs(cp_split[i] - NP.angle(eicp_dmedian[:,[i],:,:])), axis=1).data for i in range(daybincenters.size)]) # ndaybins x nlst x ntriads x nchan
+                cp_dmad = NP.moveaxis(cp_dmad, 0, 1) # nlst x ndaybins x ntriads x nchan
 
-                wts_daybins = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]))
-                eicp_dmean = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]), dtype=NP.complex128)
-                eicp_dmedian = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]), dtype=NP.complex128)
-                cp_drms = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]))
-                cp_dmad = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]))
-                for binnum in xrange(counts.size):
-                    ind_daybin = ri[ri[binnum]:ri[binnum+1]]
-                    wts_daybins[:,binnum,:,:] = NP.sum(self.cpinfo['processed']['native']['wts'][:,ind_daybin,:,:].data, axis=1)
-                    eicp_dmean[:,binnum,:,:] = NP.exp(1j*NP.angle(MA.mean(self.cpinfo['processed']['native']['eicp'][:,ind_daybin,:,:], axis=1)))
-                    eicp_dmedian[:,binnum,:,:] = NP.exp(1j*NP.angle(MA.median(self.cpinfo['processed']['native']['eicp'][:,ind_daybin,:,:].real, axis=1) + 1j * MA.median(self.cpinfo['processed']['native']['eicp'][:,ind_daybin,:,:].imag, axis=1)))
-                    cp_drms[:,binnum,:,:] = MA.std(self.cpinfo['processed']['native']['cphase'][:,ind_daybin,:,:], axis=1).data
-                    cp_dmad[:,binnum,:,:] = MA.median(NP.abs(self.cpinfo['processed']['native']['cphase'][:,ind_daybin,:,:] - NP.angle(eicp_dmedian[:,binnum,:,:][:,NP.newaxis,:,:])), axis=1).data
-                mask = wts_daybins <= 0.0
-                self.cpinfo['processed']['prelim']['wts'] = MA.array(wts_daybins, mask=mask)
-                self.cpinfo['processed']['prelim']['eicp']['mean'] = MA.array(eicp_dmean, mask=mask)
-                self.cpinfo['processed']['prelim']['eicp']['median'] = MA.array(eicp_dmedian, mask=mask)
-                self.cpinfo['processed']['prelim']['cphase']['mean'] = MA.array(NP.angle(eicp_dmean), mask=mask)
-                self.cpinfo['processed']['prelim']['cphase']['median'] = MA.array(NP.angle(eicp_dmedian), mask=mask)
-                self.cpinfo['processed']['prelim']['cphase']['rms'] = MA.array(cp_drms, mask=mask)
-                self.cpinfo['processed']['prelim']['cphase']['mad'] = MA.array(cp_dmad, mask=mask)
+            if 'prelim' not in self.cpinfo['processed']:
+                self.cpinfo['processed']['prelim'] = {}
+            self.cpinfo['processed']['prelim']['eicp'] = {}
+            self.cpinfo['processed']['prelim']['cphase'] = {}
+            self.cpinfo['processed']['prelim']['daybins'] = daybincenters
+            self.cpinfo['processed']['prelim']['diff_dbins'] = daybinintervals
 
+            mask = wts_daybins <= 0.0
+            self.cpinfo['processed']['prelim']['wts'] = MA.array(wts_daybins, mask=mask)
+            self.cpinfo['processed']['prelim']['eicp']['mean'] = MA.array(eicp_dmean, mask=mask)
+            self.cpinfo['processed']['prelim']['eicp']['median'] = MA.array(eicp_dmedian, mask=mask)
+            self.cpinfo['processed']['prelim']['cphase']['mean'] = MA.array(NP.angle(eicp_dmean), mask=mask)
+            self.cpinfo['processed']['prelim']['cphase']['median'] = MA.array(NP.angle(eicp_dmedian), mask=mask)
+            self.cpinfo['processed']['prelim']['cphase']['rms'] = MA.array(cp_drms, mask=mask)
+            self.cpinfo['processed']['prelim']['cphase']['mad'] = MA.array(cp_dmad, mask=mask)
+            
         if lstbinsize is not None:
             if not isinstance(lstbinsize, (int,float)):
                 raise TypeError('Input lstbinsize must be a scalar')
