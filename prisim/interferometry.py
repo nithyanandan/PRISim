@@ -4973,7 +4973,8 @@ class InterferometerArray(object):
                         contain the given input baseline labels
 
     getThreePointCombinations()
-                        Return all unique 3-point combinations of baselines
+                        Return all or only unique 3-point combinations of 
+                        baselines
 
     getClosurePhase()   Get closure phases of visibilities from triplets of 
                         antennas
@@ -6764,11 +6765,17 @@ class InterferometerArray(object):
     
     #################################################################################
 
-    def getThreePointCombinations(self):
+    def getThreePointCombinations(self, unique=False):
 
         """
         -------------------------------------------------------------------------
-        Return all unique 3-point combinations of baselines
+        Return all or only unique 3-point combinations of baselines
+
+        Input:
+
+        unique  [boolean] If set to True, only unique 3-point combinations of 
+                baseline triads are returned. If set to False (default), all 
+                3-point combinations are returned. 
 
         Output:
 
@@ -6777,6 +6784,9 @@ class InterferometerArray(object):
         is a list of triplet tuples of baselines encoded as strings
         -------------------------------------------------------------------------
         """
+
+        if not isinstance(unique, bool):
+            raise TypeError('Input unique must be boolean')
 
         bl = self.baselines + 0.0 # to avoid any weird negative sign before 0.0
         blstr = NP.unique(['{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(lo) for lo in bl])
@@ -6833,13 +6843,14 @@ class InterferometerArray(object):
                                                 anttriplets += [(aid1, aid2, aid3)]
                                             else:
                                                 found = False
-                                                ind = 0
-                                                while (not found) and (ind < len(bltriplets)):
-                                                    bltriplet = bltriplets[ind]
-                                                    if NP.setdiff1d(list123_str, bltriplet).size == 0:
-                                                        found = True
-                                                    else:
-                                                        ind += 1
+                                                if unique:
+                                                    ind = 0
+                                                    while (not found) and (ind < len(bltriplets)):
+                                                        bltriplet = bltriplets[ind]
+                                                        if NP.setdiff1d(list123_str, bltriplet).size == 0:
+                                                            found = True
+                                                        else:
+                                                            ind += 1
                                                 if not found:
                                                     bltriplets += [list123_str]
                                                     anttriplets += [(aid1, aid2, aid3)]
@@ -6849,7 +6860,8 @@ class InterferometerArray(object):
     #############################################################################
 
     def getClosurePhase(self, antenna_triplets=None, delay_filter_info=None,
-                        specsmooth_info=None, spectral_window_info=None):
+                        specsmooth_info=None, spectral_window_info=None,
+                        unique=False):
 
         """
         -------------------------------------------------------------------------
@@ -6862,6 +6874,12 @@ class InterferometerArray(object):
                     triplet is given as a tuple. If set to None (default), all
                     the unique triplets based on the antenna layout attribute
                     in class InterferometerArray
+
+        unique      [boolean] If set to True, only unique 3-point combinations 
+                    of baseline triads are returned. If set to False (default), 
+                    all 3-point combinations are returned. Applies only if 
+                    antenna_triplets is set to None, otherwise the 3-point
+                    combinations of the specified antenna_triplets is returned.
 
         delay_filter_info
                     [NoneType or dictionary] Info containing delay filter 
@@ -7008,7 +7026,7 @@ class InterferometerArray(object):
         """
 
         if antenna_triplets is None:
-            antenna_triplets, bltriplets = self.getThreePointCombinations()
+            antenna_triplets, bltriplets = self.getThreePointCombinations(unique=unique)
 
         if not isinstance(antenna_triplets, list):
             raise TypeError('Input antenna triplets must be a list of triplet tuples')

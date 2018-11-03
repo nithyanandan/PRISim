@@ -84,7 +84,8 @@ def write_PRISim_bispectrum_phase_to_npz(prisim_file_prefix, bltriplet,
     prisim_BSP_info = simvis.getClosurePhase(antenna_triplets=None,
                                              delay_filter_info=None,
                                              specsmooth_info=None,
-                                             spectral_window_info=None)
+                                             spectral_window_info=None,
+                                             unique=False)
     triads = NP.asarray(prisim_BSP_info['antenna_triplets']).reshape(-1,3)
     bltriplets = NP.asarray(prisim_BSP_info['baseline_triplets'])
 

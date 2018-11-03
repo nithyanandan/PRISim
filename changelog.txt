@@ -1,3 +1,24 @@
+From 95d415d (closure-adv):
+==========================
+
+In prisim/interferometry.py,
+
+(*) Add input keyword unique to member function
+getThreePointCombinations() of class InterferometerArray to return
+all or only unique 3-point combinations of baseline triads. Update
+member function and class docstrings accordingly
+(*) Add input keyword unique to member function getClosurePhase() 
+of class InterferometerArray to return closure phases on all or only
+unique 3-point combinations of baseline triads if input
+antenna_triplets is set to None. Update member function docstring
+accordingly
+
+In prisim/bispectrum_phase.py,
+
+(*) In function write_PRISim_bispectrum_phase_to_npz(), pass input
+keyword unique in call to member function getClosurePhase() of
+class InterferometerArray in accordance with changes above. 
+
 From 6c5c1e3 (closure-adv):
 ==========================
 
