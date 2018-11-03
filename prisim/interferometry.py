@@ -6779,7 +6779,7 @@ class InterferometerArray(object):
         """
 
         bl = self.baselines + 0.0 # to avoid any weird negative sign before 0.0
-        blstr = ['{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(lo) for lo in bl]
+        blstr = NP.unique(['{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(lo) for lo in bl])
         bltriplets = []
         anttriplets = []
         for aind1,aid1 in enumerate(self.layout['ids']):
@@ -6794,50 +6794,55 @@ class InterferometerArray(object):
                         bl12 *= -1
                         bl12 += 0.0 # to avoid any weird negative sign before 0.0
                         bl12str = '{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(bl12)
-                        if bl12str not in blstr:
-                            raise IndexError('A baseline not found in reference baselines')
-                    for aind3,aid3 in enumerate(self.layout['ids']):
-                        bl23 = self.layout['positions'][aind3] - self.layout['positions'][aind2]
-                        bl31 = self.layout['positions'][aind1] - self.layout['positions'][aind3]
-                        bl23 += 0.0 # to avoid any weird negative sign before 0.0
-                        bl31 += 0.0 # to avoid any weird negative sign before 0.0
-                        bl23[NP.abs(bl23) < 1e-10] = 0.0
-                        bl31[NP.abs(bl31) < 1e-10] = 0.0
-                        bl23_len = NP.sqrt(NP.sum(bl23**2))
-                        bl31_len = NP.sqrt(NP.sum(bl31**2))
-                        if (bl23_len > 0.0) and (bl31_len > 0.0):
-                            bl23str = '{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(bl23)
-                            if bl23str not in blstr:
-                                bl23 *= -1
-                                bl23 += 0.0 # to avoid any weird negative sign before 0.0
+                    if bl12str not in blstr:
+                        warnings.warn('A baseline not found in the simulated reference baselines. Proceeding with the rest')
+                        # raise IndexError('A baseline not found in reference baselines')
+                    else:
+                        for aind3,aid3 in enumerate(self.layout['ids']):
+                            bl23 = self.layout['positions'][aind3] - self.layout['positions'][aind2]
+                            bl31 = self.layout['positions'][aind1] - self.layout['positions'][aind3]
+                            bl23 += 0.0 # to avoid any weird negative sign before 0.0
+                            bl31 += 0.0 # to avoid any weird negative sign before 0.0
+                            bl23[NP.abs(bl23) < 1e-10] = 0.0
+                            bl31[NP.abs(bl31) < 1e-10] = 0.0
+                            bl23_len = NP.sqrt(NP.sum(bl23**2))
+                            bl31_len = NP.sqrt(NP.sum(bl31**2))
+                            if (bl23_len > 0.0) and (bl31_len > 0.0):
                                 bl23str = '{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(bl23)
                                 if bl23str not in blstr:
-                                    raise IndexError('A baseline not found in reference baselines')
-        
-                            bl31str = '{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(bl31)
-                            if bl31str not in blstr:
-                                bl31 *= -1
-                                bl31 += 0.0 # to avoid any weird negative sign before 0.0
-                                bl31str = '{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(bl31)
-                                if bl31str not in blstr:
-                                    raise IndexError('A baseline not found in reference baselines')
-                            list123_str = [bl12str, bl23str, bl31str]
-                            if len(list123_str) == 3:
-                                if len(bltriplets) == 0:
-                                    bltriplets += [list123_str]
-                                    anttriplets += [(aid1, aid2, aid3)]
+                                    bl23 *= -1
+                                    bl23 += 0.0 # to avoid any weird negative sign before 0.0
+                                    bl23str = '{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(bl23)
+                                if bl23str not in blstr:
+                                    warnings.warn('A baseline not found in the simulated reference baselines. Proceeding with the rest')
+                                    # raise IndexError('A baseline not found in reference baselines')
                                 else:
-                                    found = False
-                                    ind = 0
-                                    while (not found) and (ind < len(bltriplets)):
-                                        bltriplet = bltriplets[ind]
-                                        if NP.setdiff1d(list123_str, bltriplet).size == 0:
-                                            found = True
-                                        else:
-                                            ind += 1
-                                    if not found:
-                                        bltriplets += [list123_str]
-                                        anttriplets += [(aid1, aid2, aid3)]
+                                    bl31str = '{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(bl31)
+                                    if bl31str not in blstr:
+                                        bl31 *= -1
+                                        bl31 += 0.0 # to avoid any weird negative sign before 0.0
+                                        bl31str = '{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(bl31)
+                                    if bl31str not in blstr:
+                                        warnings.warn('A baseline not found in the simulated reference baselines. Proceeding with the rest')
+                                        # raise IndexError('A baseline not found in reference baselines')
+                                    else:
+                                        list123_str = [bl12str, bl23str, bl31str]
+                                        if len(list123_str) == 3:
+                                            if len(bltriplets) == 0:
+                                                bltriplets += [list123_str]
+                                                anttriplets += [(aid1, aid2, aid3)]
+                                            else:
+                                                found = False
+                                                ind = 0
+                                                while (not found) and (ind < len(bltriplets)):
+                                                    bltriplet = bltriplets[ind]
+                                                    if NP.setdiff1d(list123_str, bltriplet).size == 0:
+                                                        found = True
+                                                    else:
+                                                        ind += 1
+                                                if not found:
+                                                    bltriplets += [list123_str]
+                                                    anttriplets += [(aid1, aid2, aid3)]
 
         return (anttriplets, bltriplets)             
 
