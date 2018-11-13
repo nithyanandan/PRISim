@@ -1,3 +1,16 @@
+From 4431f33 (master):
+=====================
+
+In setup.py,
+
+(*) Modify pyuvdata package version requirement to be >=1.3
+
+In prisim/interferometry.py,
+
+(*) In member function __init__() of class InterferometerData, add
+attribute integration_time as an array of shape (Nblts,) instead of
+a scalar number (as in pyuvdata v1.1)
+
 From 1d5505c (master):
 =====================
 
