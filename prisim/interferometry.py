@@ -9196,11 +9196,8 @@ class InterferometerData(object):
                     if prisim_object.layout['positions'].shape != (self.infodict['Nants_telescope'],3):
                         warnings.warn('Number of antennas in prisim_object found to be incompatible with number of unique antennas found. Proceeding with default values.')
                     else:
-                        x, y, z = GEOM.lla2ecef(prisim_object.latitude, prisim_object.longitude, alt=prisim_object.altitude, units='degrees')
-                        telescope_loc = NP.asarray([x[0],y[0],z[0]])
-                        antpos_ecef = GEOM.enu2ecef(prisim_object.layout['positions'], {'xyz': telescope_loc, 'lat': prisim_object.latitude, 'lon': prisim_object.longitude, 'units': 'degrees'})
-                        # antpos_ecef = UVUtils.ECEF_from_ENU(prisim_object.layout['positions'], NP.radians(prisim_object.latitude), NP.radians(prisim_object.longitude), prisim_object.altitude)
-                        self.infodict['antenna_positions'] = antpos_ecef
+                        self.infodict['antenna_positions'] = GEOM.enu2ecef(prisim_object.layout['positions'], {'lat': prisim_object.latitude, 'lon': prisim_object.longitude, 'alt': prisim_object.altitude, 'units': 'degrees'})
+                        # self.infodict['antenna_positions'] = UVUtils.ECEF_from_ENU(prisim_object.layout['positions'], NP.radians(prisim_object.latitude), NP.radians(prisim_object.longitude), prisim_object.altitude)
 
         self.infodict['gst0'] = 0.0
         self.infodict['rdate'] = ''

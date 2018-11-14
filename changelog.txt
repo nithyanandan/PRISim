@@ -1,3 +1,12 @@
+From 927ce97 (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) In member function __init__() of class InterferometerData, update
+call to enu2ecef() in astroutils/geometry.py to be compatible with the
+changes made in enu2ecef()
+
 From ffc1266 (pyuvdata):
 =======================
 
