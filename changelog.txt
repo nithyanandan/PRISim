@@ -1,3 +1,8 @@
+From 0ba8ad6 (master), fa6fcb2 (closure-adv):
+============================================
+
+(*) Merge changes from master branch onto closure-adv
+
 From 95d415d (closure-adv):
 ==========================
 
@@ -229,6 +234,62 @@ compute_power_spectrum() of class ClosurePhaseDelaySpectrum. This
 will allow the member function to return the full cross power
 spectrum without averaging. Update member function docstring
 accordingly
+
+From 927ce97 (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) In member function __init__() of class InterferometerData, update
+call to enu2ecef() in astroutils/geometry.py to be compatible with the
+changes made in enu2ecef()
+
+From ffc1266 (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) In member function __init__() of class InterferometerData, convert
+antenna location from ENU to ECEF coordinates and store in key
+'antenna_positions'
+
+From a147da6 (pyuvdata):
+=======================
+
+In setup.py,
+
+(*) Modify pyuvdata package version requirement to be >=1.1
+
+In prisim/interferometry.py,
+
+(*) Import pyuvdata
+(*) Update member function __init__() of class InterferometerData
+to be backwards compatible with versions of pyuvdata earlier than 1.3
+
+From 4431f33 (master):
+=====================
+
+In setup.py,
+
+(*) Modify pyuvdata package version requirement to be >=1.3
+
+In prisim/interferometry.py,
+
+(*) In member function __init__() of class InterferometerData, add
+attribute integration_time as an array of shape (Nblts,) instead of
+a scalar number (as in pyuvdata v1.1)
+
+From 1d5505c (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add option to specify sky model as 'noise'
+
+In scripts/run_prisim.py,
+
+(*) Accommodate ability to run sky model that looks like random
+Gaussian noise
 
 From 26dbdb0 (master):
 =====================

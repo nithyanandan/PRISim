@@ -608,7 +608,8 @@ fgparm   :
                                 # catalog), 'mss' (Molonglo Sky 
                                 # Survey), 'gleam' (GLEAM catalog), 
                                 # 'custom' (user-defined catalog), 
-                                # 'usm' (uniform sky model), 'mwacs' 
+                                # 'usm' (uniform sky model), 'noise'
+                                # (noise-like sky model), 'mwacs' 
                                 # (MWACS catalog), 'skymod_file' (a
                                 # skymodel_file must be specified 
                                 # below), 'HI_monopole' (global EoR), 

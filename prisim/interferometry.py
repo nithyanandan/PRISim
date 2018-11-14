@@ -26,7 +26,9 @@ import prisim
 import baseline_delay_horizon as DLY
 import primary_beams as PB
 try:
+    import pyuvdata
     from pyuvdata import UVData
+    from pyuvdata import utils as UVUtils
 except ImportError:
     uvdata_module_found = False
 else:
@@ -9107,7 +9109,14 @@ class InterferometerData(object):
         self.infodict['baseline_array'] = 2048 * (self.infodict['ant_2_array'] + 1) + (self.infodict['ant_1_array'] + 1) + 2**16
         self.infodict['freq_array'] = prisim_object.channels.reshape(self.infodict['Nspws'],-1)
         self.infodict['polarization_array'] = NP.asarray([-5]).reshape(self.infodict['Npols']) # stokes 1:4 (I,Q,U,V); circular -1:-4 (RR,LL,RL,LR); linear -5:-8 (XX,YY,XY,YX)
-        self.infodict['integration_time'] = prisim_object.t_acc[0]
+        if uvdata_module_found:
+            if LooseVersion(pyuvdata.__version__)>=LooseVersion('1.3.2'):
+                self.infodict['integration_time'] = prisim_object.t_acc[0] + NP.zeros(self.infodict['Nblts']) # Replicate to be of shape (Nblts,) to be Baseline-Dependent-Averaging compliant with pyuvdata >= v1.3.2
+            else:
+                self.infodict['integration_time'] = prisim_object.t_acc[0]
+        else:
+            self.infodict['integration_time'] = prisim_object.t_acc[0] + NP.zeros(self.infodict['Nblts'])
+
         self.infodict['channel_width'] = prisim_object.freq_resolution
 
         # ----- Observation information ------
@@ -9210,7 +9219,8 @@ class InterferometerData(object):
                     if prisim_object.layout['positions'].shape != (self.infodict['Nants_telescope'],3):
                         warnings.warn('Number of antennas in prisim_object found to be incompatible with number of unique antennas found. Proceeding with default values.')
                     else:
-                        self.infodict['antenna_positions'] = prisim_object.layout['positions']
+                        self.infodict['antenna_positions'] = GEOM.enu2ecef(prisim_object.layout['positions'], {'lat': prisim_object.latitude, 'lon': prisim_object.longitude, 'alt': prisim_object.altitude, 'units': 'degrees'})
+                        # self.infodict['antenna_positions'] = UVUtils.ECEF_from_ENU(prisim_object.layout['positions'], NP.radians(prisim_object.latitude), NP.radians(prisim_object.longitude), prisim_object.altitude)
 
         self.infodict['gst0'] = 0.0
         self.infodict['rdate'] = ''
