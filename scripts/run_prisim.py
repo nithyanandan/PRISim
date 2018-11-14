@@ -2179,6 +2179,7 @@ if rank == 0:
                 simvis.duplicate_measurements(blgroups=blgroups)
                 consolidated_outfile = rootdir+project_dir+simid+sim_dir+'all-simvis'
 
+            PDB.set_trace()
             simvis.write_uvfits(consolidated_outfile, uvfits_parms=uvfits_parms, overwrite=True)
 
     if cleanup < 3:

@@ -28,6 +28,7 @@ import primary_beams as PB
 try:
     import pyuvdata
     from pyuvdata import UVData
+    from pyuvdata import utils as UVUtils
 except ImportError:
     uvdata_module_found = False
 else:
@@ -9195,7 +9196,11 @@ class InterferometerData(object):
                     if prisim_object.layout['positions'].shape != (self.infodict['Nants_telescope'],3):
                         warnings.warn('Number of antennas in prisim_object found to be incompatible with number of unique antennas found. Proceeding with default values.')
                     else:
-                        self.infodict['antenna_positions'] = prisim_object.layout['positions']
+                        x, y, z = GEOM.lla2ecef(prisim_object.latitude, prisim_object.longitude, alt=prisim_object.altitude, units='degrees')
+                        telescope_loc = NP.asarray([x[0],y[0],z[0]])
+                        antpos_ecef = GEOM.enu2ecef(prisim_object.layout['positions'], {'xyz': telescope_loc, 'lat': prisim_object.latitude, 'lon': prisim_object.longitude, 'units': 'degrees'})
+                        # antpos_ecef = UVUtils.ECEF_from_ENU(prisim_object.layout['positions'], NP.radians(prisim_object.latitude), NP.radians(prisim_object.longitude), prisim_object.altitude)
+                        self.infodict['antenna_positions'] = antpos_ecef
 
         self.infodict['gst0'] = 0.0
         self.infodict['rdate'] = ''
