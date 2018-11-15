@@ -478,6 +478,9 @@ if use_external_beam:
             external_beam_freqs = uvbm.freq_array.ravel() # nfreqs (in Hz)
         else:
             raise ImportError('uvbeam module not installed/found')
+
+        if NP.abs(NP.abs(external_beam).max() - 1.0) > 1e-10:
+            external_beam /= NP.abs(external_beam).max()
     else:
         raise ValueError('Specified beam file format not currently supported')
     beam_usage_str = 'extpb_'+beam_id

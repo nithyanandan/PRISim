@@ -1,3 +1,10 @@
+From c2d88e1 (tmp):
+==================
+
+In scripts/run_prisim.py,
+
+(*) Check for external beam to be peak normalized
+
 From 0ba8ad6 (master), fa6fcb2 (closure-adv):
 ============================================
 
