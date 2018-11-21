@@ -1,3 +1,11 @@
+From 586d6ae (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Write antenna positions relative to telescope location into
+pyuvdata object for UVFITS output
+
 From c2d88e1 (tmp):
 ==================
 
