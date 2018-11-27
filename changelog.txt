@@ -1,3 +1,10 @@
+From 59b3e2e (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Check for lowercase input for telescope_id
+
 From 586d6ae (pyuvdata):
 =======================
 

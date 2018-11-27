@@ -329,7 +329,7 @@ except OSError as exception:
     else:
         raise
 
-if telescope_id not in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'custom', 'paper', 'mwa_tools', 'hirax', 'chime']:
+if telescope_id.lower() not in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'custom', 'paper', 'mwa_tools', 'hirax', 'chime']:
     raise ValueError('Invalid telescope specified')
 
 if element_shape is None:
@@ -377,45 +377,45 @@ if (phasedarray_delayerr_str == '') and (phasedarray_gainerr_str == ''):
 
 phasedarray_delaygain_err_str = phasedarray_delayerr_str + phasedarray_gainerr_str + nrandom_str
 
-if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole'):
+if (telescope_id.lower() == 'mwa') or (telescope_id.lower() == 'mwa_dipole'):
     element_size = 0.74
     element_shape = 'dipole'
-    if telescope_id == 'mwa': phased_array = True
-elif telescope_id == 'paper':
+    if telescope_id.lower() == 'mwa': phased_array = True
+elif telescope_id.lower() == 'paper':
     element_size = 2.0
     element_shape = 'dipole'
-elif telescope_id == 'vla':
+elif telescope_id.lower() == 'vla':
     element_size = 25.0
     element_shape = 'dish'
-elif telescope_id == 'gmrt':
+elif telescope_id.lower() == 'gmrt':
     element_size = 45.0
     element_shape = 'dish'
-elif telescope_id == 'hera':
+elif telescope_id.lower() == 'hera':
     element_size = 14.0
     element_shape = 'dish'
-elif telescope_id == 'hirax':
+elif telescope_id.lower() == 'hirax':
     element_size = 6.0
     element_shape = 'dish'
-elif telescope_id == 'custom':
+elif telescope_id.lower() == 'custom':
     if element_shape != 'delta':
         if (element_shape is None) or (element_size is None):
             raise ValueError('Both antenna element shape and size must be specified for the custom telescope type.')
         elif element_size <= 0.0:
             raise ValueError('Antenna element size must be positive.')
-elif telescope_id == 'mwa_tools':
+elif telescope_id.lower() == 'mwa_tools':
     pass
 else:
     raise ValueError('telescope ID must be specified.')
 
-if telescope_id == 'custom':
+if telescope_id.lower() == 'custom':
     if element_shape == 'delta':
         telescope_id = 'delta'
     else:
         telescope_id = '{0:.1f}m_{1:}'.format(element_size, element_shape)
 
     if phased_array:
-        telescope_id = telescope_id + '_array'
-telescope_str = telescope_id+'_'
+        telescope_id = telescope_id.lower() + '_array'
+telescope_str = telescope_id.lower()+'_'
 
 if element_ocoords not in ['altaz', 'dircos']:
     if element_ocoords is not None:
@@ -424,19 +424,19 @@ if element_ocoords not in ['altaz', 'dircos']:
 if element_orientation is None:
     if element_ocoords is not None:
         if element_ocoords == 'altaz':
-            if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole') or (element_shape == 'dipole'):
+            if (telescope_id.lower() == 'mwa') or (telescope_id.lower() == 'mwa_dipole') or (element_shape == 'dipole'):
                 element_orientation = NP.asarray([0.0, 90.0]).reshape(1,-1)
             else:
                 element_orientation = NP.asarray([90.0, 270.0]).reshape(1,-1)
         elif element_ocoords == 'dircos':
-            if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole') or (element_shape == 'dipole'):
+            if (telescope_id.lower() == 'mwa') or (telescope_id.lower() == 'mwa_dipole') or (element_shape == 'dipole'):
                 element_orientation = NP.asarray([1.0, 0.0, 0.0]).reshape(1,-1)
             else:
                 element_orientation = NP.asarray([0.0, 0.0, 1.0]).reshape(1,-1)
         else:
             raise ValueError('Invalid value specified antenna element orientation coordinate system.')
     else:
-        if (telescope_id == 'mwa') or (telescope_id == 'mwa_dipole') or (element_shape == 'dipole'):
+        if (telescope_id.lower() == 'mwa') or (telescope_id.lower() == 'mwa_dipole') or (element_shape == 'dipole'):
             element_orientation = NP.asarray([0.0, 90.0]).reshape(1,-1)
         else:
             element_orientation = NP.asarray([90.0, 270.0]).reshape(1,-1)
@@ -496,8 +496,8 @@ else:
     beam_usage_str = beam_usage_str + '_chromatic'
 
 telescope = {}
-if telescope_id in ['mwa', 'vla', 'gmrt', 'hera', 'paper', 'mwa_dipole', 'mwa_tools', 'hirax', 'chime']:
-    telescope['id'] = telescope_id
+if telescope_id.lower() in ['mwa', 'vla', 'gmrt', 'hera', 'paper', 'mwa_dipole', 'mwa_tools', 'hirax', 'chime']:
+    telescope['id'] = telescope_id.lower()
 telescope['shape'] = element_shape
 telescope['size'] = element_size
 telescope['orientation'] = element_orientation
@@ -510,7 +510,7 @@ telescope['altitude'] = altitude
 if A_eff is None:
     if (telescope['shape'] == 'dipole') or (telescope['shape'] == 'delta'):
         A_eff = (0.5*FCNST.c/freq)**2
-        if (telescope_id == 'mwa') or phased_array:
+        if (telescope_id.lower() == 'mwa') or phased_array:
             A_eff *= 16
     if (telescope['shape'] == 'dish') or (telescope['shape'] == 'gaussian'):
         A_eff = NP.pi * (0.5*element_size)**2
@@ -522,7 +522,7 @@ if phased_array:
     except IOError:
         raise IOError('Could not open the specified file for phased array of antenna elements.')
 
-if telescope_id == 'mwa':
+if telescope_id.lower() == 'mwa':
     xlocs, ylocs = NP.meshgrid(1.1*NP.linspace(-1.5,1.5,4), 1.1*NP.linspace(1.5,-1.5,4))
     element_locs = NP.hstack((xlocs.reshape(-1,1), ylocs.reshape(-1,1), NP.zeros(xlocs.size).reshape(-1,1)))
 
@@ -547,7 +547,7 @@ if pointing_file is not None:
     pointing_init = None
     pointing_info_from_file = NP.loadtxt(pointing_file, comments='#', usecols=(1,2,3), delimiter=',')
     obs_id = NP.loadtxt(pointing_file, comments='#', usecols=(0,), delimiter=',', dtype=str)
-    if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
+    if (telescope_id.lower() == 'mwa') or (telescope_id.lower() == 'mwa_tools') or (phased_array):
         delays_str = NP.loadtxt(pointing_file, comments='#', usecols=(4,), delimiter=',', dtype=str)
         delays_list = [NP.fromstring(delaystr, dtype=float, sep=';', count=-1) for delaystr in delays_str]
         delay_settings = NP.asarray(delays_list)
@@ -557,7 +557,7 @@ if pointing_file is not None:
         n_acc = pointing_info_from_file.shape[0]
     pointing_info_from_file = pointing_info_from_file[:min(n_acc, pointing_info_from_file.shape[0]),:]
     obs_id = obs_id[:min(n_acc, pointing_info_from_file.shape[0])]
-    if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
+    if (telescope_id.lower() == 'mwa') or (telescope_id.lower() == 'mwa_tools') or (phased_array):
         delays = delay_settings[:min(n_acc, pointing_info_from_file.shape[0]),:]
     n_acc = min(n_acc, pointing_info_from_file.shape[0])
     pointings_altaz = pointing_info_from_file[:,:2].reshape(-1,2)
@@ -578,7 +578,7 @@ if pointing_file is not None:
         n_acc = lst_wrapped.size - 1
         pointings_altaz = NP.vstack((pointings_altaz[0,:].reshape(-1,2), pointings_altaz[angle_diff>shift_threshold,:].reshape(-1,2)))
         obs_id = NP.concatenate(([obs_id[0]], obs_id[angle_diff>shift_threshold]))
-        if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
+        if (telescope_id.lower() == 'mwa') or (telescope_id.lower() == 'mwa_tools') or (phased_array):
             delays = NP.vstack((delay_settings[0,:], delay_settings[angle_diff>shift_threshold,:]))
         obs_mode = 'custom'
         if avg_drifts:
@@ -594,7 +594,7 @@ if pointing_file is not None:
         lst_edges = NP.copy(lst_wrapped)
         pointings_altaz = pointings_altaz[snapshots_range[0]:snapshots_range[1]+1,:]
         obs_id = obs_id[snapshots_range[0]:snapshots_range[1]+1]
-        if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
+        if (telescope_id.lower() == 'mwa') or (telescope_id.lower() == 'mwa_tools') or (phased_array):
             delays = delay_settings[snapshots_range[0]:snapshots_range[1]+1,:]
         n_acc = snapshots_range[1]-snapshots_range[0]+1
     elif pick_snapshots is not None:
@@ -603,7 +603,7 @@ if pointing_file is not None:
         lst_begin = NP.asarray(lst_wrapped[pick_snapshots])
         pointings_altaz = pointings_altaz[pick_snapshots,:]
         obs_id = obs_id[pick_snapshots]
-        if (telescope_id == 'mwa') or (phased_array) or (telescope_id == 'mwa_tools'):
+        if (telescope_id.lower() == 'mwa') or (phased_array) or (telescope_id.lower() == 'mwa_tools'):
             delays = delay_settings[pick_snapshots,:]
 
         if obs_mode != 'lstbin':
@@ -1709,10 +1709,10 @@ if mpi_on_src: # MPI based on source multiplexing
             # timestamp = str(DT.datetime.now())
             timestamp = lst[j]
             pbinfo = None
-            if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
+            if (telescope_id.lower() == 'mwa') or (telescope_id.lower() == 'mwa_tools') or (phased_array):
                 pbinfo = {}
                 pbinfo['delays'] = delays[j,:]
-                if (telescope_id == 'mwa') or (phased_array):
+                if (telescope_id.lower() == 'mwa') or (phased_array):
                     # pbinfo['element_locs'] = element_locs
                     pbinfo['delayerr'] = phasedarray_delayerr
                     pbinfo['gainerr'] = phasedarray_gainerr
@@ -1768,14 +1768,14 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 fgmod = skymod.subset(roi_subset)
 
                 pbinfo = {}
-                if (telescope_id == 'mwa') or (phased_array) or (telescope_id == 'mwa_tools'):
+                if (telescope_id.lower() == 'mwa') or (phased_array) or (telescope_id.lower() == 'mwa_tools'):
                     if pointing_file is not None:
                         pbinfo['delays'] = delays[j,:]
                     else:
                         pbinfo['pointing_center'] = pointings_altaz[j,:]
                         pbinfo['pointing_coords'] = 'altaz'
                         
-                    if (telescope_id == 'mwa') or (phased_array):
+                    if (telescope_id.lower() == 'mwa') or (phased_array):
                         # pbinfo['element_locs'] = element_locs
                         pbinfo['delayerr'] = phasedarray_delayerr
                         pbinfo['gainerr'] = phasedarray_gainerr
@@ -1894,10 +1894,10 @@ else: # MPI based on baseline multiplexing
                         timestamp = lst[j]
 
                     pbinfo = None
-                    if (telescope_id == 'mwa') or (telescope_id == 'mwa_tools') or (phased_array):
+                    if (telescope_id.lower() == 'mwa') or (telescope_id.lower() == 'mwa_tools') or (phased_array):
                         pbinfo = {}
                         pbinfo['delays'] = delays[j,:]
-                        if (telescope_id == 'mwa') or (phased_array):
+                        if (telescope_id.lower() == 'mwa') or (phased_array):
                             # pbinfo['element_locs'] = element_locs
                             pbinfo['delayerr'] = phasedarray_delayerr
                             pbinfo['gainerr'] = phasedarray_gainerr
@@ -1950,14 +1950,14 @@ else: # MPI based on baseline multiplexing
                     fgmod = skymod.subset(roi_subset)
    
                     pbinfo = {}
-                    if (telescope_id == 'mwa') or (phased_array) or (telescope_id == 'mwa_tools'):
+                    if (telescope_id.lower() == 'mwa') or (phased_array) or (telescope_id.lower() == 'mwa_tools'):
                         if pointing_file is not None:
                             pbinfo['delays'] = delays[j,:]
                         else:
                             pbinfo['pointing_center'] = pointings_altaz[j,:]
                             pbinfo['pointing_coords'] = 'altaz'
                             
-                        if (telescope_id == 'mwa') or (phased_array):
+                        if (telescope_id.lower() == 'mwa') or (phased_array):
                             # pbinfo['element_locs'] = element_locs
                             pbinfo['delayerr'] = phasedarray_delayerr
                             pbinfo['gainerr'] = phasedarray_gainerr
