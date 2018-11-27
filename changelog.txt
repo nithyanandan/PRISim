@@ -1,3 +1,10 @@
+From 81755b0 (master):
+=====================
+
+In scripts/make_redundant_visibilities.py,
+
+(*) Fix bug in determining unique baselines
+
 From 59b3e2e (master):
 =====================
 

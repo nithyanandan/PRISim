@@ -44,11 +44,11 @@ if __name__ == '__main__':
             simblo = NP.angle(simbl[:,0] + 1j * simbl[:,1], deg=True)
             simblza = NP.degrees(NP.arccos(simbl[:,2] / simbll))
             
-            simblstr = ['{0[0]:.2f}_{0[1]:.3f}_{0[2]:.3f}'.format(lo) for lo in zip(simbll,simblza,simblo)]
+            simblstr = ['{0[0]:.2f}_{0[1]:.3f}_{0[2]:.3f}'.format(lo) for lo in zip(simbll,3.6e3*simblza,3.6e3*simblo)]
         
             inp_blo = NP.angle(bl[:,0] + 1j * bl[:,1], deg=True)
             inp_blza = NP.degrees(NP.arccos(bl[:,2] / bl_length))
-            inp_blstr = ['{0[0]:.2f}_{0[1]:.3f}_{0[2]:.3f}'.format(lo) for lo in zip(bl_length,inp_blza,inp_blo)]
+            inp_blstr = ['{0[0]:.2f}_{0[1]:.3f}_{0[2]:.3f}'.format(lo) for lo in zip(bl_length,3.6e3*inp_blza,3.6e3*inp_blo)]
     
             uniq_inp_blstr, inp_ind, inp_invind = NP.unique(inp_blstr, return_index=True, return_inverse=True)  ## if numpy.__version__ < 1.9.0
             uniq_sim_blstr, sim_ind, sim_invind = NP.unique(simblstr, return_index=True, return_inverse=True)  ## if numpy.__version__ < 1.9.0
