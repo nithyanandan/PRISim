@@ -501,32 +501,46 @@ pointing :                      # If pointing file is specified to be
                                 # Formats for other telescopes under
                                 # development
 
-    drift_init :
+    jd_init         : null
+                                # initialize start of observation with
+                                # JD. If not set to null, obs_date and 
+                                # lst_init are ignored in scheduling the
+                                # observation. They will be determined
+                                # automatically
+
+    lst_init        : 0.0
+                                # LST at start of observation (hours).
+                                # The epoch is assumed to be the date 
+                                # of observation. If set to null, jd_init
+                                # must be provided. Otherwise, both
+                                # lst_init and obs_date must be set
+
+    drift_init      :
                                 # Applies in case of initializing 
                                 # pointing information for drift scan
                                 # mode
 
-        alt         : null
+        alt             : null
                                 # Altitude of telescope pointing
                                 # (degrees)
 
-        az          : null
+        az              : null
                                 # Azimuth of telescope pointing
                                 # (degrees)
 
-        ha          : 0.0
+        ha              : 0.0
                                 # Hour angle of telescope pointing
                                 # (degrees). Only one of the Alt-Az or
                                 # HA-Dec pairs must be specified and 
                                 # the other pair must be set to null
 
-        dec         : -30.7224
+        dec             : -30.7224
                                 # Declination of telescope pointing
                                 # (degrees). Only one of the Alt-Az or
                                 # HA-Dec pairs must be specified and 
                                 # the other pair must be set to null
 
-        lst         : 0.0
+        lst             : 0.0
                                 # LST at start of observation (hours).
                                 # The epoch is assumed to be the date 
                                 # of observation

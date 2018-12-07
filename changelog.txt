@@ -1,3 +1,16 @@
+From 15178ed (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Start modifying simulation parameters to compute better ephemeris
+and timing
+
+In scripts/run_prisim.py,
+
+(*) Start modifying ephemeris and timing estimates for the 'drift' and
+'track' observing modes
+
 From 81755b0 (master):
 =====================
 

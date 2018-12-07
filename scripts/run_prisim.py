@@ -9,7 +9,7 @@ import numpy as NP
 import ephem as EP
 from astropy.io import fits, ascii
 from astropy.coordinates import Galactic, FK5, SkyCoord
-from astropy import units
+from astropy import units as U
 from astropy.time import Time
 import scipy.constants as FCNST
 from scipy import interpolate
@@ -29,6 +29,7 @@ from astroutils import constants as CNST
 from astroutils import DSP_modules as DSP 
 from astroutils import lookup_operations as LKP
 from astroutils import mathops as OPS
+from astroutils import ephemeris_timing as ET
 import prisim
 from prisim import interferometry as RI
 from prisim import primary_beams as PB
@@ -188,10 +189,10 @@ beam_switch = parms['snapshot']['beam_switch']
 pick_snapshots = parms['snapshot']['pick']
 all_snapshots = parms['snapshot']['all']
 snapshots_range = parms['snapshot']['range']
-pointing_file = parms['pointing']['file']
-# pointing_info = parms['pointing']['initial']
-pointing_drift_init = parms['pointing']['drift_init']
-pointing_track_init = parms['pointing']['track_init']
+pointing_info = parms['pointing']
+pointing_file = pointing_info['file']
+pointing_drift_init = pointing_info['drift_init']
+pointing_track_init = pointing_info['track_init']
 gradient_mode = parms['processing']['gradient_mode']
 if gradient_mode is not None:
     if not isinstance(gradient_mode, str):
@@ -659,13 +660,23 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
         raise ValueError('Invalid specification for obs_mode')
 
     lstobj = EP.FixedBody()
+    lst_init = pointing_info['lst_init']
+    jd_init = pointing_info['jd_init']
+    if jd_init is None:
+        if ((obs_date is not None) and (lst_init is not None)):
+            tobj0 = Time(obs_date.replace('/', '-'), format='iso', scale='utc', location=('{0:.6f}d'.format(telescope['longitude']), '{0:.6f}d'.format(telescope['latitude']), '{0:.6f}m'.format(telescope['altitude'])))
+            jd_init = ET.julian_date_from_LAST(lst_init/15.0, tobj0.jd, telescope['longitude']/15.0)
+            jd_init = jd_init[0]
+    tobj_init = Time(jd_init, format='jd', scale='utc', location=('{0:.6f}d'.format(telescope['longitude']), '{0:.6f}d'.format(telescope['latitude']), '{0:.6f}m'.format(telescope['altitude'])))
+    lst_init = tobj_init.sidereal_time('apparent').deg
+            
     if obs_mode == 'drift':
         alt = pointing_drift_init['alt']
         az = pointing_drift_init['az']
         ha = pointing_drift_init['ha']
         dec = pointing_drift_init['dec']
-        lst_init = pointing_drift_init['lst']
-        lst_init *= 15.0 # initial LST is now in degrees
+        # lst_init = pointing_drift_init['lst']
+        # lst_init *= 15.0 # initial LST is now in degrees
         lstobj._epoch = obs_date
        
         if (alt is None) or (az is None):
@@ -680,11 +691,16 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     if obs_mode == 'track':
         ra = pointing_track_init['ra']
         dec = pointing_track_init['dec']
-        ha = pointing_track_init['ha']
+        # ha = pointing_track_init['ha']
         epoch = pointing_track_init['epoch']
-        lst_init = ra + ha
-        lstobj._epoch = epoch
-        pointings_hadec = NP.hstack((ha + (t_acc/3.6e3)*15.0*NP.arange(n_acc).reshape(-1,1), dec+NP.zeros(n_acc).reshape(-1,1)))
+        track_init_pointing_at_epoch = SkyCoord(ra=ra*U.deg, dec=dec*U.deg, frame='fk5', equinox='J{0}'.format(epoch))
+        track_init_pointing_at_tinit = track_init_pointing_at_epoch.transform_to(FK5(equinox=tobj_init))
+        ha = lst_init - track_init_pointing_at_tinit.ra.deg # Initial HA in degrees
+        pointings_hadec = NP.hstack((ha + (t_acc/3.6e3)*15.0*NP.arange(n_acc).reshape(-1,1), track_init_pointing_at_tinit.dec.deg+NP.zeros(n_acc).reshape(-1,1)))
+        # lst_init = ra + ha
+        # lstobj._epoch = epoch
+        # pointings_hadec = NP.hstack((ha + (t_acc/3.6e3)*15.0*NP.arange(n_acc).reshape(-1,1), dec+NP.zeros(n_acc).reshape(-1,1)))
+        
         
     lstobj._ra = NP.radians(lst_init)
 
@@ -1027,7 +1043,7 @@ if use_HI_fluctuations or use_HI_cube:
 elif use_HI_monopole:
 
     theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
-    gc = Galactic(l=NP.degrees(phi), b=90.0-NP.degrees(theta), unit=(units.degree, units.degree))
+    gc = Galactic(l=NP.degrees(phi), b=90.0-NP.degrees(theta), unit=(U.degree, U.degree))
     radec = gc.fk5
     ra_deg_EoR = radec.ra.degree
     dec_deg_EoR = radec.dec.degree
