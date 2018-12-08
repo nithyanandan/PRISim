@@ -1,3 +1,24 @@
+From 9662bf2 (data):
+===================
+
+In prisim/examples/ioparms/data_setup_parms.yaml,
+
+(*) Update URL for PRISim data in prisim_data.tar.gz
+(*) HERA beam has been updated in prisim_data.tar.gz from earlier
+HFSS beam to Nicolas Fagnoni's simulated beam
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Update name of external beam from earlier HFSS beam in the
+prisim/data/beams/ directory to Nicolas Fagnoni's simulated HERA
+beam in uvbeam format
+(*) Update default value for filefmt and identifier for external
+beam
+
+In README.rst,
+
+(*) Update URL for prisim_data.tar.gz
+
 From e75a1f7 (data):
 ===================
 

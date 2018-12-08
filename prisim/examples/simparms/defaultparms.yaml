@@ -330,7 +330,7 @@ beam    :
                                 # analytically from antenna aperture
                                 # specifications
 
-    file            : 'HERA_HFSS_X4Y2H_4900.hmap'
+    file            : 'NF_HERA_antenna_power_pattern_99-201_MHz_nside_128.uvbeam'
 
                                 # FITS file containing the external
                                 # antenna beam. Used only if
@@ -349,12 +349,12 @@ beam    :
                                 # If set to 'custom' then the full path
                                 # to the file must be specified
 
-    filefmt         : 'FITS'
+    filefmt         : 'UVBeam'
                                 # File format for external beam file.
                                 # Accepted values are 'HDF5', 'FITS',
                                 # and 'UVBeam' (pyuvdata UVBeam object)
 
-    identifier      : 'HERA-CST'
+    identifier      : 'NF-128'
                                 # string to identify source of beam
                                 # Any string. e.g. RB=Rich Bradley,
                                 # AN=Abraham Neben, DD=Dave DeBoer,
