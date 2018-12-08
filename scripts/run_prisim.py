@@ -1472,24 +1472,28 @@ elif use_SUMSS:
 elif use_MSS:
     pass
 elif use_GLEAM:
-    freq_GLEAM = 0.200  # in GHz
+    reffreq = parms['fgparm']['custom_reffreq']
     hdulist = fits.open(GLEAM_file)
+    colnames = [col.name for col in hdulist[1].columns if ('int_flux_' in col.name and 'err' not in col.name and 'fit' not in col.name and 'wide' not in col.name)]
+    colfreqs = NP.char.lstrip(colnames, 'int_flux_').astype(NP.float)
+    nearest_freq_ind = NP.argmin(NP.abs(colfreqs - reffreq*1e3))
+    freq_GLEAM = colfreqs[nearest_freq_ind] / 1e3 # in GHz
     ra_deg_GLEAM = hdulist[1].data['RAJ2000']
-    dec_deg_GLEAM = hdulist[1].data['DECJ2000']
-    gleam_fint = hdulist[1].data['int_flux_deep']
-    gleam_majax = hdulist[1].data['a_deep']
-    gleam_minax = hdulist[1].data['b_deep']
-    gleam_pa = hdulist[1].data['pa_deep']
-    gleam_psf_majax = hdulist[1].data['psf_a_deep']
-    gleam_psf_minax = hdulist[1].data['psf_b_deep']
+    dec_deg_GLEAM = hdulist[1].data['DEJ2000']
+    gleam_fint = hdulist[1].data[colnames[nearest_freq_ind]]
+    gleam_majax = 2 * hdulist[1].data['a_wide'] # Factor 2 to convert from semi-major axis to FWHM
+    gleam_minax = 2 * hdulist[1].data['b_wide'] # Factor 2 to convert from semi-minor axis to FWHM
+    gleam_pa = hdulist[1].data['pa_wide']
+    gleam_psf_majax = 2 * hdulist[1].data['psf_a_wide'] # Factor 2 to convert from semi-major axis to FWHM
+    gleam_psf_minax = 2 * hdulist[1].data['psf_b_wide'] # Factor 2 to convert from semi-minor axis to FWHM
+    spindex_GLEAM = hdulist[1].data['alpha']
     hdulist.close()
-
-    if spindex_seed is None:
+    nanind = NP.where(NP.isnan(spindex_GLEAM))[0]
+    if nanind.size > 0:
+        if spindex_seed is not None:
+            NP.random.seed(2*spindex_seed)
         spindex_GLEAM = spindex + spindex_rms * NP.random.randn(gleam_fint.size)
-    else:
-        NP.random.seed(2*spindex_seed)
-        spindex_GLEAM = spindex + spindex_rms * NP.random.randn(gleam_fint.size)
-
+        
     if fluxcut_max is None:
         select_source_ind = gleam_fint >= fluxcut_min * (freq_GLEAM*1e9/fluxcut_freq)**spindex_GLEAM
     else:
@@ -1542,7 +1546,7 @@ elif use_custom:
     majax = catdata['MAJAX'].data
     minax = catdata['MINAX'].data
     pa = catdata['PA'].data
-    freq_custom = flux_unit = parms['fgparm']['custom_reffreq']
+    freq_custom = parms['fgparm']['custom_reffreq']
     freq_catalog = freq_custom * 1e9 + NP.zeros(fint.size)
     catlabel = NP.repeat('custom', fint.size)
     if fluxcut_max is None:

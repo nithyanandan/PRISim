@@ -1,3 +1,14 @@
+From 15178ed (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Change default file of GLEAM catalog
+
+In scripts/run_prisim.py,
+
+(*) Update reading of GLEAM catalog to latest version
+
 From 81755b0 (master):
 =====================
 
