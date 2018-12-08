@@ -693,6 +693,13 @@ fgparm   :
                                 # Random seed for generation of random
                                 # spectral indices
 
+    roi_radius      : null
+                                # Radius around the pointing center
+                                # (in degrees) which determines the  
+                                # sky model. If set to null (default),
+                                # roi_radius will be assumed to be
+                                # 90 degrees
+
     lidz            : true
                                 # Use simulations of Adam Lidz. Only
                                 # one of lidz or 21cmfast can be set

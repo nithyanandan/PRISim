@@ -1,3 +1,18 @@
+From caa2ea2 (gleam):
+====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add parameter roi_radius under sky model parameters
+
+In scripts/run_prisim.py,
+
+(*) Read and pass roi_radius in calls to
+RI.InterferometerArray.observe()
+(*) Select the visible sources from the sky model based on roi_radius
+(*) Assumption that roi_radius is always 90 is now replaced with
+specified roi_radius
+
 From 9662bf2 (data):
 ===================
 
