@@ -1,3 +1,25 @@
+From 6ce1d98 (master):
+=====================
+
+In prisim/examples/ioparms/data_setup_parms.yaml,
+
+(*) Provide default URL for PRISim data
+(*) Add fid parameter to specify file ID
+(*) Works specifically for files on Google Drive
+
+In scripts/setup_prisim_data.py,
+
+(*) Import gdown
+(*) Remove import of requests module
+(*) Remove url_default variable
+(*) Rename download() with download_old() and comment it out
+(*) Create new function download() that calls gdown.download()
+(*) In main(), call new download() function
+
+In setup.py,
+
+(*) Include module gdown in install_requires and setup_requires
+
 From 39498a5 (gleam):
 ====================
 

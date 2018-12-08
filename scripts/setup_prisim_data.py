@@ -3,33 +3,43 @@
 import os
 import argparse
 import yaml
-import requests
+import gdown
 import tarfile
 import prisim
 
 prisim_path = prisim.__path__[0]+'/'
 tarfilename = 'prisim_data.tar.gz'
-url_default = 'https://www.dropbox.com/s/7y9go1bzjfa0rkv/prisim_data.tar.gz?dl=1'
+# url_default = 'https://www.dropbox.com/s/7y9go1bzjfa0rkv/prisim_data.tar.gz?dl=1'
 
 def download(url=None, outfile=None, verbose=True):
-    if url is None:
-        url = url_default
-    elif not isinstance(url, str):
-        raise TypeError('Input url must be a string')
-    if outfile is None:
-        outfile = prisim_path+tarfilename
-    elif not isinstance(outfile, str):
-        raise TypeError('outfile must be a string')
+    if url is not None:
+        if not isinstance(url, str):
+            raise TypeError('Input url must be a string')
+        if outfile is None:
+            outfile = prisim_path+tarfilename
+        elif not isinstance(outfile, str):
+            raise TypeError('outfile must be a string')
+        gdown.download(url, outfile, quiet=(not verbose))
 
-    if verbose:
-        print('Downloading PRISim package data from {0} ...'.format(url))
+# def download_old(url=None, outfile=None, verbose=True):
+#     if url is None:
+#         url = url_default
+#     elif not isinstance(url, str):
+#         raise TypeError('Input url must be a string')
+#     if outfile is None:
+#         outfile = prisim_path+tarfilename
+#     elif not isinstance(outfile, str):
+#         raise TypeError('outfile must be a string')
 
-    r = requests.get(url)
-    with open(outfile, 'wb') as fhandle:
-        fhandle.write(r.content)
+#     if verbose:
+#         print('Downloading PRISim package data from {0} ...'.format(url))
 
-    if verbose:
-        print('Downloaded PRISim package data into {0}'.format(outfile))
+#     r = requests.get(url)
+#     with open(outfile, 'wb') as fhandle:
+#         fhandle.write(r.content)
+
+#     if verbose:
+#         print('Downloaded PRISim package data into {0}'.format(outfile))
 
 def extract(infile=None, outdir=None, verbose=True):
     if infile is None:
@@ -85,7 +95,7 @@ if __name__ == '__main__':
     for action_type in action_types:
         if parms[action_type]['action']:
             if action_type == 'download':
-                keys = ['url', 'fname']
+                keys = ['url', 'fid', 'fname']
             elif action_type == 'extract':
                 keys = ['fname', 'dir']
             else:
@@ -95,7 +105,8 @@ if __name__ == '__main__':
                     parms[action_type][key] = None
 
             if action_type == 'download':
-                download(url=parms[action_type]['url'], outfile=parms[action_type]['fname'], verbose=parms['verbose'])
+                download(url=parms[action_type]['url']+parms[action_type]['fid'], outfile=parms[action_type]['fname'], verbose=parms['verbose'])
+                # gdown.download()
             elif action_type == 'extract':
                 extract(infile=parms[action_type]['fname'], outdir=parms[action_type]['dir'], verbose=parms['verbose'])
             else:

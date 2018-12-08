@@ -10,11 +10,13 @@ download    :
                             # set to true, downloads from the
                             # URL specified below
 
-    url         : null
+    url         : 'https://drive.google.com/uc?id='
                             # URL of PRISim data. If set to null
-                            # (default), the default URL in script
-                            # setup_prisim_data.py will be used.
-                            # Otherwise full URL must be specified
+                            # the file will have assumed to be
+                            # downloaded under fname. The URL is
+                            # assumed to be in Google Drive.
+
+    fid         : '1u1gDyBhdZPPkf75aeybpuT2r_lDcdurW'
 
     fname       : null
                             # Filename for downloaded data.
