@@ -1726,7 +1726,6 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
         if rank == 0: # Compute ROI parameters for only one process and broadcast to all
             roi = RI.ROI_parameters()
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots'.format(n_acc), PGB.ETA()], maxval=n_acc).start()
-            PDB.set_trace()
             for j in range(n_acc):
                 src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
                 visible_current = src_altaz_current[:,0] >= 90.0 - roi_radius
@@ -1736,7 +1735,6 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
                 roi_subset = NP.where(NP.logical_and(visible_current, roi_ind))[0].tolist()
                 src_dircos_current_subset = GEOM.altaz2dircos(src_altaz_current[roi_subset,:], units='degrees')
-                fgmod = skymod.subset(roi_subset)
 
                 pbinfo = {}
                 if (telescope_id.lower() == 'mwa') or (phased_array) or (telescope_id.lower() == 'mwa_tools'):
@@ -1918,7 +1916,6 @@ else: # MPI based on baseline multiplexing
                     roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
                     roi_subset = NP.where(NP.logical_and(visible_current, roi_ind))[0].tolist()
                     src_dircos_current_subset = GEOM.altaz2dircos(src_altaz_current[roi_subset,:], units='degrees')
-                    fgmod = skymod.subset(roi_subset)
    
                     pbinfo = {}
                     if (telescope_id.lower() == 'mwa') or (phased_array) or (telescope_id.lower() == 'mwa_tools'):

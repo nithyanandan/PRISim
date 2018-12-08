@@ -1,3 +1,10 @@
+From 0ec6259 (gleam):
+====================
+
+In scripts/run_prisim.py,
+
+(*) Remove unused subset() operations on skymod object
+
 From caa2ea2 (gleam):
 ====================
 
