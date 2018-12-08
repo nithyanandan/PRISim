@@ -597,7 +597,7 @@ snapshot :                      # Parameters below are mutually
 
 ######### Sky model ##########
 
-fgparm   :
+skyparm   :
 
     model           : 'csm'
                                 # Foreground model. Accepted values
@@ -650,8 +650,8 @@ fgparm   :
     custom_reffreq  : 0.150
                                 # Catalog reference frequency (in GHz).
                                 # Applies only to custom catalog when
-                                # FG model is set to 'custom', or
-				# GLEAM to pick the nearest frequency
+                                # sky model is set to 'custom', or
+                                # GLEAM to pick the nearest frequency
 
     flux_min        : 10.0
                                 # Flux density lower limit (Jy) to be 

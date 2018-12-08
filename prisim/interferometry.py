@@ -1563,7 +1563,7 @@ def getBaselineInfo(inpdict):
                                     as a list of strings. e.g., ['N', 'E'], 
                                     ['NE', 'SE', 'E'], ['SE', 'E', 'NE', 'N'] 
                                     which is equivalent to None, etc.
-            'fgparm'    [dictionary] Sky model specification. It contains the
+            'skyparm'    [dictionary] Sky model specification. It contains the
                         following keys and values:
                         'model'     [string] Sky model. Accepted values
                                     are 'csm' (NVSS+SUMSS point sources), 
@@ -1643,9 +1643,9 @@ def getBaselineInfo(inpdict):
     else:
         raise KeyError('Key "array" not found in input inpdict')
 
-    fg_str = inpdict['fgparm']['model']
+    sky_str = inpdict['skyparm']['model']
     use_HI_monopole = False
-    if fg_str == 'HI_monopole':
+    if sky_str == 'HI_monopole':
         use_HI_monopole = True
     antenna_file = inpdict['array']['file']
     array_layout = inpdict['array']['layout']

@@ -237,25 +237,25 @@ flag_chan = NP.asarray(parms['flags']['flag_chan']).reshape(-1)
 bp_flag_repeat = parms['flags']['bp_flag_repeat']
 n_edge_flag = NP.asarray(parms['flags']['n_edge_flag']).reshape(-1)
 flag_repeat_edge_channels = parms['flags']['flag_repeat_edge_channels']
-fg_str = parms['fgparm']['model']
-fsky = parms['fgparm']['fsky']
-fgcat_epoch = parms['fgparm']['epoch']
-nside = parms['fgparm']['nside']
-flux_unit = parms['fgparm']['flux_unit']
-fluxcut_min = parms['fgparm']['flux_min']
-fluxcut_max = parms['fgparm']['flux_max']
-fluxcut_freq = parms['fgparm']['fluxcut_reffreq']
+sky_str = parms['skyparm']['model']
+fsky = parms['skyparm']['fsky']
+skycat_epoch = parms['skyparm']['epoch']
+nside = parms['skyparm']['nside']
+flux_unit = parms['skyparm']['flux_unit']
+fluxcut_min = parms['skyparm']['flux_min']
+fluxcut_max = parms['skyparm']['flux_max']
+fluxcut_freq = parms['skyparm']['fluxcut_reffreq']
 if fluxcut_min is None:
     fluxcut_min = 0.0
-spindex = parms['fgparm']['spindex']
-spindex_rms = parms['fgparm']['spindex_rms']
-spindex_seed = parms['fgparm']['spindex_seed']
-roi_radius = parms['fgparm']['roi_radius']
+spindex = parms['skyparm']['spindex']
+spindex_rms = parms['skyparm']['spindex_rms']
+spindex_seed = parms['skyparm']['spindex_seed']
+roi_radius = parms['skyparm']['roi_radius']
 if roi_radius is None:
     roi_radius = 90.0
-use_lidz = parms['fgparm']['lidz']
-use_21cmfast = parms['fgparm']['21cmfast']
-global_HI_parms = parms['fgparm']['global_EoR_parms']
+use_lidz = parms['skyparm']['lidz']
+use_21cmfast = parms['skyparm']['21cmfast']
+global_HI_parms = parms['skyparm']['global_EoR_parms']
 catalog_filepathtype = parms['catalog']['filepathtype']
 DSM_file_prefix = parms['catalog']['DSM_file_prefix']
 SUMSS_file = parms['catalog']['SUMSS_file']
@@ -694,12 +694,12 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     obsrvr = EP.Observer()
     obsrvr.lat = NP.radians(latitude)
     obsrvr.lon = NP.radians(longitude)
-    obsrvr.date = fgcat_epoch
+    obsrvr.date = skycat_epoch
 
     lstobj.compute(obsrvr)
-    lst_init_fgcat_epoch = NP.degrees(lstobj.ra) / 15.0 # LST (hours) in epoch of foreground catalog
-    # lst = (lst_init_fgcat_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 # in degrees at the epoch of the foreground catalog
-    lst = (lst_init_fgcat_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 / sday # in degrees at the epoch of the foreground catalog    
+    lst_init_skycat_epoch = NP.degrees(lstobj.ra) / 15.0 # LST (hours) in epoch of foreground catalog
+    # lst = (lst_init_skycat_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 # in degrees at the epoch of the foreground catalog
+    lst = (lst_init_skycat_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 / sday # in degrees at the epoch of the foreground catalog    
     t_acc = t_acc + NP.zeros(n_acc)
     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
@@ -760,34 +760,34 @@ use_HI_cube = False
 use_HI_fluctuations = False
 use_MSS=False
 
-if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'noise', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations', 'skymod_file']:
+if sky_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'noise', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations', 'skymod_file']:
     raise ValueError('Invalid foreground model string specified.')
 
-if fg_str == 'asm':
+if sky_str == 'asm':
     use_GSM = True
-elif fg_str == 'dsm':
+elif sky_str == 'dsm':
     use_DSM = True
-elif fg_str == 'csm':
+elif sky_str == 'csm':
     use_CSM = True
-elif fg_str == 'sumss':
+elif sky_str == 'sumss':
     use_SUMSS = True
-elif fg_str == 'gleam':
+elif sky_str == 'gleam':
     use_GLEAM = True
-elif fg_str == 'custom':
+elif sky_str == 'custom':
     use_custom = True
-elif fg_str == 'skymod_file':
+elif sky_str == 'skymod_file':
     use_skymod = True
-elif fg_str == 'nvss':
+elif sky_str == 'nvss':
     use_NVSS = True
-elif fg_str == 'usm':
+elif sky_str == 'usm':
     use_USM = True
-elif fg_str == 'noise':
+elif sky_str == 'noise':
     use_noise = True
-elif fg_str == 'HI_monopole':
+elif sky_str == 'HI_monopole':
     use_HI_monopole = True
-elif fg_str == 'HI_fluctuations':
+elif sky_str == 'HI_fluctuations':
     use_HI_fluctuations = True
-elif fg_str == 'HI_cube':
+elif sky_str == 'HI_cube':
     use_HI_cube = True
 
 if global_HI_parms is not None:
@@ -1442,7 +1442,7 @@ elif use_SUMSS:
 elif use_MSS:
     pass
 elif use_GLEAM:
-    reffreq = parms['fgparm']['custom_reffreq']
+    reffreq = parms['skyparm']['custom_reffreq']
     hdulist = fits.open(GLEAM_file)
     colnames = [col.name for col in hdulist[1].columns if ('int_flux_' in col.name and 'err' not in col.name and 'fit' not in col.name and 'wide' not in col.name)]
     colfreqs = NP.char.lstrip(colnames, 'int_flux_').astype(NP.float)
@@ -1515,7 +1515,7 @@ elif use_custom:
     majax = catdata['MAJAX'].data
     minax = catdata['MINAX'].data
     pa = catdata['PA'].data
-    freq_custom = parms['fgparm']['custom_reffreq']
+    freq_custom = parms['skyparm']['custom_reffreq']
     freq_catalog = freq_custom * 1e9 + NP.zeros(fint.size)
     catlabel = NP.repeat('custom', fint.size)
     if fluxcut_max is None:
@@ -2152,7 +2152,7 @@ if rank == 0:
 
     if cleanup < 3:
         skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel'
-        if fg_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:
+        if sky_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:
             skymod.save(skymod_file, fileformat='hdf5')
     if cleanup >= 2:
         dir_to_be_removed = rootdir+project_dir+simid+roi_dir

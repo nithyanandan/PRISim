@@ -1,3 +1,18 @@
+From 7c5fdda (gleam):
+====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Replace fgparm with skyparm
+
+In scripts/run_prisim.py,
+
+(*) Replace all usage of 'fg' with 'sky' in variables
+
+In prisim/interfrometry.py,
+
+(*) Replace all usage of 'fg' with 'sky' in variables
+
 From 0ec6259 (gleam):
 ====================
 
