@@ -13,3 +13,4 @@
 /prisim/examples/ioparms/*~
 /prisim/*.pyc
 /prisim/*.tar.gz
+/prisim/interferometry.py.rej

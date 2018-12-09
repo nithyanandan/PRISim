@@ -330,7 +330,7 @@ beam    :
                                 # analytically from antenna aperture
                                 # specifications
 
-    file            : 'HERA_HFSS_X4Y2H_4900.hmap'
+    file            : 'NF_HERA_antenna_power_pattern_99-201_MHz_nside_128.uvbeam'
 
                                 # FITS file containing the external
                                 # antenna beam. Used only if
@@ -349,12 +349,12 @@ beam    :
                                 # If set to 'custom' then the full path
                                 # to the file must be specified
 
-    filefmt         : 'FITS'
+    filefmt         : 'UVBeam'
                                 # File format for external beam file.
                                 # Accepted values are 'HDF5', 'FITS',
                                 # and 'UVBeam' (pyuvdata UVBeam object)
 
-    identifier      : 'HERA-CST'
+    identifier      : 'NF-128'
                                 # string to identify source of beam
                                 # Any string. e.g. RB=Rich Bradley,
                                 # AN=Abraham Neben, DD=Dave DeBoer,
@@ -611,7 +611,7 @@ snapshot :                      # Parameters below are mutually
 
 ######### Sky model ##########
 
-fgparm   :
+skyparm   :
 
     model           : 'csm'
                                 # Foreground model. Accepted values
@@ -664,7 +664,8 @@ fgparm   :
     custom_reffreq  : 0.150
                                 # Catalog reference frequency (in GHz).
                                 # Applies only to custom catalog when
-                                # FG model is set to 'custom'
+                                # sky model is set to 'custom', or
+                                # GLEAM to pick the nearest frequency
 
     flux_min        : 10.0
                                 # Flux density lower limit (Jy) to be 
@@ -705,6 +706,13 @@ fgparm   :
     spindex_seed    : null
                                 # Random seed for generation of random
                                 # spectral indices
+
+    roi_radius      : null
+                                # Radius around the pointing center
+                                # (in degrees) which determines the  
+                                # sky model. If set to null (default),
+                                # roi_radius will be assumed to be
+                                # 90 degrees
 
     lidz            : true
                                 # Use simulations of Adam Lidz. Only
@@ -756,7 +764,7 @@ catalog  :
                       # '/path/to/MWACScatalogFile.csv'
                                 # MWACS catalog file
 
-    GLEAM_file      : 'GLEAMIDR3.fits'
+    GLEAM_file      : 'GLEAM_EGC_v2.fits'
                       # '/path/to/GLEAMcatalogFile.fits'
                                 # GLEAM catalog file
 

@@ -1,3 +1,103 @@
+Merge 378c269 (master) into 395d61a (ephemeris):
+===============================================
+
+(*) Bring changes in master branch into ephemeris branch
+
+From 7c5fdda (gleam):
+====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Replace fgparm with skyparm
+
+In scripts/run_prisim.py,
+
+(*) Replace all usage of 'fg' with 'sky' in variables
+
+In prisim/interfrometry.py,
+
+(*) Replace all usage of 'fg' with 'sky' in variables
+
+From 0ec6259 (gleam):
+====================
+
+In scripts/run_prisim.py,
+
+(*) Remove unused subset() operations on skymod object
+
+From caa2ea2 (gleam):
+====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add parameter roi_radius under sky model parameters
+
+In scripts/run_prisim.py,
+
+(*) Read and pass roi_radius in calls to
+RI.InterferometerArray.observe()
+(*) Select the visible sources from the sky model based on roi_radius
+(*) Assumption that roi_radius is always 90 is now replaced with
+specified roi_radius
+
+From 9662bf2 (data):
+===================
+
+In prisim/examples/ioparms/data_setup_parms.yaml,
+
+(*) Update URL for PRISim data in prisim_data.tar.gz
+(*) HERA beam has been updated in prisim_data.tar.gz from earlier
+HFSS beam to Nicolas Fagnoni's simulated beam
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Update name of external beam from earlier HFSS beam in the
+prisim/data/beams/ directory to Nicolas Fagnoni's simulated HERA
+beam in uvbeam format
+(*) Update default value for filefmt and identifier for external
+beam
+
+In README.rst,
+
+(*) Update URL for prisim_data.tar.gz
+
+From e75a1f7 (data):
+===================
+
+In scripts/setup_prisim_data.py,
+
+(*) Remove commented portions
+
+From 6ce1d98 (master):
+=====================
+
+In prisim/examples/ioparms/data_setup_parms.yaml,
+
+(*) Provide default URL for PRISim data
+(*) Add fid parameter to specify file ID
+(*) Works specifically for files on Google Drive
+
+In scripts/setup_prisim_data.py,
+
+(*) Import gdown
+(*) Remove import of requests module
+(*) Remove url_default variable
+(*) Rename download() with download_old() and comment it out
+(*) Create new function download() that calls gdown.download()
+(*) In main(), call new download() function
+
+In setup.py,
+
+(*) Include module gdown in install_requires and setup_requires
+
+From 39498a5 (gleam):
+====================
+
+In README.rst,
+
+(*) Update links to external data files for PRISim to account for the
+update to the GLEAM catalog
+
 From 15178ed (master):
 =====================
 
@@ -10,6 +110,17 @@ In scripts/run_prisim.py,
 
 (*) Start modifying ephemeris and timing estimates for the 'drift' and
 'track' observing modes
+
+From 15178ed (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Change default file of GLEAM catalog
+
+In scripts/run_prisim.py,
+
+(*) Update reading of GLEAM catalog to latest version
 
 From 81755b0 (master):
 =====================

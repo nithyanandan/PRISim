@@ -238,22 +238,25 @@ flag_chan = NP.asarray(parms['flags']['flag_chan']).reshape(-1)
 bp_flag_repeat = parms['flags']['bp_flag_repeat']
 n_edge_flag = NP.asarray(parms['flags']['n_edge_flag']).reshape(-1)
 flag_repeat_edge_channels = parms['flags']['flag_repeat_edge_channels']
-fg_str = parms['fgparm']['model']
-fsky = parms['fgparm']['fsky']
-fgcat_epoch = parms['fgparm']['epoch']
-nside = parms['fgparm']['nside']
-flux_unit = parms['fgparm']['flux_unit']
-fluxcut_min = parms['fgparm']['flux_min']
-fluxcut_max = parms['fgparm']['flux_max']
-fluxcut_freq = parms['fgparm']['fluxcut_reffreq']
+sky_str = parms['skyparm']['model']
+fsky = parms['skyparm']['fsky']
+skycat_epoch = parms['skyparm']['epoch']
+nside = parms['skyparm']['nside']
+flux_unit = parms['skyparm']['flux_unit']
+fluxcut_min = parms['skyparm']['flux_min']
+fluxcut_max = parms['skyparm']['flux_max']
+fluxcut_freq = parms['skyparm']['fluxcut_reffreq']
 if fluxcut_min is None:
     fluxcut_min = 0.0
-spindex = parms['fgparm']['spindex']
-spindex_rms = parms['fgparm']['spindex_rms']
-spindex_seed = parms['fgparm']['spindex_seed']
-use_lidz = parms['fgparm']['lidz']
-use_21cmfast = parms['fgparm']['21cmfast']
-global_HI_parms = parms['fgparm']['global_EoR_parms']
+spindex = parms['skyparm']['spindex']
+spindex_rms = parms['skyparm']['spindex_rms']
+spindex_seed = parms['skyparm']['spindex_seed']
+roi_radius = parms['skyparm']['roi_radius']
+if roi_radius is None:
+    roi_radius = 90.0
+use_lidz = parms['skyparm']['lidz']
+use_21cmfast = parms['skyparm']['21cmfast']
+global_HI_parms = parms['skyparm']['global_EoR_parms']
 catalog_filepathtype = parms['catalog']['filepathtype']
 DSM_file_prefix = parms['catalog']['DSM_file_prefix']
 SUMSS_file = parms['catalog']['SUMSS_file']
@@ -707,12 +710,12 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     obsrvr = EP.Observer()
     obsrvr.lat = NP.radians(latitude)
     obsrvr.lon = NP.radians(longitude)
-    obsrvr.date = fgcat_epoch
+    obsrvr.date = skycat_epoch
 
     lstobj.compute(obsrvr)
-    lst_init_fgcat_epoch = NP.degrees(lstobj.ra) / 15.0 # LST (hours) in epoch of foreground catalog
-    # lst = (lst_init_fgcat_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 # in degrees at the epoch of the foreground catalog
-    lst = (lst_init_fgcat_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 / sday # in degrees at the epoch of the foreground catalog    
+    lst_init_skycat_epoch = NP.degrees(lstobj.ra) / 15.0 # LST (hours) in epoch of foreground catalog
+    # lst = (lst_init_skycat_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 # in degrees at the epoch of the foreground catalog
+    lst = (lst_init_skycat_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 / sday # in degrees at the epoch of the foreground catalog    
     t_acc = t_acc + NP.zeros(n_acc)
     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
@@ -773,34 +776,34 @@ use_HI_cube = False
 use_HI_fluctuations = False
 use_MSS=False
 
-if fg_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'noise', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations', 'skymod_file']:
+if sky_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'noise', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations', 'skymod_file']:
     raise ValueError('Invalid foreground model string specified.')
 
-if fg_str == 'asm':
+if sky_str == 'asm':
     use_GSM = True
-elif fg_str == 'dsm':
+elif sky_str == 'dsm':
     use_DSM = True
-elif fg_str == 'csm':
+elif sky_str == 'csm':
     use_CSM = True
-elif fg_str == 'sumss':
+elif sky_str == 'sumss':
     use_SUMSS = True
-elif fg_str == 'gleam':
+elif sky_str == 'gleam':
     use_GLEAM = True
-elif fg_str == 'custom':
+elif sky_str == 'custom':
     use_custom = True
-elif fg_str == 'skymod_file':
+elif sky_str == 'skymod_file':
     use_skymod = True
-elif fg_str == 'nvss':
+elif sky_str == 'nvss':
     use_NVSS = True
-elif fg_str == 'usm':
+elif sky_str == 'usm':
     use_USM = True
-elif fg_str == 'noise':
+elif sky_str == 'noise':
     use_noise = True
-elif fg_str == 'HI_monopole':
+elif sky_str == 'HI_monopole':
     use_HI_monopole = True
-elif fg_str == 'HI_fluctuations':
+elif sky_str == 'HI_fluctuations':
     use_HI_fluctuations = True
-elif fg_str == 'HI_cube':
+elif sky_str == 'HI_cube':
     use_HI_cube = True
 
 if global_HI_parms is not None:
@@ -986,9 +989,6 @@ if spindex_seed is not None:
     spindex_seed_str = '{0:0d}_'.format(spindex_seed)
 
 if use_HI_fluctuations or use_HI_cube:
-    # if freq_resolution != 80e3:
-    #     raise ValueError('Currently frequency resolution can only be set to 80 kHz')
-
     hdulist = fits.open(eor_simfile)
     nexten = hdulist['PRIMARY'].header['NEXTEN']
     fitstype = hdulist['PRIMARY'].header['FITSTYPE']
@@ -1016,14 +1016,6 @@ if use_HI_fluctuations or use_HI_cube:
     if use_HI_fluctuations:
         temperatures = temperatures - NP.mean(temperatures, axis=0, keepdims=True)
 
-    # if use_HI_monopole:
-    #     shp_temp = temperatures.shape
-    #     temperatures = NP.mean(temperatures, axis=0, keepdims=True) + NP.zeros(shp_temp)
-    #     fg_str = 'HI_monopole'
-    # elif use_HI_fluctuations:
-    #     temperatures = temperatures - NP.mean(temperatures, axis=0, keepdims=True)
-    #     fg_str = 'HI_fluctuations'
-
     pixres = hdulist['PRIMARY'].header['PIXAREA']
     coords_table = hdulist['COORDINATE'].data
     ra_deg_EoR = coords_table['RA']
@@ -1038,7 +1030,6 @@ if use_HI_fluctuations or use_HI_cube:
     spec_parms = {}
     skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'spectrum': fluxes_EoR}
 
-    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), spec_type, spectrum=fluxes_EoR, spec_parms=None)
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 elif use_HI_monopole:
 
@@ -1053,7 +1044,6 @@ elif use_HI_monopole:
     spec_type = 'func'
     spec_parms = {}
     spec_parms['name'] = NP.repeat('tanh', ra_deg_EoR.size)
-    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
 
     spec_parms['freq-ref'] = freq_half + NP.zeros(ra_deg_EoR.size)
     spec_parms['flux-scale'] = T_xi0 * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
@@ -1063,7 +1053,6 @@ elif use_HI_monopole:
 
     skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms}
 
-    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), spec_type, spec_parms=spec_parms)
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
     spectrum = skymod.generate_spectrum()
 
@@ -1174,10 +1163,8 @@ elif use_GSM:
 
     spec_type = 'func'
     spec_parms = {}
-    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
     spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
     spec_parms['power-law-index'] = spindex
-    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
     spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
     spec_parms['flux-scale'] = fluxes
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
@@ -1186,7 +1173,6 @@ elif use_GSM:
 
     skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
 
-    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
 elif use_DSM:
@@ -1214,10 +1200,8 @@ elif use_DSM:
 
     spec_type = 'func'
     spec_parms = {}
-    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
     spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
     spec_parms['power-law-index'] = spindex
-    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
     spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
     spec_parms['flux-scale'] = fluxes
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
@@ -1225,7 +1209,6 @@ elif use_DSM:
 
     skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
 
-    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
 elif use_USM:
@@ -1249,10 +1232,8 @@ elif use_USM:
     flux_unit = 'Jy'
     spec_type = 'func'
     spec_parms = {}
-    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
     spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
     spec_parms['power-law-index'] = spindex
-    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
     spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
     spec_parms['flux-scale'] = fluxes_USM
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
@@ -1260,7 +1241,6 @@ elif use_USM:
 
     skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
 
-    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes_USM.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
   
 elif use_noise:
@@ -1400,7 +1380,6 @@ elif use_CSM:
 
     skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
 
-    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), spec_type, spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
 elif use_SUMSS:
@@ -1462,18 +1441,10 @@ elif use_SUMSS:
     minax = fminax/3.6e3
     fluxes = fint + 0.0
     
-    # if spindex_seed is None:
-    #     spindex = -0.83 + spindex_rms * NP.random.randn(fint.size)
-    # else:
-    #     NP.random.seed(spindex_seed)
-    #     spindex = -0.83 + spindex_rms * NP.random.randn(fint.size)
-
     spec_type = 'func'
     spec_parms = {}
-    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
     spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
     spec_parms['power-law-index'] = spindex
-    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
     spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
     spec_parms['flux-scale'] = fint
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
@@ -1482,30 +1453,33 @@ elif use_SUMSS:
 
     skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
 
-    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
 elif use_MSS:
     pass
 elif use_GLEAM:
-    freq_GLEAM = 0.200  # in GHz
+    reffreq = parms['skyparm']['custom_reffreq']
     hdulist = fits.open(GLEAM_file)
+    colnames = [col.name for col in hdulist[1].columns if ('int_flux_' in col.name and 'err' not in col.name and 'fit' not in col.name and 'wide' not in col.name)]
+    colfreqs = NP.char.lstrip(colnames, 'int_flux_').astype(NP.float)
+    nearest_freq_ind = NP.argmin(NP.abs(colfreqs - reffreq*1e3))
+    freq_GLEAM = colfreqs[nearest_freq_ind] / 1e3 # in GHz
     ra_deg_GLEAM = hdulist[1].data['RAJ2000']
-    dec_deg_GLEAM = hdulist[1].data['DECJ2000']
-    gleam_fint = hdulist[1].data['int_flux_deep']
-    gleam_majax = hdulist[1].data['a_deep']
-    gleam_minax = hdulist[1].data['b_deep']
-    gleam_pa = hdulist[1].data['pa_deep']
-    gleam_psf_majax = hdulist[1].data['psf_a_deep']
-    gleam_psf_minax = hdulist[1].data['psf_b_deep']
+    dec_deg_GLEAM = hdulist[1].data['DEJ2000']
+    gleam_fint = hdulist[1].data[colnames[nearest_freq_ind]]
+    gleam_majax = 2 * hdulist[1].data['a_wide'] # Factor 2 to convert from semi-major axis to FWHM
+    gleam_minax = 2 * hdulist[1].data['b_wide'] # Factor 2 to convert from semi-minor axis to FWHM
+    gleam_pa = hdulist[1].data['pa_wide']
+    gleam_psf_majax = 2 * hdulist[1].data['psf_a_wide'] # Factor 2 to convert from semi-major axis to FWHM
+    gleam_psf_minax = 2 * hdulist[1].data['psf_b_wide'] # Factor 2 to convert from semi-minor axis to FWHM
+    spindex_GLEAM = hdulist[1].data['alpha']
     hdulist.close()
-
-    if spindex_seed is None:
+    nanind = NP.where(NP.isnan(spindex_GLEAM))[0]
+    if nanind.size > 0:
+        if spindex_seed is not None:
+            NP.random.seed(2*spindex_seed)
         spindex_GLEAM = spindex + spindex_rms * NP.random.randn(gleam_fint.size)
-    else:
-        NP.random.seed(2*spindex_seed)
-        spindex_GLEAM = spindex + spindex_rms * NP.random.randn(gleam_fint.size)
-
+        
     if fluxcut_max is None:
         select_source_ind = gleam_fint >= fluxcut_min * (freq_GLEAM*1e9/fluxcut_freq)**spindex_GLEAM
     else:
@@ -1543,7 +1517,6 @@ elif use_GLEAM:
 
     skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
 
-    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
 elif use_skymod:
@@ -1558,7 +1531,7 @@ elif use_custom:
     majax = catdata['MAJAX'].data
     minax = catdata['MINAX'].data
     pa = catdata['PA'].data
-    freq_custom = flux_unit = parms['fgparm']['custom_reffreq']
+    freq_custom = parms['skyparm']['custom_reffreq']
     freq_catalog = freq_custom * 1e9 + NP.zeros(fint.size)
     catlabel = NP.repeat('custom', fint.size)
     if fluxcut_max is None:
@@ -1579,10 +1552,8 @@ elif use_custom:
     
     spec_type = 'func'
     spec_parms = {}
-    # spec_parms['name'] = NP.repeat('tanh', ra_deg.size)
     spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
     spec_parms['power-law-index'] = spindex
-    # spec_parms['freq-ref'] = freq/1e9 + NP.zeros(ra_deg.size)
     spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
     spec_parms['flux-scale'] = fint
     spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
@@ -1591,7 +1562,6 @@ elif use_custom:
 
     skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
 
-    # skymod = SM.SkyModel(catlabel, chans*1e9, NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'func', spec_parms=spec_parms, src_shape=NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), src_shape_units=['degree','degree','degree'])
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
 # Set up chunking for parallelization
@@ -1737,7 +1707,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ts = time.time()
             if j == 0:
                 ts0 = ts
-            ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+            ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
             te = time.time()
             # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
             progress.update(j+1)
@@ -1774,14 +1744,13 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots'.format(n_acc), PGB.ETA()], maxval=n_acc).start()
             for j in range(n_acc):
                 src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
-                hemisphere_current = src_altaz_current[:,0] >= 0.0
-                # hemisphere_src_altaz_current = src_altaz_current[hemisphere_current,:]
+                visible_current = src_altaz_current[:,0] >= 90.0 - roi_radius
+                # visible_src_altaz_current = src_altaz_current[visible_current,:]
                 src_az_current = NP.copy(src_altaz_current[:,1])
                 src_az_current[src_az_current > 360.0 - 0.5*180.0/n_sky_sectors] -= 360.0
                 roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
-                roi_subset = NP.where(NP.logical_and(hemisphere_current, roi_ind))[0].tolist()
+                roi_subset = NP.where(NP.logical_and(visible_current, roi_ind))[0].tolist()
                 src_dircos_current_subset = GEOM.altaz2dircos(src_altaz_current[roi_subset,:], units='degrees')
-                fgmod = skymod.subset(roi_subset)
 
                 pbinfo = {}
                 if (telescope_id.lower() == 'mwa') or (phased_array) or (telescope_id.lower() == 'mwa_tools'):
@@ -1817,7 +1786,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                     # roiinfo['pbeam'] = NP.ones((roiinfo['ind'].size,chans.size), dtype=NP.float32)
                 else:
                     roiinfo['pbeam'] = None
-                roiinfo['radius'] = 90.0
+                roiinfo['radius'] = roi_radius
                 roiinfo_center_hadec = GEOM.altaz2hadec(NP.asarray([90.0, 270.0]).reshape(1,-1), latitude, units='degrees').ravel()
                 roiinfo_center_radec = [lst[j]-roiinfo_center_hadec[0], roiinfo_center_hadec[1]]
                 roiinfo['center'] = NP.asarray(roiinfo_center_radec).reshape(1,-1)
@@ -1866,7 +1835,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 if j == 0:
                     ts0 = ts
               
-                ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
                 te = time.time()
                 # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
                 del roi_ind_snap
@@ -1922,7 +1891,7 @@ else: # MPI based on baseline multiplexing
                     ts = time.time()
                     if j == 0:
                         ts0 = ts
-                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
                     te = time.time()
                     # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
                     progress.update(j+1)
@@ -1956,14 +1925,13 @@ else: # MPI based on baseline multiplexing
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots'.format(n_acc), PGB.ETA()], maxval=n_acc).start()
                 for j in range(n_acc):
                     src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
-                    hemisphere_current = src_altaz_current[:,0] >= 0.0
-                    # hemisphere_src_altaz_current = src_altaz_current[hemisphere_current,:]
+                    visible_current = src_altaz_current[:,0] >= 90.0 - roi_radius
+                    # visible_src_altaz_current = src_altaz_current[visible_current,:]
                     src_az_current = NP.copy(src_altaz_current[:,1])
                     src_az_current[src_az_current > 360.0 - 0.5*180.0/n_sky_sectors] -= 360.0
                     roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
-                    roi_subset = NP.where(NP.logical_and(hemisphere_current, roi_ind))[0].tolist()
+                    roi_subset = NP.where(NP.logical_and(visible_current, roi_ind))[0].tolist()
                     src_dircos_current_subset = GEOM.altaz2dircos(src_altaz_current[roi_subset,:], units='degrees')
-                    fgmod = skymod.subset(roi_subset)
    
                     pbinfo = {}
                     if (telescope_id.lower() == 'mwa') or (phased_array) or (telescope_id.lower() == 'mwa_tools'):
@@ -2000,7 +1968,7 @@ else: # MPI based on baseline multiplexing
                         # roiinfo['pbeam'] = NP.ones((roiinfo['ind'].size,chans.size), dtype=NP.float32)
                     else:
                         roiinfo['pbeam'] = None
-                    roiinfo['radius'] = 90.0
+                    roiinfo['radius'] = roi_radius
                     roiinfo_center_hadec = GEOM.altaz2hadec(NP.asarray([90.0, 270.0]).reshape(1,-1), latitude, units='degrees').ravel()
                     roiinfo_center_radec = [lst[j]-roiinfo_center_hadec[0], roiinfo_center_hadec[1]]
                     roiinfo['center'] = NP.asarray(roiinfo_center_radec).reshape(1,-1)
@@ -2076,7 +2044,7 @@ else: # MPI based on baseline multiplexing
                     if j == 0:
                         ts0 = ts
                   
-                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=None, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
                     te = time.time()
                     # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
                     del roi_ind_snap
@@ -2200,7 +2168,7 @@ if rank == 0:
 
     if cleanup < 3:
         skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel'
-        if fg_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:
+        if sky_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:
             skymod.save(skymod_file, fileformat='hdf5')
     if cleanup >= 2:
         dir_to_be_removed = rootdir+project_dir+simid+roi_dir
