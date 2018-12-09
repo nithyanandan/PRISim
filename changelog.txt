@@ -1,3 +1,28 @@
+From ffe6790 (ephemeris):
+========================
+
+In prisim/interferometry.py,
+
+(*) Import ICRS, FK5, AltAz, and EarthLocation modules from astropy
+(*) In member function observe() of class InterferometerArray, inputs
+timestamp and lst are replaced with timeobj which is an instance of
+class astropy.time.Time. Attributes timestamp and lst are determined
+from input timeobj. Update member function docstring accordingly
+(*) In member function observe() of class InterferometerArray,  
+create sky coordinates from astropy.SkyCoord and transform to AltAz
+frame instead of determining Alt-Az from standard transformations
+
+In scripts/run_prisim.py,
+
+(*) Import ICRS, FK5, AltAz, and EarthLocation modules from astropy
+(*) Create list of time objects and Local Apparent Sidereal Times from
+these time objects
+(*) Create sky coordinates from astropy.SkyCoord and transform to
+AltAz frame instead of determining Alt-Az from standard
+transformations
+(*) Pass time object in call to InterferometerArray.observe() instead
+of timestamp and lst
+
 Merge 378c269 (master) into 395d61a (ephemeris):
 ===============================================
 

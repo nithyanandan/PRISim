@@ -8,7 +8,7 @@ import copy
 import numpy as NP
 import ephem as EP
 from astropy.io import fits, ascii
-from astropy.coordinates import Galactic, FK5, SkyCoord
+from astropy.coordinates import Galactic, FK5, ICRS, SkyCoord, AltAz, EarthLocation
 from astropy import units as U
 from astropy.time import Time
 import scipy.constants as FCNST
@@ -672,7 +672,9 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
             jd_init = jd_init[0]
     tobj_init = Time(jd_init, format='jd', scale='utc', location=('{0:.6f}d'.format(telescope['longitude']), '{0:.6f}d'.format(telescope['latitude']), '{0:.6f}m'.format(telescope['altitude'])))
     lst_init = tobj_init.sidereal_time('apparent').deg
-            
+
+    tobjs = tobj_init + NP.arange(n_acc) * t_acc * U.s
+
     if obs_mode == 'drift':
         alt = pointing_drift_init['alt']
         az = pointing_drift_init['az']
@@ -758,7 +760,7 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
 pointings_radec = NP.fmod(pointings_radec, 360.0)
 pointings_hadec = NP.fmod(pointings_hadec, 360.0)
 pointings_altaz = NP.fmod(pointings_altaz, 360.0)
-lst = NP.fmod(lst, 360.0)
+# lst = NP.fmod(lst, 360.0)
 
 use_GSM = False
 use_DSM = False
@@ -1564,6 +1566,10 @@ elif use_custom:
 
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
+timestamps = tobjs.jd
+lst = tobjs.sidereal_time('apparent').deg # Local Apparent Sidereal Time (in deg)
+skycoords = SkyCoord(ra=skymod.location[:,0]*U.deg, dec=skymod.location[:,1]*U.deg, frame='icrs', equinox=skymod.epoch)
+
 # Set up chunking for parallelization
 
 nsrc = skymod.location.shape[0]
@@ -1631,9 +1637,10 @@ else:
 
 # Create organized directory structure
 
-timestamps_JD = NP.asarray(timestamps_JD)
-init_timestamps_JD = timestamps_JD.min()
-init_time = Time(init_timestamps_JD, format='jd', scale='utc')
+# timestamps_JD = NP.asarray(timestamps_JD)
+# init_timestamps_JD = timestamps_JD.min()
+# init_time = Time(init_timestamps_JD, format='jd', scale='utc')
+init_time = tobj_init
 obsdatetime_dir = '{0}{1}{2}_{3}{4}{5}/'.format(init_time.datetime.year, init_time.datetime.month, init_time.datetime.day, init_time.datetime.hour, init_time.datetime.minute, init_time.datetime.second)
 
 sim_dir = 'simdata/'
@@ -1686,7 +1693,10 @@ if mpi_on_src: # MPI based on source multiplexing
 
         progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
         for j in range(n_acc):
-            src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
+            # src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
+            src_altaz = skycoords.transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
+            src_altaz_current = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
+            
             roi_ind = NP.where(src_altaz_current[:,0] >= 0.0)[0]
             n_src_per_rank = NP.zeros(nproc, dtype=int) + roi_ind.size/nproc
             if roi_ind.size % nproc > 0:
@@ -1707,7 +1717,9 @@ if mpi_on_src: # MPI based on source multiplexing
             ts = time.time()
             if j == 0:
                 ts0 = ts
-            ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+            ia.observe(tobjs[j], Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave)
+            # ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+            
             te = time.time()
             # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
             progress.update(j+1)
@@ -1743,7 +1755,9 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             roi = RI.ROI_parameters()
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots'.format(n_acc), PGB.ETA()], maxval=n_acc).start()
             for j in range(n_acc):
-                src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
+                # src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
+                src_altaz = skycoords.transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
+                src_altaz_current = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
                 visible_current = src_altaz_current[:,0] >= 90.0 - roi_radius
                 # visible_src_altaz_current = src_altaz_current[visible_current,:]
                 src_az_current = NP.copy(src_altaz_current[:,1])
@@ -1835,7 +1849,9 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 if j == 0:
                     ts0 = ts
               
-                ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                ia.observe(tobjs[j], Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave)
+                # ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                
                 te = time.time()
                 # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
                 del roi_ind_snap
@@ -1891,7 +1907,9 @@ else: # MPI based on baseline multiplexing
                     ts = time.time()
                     if j == 0:
                         ts0 = ts
-                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                    ia.observe(tobjs[j], Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave)
+                    # ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                    
                     te = time.time()
                     # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
                     progress.update(j+1)
@@ -1924,7 +1942,9 @@ else: # MPI based on baseline multiplexing
                 roi = RI.ROI_parameters()
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots'.format(n_acc), PGB.ETA()], maxval=n_acc).start()
                 for j in range(n_acc):
-                    src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
+                    # src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
+                    src_altaz = skycoords.transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
+                    src_altaz_current = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
                     visible_current = src_altaz_current[:,0] >= 90.0 - roi_radius
                     # visible_src_altaz_current = src_altaz_current[visible_current,:]
                     src_az_current = NP.copy(src_altaz_current[:,1])
@@ -2044,7 +2064,9 @@ else: # MPI based on baseline multiplexing
                     if j == 0:
                         ts0 = ts
                   
-                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                    ia.observe(tobjs[j], Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave)
+                    # ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                    
                     te = time.time()
                     # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
                     del roi_ind_snap

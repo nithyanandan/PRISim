@@ -8,7 +8,7 @@ import os, ast
 import copy
 import astropy
 from astropy.io import fits, ascii
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, ICRS, FK5, AltAz, EarthLocation
 from astropy import units
 from astropy.time import Time
 import warnings
@@ -5729,9 +5729,9 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def observe(self, timestamp, Tsysinfo, bandpass, pointing_center, skymodel,
+    def observe(self, timeobj, Tsysinfo, bandpass, pointing_center, skymodel,
                 t_acc, pb_info=None, brightness_units=None, bpcorrect=None,
-                roi_info=None, roi_radius=None, roi_center=None, lst=None,
+                roi_info=None, roi_radius=None, roi_center=None,
                 gradient_mode=None, memsave=False):
 
         """
@@ -5744,8 +5744,8 @@ class InterferometerArray(object):
 
         Inputs:
 
-        timestamp    [scalar] Timestamp associated with each integration in the
-                     observation
+        timeobj      [instance of class astropy.time.Time] Time object 
+                     associated with each integration in the observation
 
         Tsysinfo     [dictionary] Contains system temperature information for
                      specified timestamp of observation. It contains the
@@ -5818,8 +5818,6 @@ class InterferometerArray(object):
         roi_center   [string] Center of the region of interest around which
                      roi_radius is used. Accepted values are 'pointing_center'
                      and 'zenith'. If set to None, it defaults to 'zenith'.
-
-        lst          [scalar] LST (in degrees) associated with the timestamp
 
         gradient_mode
                      [string] If set to None, visibilities will be simulated as
@@ -5954,6 +5952,7 @@ class InterferometerArray(object):
         pointing_lon = self.pointing_center[-1,0]
         pointing_lat = self.pointing_center[-1,1]
 
+        lst = timeobj.sidereal_time('apparent').deg
         if self.skycoords == 'radec':
             if self.pointing_coords == 'hadec':
                 if lst is not None:
@@ -6014,10 +6013,14 @@ class InterferometerArray(object):
         if not isinstance(skymodel, SM.SkyModel):
             raise TypeError('skymodel should be an instance of class SkyModel.')
 
+        skycoords = SkyCoord(ra=skymodel.location[:,0]*units.deg, dec=skymodel.location[:,1]*units.deg, frame='icrs', equinox=skymodel.epoch)
+        
         if self.skycoords == 'hadec':
             skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.latitude, units='degrees')
         elif self.skycoords == 'radec':
-            skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.latitude, units='degrees')
+            # skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.latitude, units='degrees')
+            src_altaz = skycoords.transform_to(AltAz(obstime=timeobj, location=EarthLocation(lon=self.longitude*units.deg, lat=self.latitude*units.deg, height=self.altitude*units.m)))
+            skypos_altaz = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
 
         pb = None
         if roi_info is not None:
@@ -6195,7 +6198,7 @@ class InterferometerArray(object):
                 if gradient_mode.lower() == 'baseline':
                     self.gradient[gradient_mode] = NP.concatenate((self.gradient[gradient_mode], skyvis_gradient[:,:,:,NP.newaxis]), axis=3)
 
-        self.timestamp = self.timestamp + [timestamp]
+        self.timestamp = self.timestamp + [timeobj.jd]
         self.t_acc = self.t_acc + [t_acc]
         self.t_obs += t_acc
         self.n_acc += 1
