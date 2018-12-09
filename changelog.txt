@@ -1,3 +1,11 @@
+From 81730e0 (ephemeris):
+========================
+
+In scripts/run_prisim.py,
+
+(*) Remove use of module pyephem throughout
+(*) Remove commented lines 
+
 From ffe6790 (ephemeris):
 ========================
 

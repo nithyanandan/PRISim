@@ -6,7 +6,6 @@ import yaml
 import argparse
 import copy
 import numpy as NP
-import ephem as EP
 from astropy.io import fits, ascii
 from astropy.coordinates import Galactic, FK5, ICRS, SkyCoord, AltAz, EarthLocation
 from astropy import units as U
@@ -183,7 +182,6 @@ if gainparms['file'] is not None:
     if gainparms['filepathtype'] == 'default':
         gainsfile = prisim_path + 'data/gains/'+gainsfile
     gaininfo = RI.GainInfo(init_file=gainsfile, axes_order=['label', 'frequency', 'time'])
-    # gaintable = RI.read_gaintable(gainsfile, axes_order=['label', 'frequency', 'time'])
 avg_drifts = parms['snapshot']['avg_drifts']
 beam_switch = parms['snapshot']['beam_switch']
 pick_snapshots = parms['snapshot']['pick']
@@ -577,7 +575,6 @@ if pointing_file is not None:
         angle_diff = GEOM.sphdist(pointings_altaz[1:,1], pointings_altaz[1:,0], pointings_altaz[:-1,1], pointings_altaz[:-1,0])
         angle_diff = NP.concatenate(([0.0], angle_diff))
         shift_threshold = 1.0 # in degrees
-        # lst_edges = NP.concatenate(([lst_edges[0]], lst_edges[angle_diff > shift_threshold], [lst_edges[-1]]))
         lst_wrapped = NP.concatenate(([lst_wrapped[0]], lst_wrapped[angle_diff > shift_threshold], [lst_wrapped[-1]]))
         n_acc = lst_wrapped.size - 1
         pointings_altaz = NP.vstack((pointings_altaz[0,:].reshape(-1,2), pointings_altaz[angle_diff>shift_threshold,:].reshape(-1,2)))
@@ -612,28 +609,23 @@ if pointing_file is not None:
 
         if obs_mode != 'lstbin':
             lst_end = NP.asarray(lst_wrapped[pick_snapshots+1])
-            # t_acc = (lst_end - lst_begin) / 15.0 * 3.6e3
             t_acc = (lst_end - lst_begin) / 15.0 * 3.6e3 * sday
             lst = 0.5 * (lst_begin + lst_end)
             obs_mode = 'custom'
         else:
             t_acc = 112.0 + NP.zeros(n_acc)   # in seconds (needs to be generalized)
-            # lst = lst_wrapped[pick_snapshots] + 0.5 * t_acc/3.6e3 * 15.0
             lst = lst_wrapped[pick_snapshots] + 0.5 * t_acc/3.6e3 * 15.0 / sday
             
     if pick_snapshots is None:
         if obs_mode != 'lstbin':        
             if not beam_switch:
                 lst = 0.5*(lst_edges[1:]+lst_edges[:-1])
-                # t_acc = (lst_edges[1:]-lst_edges[:-1]) / 15.0 * 3.6e3
                 t_acc = (lst_edges[1:]-lst_edges[:-1]) / 15.0 * 3.6e3 * sday
             else:
                 lst = 0.5*(lst_edges_left + lst_edges_right)
-                # t_acc = (lst_edges_right - lst_edges_left) / 15.0 * 3.6e3
                 t_acc = (lst_edges_right - lst_edges_left) / 15.0 * 3.6e3 * sday
         else:
             t_acc = 112.0 + NP.zeros(n_acc)   # in seconds (needs to be generalized)
-            # lst = lst_wrapped + 0.5 * t_acc/3.6e3 * 15.0
             lst = lst_wrapped + 0.5 * t_acc/3.6e3 * 15.0 / sday
 
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
@@ -662,7 +654,6 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     elif obs_mode not in ['track', 'drift']:
         raise ValueError('Invalid specification for obs_mode')
 
-    lstobj = EP.FixedBody()
     lst_init = pointing_info['lst_init']
     jd_init = pointing_info['jd_init']
     if jd_init is None:
@@ -674,15 +665,14 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     lst_init = tobj_init.sidereal_time('apparent').deg
 
     tobjs = tobj_init + NP.arange(n_acc) * t_acc * U.s
+    timestamps = tobjs.jd
+    lst = tobjs.sidereal_time('apparent').deg
 
     if obs_mode == 'drift':
         alt = pointing_drift_init['alt']
         az = pointing_drift_init['az']
         ha = pointing_drift_init['ha']
         dec = pointing_drift_init['dec']
-        # lst_init = pointing_drift_init['lst']
-        # lst_init *= 15.0 # initial LST is now in degrees
-        lstobj._epoch = obs_date
        
         if (alt is None) or (az is None):
             if (ha is None) or (dec is None):
@@ -696,71 +686,22 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     if obs_mode == 'track':
         ra = pointing_track_init['ra']
         dec = pointing_track_init['dec']
-        # ha = pointing_track_init['ha']
         epoch = pointing_track_init['epoch']
         track_init_pointing_at_epoch = SkyCoord(ra=ra*U.deg, dec=dec*U.deg, frame='fk5', equinox='J{0}'.format(epoch))
         track_init_pointing_at_tinit = track_init_pointing_at_epoch.transform_to(FK5(equinox=tobj_init))
         ha = lst_init - track_init_pointing_at_tinit.ra.deg # Initial HA in degrees
         pointings_hadec = NP.hstack((ha + (t_acc/3.6e3)*15.0*NP.arange(n_acc).reshape(-1,1), track_init_pointing_at_tinit.dec.deg+NP.zeros(n_acc).reshape(-1,1)))
-        # lst_init = ra + ha
-        # lstobj._epoch = epoch
-        # pointings_hadec = NP.hstack((ha + (t_acc/3.6e3)*15.0*NP.arange(n_acc).reshape(-1,1), dec+NP.zeros(n_acc).reshape(-1,1)))
-        
-        
-    lstobj._ra = NP.radians(lst_init)
 
-    obsrvr = EP.Observer()
-    obsrvr.lat = NP.radians(latitude)
-    obsrvr.lon = NP.radians(longitude)
-    obsrvr.date = skycat_epoch
-
-    lstobj.compute(obsrvr)
-    lst_init_skycat_epoch = NP.degrees(lstobj.ra) / 15.0 # LST (hours) in epoch of foreground catalog
-    # lst = (lst_init_skycat_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 # in degrees at the epoch of the foreground catalog
-    lst = (lst_init_skycat_epoch + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 / sday # in degrees at the epoch of the foreground catalog    
     t_acc = t_acc + NP.zeros(n_acc)
     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
     pointings_radec = NP.hstack(((lst-pointings_hadec[:,0]).reshape(-1,1), pointings_hadec[:,1].reshape(-1,1)))
     
-    pntgobj = EP.FixedBody()
-    pntgobj._epoch = lstobj._epoch
-    obsrvr.date = obs_date # Now compute transit times for date of observation
-    last_localtime = -1.0
-    for j in xrange(n_acc):
-        pntgobj._ra = NP.radians(lst[j])
-        pntgobj.compute(obsrvr)
-        localtime = obsrvr.next_transit(pntgobj)
-        # localtime = pntgobj.transit_time
-        if len(timestamps) > 0:
-            if localtime < last_localtime:
-                obsrvr.date = obsrvr.date + EP.hour * 24
-                pntgobj.compute(obsrvr)
-                localtime = obsrvr.next_transit(pntgobj)
-                # localtime = pntgobj.transit_time
-        last_localtime = copy.deepcopy(localtime)
-        obsrvr.date = last_localtime
-        timestamps_JD += [EP.julian_date(localtime)]
-        if timeformat == 'JD':
-            # timestamps += ['{0:.9f}'.format(EP.julian_date(localtime))]
-            timestamps += [EP.julian_date(localtime)]
-        else:
-            timestamps += ['{0}'.format(localtime.datetime())]
-
-    lst_wrapped = lst + 0.0
-    lst_wrapped[lst_wrapped > 180.0] = lst_wrapped[lst_wrapped > 180.0] - 360.0
-    if lst_wrapped.size > 1:
-        lst_edges = NP.concatenate((lst_wrapped, [lst_wrapped[-1]+lst_wrapped[-1]-lst_wrapped[-2]]))
-    else:
-        # lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_acc/3.6e3*15))
-        lst_edges = NP.concatenate((lst_wrapped, lst_wrapped+t_acc/3.6e3*15/sday))
-
     duration_str = '_{0:0d}x{1:.1f}s'.format(n_acc, t_acc[0])
 
 pointings_radec = NP.fmod(pointings_radec, 360.0)
 pointings_hadec = NP.fmod(pointings_hadec, 360.0)
 pointings_altaz = NP.fmod(pointings_altaz, 360.0)
-# lst = NP.fmod(lst, 360.0)
 
 use_GSM = False
 use_DSM = False
@@ -917,9 +858,6 @@ if ant_bpass_file is not None:
         ant_bpass_ref /= NP.abs(ant_bpass_ref).max()
         ant_bpass_freq = ant_bpass_freq[ant_bpass_freq.size/2:]
         ant_bpass_ref = ant_bpass_ref[ant_bpass_ref.size/2:]        
-        # ant_bpass_window = DSP.windowing(ant_bpass_freq.size, shape='bhw', pad_width=0, pad_value=0.0, peak=1.0, centering=True)
-        # ant_bpass_freq = ant_bpass_freq[1:-1]
-        # ant_bpass_ref = ant_bpass_ref[1:-1] / ant_bpass_window[1:-1]
         chanind, ant_bpass, fdist = LKP.lookup_1NN_new(ant_bpass_freq.reshape(-1,1)/1e9, ant_bpass_ref.reshape(-1,1), chans.reshape(-1,1), distance_ULIM=freq_resolution/1e9, remove_oob=True)
 else:
     ant_bpass = NP.ones(nchan)
@@ -1075,8 +1013,6 @@ elif use_GSM:
     dec_deg = dec_deg_DSM + 0.0
     majax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_DSM.size)
     minax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_DSM.size)
-    # majax = NP.degrees(NP.sqrt(HP.nside2pixarea(64)*4/NP.pi) * NP.ones(fluxes_DSM.size))
-    # minax = NP.degrees(NP.sqrt(HP.nside2pixarea(64)*4/NP.pi) * NP.ones(fluxes_DSM.size))
     fluxes = fluxes_DSM + 0.0
 
     freq_SUMSS = 0.843 # in GHz
@@ -1294,7 +1230,6 @@ elif use_CSM:
     else:
         select_SUMSS_source_ind = NP.logical_and(fint >= fluxcut_min * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS, fint <= fluxcut_max * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS)
     if NP.sum(select_SUMSS_source_ind) > 0:
-        # select_SUMSS_source_ind = fint >= 10.0 * (freq_SUMSS*1e9/freq)**spindex_SUMSS
         ra_deg_SUMSS = ra_deg_SUMSS[select_SUMSS_source_ind]
         dec_deg_SUMSS = dec_deg_SUMSS[select_SUMSS_source_ind]
         fint = fint[select_SUMSS_source_ind]
@@ -1567,7 +1502,6 @@ elif use_custom:
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
 timestamps = tobjs.jd
-lst = tobjs.sidereal_time('apparent').deg # Local Apparent Sidereal Time (in deg)
 skycoords = SkyCoord(ra=skymod.location[:,0]*U.deg, dec=skymod.location[:,1]*U.deg, frame='icrs', equinox=skymod.epoch)
 
 # Set up chunking for parallelization
@@ -1637,9 +1571,6 @@ else:
 
 # Create organized directory structure
 
-# timestamps_JD = NP.asarray(timestamps_JD)
-# init_timestamps_JD = timestamps_JD.min()
-# init_time = Time(init_timestamps_JD, format='jd', scale='utc')
 init_time = tobj_init
 obsdatetime_dir = '{0}{1}{2}_{3}{4}{5}/'.format(init_time.datetime.year, init_time.datetime.month, init_time.datetime.day, init_time.datetime.hour, init_time.datetime.minute, init_time.datetime.second)
 
@@ -1693,7 +1624,6 @@ if mpi_on_src: # MPI based on source multiplexing
 
         progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
         for j in range(n_acc):
-            # src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
             src_altaz = skycoords.transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
             src_altaz_current = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
             
@@ -1718,31 +1648,23 @@ if mpi_on_src: # MPI based on source multiplexing
             if j == 0:
                 ts0 = ts
             ia.observe(tobjs[j], Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave)
-            # ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
             
             te = time.time()
-            # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
             progress.update(j+1)
         progress.finish()
     
-        # svf = NP.zeros_like(ia.skyvis_freq.astype(NP.complex128), dtype='complex128')
         if rank == 0:
             for k in range(1,nproc):
                 print('receiving from process {0}'.format(k))
                 ia.skyvis_freq = ia.skyvis_freq + comm.recv(source=k)
-                # comm.Recv([svf, svf.size, MPI.DOUBLE_COMPLEX], source=i)
-                # ia.skyvis_freq = ia.skyvis_freq + svf
             te0 = time.time()
             print('Time on process 0 was {0:.1f} seconds'.format(te0-ts0))
             ia.t_obs = t_obs
-            # ia.generate_noise()
-            # ia.add_noise()
             ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
             outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
             ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
         else:
             comm.send(ia.skyvis_freq, dest=0)
-            # comm.Send([ia.skyvis_freq, ia.skyvis_freq.size, MPI.DOUBLE_COMPLEX])
 
 elif mpi_on_freq: # MPI based on frequency multiplexing
     for k in range(n_sky_sectors):
@@ -1755,11 +1677,9 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             roi = RI.ROI_parameters()
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots'.format(n_acc), PGB.ETA()], maxval=n_acc).start()
             for j in range(n_acc):
-                # src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
                 src_altaz = skycoords.transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
                 src_altaz_current = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
                 visible_current = src_altaz_current[:,0] >= 90.0 - roi_radius
-                # visible_src_altaz_current = src_altaz_current[visible_current,:]
                 src_az_current = NP.copy(src_altaz_current[:,1])
                 src_az_current[src_az_current > 360.0 - 0.5*180.0/n_sky_sectors] -= 360.0
                 roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
@@ -1775,7 +1695,6 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                         pbinfo['pointing_coords'] = 'altaz'
                         
                     if (telescope_id.lower() == 'mwa') or (phased_array):
-                        # pbinfo['element_locs'] = element_locs
                         pbinfo['delayerr'] = phasedarray_delayerr
                         pbinfo['gainerr'] = phasedarray_gainerr
                         pbinfo['nrand'] = nrand
@@ -1797,7 +1716,6 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                     interp_logbeam_max = interp_logbeam_max.reshape(1,-1)
                     interp_logbeam = interp_logbeam - interp_logbeam_max
                     roiinfo['pbeam'] = 10**interp_logbeam
-                    # roiinfo['pbeam'] = NP.ones((roiinfo['ind'].size,chans.size), dtype=NP.float32)
                 else:
                     roiinfo['pbeam'] = None
                 roiinfo['radius'] = roi_radius
@@ -1850,10 +1768,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                     ts0 = ts
               
                 ia.observe(tobjs[j], Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave)
-                # ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
-                
                 te = time.time()
-                # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
                 del roi_ind_snap
                 del roi_pbeam_snap
                 progress.update(j+1)
@@ -1861,10 +1776,6 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
 
             te0 = time.time()
             print('Process {0:0d} took {1:.1f} minutes to complete frequency chunk # {2:0d} ({3:0d}/{4:0d})'.format(rank, (te0-ts0)/60, freq_chunk[i], i-cumm_freq_chunks[rank]+1, n_freq_chunk_per_rank[rank]))
-            # ia.t_obs = t_obs
-            # ia.generate_noise()
-            # ia.add_noise()
-            # ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
             ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
             ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
 else: # MPI based on baseline multiplexing
@@ -1908,18 +1819,14 @@ else: # MPI based on baseline multiplexing
                     if j == 0:
                         ts0 = ts
                     ia.observe(tobjs[j], Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave)
-                    # ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
                     
                     te = time.time()
-                    # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
                     progress.update(j+1)
                 progress.finish()
 
                 te0 = time.time()
                 print('Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60, count))
                 ia.t_obs = t_obs
-                # ia.generate_noise()
-                # ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
                 ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
         counter.free()
@@ -1942,11 +1849,9 @@ else: # MPI based on baseline multiplexing
                 roi = RI.ROI_parameters()
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots'.format(n_acc), PGB.ETA()], maxval=n_acc).start()
                 for j in range(n_acc):
-                    # src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
                     src_altaz = skycoords.transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
                     src_altaz_current = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
                     visible_current = src_altaz_current[:,0] >= 90.0 - roi_radius
-                    # visible_src_altaz_current = src_altaz_current[visible_current,:]
                     src_az_current = NP.copy(src_altaz_current[:,1])
                     src_az_current[src_az_current > 360.0 - 0.5*180.0/n_sky_sectors] -= 360.0
                     roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
@@ -1985,7 +1890,6 @@ else: # MPI based on baseline multiplexing
                         interp_logbeam_max = interp_logbeam_max.reshape(1,-1)
                         interp_logbeam = interp_logbeam - interp_logbeam_max
                         roiinfo['pbeam'] = 10**interp_logbeam
-                        # roiinfo['pbeam'] = NP.ones((roiinfo['ind'].size,chans.size), dtype=NP.float32)
                     else:
                         roiinfo['pbeam'] = None
                     roiinfo['radius'] = roi_radius
@@ -2010,8 +1914,6 @@ else: # MPI based on baseline multiplexing
             roifile = comm.bcast(roifile, root=0) # Broadcast saved RoI filename
             pbinfo = comm.bcast(pbinfo, root=0) # Broadcast PB synthesis info
 
-            # if (rank != 0):
-            #     roi = RI.ROI_parameters(init_file=roifile+'.fits') # Other processes read in the RoI information
             if rank == 0:
                 if plots:
                     for j in xrange(n_acc):
@@ -2057,7 +1959,6 @@ else: # MPI based on baseline multiplexing
                     if obs_mode in ['custom', 'dns', 'lstbin']:
                         timestamp = obs_id[j]
                     else:
-                        # timestamp = lst[j]
                         timestamp = timestamps[j]
                  
                     ts = time.time()
@@ -2065,10 +1966,7 @@ else: # MPI based on baseline multiplexing
                         ts0 = ts
                   
                     ia.observe(tobjs[j], Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave)
-                    # ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
-                    
                     te = time.time()
-                    # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
                     del roi_ind_snap
                     del roi_pbeam_snap
                     progress.update(j+1)
@@ -2077,8 +1975,6 @@ else: # MPI based on baseline multiplexing
                 te0 = time.time()
                 print('Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60, bl_chunk[i]))
                 ia.t_obs = t_obs
-                # ia.generate_noise()
-                # ia.add_noise()
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
                 ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
                 ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
