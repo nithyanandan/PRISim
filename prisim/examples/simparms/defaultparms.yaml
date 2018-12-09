@@ -456,12 +456,6 @@ obsparm  :
                                 # each snapshot. Only two of t_obs,
                                 # n_acc, and t_acc must be set
 
-    timeformat      : 'JD'
-                                # Output format for timestamp. Can
-                                # be 'DT' (default) for DateTime format
-                                # yyyy-mm-dd hh:mm:ss.s or 'JD' for
-                                # julian date format
-                                
 ######### Instrument gains #########
 
 gains   :

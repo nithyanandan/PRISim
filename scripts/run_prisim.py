@@ -151,7 +151,6 @@ t_obs = parms['obsparm']['t_obs']
 freq = parms['bandpass']['freq']
 freq_resolution = parms['bandpass']['freq_resolution']
 nchan = parms['bandpass']['nchan']
-timeformat = parms['obsparm']['timeformat']
 beam_info = parms['beam']
 use_external_beam = beam_info['use_external']
 if use_external_beam:
@@ -628,6 +627,16 @@ if pointing_file is not None:
             t_acc = 112.0 + NP.zeros(n_acc)   # in seconds (needs to be generalized)
             lst = lst_wrapped + 0.5 * t_acc/3.6e3 * 15.0 / sday
 
+    # Initialize time objects and LST from obs_date and chosen LST
+    lst_init = lst[0]
+    tobj0 = Time(obs_date.replace('/', '-'), format='iso', scale='utc', location=('{0:.6f}d'.format(telescope['longitude']), '{0:.6f}d'.format(telescope['latitude']), '{0:.6f}m'.format(telescope['altitude']))) # Time object at obs_date beginning
+    jd_init = ET.julian_date_from_LAST(lst_init/15.0, tobj0.jd, telescope['longitude']/15.0) # Julian date at beginning of observation
+    jd_init = jd_init[0]
+    tobj_init = Time(jd_init, format='jd', scale='utc', location=('{0:.6f}d'.format(telescope['longitude']), '{0:.6f}d'.format(telescope['latitude']), '{0:.6f}m'.format(telescope['altitude']))) # Time object at beginning of observation
+    lst_init = tobj_init.sidereal_time('apparent').deg # Update LST init
+    tobjs = tobj_init + NP.arange(n_acc) * t_acc * U.s # Time objects for the observation
+    lst = tobjs.sidereal_time('apparent').deg # Local Apparent Sidereal time (in degrees) for the observation
+
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
     pointings_hadec = GEOM.altaz2hadec(pointings_altaz, latitude, units='degrees')
     pointings_radec = NP.hstack(((lst-pointings_hadec[:,0]).reshape(-1,1), pointings_hadec[:,1].reshape(-1,1)))
@@ -635,8 +644,6 @@ if pointing_file is not None:
     t_obs = NP.sum(t_acc)
 elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     pointing_file = None
-    timestamps = []
-    timestamps_JD = []
     if t_acc is None:
         raise NameError('t_acc must be provided for an automated observing run')
 
@@ -654,19 +661,18 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     elif obs_mode not in ['track', 'drift']:
         raise ValueError('Invalid specification for obs_mode')
 
+    # Initialize time objects and LST from obs_date and chosen LST
     lst_init = pointing_info['lst_init']
     jd_init = pointing_info['jd_init']
     if jd_init is None:
         if ((obs_date is not None) and (lst_init is not None)):
-            tobj0 = Time(obs_date.replace('/', '-'), format='iso', scale='utc', location=('{0:.6f}d'.format(telescope['longitude']), '{0:.6f}d'.format(telescope['latitude']), '{0:.6f}m'.format(telescope['altitude'])))
-            jd_init = ET.julian_date_from_LAST(lst_init/15.0, tobj0.jd, telescope['longitude']/15.0)
+            tobj0 = Time(obs_date.replace('/', '-'), format='iso', scale='utc', location=('{0:.6f}d'.format(telescope['longitude']), '{0:.6f}d'.format(telescope['latitude']), '{0:.6f}m'.format(telescope['altitude']))) # Time object at obs_date beginning
+            jd_init = ET.julian_date_from_LAST(lst_init/15.0, tobj0.jd, telescope['longitude']/15.0) # Julian date at beginning of observation
             jd_init = jd_init[0]
-    tobj_init = Time(jd_init, format='jd', scale='utc', location=('{0:.6f}d'.format(telescope['longitude']), '{0:.6f}d'.format(telescope['latitude']), '{0:.6f}m'.format(telescope['altitude'])))
-    lst_init = tobj_init.sidereal_time('apparent').deg
-
-    tobjs = tobj_init + NP.arange(n_acc) * t_acc * U.s
-    timestamps = tobjs.jd
-    lst = tobjs.sidereal_time('apparent').deg
+    tobj_init = Time(jd_init, format='jd', scale='utc', location=('{0:.6f}d'.format(telescope['longitude']), '{0:.6f}d'.format(telescope['latitude']), '{0:.6f}m'.format(telescope['altitude']))) # Time object at beginning of observation
+    lst_init = tobj_init.sidereal_time('apparent').deg # Update LST init
+    tobjs = tobj_init + NP.arange(n_acc) * t_acc * U.s # Time objects for the observation
+    lst = tobjs.sidereal_time('apparent').deg # Local Apparent Sidereal time (in degrees) for the observation
 
     if obs_mode == 'drift':
         alt = pointing_drift_init['alt']
@@ -1353,7 +1359,6 @@ elif use_SUMSS:
         select_source_ind = NP.logical_and(fint >= fluxcut_min * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS, fint <= fluxcut_max * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS)
     if NP.sum(select_source_ind) == 0:
         raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
-    # select_source_ind = fint >= 1.0
     ra_deg = ra_deg[select_source_ind]
     dec_deg = dec_deg[select_source_ind]
     fint = fint[select_source_ind]
@@ -1501,7 +1506,6 @@ elif use_custom:
 
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
-timestamps = tobjs.jd
 skycoords = SkyCoord(ra=skymod.location[:,0]*U.deg, dec=skymod.location[:,1]*U.deg, frame='icrs', equinox=skymod.epoch)
 
 # Set up chunking for parallelization
@@ -1626,29 +1630,23 @@ if mpi_on_src: # MPI based on source multiplexing
         for j in range(n_acc):
             src_altaz = skycoords.transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
             src_altaz_current = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
-            
             roi_ind = NP.where(src_altaz_current[:,0] >= 0.0)[0]
             n_src_per_rank = NP.zeros(nproc, dtype=int) + roi_ind.size/nproc
             if roi_ind.size % nproc > 0:
                 n_src_per_rank[:roi_ind.size % nproc] += 1
             cumm_src_count = NP.concatenate(([0], NP.cumsum(n_src_per_rank)))
-            # timestamp = str(DT.datetime.now())
-            timestamp = lst[j]
             pbinfo = None
             if (telescope_id.lower() == 'mwa') or (telescope_id.lower() == 'mwa_tools') or (phased_array):
                 pbinfo = {}
                 pbinfo['delays'] = delays[j,:]
                 if (telescope_id.lower() == 'mwa') or (phased_array):
-                    # pbinfo['element_locs'] = element_locs
                     pbinfo['delayerr'] = phasedarray_delayerr
                     pbinfo['gainerr'] = phasedarray_gainerr
                     pbinfo['nrand'] = nrand
-
             ts = time.time()
             if j == 0:
                 ts0 = ts
             ia.observe(tobjs[j], Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave)
-            
             te = time.time()
             progress.update(j+1)
         progress.finish()
@@ -1757,11 +1755,6 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 roi_ind_snap = fits.getdata(roifile+'.fits', extname='IND_{0:0d}'.format(j), memmap=False)
                 roi_pbeam_snap = fits.getdata(roifile+'.fits', extname='PB_{0:0d}'.format(j), memmap=False)
                 roi_pbeam_snap = roi_pbeam_snap[:,chans_chunk_indices]
-                if obs_mode in ['custom', 'dns', 'lstbin']:
-                    timestamp = obs_id[j]
-                else:
-                    # timestamp = lst[j]
-                    timestamp = timestamps[j]
              
                 ts = time.time()
                 if j == 0:
@@ -1800,17 +1793,11 @@ else: # MPI based on baseline multiplexing
 
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
                 for j in range(n_acc):
-                    if obs_mode in ['custom', 'dns', 'lstbin']:
-                        timestamp = obs_id[j]
-                    else:
-                        timestamp = lst[j]
-
                     pbinfo = None
                     if (telescope_id.lower() == 'mwa') or (telescope_id.lower() == 'mwa_tools') or (phased_array):
                         pbinfo = {}
                         pbinfo['delays'] = delays[j,:]
                         if (telescope_id.lower() == 'mwa') or (phased_array):
-                            # pbinfo['element_locs'] = element_locs
                             pbinfo['delayerr'] = phasedarray_delayerr
                             pbinfo['gainerr'] = phasedarray_gainerr
                             pbinfo['nrand'] = nrand
@@ -1956,10 +1943,6 @@ else: # MPI based on baseline multiplexing
                 for j in range(n_acc):
                     roi_ind_snap = fits.getdata(roifile+'.fits', extname='IND_{0:0d}'.format(j))
                     roi_pbeam_snap = fits.getdata(roifile+'.fits', extname='PB_{0:0d}'.format(j))
-                    if obs_mode in ['custom', 'dns', 'lstbin']:
-                        timestamp = obs_id[j]
-                    else:
-                        timestamp = timestamps[j]
                  
                     ts = time.time()
                     if j == 0:

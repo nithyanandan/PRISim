@@ -4845,7 +4845,7 @@ class InterferometerArray(object):
                             identifiers for antennas. Must be of same length
                             as nant.
 
-    timestamp   [list] List of timestamps during the observation
+    timestamp   [list] List of timestamps during the observation (Julian date)
 
     t_acc       [list] Accumulation time (sec) corresponding to each timestamp
 

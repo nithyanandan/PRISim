@@ -1,3 +1,24 @@
+From 390baa4 (ephemeris):
+========================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Remove parameter timeformat since JD has been adopted as the
+standard format
+
+In scripts/run_prisim.py,
+
+(*) Remove use of timestamps and timestamps_JD explicitly as time
+objects are maintained
+(*) Determine time objects and LST information for all observing
+modes
+(*) Remove commented lines
+
+In prisim/interferometry.py,
+
+(*) Update docstring under class InterferometerArray on description
+of attribute timestamp
+
 From 81730e0 (ephemeris):
 ========================
 
