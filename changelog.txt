@@ -1,7 +1,16 @@
+From 31aeae9 (fov):
+==================
+
+In scripts/run_prisim.py,
+
+(*) Determine Alt-Az positions from the pre-determined sources
+(*) Rename visible to hemisphere and determine hemisphere ind by
+finding all pre-determined source indices that lie in the hemisphere
+
 From 070e616 (master):
 =====================
 
-In run_prisim.py,
+In scripts/run_prisim.py,
 
 (*) Pre-compute sources in sky model in FOV defined by ROI radius
 (*) Use these sources to determine memory requirements instead of the

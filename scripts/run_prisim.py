@@ -1689,7 +1689,7 @@ if mpi_on_src: # MPI based on source multiplexing
 
         progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
         for j in range(n_acc):
-            src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
+            src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod_radec_t0[m2_lol[j]].ra.deg).reshape(-1,1), skymod_radec_t0[m2_lol[j]].dec.deg.reshape(-1,1))), latitude, units='degrees')
             roi_ind = NP.where(src_altaz_current[:,0] >= 0.0)[0]
             n_src_per_rank = NP.zeros(nproc, dtype=int) + roi_ind.size/nproc
             if roi_ind.size % nproc > 0:
@@ -1710,7 +1710,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ts = time.time()
             if j == 0:
                 ts0 = ts
-            ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+            ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(m2_lol[j][roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
             te = time.time()
             # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
             progress.update(j+1)
@@ -1744,15 +1744,15 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
 
         if rank == 0: # Compute ROI parameters for only one process and broadcast to all
             roi = RI.ROI_parameters()
-            progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots'.format(n_acc), PGB.ETA()], maxval=n_acc).start()
+            progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
             for j in range(n_acc):
-                src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
-                visible_current = src_altaz_current[:,0] >= 90.0 - roi_radius
-                # visible_src_altaz_current = src_altaz_current[visible_current,:]
+                src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod_radec_t0[m2_lol[j]].ra.deg).reshape(-1,1), skymod_radec_t0[m2_lol[j]].dec.deg.reshape(-1,1))), latitude, units='degrees')
+                hemisphere_current = src_altaz_current[:,0] >= 0.0
+                # hemisphere_src_altaz_current = src_altaz_current[hemisphere_current,:]
                 src_az_current = NP.copy(src_altaz_current[:,1])
                 src_az_current[src_az_current > 360.0 - 0.5*180.0/n_sky_sectors] -= 360.0
                 roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
-                roi_subset = NP.where(NP.logical_and(visible_current, roi_ind))[0].tolist()
+                roi_subset = NP.where(NP.logical_and(hemisphere_current, roi_ind))[0].tolist()
                 src_dircos_current_subset = GEOM.altaz2dircos(src_altaz_current[roi_subset,:], units='degrees')
 
                 pbinfo = {}
@@ -1773,7 +1773,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                     pbinfo['pointing_coords'] = 'altaz'
 
                 roiinfo = {}
-                roiinfo['ind'] = NP.asarray(roi_subset)
+                roiinfo['ind'] = NP.asarray(m2_lol[j][roi_subset])
                 if use_external_beam:
                     theta_phi = NP.hstack((NP.pi/2-NP.radians(src_altaz_current[roi_subset,0]).reshape(-1,1), NP.radians(src_altaz_current[roi_subset,1]).reshape(-1,1)))
                     if beam_chromaticity:
@@ -1925,15 +1925,15 @@ else: # MPI based on baseline multiplexing
 
             if rank == 0: # Compute ROI parameters for only one process and broadcast to all
                 roi = RI.ROI_parameters()
-                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots'.format(n_acc), PGB.ETA()], maxval=n_acc).start()
+                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
                 for j in range(n_acc):
-                    src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod.location[:,0]).reshape(-1,1), skymod.location[:,1].reshape(-1,1))), latitude, units='degrees')
-                    visible_current = src_altaz_current[:,0] >= 90.0 - roi_radius
-                    # visible_src_altaz_current = src_altaz_current[visible_current,:]
+                    src_altaz_current = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst[j]-skymod_radec_t0[m2_lol[j]].ra.deg).reshape(-1,1), skymod_radec_t0[m2_lol[j]].dec.deg.reshape(-1,1))), latitude, units='degrees')
+                    hemisphere_current = src_altaz_current[:,0] >= 0.0
+                    # hemisphere_src_altaz_current = src_altaz_current[hemisphere_current,:]
                     src_az_current = NP.copy(src_altaz_current[:,1])
                     src_az_current[src_az_current > 360.0 - 0.5*180.0/n_sky_sectors] -= 360.0
                     roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
-                    roi_subset = NP.where(NP.logical_and(visible_current, roi_ind))[0].tolist()
+                    roi_subset = NP.where(NP.logical_and(hemisphere_current, roi_ind))[0].tolist()
                     src_dircos_current_subset = GEOM.altaz2dircos(src_altaz_current[roi_subset,:], units='degrees')
    
                     pbinfo = {}
@@ -1954,7 +1954,7 @@ else: # MPI based on baseline multiplexing
                         pbinfo['pointing_coords'] = 'altaz'
 
                     roiinfo = {}
-                    roiinfo['ind'] = NP.asarray(roi_subset)
+                    roiinfo['ind'] = NP.asarray(m2_lol[j][roi_subset])
                     if use_external_beam:
                         theta_phi = NP.hstack((NP.pi/2-NP.radians(src_altaz_current[roi_subset,0]).reshape(-1,1), NP.radians(src_altaz_current[roi_subset,1]).reshape(-1,1)))
                         if beam_chromaticity:
