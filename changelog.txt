@@ -1,3 +1,12 @@
+From 070e616 (master):
+=====================
+
+In run_prisim.py,
+
+(*) Pre-compute sources in sky model in FOV defined by ROI radius
+(*) Use these sources to determine memory requirements instead of the
+full sky model sources
+
 From 378c269 (master):
 =====================
 

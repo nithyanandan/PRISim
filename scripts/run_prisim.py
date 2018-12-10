@@ -8,7 +8,7 @@ import copy
 import numpy as NP
 import ephem as EP
 from astropy.io import fits, ascii
-from astropy.coordinates import Galactic, FK5, SkyCoord
+from astropy.coordinates import Galactic, FK5, ICRS, AltAz, SkyCoord, EarthLocation
 from astropy import units
 from astropy.time import Time
 import scipy.constants as FCNST
@@ -1550,23 +1550,41 @@ elif use_custom:
 
 # Set up chunking for parallelization
 
-nsrc = skymod.location.shape[0]
-if fsky is None:
-    usable_fsky = 1.0
-elif isinstance(fsky, (int, float)):
-    fsky = float(fsky)
-    usable_fsky = NP.clip(0.5/fsky, 0.5, 1.0)
+if rank == 0:
+    tobj0 = Time(obs_date.replace('/', '-'), format='iso', scale='utc', location=EarthLocation(lon=telescope['longitude']*units.deg, lat=telescope['latitude']*units.deg, height=telescope['altitude']*units.m))
+    skymod_radec = SkyCoord(ra=skymod.location[:,0]*units.deg, dec=skymod.location[:,1]*units.deg, equinox=skymod.epoch, frame='icrs')
+    skymod_radec_t0 = skymod_radec.transform_to(FK5(equinox=tobj0))
+    m1, m2, d12 = GEOM.spherematch(pointings_radec[:,0], pointings_radec[:,1], skymod_radec_t0.ra.deg, skymod_radec_t0.dec.deg, matchrad=roi_radius, nnearest=0, maxmatches=0)
+    m1 = NP.asarray(m1)
+    m2 = NP.asarray(m2)
+    d12 = NP.asarray(d12)
+    m2_lol = [m2[NP.where(m1==j)[0]] for j in range(n_acc)]
+    nsrc_used = max([listitem.size for listitem in m2_lol])
 else:
-    raise TypeError('Input fsky must be a scalar number')
+    m2_lol = None
+    nsrc_used = None
+m2_lol = comm.bcast(m2_lol, root=0)
+nsrc_used = comm.bcast(nsrc_used, root=0)
+
+nsrc = skymod.location.shape[0]
+# if fsky is None:
+#     usable_fsky = 1.0
+# elif isinstance(fsky, (int, float)):
+#     fsky = float(fsky)
+#     usable_fsky = NP.clip(0.5/fsky, 0.5, 1.0)
+# else:
+#     raise TypeError('Input fsky must be a scalar number')
 npol = 1
 nbl = total_baselines
 if gradient_mode is not None:
     if gradient_mode.lower() == 'baseline':
-        size_DFT_matrix = (usable_fsky * nsrc) * nchan * nbl * npol * 3
+        size_DFT_matrix = 1.0 * nsrc_used * nchan * nbl * npol * 3
+        # size_DFT_matrix = (usable_fsky * nsrc_used) * nchan * nbl * npol * 3
     else:
         raise ValueError('Specified gradient_mode is currently not supported')
 else:
-    size_DFT_matrix = (usable_fsky * nsrc) * nchan * nbl * npol
+    size_DFT_matrix = 1.0 * nsrc_used * nchan * nbl * npol
+    # size_DFT_matrix = (usable_fsky * nsrc_used) * nchan * nbl * npol
 if memsave: # 64 bits per complex sample (single precision)
     nbytes_per_complex_sample = 8.0
 else: # 128 bits per complex sample (double precision)
