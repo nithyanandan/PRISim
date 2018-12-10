@@ -1,6 +1,6 @@
 #!python
 
-import os, shutil, subprocess, pwd, errno
+import os, shutil, subprocess, pwd, errno, warnings
 from mpi4py import MPI
 import yaml
 import argparse
@@ -1589,7 +1589,8 @@ elif mpi_on_freq:
         if frequency_chunk_size > 2:
             frequency_bin_indices[-1] -= 1
         else:
-            raise IndexError('Chunking has run into a weird indexing problem. Rechunking is necessaray. Try changing number of parallel processes and amount of usable memory. Usually reducing either one of these should help avoid this problem.')
+            warnings.warn('Chunking has run into a weird indexing problem. Rechunking is necessaray. Try changing number of parallel processes and amount of usable memory. Usually reducing either one of these should help avoid this problem.')
+            PDB.set_trace()
     freq_chunk = range(len(frequency_bin_indices))
     n_freq_chunks = len(frequency_bin_indices)
     n_freq_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(freq_chunk)/nproc

@@ -1,3 +1,13 @@
+From 378c269 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Import warnigns module
+(*) Isuue warning instead of raising an exception when the code runs
+into a chunking problem, and pause the code for diagnosis instead of
+exiting
+
 From 7c5fdda (gleam):
 ====================
 
