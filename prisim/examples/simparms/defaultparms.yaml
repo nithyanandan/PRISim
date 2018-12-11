@@ -534,11 +534,6 @@ pointing :                      # If pointing file is specified to be
                                 # HA-Dec pairs must be specified and 
                                 # the other pair must be set to null
 
-        lst             : 0.0
-                                # LST at start of observation (hours).
-                                # The epoch is assumed to be the date 
-                                # of observation
-
     track_init :
 
         ra          : 0.0

@@ -1510,23 +1510,41 @@ skycoords = SkyCoord(ra=skymod.location[:,0]*U.deg, dec=skymod.location[:,1]*U.d
 
 # Set up chunking for parallelization
 
-nsrc = skymod.location.shape[0]
-if fsky is None:
-    usable_fsky = 1.0
-elif isinstance(fsky, (int, float)):
-    fsky = float(fsky)
-    usable_fsky = NP.clip(0.5/fsky, 0.5, 1.0)
+if rank == 0:
+    tobj0 = Time(obs_date.replace('/', '-'), format='iso', scale='utc', location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m))
+    skymod_radec = SkyCoord(ra=skymod.location[:,0]*U.deg, dec=skymod.location[:,1]*U.deg, equinox=skymod.epoch, frame='icrs')
+    skymod_radec_t0 = skymod_radec.transform_to(FK5(equinox=tobj0))
+    m1, m2, d12 = GEOM.spherematch(pointings_radec[:,0], pointings_radec[:,1], skymod_radec_t0.ra.deg, skymod_radec_t0.dec.deg, matchrad=roi_radius, nnearest=0, maxmatches=0)
+    m1 = NP.asarray(m1)
+    m2 = NP.asarray(m2)
+    d12 = NP.asarray(d12)
+    m2_lol = [m2[NP.where(m1==j)[0]] for j in range(n_acc)]
+    nsrc_used = max([listitem.size for listitem in m2_lol])
 else:
-    raise TypeError('Input fsky must be a scalar number')
+    m2_lol = None
+    nsrc_used = None
+m2_lol = comm.bcast(m2_lol, root=0)
+nsrc_used = comm.bcast(nsrc_used, root=0)
+
+nsrc = skymod.location.shape[0]
+# if fsky is None:
+#     usable_fsky = 1.0
+# elif isinstance(fsky, (int, float)):
+#     fsky = float(fsky)
+#     usable_fsky = NP.clip(0.5/fsky, 0.5, 1.0)
+# else:
+#     raise TypeError('Input fsky must be a scalar number')
 npol = 1
 nbl = total_baselines
 if gradient_mode is not None:
     if gradient_mode.lower() == 'baseline':
-        size_DFT_matrix = (usable_fsky * nsrc) * nchan * nbl * npol * 3
+        size_DFT_matrix = 1.0 * nsrc_used * nchan * nbl * npol * 3
+        # size_DFT_matrix = (usable_fsky * nsrc_used) * nchan * nbl * npol * 3
     else:
         raise ValueError('Specified gradient_mode is currently not supported')
 else:
-    size_DFT_matrix = (usable_fsky * nsrc) * nchan * nbl * npol
+    size_DFT_matrix = 1.0 * nsrc_used * nchan * nbl * npol
+    # size_DFT_matrix = (usable_fsky * nsrc_used) * nchan * nbl * npol
 if memsave: # 64 bits per complex sample (single precision)
     nbytes_per_complex_sample = 8.0
 else: # 128 bits per complex sample (double precision)
@@ -1629,7 +1647,7 @@ if mpi_on_src: # MPI based on source multiplexing
 
         progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
         for j in range(n_acc):
-            src_altaz = skycoords.transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
+            src_altaz = skycoords[m2_lol[j]].transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
             src_altaz_current = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
             roi_ind = NP.where(src_altaz_current[:,0] >= 0.0)[0]
             n_src_per_rank = NP.zeros(nproc, dtype=int) + roi_ind.size/nproc
@@ -1647,7 +1665,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ts = time.time()
             if j == 0:
                 ts0 = ts
-            ia.observe(tobjs[j], Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave)
+            ia.observe(tobjs[i], Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(m2_lol[j][roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave)
             te = time.time()
             progress.update(j+1)
         progress.finish()
@@ -1674,15 +1692,17 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
 
         if rank == 0: # Compute ROI parameters for only one process and broadcast to all
             roi = RI.ROI_parameters()
-            progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots'.format(n_acc), PGB.ETA()], maxval=n_acc).start()
+            progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
             for j in range(n_acc):
-                src_altaz = skycoords.transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
+                src_altaz = skycoords[m2_lol[j]].transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
                 src_altaz_current = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
-                visible_current = src_altaz_current[:,0] >= 90.0 - roi_radius
+                hemisphere_current = src_altaz_current[:,0] >= 0.0
+                # hemisphere_src_altaz_current = src_altaz_current[hemisphere_current,:]
+
                 src_az_current = NP.copy(src_altaz_current[:,1])
                 src_az_current[src_az_current > 360.0 - 0.5*180.0/n_sky_sectors] -= 360.0
                 roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
-                roi_subset = NP.where(NP.logical_and(visible_current, roi_ind))[0].tolist()
+                roi_subset = NP.where(NP.logical_and(hemisphere_current, roi_ind))[0].tolist()
                 src_dircos_current_subset = GEOM.altaz2dircos(src_altaz_current[roi_subset,:], units='degrees')
 
                 pbinfo = {}
@@ -1702,7 +1722,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                     pbinfo['pointing_coords'] = 'altaz'
 
                 roiinfo = {}
-                roiinfo['ind'] = NP.asarray(roi_subset)
+                roiinfo['ind'] = NP.asarray(m2_lol[j][roi_subset])
                 if use_external_beam:
                     theta_phi = NP.hstack((NP.pi/2-NP.radians(src_altaz_current[roi_subset,0]).reshape(-1,1), NP.radians(src_altaz_current[roi_subset,1]).reshape(-1,1)))
                     if beam_chromaticity:
@@ -1835,15 +1855,17 @@ else: # MPI based on baseline multiplexing
 
             if rank == 0: # Compute ROI parameters for only one process and broadcast to all
                 roi = RI.ROI_parameters()
-                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots'.format(n_acc), PGB.ETA()], maxval=n_acc).start()
+                progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
                 for j in range(n_acc):
-                    src_altaz = skycoords.transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
+                    src_altaz = skycoords[m2_lol[j]].transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
                     src_altaz_current = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
-                    visible_current = src_altaz_current[:,0] >= 90.0 - roi_radius
+                    hemisphere_current = src_altaz_current[:,0] >= 0.0
+                    # hemisphere_src_altaz_current = src_altaz_current[hemisphere_current,:]
+
                     src_az_current = NP.copy(src_altaz_current[:,1])
                     src_az_current[src_az_current > 360.0 - 0.5*180.0/n_sky_sectors] -= 360.0
                     roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
-                    roi_subset = NP.where(NP.logical_and(visible_current, roi_ind))[0].tolist()
+                    roi_subset = NP.where(NP.logical_and(hemisphere_current, roi_ind))[0].tolist()
                     src_dircos_current_subset = GEOM.altaz2dircos(src_altaz_current[roi_subset,:], units='degrees')
    
                     pbinfo = {}
@@ -1864,7 +1886,7 @@ else: # MPI based on baseline multiplexing
                         pbinfo['pointing_coords'] = 'altaz'
 
                     roiinfo = {}
-                    roiinfo['ind'] = NP.asarray(roi_subset)
+                    roiinfo['ind'] = NP.asarray(m2_lol[j][roi_subset])
                     if use_external_beam:
                         theta_phi = NP.hstack((NP.pi/2-NP.radians(src_altaz_current[roi_subset,0]).reshape(-1,1), NP.radians(src_altaz_current[roi_subset,1]).reshape(-1,1)))
                         if beam_chromaticity:

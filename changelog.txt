@@ -1,9 +1,42 @@
+From 8696533 (master), ba68704 (ephemeris):
+==========================================
+
+(*) Merge changes in branch master into branch ephemeris-tmp
+
+From 31aeae9 (fov):
+==================
+
+In scripts/run_prisim.py,
+
+(*) Determine Alt-Az positions from the pre-determined sources
+(*) Rename visible to hemisphere and determine hemisphere ind by
+finding all pre-determined source indices that lie in the hemisphere
+
+From 070e616 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Pre-compute sources in sky model in FOV defined by ROI radius
+(*) Use these sources to determine memory requirements instead of the
+full sky model sources
+
+From 378c269 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Import warnigns module
+(*) Isuue warning instead of raising an exception when the code runs
+into a chunking problem, and pause the code for diagnosis instead of
+exiting
+
 From 0f12ce0 (ephemeris):
 ========================
 
 In scripts/run_prisim.py,
 
-(*) Import warnigns module
+(*) Import warnings module
 (*) Isuue warning instead of raising an exception when the code runs
 into a chunking problem, and pause the code for diagnosis instead of
 exiting
