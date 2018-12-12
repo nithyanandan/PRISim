@@ -662,7 +662,7 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
         raise ValueError('Invalid specification for obs_mode')
 
     # Initialize time objects and LST from obs_date and chosen LST
-    lst_init = pointing_info['lst_init']
+    lst_init = pointing_info['lst_init'] * 15.0 # in deg
     jd_init = pointing_info['jd_init']
     if jd_init is None:
         if ((obs_date is not None) and (lst_init is not None)):

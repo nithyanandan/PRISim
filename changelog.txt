@@ -1,3 +1,10 @@
+From 7c45a8e (ephemeris):
+========================
+
+In scripts/run_prisim.py,
+
+(*) Fix bug in units of lst_init
+
 From 8696533 (master), ba68704 (ephemeris):
 ==========================================
 
