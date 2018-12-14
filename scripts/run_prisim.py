@@ -1429,7 +1429,8 @@ elif use_GLEAM:
     if NP.sum(select_source_ind) == 0:
         raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
     # bright_source_ind = gleam_fint >= 10.0 * (freq_GLEAM*1e9/freq)**spindex_GLEAM
-    PS_ind = gleam_majax * gleam_minax <= 1.1 * gleam_psf_majax * gleam_psf_minax
+    PS_ind = NP.ones(gleam_fint.size, dtype=NP.bool)
+    # PS_ind = gleam_majax * gleam_minax <= 1.1 * gleam_psf_majax * gleam_psf_minax
     valid_ind = NP.logical_and(select_source_ind, PS_ind)
     ra_deg_GLEAM = ra_deg_GLEAM[valid_ind]
     dec_deg_GLEAM = dec_deg_GLEAM[valid_ind]

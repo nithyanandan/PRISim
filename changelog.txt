@@ -1,3 +1,11 @@
+From b6e308d (ephemeris):
+========================
+
+In scripts/run_prisim.py,
+
+(*) Remove the downselection of only point sources in the GLEAM
+catalog.
+
 From 7c45a8e (ephemeris):
 ========================
 
