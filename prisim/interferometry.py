@@ -4604,7 +4604,7 @@ class ROI_parameters(object):
             print('\tNow writing FITS file to disk...')
 
         hdu = fits.HDUList(hdulist)
-        hdu.writeto(filename, clobber=overwrite)
+        hdu.writeto(filename, overwrite=overwrite)
 
         if verbose:
             print('\tRegions of interest information written successfully to FITS file on disk:\n\t\t{0}\n'.format(filename))
@@ -8485,7 +8485,7 @@ class InterferometerArray(object):
             if verbose:
                 print('\tNow writing FITS file to disk...')
             hdu = fits.HDUList(hdulist)
-            hdu.writeto(filename, clobber=overwrite)
+            hdu.writeto(filename, overwrite=overwrite)
             if self.gaininfo is not None:
                 self.gaininfo.write_gaintable(outfile+'.gains.hdf5')
 
@@ -9589,7 +9589,7 @@ class InterferometerData(object):
 
                 # write the file
                 hdulist = fits.HDUList(hdus=[hdu, ant_hdu])
-                hdulist.writeto(outfile, clobber=overwrite)
+                hdulist.writeto(outfile, overwrite=overwrite)
             except Exception as xption2:
                 print(xption2)
                 raise IOError('Could not write to UVFITS file')

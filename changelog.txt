@@ -1,3 +1,10 @@
+From e8fd194 (ephemeris):
+========================
+
+In prisim/interferometry.py,
+
+(*) Replace clobber with overwrite in calls to writing FITS files
+
 From b6e308d (ephemeris):
 ========================
 
