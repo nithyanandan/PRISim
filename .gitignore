@@ -14,3 +14,4 @@
 /prisim/*.pyc
 /prisim/*.tar.gz
 /prisim/interferometry.py.rej
+/prisim/examples/simparms/replicatesim.yaml~
