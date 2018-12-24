@@ -8647,46 +8647,57 @@ class InterferometerArray(object):
 
         Keyword Input(s):
 
-        uvfits_parms [dictionary] specifies basic parameters required for
-                     saving in UVFITS format. If set to None (default), the
-                     data will not be saved in UVFITS format. To save in UVFITS
-                     format, the following keys and values are required:
-                     'ref_point'    [dictionary] Contains information about the
-                                    reference position to which projected
-                                    baselines and rotated visibilities are to
-                                    be computed. Default=None (no additional
-                                    phasing will be performed). It must be
-                                    contain the following keys with the
-                                    following values:
-                                    'coords'    [string] Refers to the
-                                                coordinate system in which value
-                                                in key 'location' is specified
-                                                in. Accepted values are 'radec',
-                                                'hadec', 'altaz' and 'dircos'
-                                    'location'  [numpy array] Must be a Mx2 (if
-                                                value in key 'coords' is set to
-                                                'radec', 'hadec', 'altaz' or
-                                                'dircos') or Mx3 (if value in
-                                                key 'coords' is set to
-                                                'dircos'). M can be 1 or equal
-                                                to number of timestamps. If M=1,
-                                                the same reference point in the
-                                                same coordinate system will be
-                                                repeated for all tiemstamps. If
-                                                value under key 'coords' is set
-                                                to 'radec', 'hadec' or 'altaz',
-                                                the value under this key
-                                                'location' must be in units of
-                                                degrees.
-                     'method'       [string] specifies method to be used in
-                                    saving in UVFITS format. Accepted values are
-                                    'uvdata', 'uvfits' or None (default). If set
-                                    to 'uvdata', the UVFITS writer in uvdata
-                                    module is used. If set to 'uvfits', the
-                                    in-house UVFITS writer is used. If set to
-                                    None, first uvdata module will be attempted
-                                    but if it fails then the in-house UVFITS
-                                    writer will be tried.
+        uvfits_parms 
+                    [dictionary] specifies basic parameters required for
+                    saving in UVFITS format. If set to None (default), the
+                    data will not be saved in UVFITS format. To save in UVFITS
+                    format, the following keys and values are required:
+                    'ref_point'    [dictionary] Contains information about the
+                                   reference position to which projected
+                                   baselines and rotated visibilities are to
+                                   be computed. Default=None (no additional
+                                   phasing will be performed). It must be
+                                   contain the following keys with the
+                                   following values:
+                                   'coords'    [string] Refers to the
+                                               coordinate system in which value
+                                               in key 'location' is specified
+                                               in. Accepted values are 'radec',
+                                               'hadec', 'altaz' and 'dircos'
+                                   'location'  [numpy array] Must be a Mx2 (if
+                                               value in key 'coords' is set to
+                                               'radec', 'hadec', 'altaz' or
+                                               'dircos') or Mx3 (if value in
+                                               key 'coords' is set to
+                                               'dircos'). M can be 1 or equal
+                                               to number of timestamps. If M=1,
+                                               the same reference point in the
+                                               same coordinate system will be
+                                               repeated for all tiemstamps. If
+                                               value under key 'coords' is set
+                                               to 'radec', 'hadec' or 'altaz',
+                                               the value under this key
+                                               'location' must be in units of
+                                               degrees.
+                    'method'       [string] specifies method to be used in
+                                   saving in UVFITS format. Accepted values are
+                                   'uvdata', 'uvfits' or None (default). If set
+                                   to 'uvdata', the UVFITS writer in uvdata
+                                   module is used. If set to 'uvfits', the
+                                   in-house UVFITS writer is used. If set to
+                                   None, first uvdata module will be attempted
+                                   but if it fails then the in-house UVFITS
+                                   writer will be tried.
+
+                    'datapool'     [NoneType or list] Indicates which portion
+                                   of the data is to be written to the UVFITS
+                                   file. If set to None (default), all of 
+                                   skyvis_freq, vis_freq, and vis_noise_freq 
+                                   attributes will be written. Otherwise, 
+                                   accepted values are a list of strings that
+                                   can include 'noiseless' (skyvis_freq 
+                                   attribute), 'noisy' (vis_freq attribute), 
+                                   and 'noise' (vis_nosie_freq attribute). 
 
         overwrite    [boolean] True indicates overwrite even if a file already
                      exists. Default = False (does not overwrite). Beware this
@@ -8706,9 +8717,22 @@ class InterferometerArray(object):
                 uvfits_parms['ref_point'] = None
             if 'method' not in uvfits_parms:
                 uvfits_parms['method'] = None
-            dataobj = InterferometerData(self, ref_point=uvfits_parms['ref_point'])
+            if 'datapool' not in uvfits_parms:
+                uvfits_parms['datapool'] = ['noiseless', 'noisy', 'noise']
+            if uvfits_parms['datapool'] is None:
+                uvfits_parms['datapool'] = ['noiseless', 'noisy', 'noise']
+            if not isinstance(uvfits_parms['datapool'], list):
+                raise TypeError('Key datapool in input uvfits_parms must be a list')
+            else:
+                datapool_list = [dpool.lower() for dpool in uvfits_parms['datapool'] if (isinstance(dpool, str) and dpool.lower() in ['noiseless', 'noise', 'noisy'])]
+                if len(datapool_list) == 0:
+                    raise ValueError('No valid datapool string found in input uvfits_parms')
+                uvfits_parms['datapool'] = datapool_list
+
+            dataobj = InterferometerData(self, ref_point=uvfits_parms['ref_point'], datakeys=uvfits_parms['datapool'])
             for datakey in dataobj.infodict['data_array']:
-                dataobj.write(outfile+'-{0}.uvfits'.format(datakey), datatype=datakey, fmt='UVFITS', uvfits_method=uvfits_parms['method'], overwrite=overwrite)
+                if dataobj.infodict['data_array'][datakey] is not None:
+                    dataobj.write(outfile+'-{0}.uvfits'.format(datakey), datatype=datakey, fmt='UVFITS', uvfits_method=uvfits_parms['method'], overwrite=overwrite)
 
 #################################################################################
 
@@ -9006,7 +9030,7 @@ class InterferometerData(object):
     ----------------------------------------------------------------------------
     """
 
-    def __init__(self, prisim_object, ref_point=None):
+    def __init__(self, prisim_object, ref_point=None, datakeys=None):
 
         """
         ------------------------------------------------------------------------
@@ -9041,6 +9065,14 @@ class InterferometerData(object):
                                 is set to 'radec', 'hadec' or 'altaz', the
                                 value under this key 'location' must be in
                                 units of degrees.
+
+        datakeys       [NoneType or list] Indicates which portion of the data 
+                       is to be written to the UVFITS file. If set to None 
+                       (default), all of skyvis_freq, vis_freq, and 
+                       vis_noise_freq attributes will be written. Otherwise, 
+                       accepted values are a list of strings that can include 
+                       'noiseless' (skyvis_freq attribute), 'noisy' (vis_freq 
+                       attribute), and 'noise' (vis_nosie_freq attribute).
         ------------------------------------------------------------------------
         """
 
@@ -9052,8 +9084,18 @@ class InterferometerData(object):
             prisim_object.rotate_visibilities(ref_point)
         if not isinstance(prisim_object, InterferometerArray):
             raise TypeError('Inout prisim_object must be an instance of class InterferometerArray')
-        datatypes = ['noiseless', 'noisy', 'noise']
-        visibilities = {key: None for key in datatypes}
+        if datakeys is None:
+            datakeys = ['noiseless', 'noisy', 'noise']
+        if not isinstance(datakeys, list):
+            raise TypeError('Input datakeys must be a list')
+        else:
+            datapool_list = [dpool.lower() for dpool in datakeys if (isinstance(dpool, str) and dpool.lower() in ['noiseless', 'noise', 'noisy'])]
+            if len(datapool_list) == 0:
+                raise ValueError('No valid datapool string found in input uvfits_parms')
+            datakeys = datapool_list
+
+        # datatypes = ['noiseless', 'noisy', 'noise']
+        visibilities = {key: None for key in datakeys}
         for key in visibilities:
             # Conjugate visibilities for compatibility with UVFITS and CASA imager
             if key == 'noiseless':

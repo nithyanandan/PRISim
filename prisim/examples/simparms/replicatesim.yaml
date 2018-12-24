@@ -1,0 +1,103 @@
+##### IMPORTANT INFORMATION #####
+##### DO NOT MODIFY THIS FILE #####
+##### MAKE A COPY OF THIS FILE AND CUSTOMIZE #####
+
+########## Directory Structure information #########
+
+dirstruct   :
+                                # Directory information
+
+    indir           : '/path/to/simulation/directory/'
+                                # Directory containing simulations
+
+    infile          : null
+                                # Filename (without extension) of
+                                # the simulation in indir. If set
+                                # to null, only noise will be
+                                # realized multiple time as requested
+                                # with no sky signal
+
+    infmt           : 'hdf5'
+                                # Simulation formats. Accepted values
+                                # are 'hdf5' (default) and 'uvfits'
+
+    outdir          : '/path/to/output/'
+                                # Path to output
+
+    outfile         : 'simvis'
+                                # Outfile prefix. The files will be
+                                # appended with a number corresponding
+                                # to the realization and an extension
+                                # given by outfmt
+
+    outfmt          : 'npz'
+                                # Output format. Accepted values are
+                                # 'npz' (default) and 'uvfits'.
+                                # 'npz' will only work if infmt is
+                                # set to 'hdf5', otherwise will
+                                # automatically change to 'uvfits'
+
+######## Telescope information #########
+
+telescope   :
+
+    A_eff           : 154
+                                # Effective area of antenna element
+                                # in m^2
+
+    eff_Q           : 0.89
+                                # Interferometer efficiency. Value
+                                # must lie in [0,1]. Default=0.89
+
+    Trx             : 50.0
+                                # Receiver temperature (in K)
+
+    Tant_freqref    : 150000000.0
+                                # Reference frequency (in Hz) for
+                                # antenna temperature
+
+    Tant_spindex    : -2.55
+                                # Spectral index for antenna
+                                # temperature
+
+    Tant_ref        : 200.0
+                                # Antenna temperature at reference
+                                # frequency
+                                # Tsys = Trx + Tant * (f/f0)^alpha
+
+    Tsys            : null
+                                # System temperature (in K)
+
+######### Replicate information ############
+
+replicate   :
+                                # Replication parameters
+
+    n_avg           : 1
+                                # Number of averages in determining
+                                # final noise RMS that is to be made
+                                # multiple realizations of. Default=1
+                                # The original noise RMS will be
+                                # reduced by a factor sqrt(n_avg)
+
+    n_realize       : 1
+                                # Number of random realizations of
+                                # noise. Must be greater than 0.
+                                # Default=1
+
+    seed            : 100
+                                # Use a fixed seed for reproducibility
+                                # else set it to null and a random
+                                # seed will be used
+
+########## Diagnosis parameters ###########
+
+diagnosis   :
+
+    wait_after_run  : true
+                                # If true, keep python shell open
+                                # after completing the run using
+                                # set_trace() of python debugger.
+                                # If false, close python shell
+                                # and return to command prompt
+                                # after successful completion

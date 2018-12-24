@@ -1,3 +1,26 @@
+From 8696533 (master):
+=====================
+
+(*) Add prisim/examples/simparms/replicatesim.yaml to repo
+(*) Add scripts/replicate_sim.py to repo
+
+In prisim/interferometry.py,
+
+(*) Add input datakeys in __init__() member function of class
+InterferometerData. Update member function docstring accordingly
+(*) In __init__() member function of class InterferometerData, only
+set arrays for specified keys in input datakeys
+(*) In member function write_uvfits() of class InterferometerArray,
+add key 'datapool' to write only specified portions of the simulated
+data to UVFITS file. Update member function docstring accordingly.
+(*) In member function write_uvfits() of class InterferometerArray,
+write only specified portions of the simulated data to UVFITS file.
+
+In scripts/run_prisim.py,
+
+(*) Pass datapool info in uvfits_parms before calling write_uvfits()
+member function of class InterferometerArray
+
 From 31aeae9 (fov):
 ==================
 
