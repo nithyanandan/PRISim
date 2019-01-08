@@ -95,17 +95,21 @@ if __name__ == '__main__':
     rstate = NP.random.RandomState(seed)
     noise = noiseRMS / NP.sqrt(2.0*n_avg) * (rstate.randn(n_realize, nbl, nchan, ntimes) + 1j * rstate.randn(n_realize, nbl, nchan, ntimes)) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts
 
-    for i in range(n_realize):
-        outfilename = outdir + outfile + '{0:03d}'.format(i+1)
-        outarray = data_array + noise[i,...]
-        if outfmt.lower() == 'uvfits':
+    if outfmt.lower() == 'npz':
+        outfilename = outdir + outfile + '_{0:03d}-{1:03d}.{2}'.format(1,n_realize,outfmt.lower())
+        outarray = data_array[NP.newaxis,...] + noise
+        NP.savez(outfilename, noiseless=data_array[NP.newaxis,...], noisy=outarray, noise=noise)
+    else:
+        for i in range(n_realize):
+            outfilename = outdir + outfile + '{0:03d}'.format(i+1)
+            outarray = data_array + noise[i,...]
             if infmt.lower() == 'uvfits':
                 outfilename = outfilename + '-noisy.{0}'.format(outfmt.lower())
                 uvdummy.data_array = NP.transpose(NP.transpose(outarray, (2,0,1)).reshape(nbl*ntimes, nchan, 1, 1), (0,2,1,3)) # (Nbls, Nfreqs, Ntimes) -> (Ntimes, Nbls, Nfreqs) -> (Nblts, Nfreqs, Nspws=1, Npols=1) -> (Nblts, Nspws=1, Nfreqs, Npols=1)
                 uvdummy.write_uvfits(outfilename, force_phase=True, spoof_nonessential=True)
             else:
                 simvis.vis_freq = outarray
-
+    
                 phase_center = simvis.pointing_center[0,:].reshape(1,-1)
                 phase_center_coords = simvis.pointing_coords
                 if phase_center_coords == 'dircos':
@@ -123,9 +127,6 @@ if __name__ == '__main__':
                 uvfits_ref_point = {'location': phase_center.reshape(1,-1), 'coords': 'radec'}
                 simvis.rotate_visibilities(uvfits_ref_point)
                 simvis.write_uvfits(outfilename, uvfits_parms={'ref_point': None, 'method': None, 'datapool': ['noisy']}, overwrite=True, verbose=True)
-        else:
-            outfilename = outfilename + '-noisy.{0}'.format(outfmt.lower())
-            NP.savez(outfilename, vis=outarray)
 
     if wait_after_run:
         PDB.set_trace()

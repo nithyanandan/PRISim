@@ -1,3 +1,30 @@
+From bf00131 (ephemeris):
+========================
+
+In prisim/interferometry.py,
+
+(*) In member function getThreePointCombinations() of class
+InterferometerArray, fix bug that used antenna IDs instead of antenna
+labels. Update member function docstring accordingly
+(*) In member function getClosurePhase() of class InterferometerArray,
+add progress bar
+
+In prisim/bispectrum_phase.py,
+
+(*) In function write_PRISim_bispectrum_phase_to_npz(), add and
+update input parameters. Update function docstring accordingly.
+Update function accordingly
+
+In scripts/replicate_sim.py,
+
+(*) If output format is NPZ, write only one NPZ file instead of
+many.
+
+In scripts/write_PRISim_bispectrum_phase_to_npz.py,
+
+(*) Update to be compatible with changes in function
+write_PRISim_bispectrum_phase_to_npz() in prisim/bispectrum_phase.py 
+
 From 0f6bd08 (ephemeris-tmp), 1dd0c3b (master):
 ==============================================
 

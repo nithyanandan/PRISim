@@ -6785,7 +6785,7 @@ class InterferometerArray(object):
         Output:
 
         Tuple containing two lists. The first list is a list of triplet tuples of
-        antenna ids in the form [(a1,a2,a3), (a1,a4,a6), ...], the second list 
+        antenna labels in the form [(a1,a2,a3), (a1,a4,a6), ...], the second list 
         is a list of triplet tuples of baselines encoded as strings
         -------------------------------------------------------------------------
         """
@@ -6797,8 +6797,8 @@ class InterferometerArray(object):
         blstr = NP.unique(['{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(lo) for lo in bl])
         bltriplets = []
         anttriplets = []
-        for aind1,aid1 in enumerate(self.layout['ids']):
-            for aind2,aid2 in enumerate(self.layout['ids']):
+        for aind1,albl1 in enumerate(self.layout['labels']):
+            for aind2,albl2 in enumerate(self.layout['labels']):
                 bl12 = self.layout['positions'][aind2] - self.layout['positions'][aind1]
                 bl12 += 0.0 # to avoid any weird negative sign before 0.0
                 bl12[NP.abs(bl12) < 1e-10] = 0.0
@@ -6813,7 +6813,7 @@ class InterferometerArray(object):
                         warnings.warn('A baseline not found in the simulated reference baselines. Proceeding with the rest')
                         # raise IndexError('A baseline not found in reference baselines')
                     else:
-                        for aind3,aid3 in enumerate(self.layout['ids']):
+                        for aind3,albl3 in enumerate(self.layout['labels']):
                             bl23 = self.layout['positions'][aind3] - self.layout['positions'][aind2]
                             bl31 = self.layout['positions'][aind1] - self.layout['positions'][aind3]
                             bl23 += 0.0 # to avoid any weird negative sign before 0.0
@@ -6845,7 +6845,7 @@ class InterferometerArray(object):
                                         if len(list123_str) == 3:
                                             if len(bltriplets) == 0:
                                                 bltriplets += [list123_str]
-                                                anttriplets += [(aid1, aid2, aid3)]
+                                                anttriplets += [(albl1, albl2, albl3)]                                                
                                             else:
                                                 found = False
                                                 if unique:
@@ -6858,7 +6858,7 @@ class InterferometerArray(object):
                                                             ind += 1
                                                 if not found:
                                                     bltriplets += [list123_str]
-                                                    anttriplets += [(aid1, aid2, aid3)]
+                                                    anttriplets += [(albl1, albl2, albl3)]
 
         return (anttriplets, bltriplets)             
 
@@ -7188,7 +7188,8 @@ class InterferometerArray(object):
         skyvis_triplets = []
         vis_triplets = []
         noise_triplets = []
-        for anttriplet in antenna_triplets:
+        progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Triplets '.format(len(antenna_triplets)), PGB.ETA()], maxval=len(antenna_triplets)).start()
+        for tripletind,anttriplet in enumerate(antenna_triplets):
             blvecttriplets += [NP.zeros((3,3))]
             a1, a2, a3 = anttriplet
             a1 = str(a1)
@@ -7404,6 +7405,9 @@ class InterferometerArray(object):
             skyvis_triplets += [[skyvis12*bpwts12, skyvis23*bpwts23, skyvis31*bpwts31]]
             vis_triplets += [[vis12*bpwts12, vis23*bpwts23, vis31*bpwts31]]
             noise_triplets += [[noise12*bpwts12, noise23*bpwts23, noise31*bpwts31]]
+
+            progress.update(tripletind+1)
+        progress.finish()
 
         skyvis_triplets = NP.asarray(skyvis_triplets)
         vis_triplets = NP.asarray(vis_triplets)
