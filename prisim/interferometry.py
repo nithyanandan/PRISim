@@ -6796,6 +6796,7 @@ class InterferometerArray(object):
         bl = self.baselines + 0.0 # to avoid any weird negative sign before 0.0
         blstr = NP.unique(['{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(lo) for lo in bl])
         bltriplets = []
+        blvecttriplets = []
         anttriplets = []
         for aind1,albl1 in enumerate(self.layout['labels']):
             for aind2,albl2 in enumerate(self.layout['labels']):
@@ -6845,6 +6846,7 @@ class InterferometerArray(object):
                                         if len(list123_str) == 3:
                                             if len(bltriplets) == 0:
                                                 bltriplets += [list123_str]
+                                                blvecttriplets += [[bl12, bl23, bl31]]
                                                 anttriplets += [(albl1, albl2, albl3)]                                                
                                             else:
                                                 found = False
@@ -6858,9 +6860,11 @@ class InterferometerArray(object):
                                                             ind += 1
                                                 if not found:
                                                     bltriplets += [list123_str]
+                                                    blvecttriplets += [[bl12, bl23, bl31]] 
                                                     anttriplets += [(albl1, albl2, albl3)]
 
-        return (anttriplets, bltriplets)             
+        # return (anttriplets, bltriplets)             
+        return (anttriplets, blvecttriplets)             
 
     #############################################################################
 

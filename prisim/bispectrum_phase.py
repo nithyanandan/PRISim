@@ -27,10 +27,10 @@ cosmo100 = cosmoPlanck15.clone(name='Modified Planck 2015 cosmology with h=1.0',
 
 ################################################################################
 
-def write_PRISim_bispectrum_phase_to_npz(infile_prefix, bltriplet,
-                                         outfile_prefix, hdf5file_prefix=None,
-                                         infmt='npz', datakey='noisy',
-                                         blltol=0.1):
+def write_PRISim_bispectrum_phase_to_npz(infile_prefix, outfile_prefix,
+                                         triads=None, bltriplet=None,
+                                         hdf5file_prefix=None, infmt='npz',
+                                         datakey='noisy', blltol=0.1):
 
     """
     ----------------------------------------------------------------------------
@@ -48,10 +48,18 @@ def write_PRISim_bispectrum_phase_to_npz(infile_prefix, bltriplet,
                 then hdf5file_prefix needs to be specified in order to read the
                 observing parameters.
 
-    bltriplet   [numpy array] 3x3 numpy array containing the 3 baseline vectors.
-                The first axis denotes the three baselines, the second axis 
-                denotes the East, North, Up coordinates of the baseline vector.
-                Units are in m.
+    triads      [list or numpy array or None] Antenna triads given as a list of 
+                3-element lists or a ntriads x 3 array. Each element in the
+                inner list is an antenna label. They will be converted to
+                strings internally. If set to None, then all triads determined
+                by bltriplet will be used. If specified, then inputs in blltol
+                and bltriplet will be ignored. 
+
+    bltriplet   [numpy array or None] 3x3 numpy array containing the 3 baseline 
+                vectors. The first axis denotes the three baselines, the second 
+                axis denotes the East, North, Up coordinates of the baseline 
+                vector. Units are in m. Will be used only if triads is set to 
+                None.
 
     outfile_prefix
                 [string] Prefix of the NPZ file. It will be appended by 
@@ -70,7 +78,9 @@ def write_PRISim_bispectrum_phase_to_npz(infile_prefix, bltriplet,
                 as a suffix in the output file. 
 
     blltol      [scalar] Baseline length tolerance (in m) for matching baseline
-                vectors in triads. It must be a scalar. Default = 0.1 m.
+                vectors in triads. It must be a scalar. Default = 0.1 m. Will
+                be used only if triads is set to None and bltriplet is to be
+                used.
     ----------------------------------------------------------------------------
     """
 
@@ -78,17 +88,23 @@ def write_PRISim_bispectrum_phase_to_npz(infile_prefix, bltriplet,
         raise TypeError('Input infile_prefix must be a string')
     if not isinstance(outfile_prefix, str):
         raise TypeError('Input outfile_prefix must be a string')
-    if not isinstance(bltriplet, NP.ndarray):
-        raise TypeError('Input bltriplet must be a numpy array')
-    if not isinstance(blltol, (int,float)):
-        raise TypeError('Input blltol must be a scalar')
-
-    if bltriplet.ndim != 2:
-        raise ValueError('Input bltriplet must be a 2D numpy array')
-    if bltriplet.shape[0] != 3:
-        raise ValueError('Input bltriplet must contain three baseline vectors')
-    if bltriplet.shape[1] != 3:
-        raise ValueError('Input bltriplet must contain baseline vectors along three corrdinates in the ENU frame')
+    if (triads is None) and (bltriplet is None):
+        raise ValueError('One of triads or bltriplet must be set')
+    if triads is None:
+        if not isinstance(bltriplet, NP.ndarray):
+            raise TypeError('Input bltriplet must be a numpy array')
+        if not isinstance(blltol, (int,float)):
+            raise TypeError('Input blltol must be a scalar')
+        if bltriplet.ndim != 2:
+            raise ValueError('Input bltriplet must be a 2D numpy array')
+        if bltriplet.shape[0] != 3:
+            raise ValueError('Input bltriplet must contain three baseline vectors')
+        if bltriplet.shape[1] != 3:
+            raise ValueError('Input bltriplet must contain baseline vectors along three corrdinates in the ENU frame')
+    else:
+        if not isinstance(triads, (list, NP.ndarray)):
+            raise TypeError('Input triads must be a list or numpy array')
+        triads = NP.asarray(triads).astype(str)
 
     if not isinstance(infmt, str):
         raise TypeError('Input infmt must be a string')
@@ -139,6 +155,9 @@ def write_PRISim_bispectrum_phase_to_npz(infile_prefix, bltriplet,
         n_realize = vis.shape[0]
     else:
         n_realize = len(fullfnames_without_extension)
+
+    cpdata = {}
+    outfile = {}
     for fileind in range(n_realize):
         if infmt.lower() == 'npz':
             simvis.vis_freq = vis[fileind,...]
@@ -146,66 +165,78 @@ def write_PRISim_bispectrum_phase_to_npz(infile_prefix, bltriplet,
         else:
             simvis = RI.InterferometerArray(None, None, None, init_file=fullfnames_without_extension[fileind])
         if fileind == 0:
-            triads, bltriplets = simvis.getThreePointCombinations(unique=False)
-            # triads = NP.asarray(prisim_BSP_info['antenna_triplets']).reshape(-1,3)
-            # bltriplets = NP.asarray(prisim_BSP_info['baseline_triplets'])
-            triads = NP.asarray(triads).reshape(-1,3)
-            bltriplets = NP.asarray(bltriplets).reshape(-1,3)
-        
-            blinds = []
-            matchinfo = LKP.find_NN(bltriplet, bltriplets.reshape(-1,3), distance_ULIM=blltol)
-            revind = []
-            for blnum in NP.arange(bltriplet.shape[0]):
-                if len(matchinfo[0][blnum]) == 0:
-                    revind += [blnum]
-            if len(revind) > 0:
-                flip_factor = NP.ones(3, dtype=NP.float)
-                flip_factor[NP.array(revind)] = -1
-                rev_bltriplet = bltriplet * flip_factor
-                matchinfo = LKP.find_NN(rev_bltriplet, bltriplets.reshape(-1,3), distance_ULIM=blltol)
+            if triads is None:
+                triads, bltriplets = simvis.getThreePointCombinations(unique=False)
+                # triads = NP.asarray(prisim_BSP_info['antenna_triplets']).reshape(-1,3)
+                # bltriplets = NP.asarray(prisim_BSP_info['baseline_triplets'])
+                triads = NP.asarray(triads).reshape(-1,3)
+                bltriplets = NP.asarray(bltriplets)
+            
+                blinds = []
+                matchinfo = LKP.find_NN(bltriplet, bltriplets.reshape(-1,3), distance_ULIM=blltol)
+                revind = []
                 for blnum in NP.arange(bltriplet.shape[0]):
                     if len(matchinfo[0][blnum]) == 0:
-                        raise ValueError('Some baselines in the triplet are not found in the model triads')
-            triadinds = []
-            for blnum in NP.arange(bltriplet.shape[0]):
-                triadind, blind = NP.unravel_index(NP.asarray(matchinfo[0][blnum]), (bltriplets.shape[0], bltriplets.shape[1]))
-                triadinds += [triadind]
+                        revind += [blnum]
+                if len(revind) > 0:
+                    flip_factor = NP.ones(3, dtype=NP.float)
+                    flip_factor[NP.array(revind)] = -1
+                    rev_bltriplet = bltriplet * flip_factor.reshape(-1,1)
+                    matchinfo = LKP.find_NN(rev_bltriplet, bltriplets.reshape(-1,3), distance_ULIM=blltol)
+                    for blnum in NP.arange(bltriplet.shape[0]):
+                        if len(matchinfo[0][blnum]) == 0:
+                            raise ValueError('Some baselines in the triplet are not found in the model triads')
+                triadinds = []
+                for blnum in NP.arange(bltriplet.shape[0]):
+                    triadind, blind = NP.unravel_index(NP.asarray(matchinfo[0][blnum]), (bltriplets.shape[0], bltriplets.shape[1]))
+                    triadinds += [triadind]
+                
+                triadind_intersection = NP.intersect1d(triadinds[0], NP.intersect1d(triadinds[1], triadinds[2]))
+                if triadind_intersection.size == 0:
+                    raise ValueError('Specified triad not found in the PRISim model. Try other permutations of the baseline vectors and/or reverse individual baseline vectors in the triad before giving up.')
             
-            triadind_intersection = NP.intersect1d(triadinds[0], NP.intersect1d(triadinds[1], triadinds[2]))
-            if triadind_intersection.size == 0:
-                raise ValueError('Specified triad not found in the PRISim model. Try other permutations of the baseline vectors and/or reverse individual baseline vectors in the triad before giving up.')
-        
-            triads = triads[triadind_intersection,:]
-            selected_bltriplets = bltriplets[triadind_intersection,:,:].reshape(-1,3,3)
-        prisim_BSP_info = simvis.getClosurePhase(antenna_triplets=triads,
+                triads = triads[triadind_intersection,:]
+                selected_bltriplets = bltriplets[triadind_intersection,:,:].reshape(-1,3,3)
+
+        prisim_BSP_info = simvis.getClosurePhase(antenna_triplets=triads.tolist(),
                                                  delay_filter_info=None,
                                                  specsmooth_info=None,
                                                  spectral_window_info=None,
                                                  unique=False)
-    
-        for outkey in ['noiseless', 'noisy', 'noise']:
+        if fileind == 0:
+            triads = NP.asarray(prisim_BSP_info['antenna_triplets']).reshape(-1,3)  # Re-establish the triads returned after the first iteration (to accunt for any order flips)
+
+        for outkey in datakey:
+            if fileind == 0:
+                outfile[outkey] = outfile_prefix + '_{0}.npz'.format(outkey)
             if outkey == 'noiseless':
                 if fileind == 0:
-                    cpdata = prisim_BSP_info['closure_phase_skyvis'][triadind_intersection,:,:][NP.newaxis,...]
+                    # cpdata = prisim_BSP_info['closure_phase_skyvis'][triadind_intersection,:,:][NP.newaxis,...]
+                    cpdata[outkey] = prisim_BSP_info['closure_phase_skyvis'][NP.newaxis,...]
                 else:
-                    cpdata = NP.concatenate((cpdata, prisim_BSP_info['closure_phase_skyvis'][triadind_intersection,:,:][NP.newaxis,...]), axis=0)
-                outfile = outfile_prefix + '_noiseless.npz'
+                    # cpdata = NP.concatenate((cpdata, prisim_BSP_info['closure_phase_skyvis'][triadind_intersection,:,:][NP.newaxis,...]), axis=0)
+                    cpdata[outkey] = NP.concatenate((cpdata[outkey], prisim_BSP_info['closure_phase_skyvis'][NP.newaxis,...]), axis=0)
             if outkey == 'noisy':
                 if fileind == 0:
-                    cpdata = prisim_BSP_info['closure_phase_vis'][triadind_intersection,:,:][NP.newaxis,...]
+                    # cpdata = prisim_BSP_info['closure_phase_vis'][triadind_intersection,:,:][NP.newaxis,...]
+                    cpdata[outkey] = prisim_BSP_info['closure_phase_vis'][NP.newaxis,...]
                 else:
-                    cpdata = NP.concatenate((cpdata, prisim_BSP_info['closure_phase_vis'][triadind_intersection,:,:][NP.newaxis,...]), axis=0)
-                outfile = outfile_prefix + '_noisy.npz'
+                    # cpdata = NP.concatenate((cpdata, prisim_BSP_info['closure_phase_vis'][triadind_intersection,:,:][NP.newaxis,...]), axis=0)
+                    cpdata[outkey] = NP.concatenate((cpdata[outkey], prisim_BSP_info['closure_phase_vis'][NP.newaxis,...]), axis=0)
             if outkey == 'noise':
                 if fileind == 0:
-                    cpdata = prisim_BSP_info['closure_phase_noise'][triadind_intersection,:,:]
+                    # cpdata = prisim_BSP_info['closure_phase_noise'][triadind_intersection,:,:]
+                    cpdata[outkey] = prisim_BSP_info['closure_phase_noise'][NP.newaxis,:,:]
                 else:
-                    cpdata = NP.concatenate((cpdata, prisim_BSP_info['closure_phase_noise'][triadind_intersection,:,:][NP.newaxis,...]), axis=0)
-                outfile = outfile_prefix + '_noise.npz'
-            cpdata = NP.rollaxis(cpdata, 2, start=0)[:,NP.newaxis,:,:]
-            flagsdata = NP.zeros(cpdata.shape, dtype=NP.bool)
-            NP.savez_compressed(outfile, closures=cpdata, flags=flagsdata,
-                                triads=triads, last=last, days=daydata)
+                    # cpdata = NP.concatenate((cpdata, prisim_BSP_info['closure_phase_noise'][triadind_intersection,:,:][NP.newaxis,...]), axis=0)
+                    cpdata[outkey] = NP.concatenate((cpdata[outkey], prisim_BSP_info['closure_phase_noise'][NP.newaxis,...]), axis=0)
+    for outkey in datakey:
+        cpdata[outkey] = NP.rollaxis(cpdata[outkey], 3, start=0)
+        flagsdata = NP.zeros(cpdata[outkey].shape, dtype=NP.bool)
+        NP.savez_compressed(outfile[outkey], closures=cpdata[outkey],
+                            flags=flagsdata, triads=triads,
+                            last=last+NP.zeros((1,n_realize)),
+                            days=daydata+NP.arange(n_realize))
 
 ################################################################################
 
@@ -900,7 +931,7 @@ class ClosurePhaseDelaySpectrum(object):
 
     compute_power_spectrum_old()
                     Compute power spectrum of closure phase data. It is in units 
-                    of Mpc/h. It is not deprecated in favor of 
+                    of Mpc/h. It is now deprecated in favor of 
                     compute_power_spectrum() 
 
     compute_power_spectrum()
@@ -1390,7 +1421,7 @@ class ClosurePhaseDelaySpectrum(object):
         """
         ------------------------------------------------------------------------
         Compute power spectrum of closure phase data. It is in units of Mpc/h. 
-        It is not deprecated in favor of compute_power_spectrum() 
+        It is now deprecated in favor of compute_power_spectrum() 
 
         Inputs:
 

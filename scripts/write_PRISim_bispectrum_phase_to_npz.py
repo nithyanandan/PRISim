@@ -42,5 +42,6 @@ if __name__ == '__main__':
     reftriad = NP.asarray(procparms['bltriplet'])
     blltol = procparms['blltol']
     datakey = procparms['datakey']
+    triads = procparms['triads']
 
-    BSP.write_PRISim_bispectrum_phase_to_npz(indir+infile_prefix, reftriad, outdir+outfile_prefix, hdf5file_prefix=hdf5file_prefix, infmt=infmt, datakey=datakey, blltol=blltol)
+    BSP.write_PRISim_bispectrum_phase_to_npz(indir+infile_prefix, outdir+outfile_prefix, triads=triads, bltriplet=reftriad, hdf5file_prefix=hdf5file_prefix, infmt=infmt, datakey=datakey, blltol=blltol)

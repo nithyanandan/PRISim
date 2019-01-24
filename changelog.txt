@@ -1,3 +1,25 @@
+From df259bd (ephemeris-tmp):
+============================
+
+In prisim/bispectrum_phase.py,
+
+(*) In function write_PRISim_bispectrum_phase_to_npz(), change inputs
+to request specific triands. Update docstring accordingly, and the
+processing inside the function.
+(*) Minor change in docstring of member function
+compute_power_spectrum() of class ClosurePhaseDelaySpectrum
+
+In prisim/interferometry.py,
+
+(*) In member function getThreePointCombinations() of class
+InterferometerArray, return blvecttriplets as triplets of baseline
+vectors instead of bltriplets which were strings
+
+In scripts/write_PRISim_bispectrum_phase_to_npz.py,
+
+(*) Pass and process procparms as one of the input arguments in the
+input YAML file
+
 From bf00131 (ephemeris):
 ========================
 
