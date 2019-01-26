@@ -942,6 +942,9 @@ save_formats    :
     uvfits          : true
                                 # If true, save to UVFITS format
 
+    uvh5            : true
+                                # If true, save to UVH5 format
+
     uvfits_method   : null
                                 # specifies method to save to UVFITS
                                 # format. Accepted value are 'uvdata'
@@ -975,6 +978,14 @@ plots       : false
 ########## Diagnosis parameters ###########
 
 diagnosis   :
+
+    resource_monitor: true
+                                # If set to true, open a new xterm
+                                # to display CPU and RAM usage of
+                                # parallel processed. If set to
+                                # false, this display is suppressed.
+                                # Set to false, if running in PRISim
+                                # in batch mode.
 
     refresh_interval: null
                                 # Refresh interval (in seconds)
