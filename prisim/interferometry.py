@@ -976,11 +976,11 @@ def rectangle_generator(spacing, n_side, orientation=None, center=None):
     Inputs:
 
     spacing      [2-element list or numpy array] positive integers specifying
-    		 the spacing between antennas. Must be specified, no default.
+                 the spacing between antennas. Must be specified, no default.
 
     n_side       [2-element list or numpy array] positive integers specifying
-    		 the number of antennas on each side of the rectangular array.
-    		 Atleast one value should be specified, no default.
+                 the number of antennas on each side of the rectangular array.
+                 Atleast one value should be specified, no default.
 
     orientation  [scalar] counter-clockwise angle (in degrees) by which the
                  principal axis of the rectangular array is to be rotated.
@@ -1042,36 +1042,36 @@ def rectangle_generator(spacing, n_side, orientation=None, center=None):
         if NP.all(NP.less_equal(n_side,NP.zeros((1,2)))):
             raise ValueError('n_side must be positive')
 
-	n_total = NP.prod(n_side, dtype=NP.uint8)
-	xn,yn = NP.hsplit(n_side,2)
-	xn = NP.asscalar(xn)
-	yn = NP.asscalar(yn)
+        n_total = NP.prod(n_side, dtype=NP.uint8)
+        xn,yn = NP.hsplit(n_side,2)
+        xn = NP.asscalar(xn)
+        yn = NP.asscalar(yn)
 
-	xs,ys = NP.hsplit(spacing,2)
-	xs = NP.asscalar(xs)
-	ys = NP.asscalar(ys)
+        xs,ys = NP.hsplit(spacing,2)
+        xs = NP.asscalar(xs)
+        ys = NP.asscalar(ys)
 
-	n_total = xn*yn
+        n_total = xn*yn
 
-	x = NP.linspace(0, xn-1, xn)
-	x = x - NP.mean(x)
-	x = x*xs
+        x = NP.linspace(0, xn-1, xn)
+        x = x - NP.mean(x)
+        x = x*xs
 
-	y = NP.linspace(0, yn-1, yn)
-	y = y - NP.mean(y)
-	y = y*ys
+        y = NP.linspace(0, yn-1, yn)
+        y = y - NP.mean(y)
+        y = y*ys
 
-	xv, yv = NP.meshgrid(x,y)
+        xv, yv = NP.meshgrid(x,y)
 
-	xy = NP.hstack((xv.reshape(-1,1),yv.reshape(-1,1)))
+        xy = NP.hstack((xv.reshape(-1,1),yv.reshape(-1,1)))
 
     if len(xy) != n_total:
         raise ValueError('Sizes of x- and y-locations do not agree with n_total')
 
     if orientation is not None:   # Perform any rotation
- 	angle = NP.radians(orientation)
- 	rot_matrix = NP.asarray([[NP.cos(angle), -NP.sin(angle)], [NP.sin(angle), NP.cos(angle)]])
- 	xy = NP.dot(xy, rot_matrix.T)
+        angle = NP.radians(orientation)
+        rot_matrix = NP.asarray([[NP.cos(angle), -NP.sin(angle)], [NP.sin(angle), NP.cos(angle)]])
+        xy = NP.dot(xy, rot_matrix.T)
 
     if center is not None:   # Shift the center
         xy += center
@@ -5010,8 +5010,8 @@ class InterferometerArray(object):
     save()             Saves the interferometer array information to disk in
                        HDF5, FITS, NPZ and UVFITS formats
 
-    write_uvfits()     Saves the interferometer array information to disk in
-                       UVFITS format
+    pyuvdata_write()   Saves the interferometer array information to disk in
+                       various formats through pyuvdata module
 
     ----------------------------------------------------------------------------
     """
@@ -6082,7 +6082,7 @@ class InterferometerArray(object):
                 # src_sigma_spatial_frequencies = 2.0 * NP.sqrt(2.0 * NP.log(2.0)) / (2 * NP.pi * src_FWHM_dircos)  # estimate 1
                 src_sigma_spatial_frequencies = 1.0 / NP.sqrt(2.0*NP.log(2.0)) / src_FWHM_dircos  # estimate 2 created by constraint that at lambda/D_proj, visibility weights are half
 
-	        # # Tried deriving below an alternate expression but previous expression for src_FWHM_dircos seems better
+                # # Tried deriving below an alternate expression but previous expression for src_FWHM_dircos seems better
                 # dtheta_radial = NP.radians(src_FWHM).reshape(-1,1)
                 # dtheta_circum = NP.radians(src_FWHM).reshape(-1,1)
                 # src_FWHM_dircos = NP.sqrt(skypos_dircos_roi[:,2].reshape(-1,1)**2 * dtheta_radial**2 + dtheta_circum**2) / NP.sqrt(2.0) # from 2D error propagation (another approximation to commented expression above for the same quantity). Add in quadrature and divide by sqrt(2) to get radius of error circle
@@ -8631,12 +8631,13 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def write_uvfits(self, outfile, uvfits_parms=None, overwrite=False,
-                     verbose=True):
+    def pyuvdata_write(self, outfile, formats=None, uvfits_parms=None, 
+                       datapool=None, overwrite=False, verbose=True):
 
         """
         -------------------------------------------------------------------------
-        Saves the interferometer array information to disk in UVFITS format
+        Saves the interferometer array information to disk in various formats 
+        through pyuvdata module
 
         Inputs:
 
@@ -8647,11 +8648,18 @@ class InterferometerArray(object):
 
         Keyword Input(s):
 
+        formats     [list] List of formats for the data to be written in.
+                    Accepted values include 'uvfits', and 'uvh5'. If 'uvfits'
+                    is included in this list, then uvfits_parms must be 
+                    provided.
+
         uvfits_parms 
                     [dictionary] specifies basic parameters required for
-                    saving in UVFITS format. If set to None (default), the
-                    data will not be saved in UVFITS format. To save in UVFITS
-                    format, the following keys and values are required:
+                    saving in UVFITS format. This will be used only if the 
+                    keyword input formats includes 'uvfits'. If set to None 
+                    (default), the data will not be saved in UVFITS format. 
+                    To save in UVFITS format, the following keys and 
+                    values are required:
                     'ref_point'    [dictionary] Contains information about the
                                    reference position to which projected
                                    baselines and rotated visibilities are to
@@ -8689,15 +8697,13 @@ class InterferometerArray(object):
                                    but if it fails then the in-house UVFITS
                                    writer will be tried.
 
-                    'datapool'     [NoneType or list] Indicates which portion
-                                   of the data is to be written to the UVFITS
-                                   file. If set to None (default), all of 
-                                   skyvis_freq, vis_freq, and vis_noise_freq 
-                                   attributes will be written. Otherwise, 
-                                   accepted values are a list of strings that
-                                   can include 'noiseless' (skyvis_freq 
-                                   attribute), 'noisy' (vis_freq attribute), 
-                                   and 'noise' (vis_nosie_freq attribute). 
+        'datapool'   [NoneType or list] Indicates which portion of the data 
+                     is to be written to the external file. If set to None 
+                     (default), all of skyvis_freq, vis_freq, and 
+                     vis_noise_freq attributes will be written. Otherwise, 
+                     accepted values are a list of strings that can include 
+                     'noiseless' (skyvis_freq attribute), 'noisy' (vis_freq 
+                     attribute), and 'noise' (vis_nosie_freq attribute). 
 
         overwrite    [boolean] True indicates overwrite even if a file already
                      exists. Default = False (does not overwrite). Beware this
@@ -8710,29 +8716,36 @@ class InterferometerArray(object):
         -------------------------------------------------------------------------
         """
 
-        if uvfits_parms is not None:
-            if not isinstance(uvfits_parms, dict):
-                raise TypeError('Input uvfits_parms must be a dictionary')
-            if 'ref_point' not in uvfits_parms:
-                uvfits_parms['ref_point'] = None
-            if 'method' not in uvfits_parms:
-                uvfits_parms['method'] = None
-            if 'datapool' not in uvfits_parms:
-                uvfits_parms['datapool'] = ['noiseless', 'noisy', 'noise']
-            if uvfits_parms['datapool'] is None:
-                uvfits_parms['datapool'] = ['noiseless', 'noisy', 'noise']
-            if not isinstance(uvfits_parms['datapool'], list):
-                raise TypeError('Key datapool in input uvfits_parms must be a list')
-            else:
-                datapool_list = [dpool.lower() for dpool in uvfits_parms['datapool'] if (isinstance(dpool, str) and dpool.lower() in ['noiseless', 'noise', 'noisy'])]
-                if len(datapool_list) == 0:
-                    raise ValueError('No valid datapool string found in input uvfits_parms')
-                uvfits_parms['datapool'] = datapool_list
-
-            dataobj = InterferometerData(self, ref_point=uvfits_parms['ref_point'], datakeys=uvfits_parms['datapool'])
+        if datapool is None:
+            datapool = ['noiseless', 'noisy', 'noise']
+        if not isinstance(datapool, list):
+            raise TypeError('Keyword input datapool must be a list')
+        else:
+            datapool_list = [dpool.lower() for dpool in datapool if (isinstance(dpool, str) and dpool.lower() in ['noiseless', 'noise', 'noisy'])]
+            if len(datapool_list) == 0:
+                raise ValueError('No valid datapool string found in input datapool')
+            datapool = datapool_list
+        
+        for format in formats:
+            if format.lower() == 'uvh5':
+                dataobj = InterferometerData(self, ref_point=None, datakeys=datapool)
+                uvfits_method = None
+            if format.lower() == 'uvfits':
+                if uvfits_parms is not None:
+                    if not isinstance(uvfits_parms, dict):
+                        raise TypeError('Input uvfits_parms must be a dictionary')
+                    if 'ref_point' not in uvfits_parms:
+                        uvfits_parms['ref_point'] = None
+                    if 'method' not in uvfits_parms:
+                        uvfits_parms['method'] = None
+                else:
+                    uvfits_parms = {'ref_point': None, 'method': None}
+                uvfits_method = uvfits_parms['method']
+                dataobj = InterferometerData(self, ref_point=uvfits_parms['ref_point'], datakeys=datapool)
+            filextn = format.lower()
             for datakey in dataobj.infodict['data_array']:
                 if dataobj.infodict['data_array'][datakey] is not None:
-                    dataobj.write(outfile+'-{0}.uvfits'.format(datakey), datatype=datakey, fmt='UVFITS', uvfits_method=uvfits_parms['method'], overwrite=overwrite)
+                    dataobj.write(outfile+'-{0}.{1}'.format(datakey, filextn), datatype=datakey, fmt=format.upper(), uvfits_method=uvfits_method, overwrite=overwrite)
 
 #################################################################################
 
@@ -9384,16 +9397,16 @@ class InterferometerData(object):
                     for pure noise visibilities.
 
         fmt         [string] Output file format. Currently accepted values are
-                    'UVFITS'
+                    'UVFITS' and 'UVH5'. Default='UVFITS'
 
         uvfits_method
-                    [string] Method using which UVFITS output is produced.
-                    Accepted values are 'uvdata', 'uvfits' or None (default).
-                    If set to 'uvdata', the UVFITS writer in uvdata module is
-                    used. If set to 'uvfits', the in-house UVFITS writer is
-                    used. If set to None, first uvdata module will be attempted
-                    but if it fails then the in-house UVFITS writer will be
-                    tried.
+                    [string] Method using which UVFITS output is produced. It 
+                    is only used if fmt is set to 'UVFITS'. Accepted values 
+                    are 'uvdata', 'uvfits' or None (default). If set to 
+                    'uvdata', the UVFITS writer in uvdata module is used. If 
+                    set to 'uvfits', the in-house UVFITS writer is used. If 
+                    set to None, first uvdata module will be attempted but if 
+                    it fails then the in-house UVFITS writer will be tried.
 
         overwrite   [boolean] True indicates overwrite even if a file already
                     exists. Default = False (does not overwrite). Beware this
@@ -9414,16 +9427,18 @@ class InterferometerData(object):
         if datatype not in ['noiseless', 'noisy', 'noise']:
             raise ValueError('Invalid input datatype specified')
 
-        if fmt.lower() not in ['uvfits']:
+        if fmt.lower() not in ['uvfits', 'uvh5']:
             raise ValueError('Output format not supported')
 
+        uvdataobj = self.createUVData(datatype=datatype)
+        if fmt.lower() == 'uvh5':
+            uvdataobj.write_uvh5(outfile, clobber=overwrite)
         if fmt.lower() == 'uvfits':
             write_successful = False
             if uvfits_method not in [None, 'uvfits', 'uvdata']:
                 uvfits_method = None
             if (uvfits_method is None) or (uvfits_method == 'uvdata'):
                 try:
-                    uvdataobj = self.createUVData(datatype=datatype)
                     uvdataobj.write_uvfits(outfile, spoof_nonessential=True)
                 except Exception as xption1:
                     write_successful = False

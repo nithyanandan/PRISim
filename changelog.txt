@@ -1,3 +1,27 @@
+From 1dd0c3b (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add input parameter 'uvh5' under 'save_formats' to save output in
+uvh5 format of pyuvdata module.
+
+In prisim/interferometry.py,
+
+(*) Rename member function write_uvfits() in class InterferometerArray
+to pyuvdata_write() with input parameters changed to handle UVFITS and
+UVH5 formats. Update member function and its docstring accordingly.
+Also change class docstring accordingly
+(*) Update inputs for member function write() of class
+InterfereometerData to accept both 'uvh5' and 'uvfits' as valid output
+formats. Update member function to handle both formats. Update member
+function docstrong accordingly
+
+In scripts/run_prisim.py,
+
+(*) Accept uvh5 as an accepted output format based on the changes
+above.
+
 From 8696533 (master):
 =====================
 

@@ -939,6 +939,9 @@ save_formats    :
     uvfits          : true
                                 # If true, save to UVFITS format
 
+    uvh5            : true
+                                # If true, save to UVH5 format
+
     uvfits_method   : null
                                 # specifies method to save to UVFITS
                                 # format. Accepted value are 'uvdata'

@@ -280,6 +280,7 @@ save_redundant = parms['save_redundant']
 save_formats = parms['save_formats']
 save_to_npz = save_formats['npz']
 save_to_uvfits = save_formats['uvfits']
+save_to_uvh5 = save_formats['uvh5']
 savefmt = save_formats['fmt']
 if savefmt not in ['HDF5', 'hdf5', 'FITS', 'fits']:
     raise ValueError('Output format invalid')
@@ -2139,35 +2140,46 @@ if rank == 0:
         consolidated_outfile = rootdir+project_dir+simid+sim_dir+'simvis'
         simvis.save(consolidated_outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=save_to_npz, overwrite=True, uvfits_parms=None)
 
-        uvfits_parms = None
+        pyuvdata_formats = []
+        if save_to_uvh5:
+            pyuvdata_formats += ['uvh5']
         if save_to_uvfits:
-            if save_formats['phase_center'] is None:
-                phase_center = simvis.pointing_center[0,:].reshape(1,-1)
-                phase_center_coords = simvis.pointing_coords
-                if phase_center_coords == 'dircos':
-                    phase_center = GEOM.dircos2altaz(phase_center, units='degrees')
-                    phase_center_coords = 'altaz'
-                if phase_center_coords == 'altaz':
-                    phase_center = GEOM.altaz2hadec(phase_center, simvis.latitude, units='degrees')
-                    phase_center_coords = 'hadec'
-                if phase_center_coords == 'hadec':
-                    phase_center = NP.hstack((simvis.lst[0]-phase_center[0,0], phase_center[0,1]))
-                    phase_center_coords = 'radec'
-                if phase_center_coords != 'radec':
-                    raise ValueError('Invalid phase center coordinate system')
-                    
-                uvfits_ref_point = {'location': phase_center.reshape(1,-1), 'coords': 'radec'}
-            else:
-                uvfits_ref_point = {'location': NP.asarray(save_formats['phase_center']).reshape(1,-1), 'coords': 'radec'}
-
-            # Phase the visibilities to a phase reference point
-            simvis.rotate_visibilities(uvfits_ref_point)
-            uvfits_parms = {'ref_point': None, 'datapool': None, 'method': save_formats['uvfits_method']}
+            pyuvdata_formats += ['uvfits']
+        if len(pyuvdata_formats) > 0:
+            simvis_orig = copy.deepcopy(simvis)
+            if save_redundant: # Duplicate the redundant visibilities
+                consolidated_outfile = rootdir+project_dir+simid+sim_dir+'all-simvis'
+            
+        for pyuvdata_fmt in pyuvdata_formats:
+            simvis = copy.deepcopy(simvis_orig)
+            uvfits_parms = None
+            if pyuvdata_fmt == 'uvfits':
+                if save_formats['phase_center'] is None:
+                    phase_center = simvis.pointing_center[0,:].reshape(1,-1)
+                    phase_center_coords = simvis.pointing_coords
+                    if phase_center_coords == 'dircos':
+                        phase_center = GEOM.dircos2altaz(phase_center, units='degrees')
+                        phase_center_coords = 'altaz'
+                    if phase_center_coords == 'altaz':
+                        phase_center = GEOM.altaz2hadec(phase_center, simvis.latitude, units='degrees')
+                        phase_center_coords = 'hadec'
+                    if phase_center_coords == 'hadec':
+                        phase_center = NP.hstack((simvis.lst[0]-phase_center[0,0], phase_center[0,1]))
+                        phase_center_coords = 'radec'
+                    if phase_center_coords != 'radec':
+                        raise ValueError('Invalid phase center coordinate system')
+                        
+                    uvfits_ref_point = {'location': phase_center.reshape(1,-1), 'coords': 'radec'}
+                else:
+                    uvfits_ref_point = {'location': NP.asarray(save_formats['phase_center']).reshape(1,-1), 'coords': 'radec'}
+    
+                # Phase the visibilities to a phase reference point
+                simvis.rotate_visibilities(uvfits_ref_point)
+                uvfits_parms = {'ref_point': None, 'datapool': None, 'method': save_formats['uvfits_method']}
             if save_redundant: # Duplicate the redundant visibilities
                 simvis.duplicate_measurements(blgroups=blgroups)
-                consolidated_outfile = rootdir+project_dir+simid+sim_dir+'all-simvis'
-
-            simvis.write_uvfits(consolidated_outfile, uvfits_parms=uvfits_parms, overwrite=True)
+    
+            simvis.pyuvdata_write(consolidated_outfile, formats=[pyuvdata_fmt], uvfits_parms=uvfits_parms, overwrite=True)
 
     if cleanup < 3:
         skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel'
