@@ -976,6 +976,14 @@ plots       : false
 
 diagnosis   :
 
+    resource_monitor: true
+                                # If set to true, open a new xterm
+                                # to display CPU and RAM usage of
+                                # parallel processed. If set to
+                                # false, this display is suppressed.
+                                # Set to false, if running in PRISim
+                                # in batch mode.
+
     refresh_interval: null
                                 # Refresh interval (in seconds)
                                 # to monitor CPU and memory usage.

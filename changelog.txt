@@ -1,3 +1,16 @@
+From cbdfd48 (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add input parameter 'resource_monitor' to choose whether to
+display the resource monitor or not
+
+In scripts/run_prisim.py,
+
+(*) Adapt to either display the resource monitor or not based on
+corresponding changes above.
+
 From 1dd0c3b (master):
 =====================
 
