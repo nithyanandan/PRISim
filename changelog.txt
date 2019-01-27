@@ -1,3 +1,17 @@
+From 9326e07 (ephemeris):
+========================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add parameter 'memavail' under 'processing' to indicate total
+memory available. It is appropriate for use in scripts that span
+multiple nodes
+
+In scripts/run_prisim.py,
+
+(*) Update to use value in 'memavail' parameter based on changes
+above
+
 From 675162a (master), 31b17ef (ephemeris):
 ==========================================
 

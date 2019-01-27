@@ -792,6 +792,15 @@ processing:
                                 # dynamically set to 90% of
                                 # available memory in the system
 
+    memavail        : null
+                                # Memory available (in GB). If set to
+                                # null, it will be read on the compute
+                                # node during runtime. If the job is
+                                # distributed over multiple nodes such
+                                # as in PBS scripts, it is best to
+                                # provide this explicitly (not set to
+                                # null)
+
     n_bins_blo      : 4
                                 # Number of bins in baseline
                                 # orientation
