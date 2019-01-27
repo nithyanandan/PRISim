@@ -1,3 +1,16 @@
+From 675162a (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add parameter 'memavail' to specify total amount of memory
+available explicitly.
+
+In scripts/run_prisim.py,
+
+(*) Adapt to use explicitly specified memory available based on
+changes above or estimate it implicitly as before. 
+
 From cbdfd48 (master):
 =====================
 
