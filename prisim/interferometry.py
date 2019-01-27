@@ -5731,8 +5731,8 @@ class InterferometerArray(object):
 
     def observe(self, timeobj, Tsysinfo, bandpass, pointing_center, skymodel,
                 t_acc, pb_info=None, brightness_units=None, bpcorrect=None,
-                roi_info=None, roi_radius=None, roi_center=None,
-                gradient_mode=None, memsave=False):
+                roi_info=None, roi_radius=None, roi_center=None, lst=None,
+                gradient_mode=None, memsave=False, vmemavail=None):
 
         """
         -------------------------------------------------------------------------
@@ -5829,6 +5829,12 @@ class InterferometerArray(object):
 
         memsave      [boolean] If set to True, enforce computations in single
                      precision, otherwise enforce double precision (default)
+
+        vmemavail    [NoneType, int or float] Amount of virtual memory available
+                     (in bytes). If set to None (default), it will be determined 
+                     using psutil functions though that may be less reliable
+                     than setting it explicitly if the available virtual memory
+                     is known.
         ------------------------------------------------------------------------
         """
 
@@ -6107,7 +6113,10 @@ class InterferometerArray(object):
                 self.geometric_delays = self.geometric_delays + [geometric_delays]
 
             # memory_available = psutil.phymem_usage().available
-            memory_available = psutil.virtual_memory().available
+            if vmemavail is None:
+                memory_available = psutil.virtual_memory().available
+            else:
+                memory_available = vmemavail
 
             if gradient_mode is None:
                 if memsave:

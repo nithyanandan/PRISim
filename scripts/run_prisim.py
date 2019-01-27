@@ -198,12 +198,14 @@ if gradient_mode is not None:
         raise ValueError('Invalid value specified for gradient_mode')
     if gradient_mode.lower() != 'baseline':
         raise ValueError('Specified gradient_mode not supported currently')
+
 memuse = parms['processing']['memuse']
 memory_available = parms['processing']['memavail']
 if memory_available is None:
     memory_available = psutil.virtual_memory().available # in Bytes
 else:
     memory_available *= 2**30 # GB to bytes
+pvmemavail = 1.0 * memory_available / nproc
 if memuse is None:
     memuse = 0.9 * memory_available
 elif isinstance(memuse, (int,float)):
@@ -1673,7 +1675,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ts = time.time()
             if j == 0:
                 ts0 = ts
-            ia.observe(tobjs[i], Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(m2_lol[j][roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave)
+            ia.observe(tobjs[i], Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(m2_lol[j][roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail)
             te = time.time()
             progress.update(j+1)
         progress.finish()
@@ -1789,7 +1791,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 if j == 0:
                     ts0 = ts
               
-                ia.observe(tobjs[j], Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave)
+                ia.observe(tobjs[j], Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail)
                 te = time.time()
                 del roi_ind_snap
                 del roi_pbeam_snap
@@ -1834,7 +1836,7 @@ else: # MPI based on baseline multiplexing
                     ts = time.time()
                     if j == 0:
                         ts0 = ts
-                    ia.observe(tobjs[j], Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave)
+                    ia.observe(tobjs[j], Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail)
                     
                     te = time.time()
                     progress.update(j+1)
@@ -1979,7 +1981,7 @@ else: # MPI based on baseline multiplexing
                     if j == 0:
                         ts0 = ts
                   
-                    ia.observe(tobjs[j], Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave)
+                    ia.observe(tobjs[j], Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail)
                     te = time.time()
                     del roi_ind_snap
                     del roi_pbeam_snap
