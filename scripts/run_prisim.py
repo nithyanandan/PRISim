@@ -207,6 +207,7 @@ if memory_available is None:
     memory_available = psutil.virtual_memory().available # in Bytes
 else:
     memory_available *= 2**30 # GB to bytes
+pvmemavail = 1.0 * memory_available / nproc
 if memuse is None:
     memuse = 0.9 * memory_available
 elif isinstance(memuse, (int,float)):
@@ -1718,7 +1719,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ts = time.time()
             if j == 0:
                 ts0 = ts
-            ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(m2_lol[j][roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+            ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(m2_lol[j][roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail)
             te = time.time()
             # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
             progress.update(j+1)
@@ -1846,7 +1847,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 if j == 0:
                     ts0 = ts
               
-                ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                ia.observe(timestamp, Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail)
                 te = time.time()
                 # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
                 del roi_ind_snap
@@ -1902,7 +1903,7 @@ else: # MPI based on baseline multiplexing
                     ts = time.time()
                     if j == 0:
                         ts0 = ts
-                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail)
                     te = time.time()
                     # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
                     progress.update(j+1)
@@ -2055,7 +2056,7 @@ else: # MPI based on baseline multiplexing
                     if j == 0:
                         ts0 = ts
                   
-                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave)
+                    ia.observe(timestamp, Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, lst=lst[j], gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail)
                     te = time.time()
                     # print('{0:.1f} seconds for snapshot # {1:0d}'.format(te-ts, j))
                     del roi_ind_snap

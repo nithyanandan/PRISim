@@ -1,3 +1,21 @@
+From 557dbe9 (memavail):
+=======================
+
+In prisim/interferometry.py,
+
+(*) In member function observe() of class InterferometerArray, add
+input vmemavail (for virtual memory available) for calculations and
+update calculations based on this input. Update member function
+docstring accordingly
+
+In scripts/run_prisim.py,
+
+(*) Define a variable pvmemavail based on dividing the memory
+available by the number of processes
+(*) In calls to member function observe() of class
+InterferometerArray, pass the parameter pvmemavail for the input
+vmemavail
+
 From 675162a (master):
 =====================
 
