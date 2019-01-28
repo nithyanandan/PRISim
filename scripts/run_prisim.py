@@ -1593,7 +1593,8 @@ else:
         if baseline_chunk_size > 2:
             baseline_bin_indices[-1] -= 1
         else:
-            raise IndexError('Chunking has run into a weird indexing problem. Rechunking is necessaray. Try changing number of parallel processes and amount of usable memory. Usually reducing either one of these should help avoind this problem.')
+            warnings.warn('Chunking has run into a weird indexing problem. Rechunking is necessaray. Try changing number of parallel processes and amount of usable memory. Usually reducing either one of these should help avoind this problem.')
+            PDB.set_trace()
     bl_chunk = range(len(baseline_bin_indices))
     n_bl_chunks = len(baseline_bin_indices)
     n_bl_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(bl_chunk)/nproc
@@ -1645,6 +1646,16 @@ if cleanup < 3:
         else:
             raise
     
+if rank == 0:
+    if mpi_on_freq:
+        chunkinfo = {'mpi_axis': 'frequency', 'naxis': nchan, 'nchunks': n_freq_chunks, 'chunk_size': frequency_chunk_size, 'nchunk_per_proc': float(NP.mean(n_freq_chunk_per_rank))}
+    if mpi_on_bl:
+        chunkinfo = {'mpi_axis': 'baseline', 'naxis': nbl, 'nchunks': n_bl_chunks, 'chunk_size': baseline_chunk_size, 'nchunk_per_proc': float(NP.mean(n_bl_chunk_per_rank))}
+    chunkinfo['nproc'] = nproc
+    chunkfile = rootdir+project_dir+simid+meta_dir+'chunkinfo.yaml'
+    with open(chunkfile, 'w') as cfile:
+        yaml.dump(chunkinfo, cfile, default_flow_style=False)
+
 ## Set up the observing run
 
 process_complete = False
@@ -1902,8 +1913,8 @@ else: # MPI based on baseline multiplexing
                         if beam_chromaticity:
                             interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e9, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
                         else:
-                            nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs*1e6 - freq))
-                            interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e9, outloc_axis=chans*1e9, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
+                            nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs - select_beam_freq))
+                            interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e9, outloc_axis=chans*1e9, axis=1,  assume_sorted=True)
                         
                         interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)
                         interp_logbeam_max[interp_logbeam_max <= 0.0] = 0.0
@@ -1966,16 +1977,26 @@ else: # MPI based on baseline multiplexing
 
                         fig.subplots_adjust(right=0.88)
 
+            baseline_bin_indices_bounds = baseline_bin_indices + [nbl]
             for i in range(cumm_bl_chunks[rank], cumm_bl_chunks[rank+1]):
-                print('Process {0:0d} working on baseline chunk # {1:0d} ...'.format(rank, bl_chunk[i]))
-        
-                outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
-                ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo, blgroupinfo={'groups': blgroups, 'reversemap': bl_reversemap})
+                print('Process {0:0d} working on baseline chunk # {1:0d} ... ({2:0d}/{3:0d})'.format(rank, bl_chunk[i], i-cumm_bl_chunks[rank]+1, n_bl_chunk_per_rank[rank]))
                 
+                bls_chunk_indices = NP.arange(baseline_bin_indices_bounds[i], baseline_bin_indices_bounds[i+1])
+                bls_chunk = NP.asarray(bl[bls_chunk_indices,:]).reshape(-1,3)
+                nbl_chunk = bls_chunk.shape[0]
+                outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
+                ia = RI.InterferometerArray(labels[bls_chunk_indices], bls_chunk, chans, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo, blgroupinfo={'groups': blgroups, 'reversemap': bl_reversemap})
+                # ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo, blgroupinfo={'groups': blgroups, 'reversemap': bl_reversemap})
+                                                               
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
                 for j in range(n_acc):
-                    roi_ind_snap = fits.getdata(roifile+'.fits', extname='IND_{0:0d}'.format(j))
-                    roi_pbeam_snap = fits.getdata(roifile+'.fits', extname='PB_{0:0d}'.format(j))
+                    roi_ind_snap = fits.getdata(roifile+'.fits', extname='IND_{0:0d}'.format(j), memmap=False)
+                    roi_pbeam_snap = fits.getdata(roifile+'.fits', extname='PB_{0:0d}'.format(j), memmap=False)
+                    if obs_mode in ['custom', 'dns', 'lstbin']:
+                        timestamp = obs_id[j]
+                    else:
+                        # timestamp = lst[j]
+                        timestamp = timestamps[j]
                  
                     ts = time.time()
                     if j == 0:
@@ -1991,7 +2012,9 @@ else: # MPI based on baseline multiplexing
                 te0 = time.time()
                 print('Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60, bl_chunk[i]))
                 ia.t_obs = t_obs
-                ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
+                # ia.generate_noise()
+                # ia.add_noise()
+                # ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
                 ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
                 ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
         pte_str = str(DT.datetime.now())                
@@ -2018,6 +2041,9 @@ if rank == 0:
         if mpi_on_bl:
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Baseline chunks '.format(n_bl_chunks), PGB.ETA()], maxval=n_bl_chunks).start()
             for i in range(0, n_bl_chunks):
+                bls_chunk_indices = NP.arange(baseline_bin_indices_bounds[i], baseline_bin_indices_bounds[i+1])
+                bls_chunk = NP.asarray(bl[bls_chunk_indices,:]).reshape(-1)
+                nbls_chunk = bls_chunk.shape[0]
                 blchunk_infile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
                 if i == 0:
                     simvis = RI.InterferometerArray(None, None, None, init_file=blchunk_infile)

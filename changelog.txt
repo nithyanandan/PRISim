@@ -1,3 +1,22 @@
+From c3b78f3 (master), 7a00737 (ephemeris):
+==========================================
+
+(*) Bring changes from master branch onto ephemeris branch
+
+From c41685f (memavail):
+=======================
+
+In scripts/run_prisim.py,
+
+(*) Write chunking information in metainfo directory
+
+From 3efbc16 (memavail):
+=======================
+
+In scripts/run_prisim.py,
+
+(*) Update handling of MPI on baseline axis
+
 From 557dbe9 (master), 6c7b276 (ephemeris)
 ==========================================
 
