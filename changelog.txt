@@ -1,3 +1,10 @@
+From 3efbc16 (memavail):
+=======================
+
+In scripts/run_prisim.py,
+
+(*) Update handling of MPI on baseline axis
+
 From 557dbe9 (memavail):
 =======================
 
