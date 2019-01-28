@@ -1687,6 +1687,16 @@ if cleanup < 3:
         else:
             raise
     
+if rank == 0:
+    if mpi_on_freq:
+        chunkinfo = {'mpi_axis': 'frequency', 'naxis': nchan, 'nchunks': n_freq_chunks, 'chunk_size': frequency_chunk_size, 'nchunk_per_proc': float(NP.mean(n_freq_chunk_per_rank))}
+    if mpi_on_bl:
+        chunkinfo = {'mpi_axis': 'baseline', 'naxis': nbl, 'nchunks': n_bl_chunks, 'chunk_size': baseline_chunk_size, 'nchunk_per_proc': float(NP.mean(n_bl_chunk_per_rank))}
+    chunkinfo['nproc'] = nproc
+    chunkfile = rootdir+project_dir+simid+meta_dir+'chunkinfo.yaml'
+    with open(chunkfile, 'w') as cfile:
+        yaml.dump(chunkinfo, cfile, default_flow_style=False)
+
 ## Set up the observing run
 
 process_complete = False
