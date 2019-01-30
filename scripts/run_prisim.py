@@ -203,9 +203,10 @@ memuse = parms['processing']['memuse']
 memory_available = parms['processing']['memavail']
 if memory_available is None:
     memory_available = psutil.virtual_memory().available # in Bytes
+    pvmemavail = None # Let it be flexible if going by memory on single node
 else:
     memory_available *= 2**30 # GB to bytes
-pvmemavail = 1.0 * memory_available / nproc
+    pvmemavail = 1.0 * memory_available / nproc
 if memuse is None:
     memuse = 0.9 * memory_available
 elif isinstance(memuse, (int,float)):

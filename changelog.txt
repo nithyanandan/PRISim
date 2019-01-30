@@ -1,3 +1,22 @@
+From 881d185 (memavail), 12a1924 (ephemeris):
+============================================
+
+(*) Bring changes in memavail branch to ephemeris branch
+
+From c3b78f3 (memavail):
+=======================
+
+In scripts/run_prisim.py,
+
+(*) Set virtual memory per process to either None or a set value
+depending on whether input memory available is None or set to a
+value. This variable is pvmemavail
+
+In prisim/interferometry.py,
+
+(*) Check for memory error, and operate based on whether memory is
+sufficient or not
+ 
 From c3b78f3 (master), 7a00737 (ephemeris):
 ==========================================
 
