@@ -1,3 +1,11 @@
+From 881d185 (memavail):
+=======================
+
+In prisim/interferometry.py,
+
+(*) In observe() member function of class InterferometerArray, print
+if the process runs into MemoryError
+
 From c3b78f3 (memavail):
 =======================
 

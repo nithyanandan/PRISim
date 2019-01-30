@@ -6160,7 +6160,8 @@ class InterferometerArray(object):
                             if gradient_mode is not None:
                                 if gradient_mode.lower() == 'baseline':
                                     skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * NP.exp(-1j*phase_matrix[:,NP.newaxis,:,:]), axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
-                except MemoryError:
+                except MemoryError as memxption:
+                    print(memxption)
                     memory_sufficient = False
             if not memory_sufficient:
                 warnings.warn('\t\tDetecting memory shortage. Serializing over sky direction.')
