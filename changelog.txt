@@ -1,3 +1,16 @@
+From d458257 (memavail), 508279e (ephemeris-tmp):
+================================================
+
+(*) Merge changes in memavail branch onto ephemeris-tmp
+
+From 881d185 (memavail):
+=======================
+
+In prisim/interferometry.py,
+
+(*) In observe() member function of class InterferometerArray, print
+if the process runs into MemoryError
+
 From 881d185 (memavail), 12a1924 (ephemeris):
 ============================================
 
