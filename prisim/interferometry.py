@@ -6166,6 +6166,7 @@ class InterferometerArray(object):
                 except MemoryError as memxption:
                     print(memxption)
                     memory_sufficient = False
+                    raise
             if not memory_sufficient:
                 warnings.warn('\t\tDetecting memory shortage. Serializing over sky direction.')
                 downsize_factor = NP.ceil(memory_required/float(memory_available))

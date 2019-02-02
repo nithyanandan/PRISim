@@ -1,3 +1,11 @@
+From 71f68f7 (ephemeris-tmp):
+============================
+
+In prisim/interferometry.py,
+
+(*) Explicitly raise MemoryError exception after priting it in member
+function observe() of class InterferometerArray
+
 From d458257 (memavail), 508279e (ephemeris-tmp):
 ================================================
 
