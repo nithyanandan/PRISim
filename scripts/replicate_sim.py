@@ -101,7 +101,7 @@ if __name__ == '__main__':
         NP.savez(outfilename, noiseless=data_array[NP.newaxis,...], noisy=outarray, noise=noise)
     else:
         for i in range(n_realize):
-            outfilename = outdir + outfile + '{0:03d}'.format(i+1)
+            outfilename = outdir + outfile + '-{0:03d}'.format(i+1)
             outarray = data_array + noise[i,...]
             if infmt.lower() == 'uvfits':
                 outfilename = outfilename + '-noisy.{0}'.format(outfmt.lower())

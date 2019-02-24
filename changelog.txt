@@ -1,3 +1,14 @@
+From 4ff82de (ephemeris):
+========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Bug fix in write_PRISim_bispectrum_phase_to_npz()
+
+In scripts/replicate_sim.py,
+
+(*) Minor fix in output filename
+
 From 71f68f7 (ephemeris-tmp):
 ============================
 

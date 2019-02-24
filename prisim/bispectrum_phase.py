@@ -126,7 +126,7 @@ def write_PRISim_bispectrum_phase_to_npz(infile_prefix, outfile_prefix,
 
     if infmt.lower() == 'hdf5':
         fullfnames_with_extension = glob.glob(infile_prefix + '*' + infmt.lower())
-        fullfnames_with_extension = [fname.split('.hdf5')[0] for fname in fullfnames_with_extension]
+        fullfnames_without_extension = [fname.split('.hdf5')[0] for fname in fullfnames_with_extension]
     else:
         fullfnames_without_extension = [infile_prefix]
     if len(fullfnames_without_extension) == 0:
