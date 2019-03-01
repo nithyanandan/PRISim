@@ -199,7 +199,8 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
 
     Output:
 
-    [Numpy array] Power pattern at the specified sky positions. 
+    [Numpy array] Power pattern at the specified sky positions. Shape is 
+                  (nsrc, nchan)
     -----------------------------------------------------------------------------
     """
 

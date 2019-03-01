@@ -5,11 +5,14 @@ from functools import reduce
 import numpy.ma as MA
 import progressbar as PGB
 import h5py
+import healpy as HP
 import warnings
 import copy
 import astropy.cosmology as CP
 from astropy.time import Time
-import scipy.constants as FCNST
+from astropy.io import fits
+from astropy import units as U
+from astropy import constants as FCNST
 from scipy import interpolate
 from astroutils import DSP_modules as DSP
 from astroutils import constants as CNST
@@ -19,6 +22,12 @@ from astroutils import lookup_operations as LKP
 import prisim
 from prisim import interferometry as RI
 from prisim import delay_spectrum as DS
+try:
+    from pyuvdata import UVBeam
+except ImportError:
+    uvbeam_module_found = False
+else:
+    uvbeam_module_found = True
 
 prisim_path = prisim.__path__[0]+'/'
 
@@ -946,6 +955,9 @@ class ClosurePhaseDelaySpectrum(object):
                     Average the rescaled power spectrum with physical units 
                     along certain axes with inverse variance or regular 
                     averaging
+
+    beam3Dvol()     Compute three-dimensional volume of the antenna power 
+                    pattern along two transverse axes and one LOS axis. 
     ----------------------------------------------------------------------------
     """
     
@@ -1994,7 +2006,7 @@ class ClosurePhaseDelaySpectrum(object):
     ############################################################################
 
     def compute_power_spectrum(self, cpds=None, selection=None, autoinfo=None,
-                               xinfo=None, cosmo=cosmo100):
+                               xinfo=None, cosmo=cosmo100, units='K', beamparms=None):
 
         """
         ------------------------------------------------------------------------
@@ -2195,6 +2207,10 @@ class ClosurePhaseDelaySpectrum(object):
         cosmo   [instance of cosmology class from astropy] An instance of class
                 FLRW or default_cosmology of astropy cosmology module. Default
                 uses Planck 2015 cosmology, with H0=100 h km/s/Mpc
+
+        units   [string] Specifies the units of output power spectum. Accepted
+                values are 'Jy' and 'K' (default)) and the power spectrum will 
+                be in corresponding squared units.
 
         Output:
 
@@ -2480,16 +2496,31 @@ class ClosurePhaseDelaySpectrum(object):
         for smplng in sampling:
             result[smplng] = {}
                 
-            wl = FCNST.c / cpds[smplng]['freq_center']
+            wl = FCNST.c / (cpds[smplng]['freq_center'] * U.Hz)
             z = CNST.rest_freq_HI / cpds[smplng]['freq_center'] - 1
             dz = CNST.rest_freq_HI / cpds[smplng]['freq_center']**2 * cpds[smplng]['bw_eff']
             dkprll_deta = DS.dkprll_deta(z, cosmo=cosmo)
             kprll = dkprll_deta.reshape(-1,1) * cpds[smplng]['lags']
 
-            drz_los = (FCNST.c/1e3) * cpds[smplng]['bw_eff'] * (1+z)**2 / CNST.rest_freq_HI / cosmo.H0.value / cosmo.efunc(z)   # in Mpc/h
-            jacobian1 = 1 / cpds[smplng]['bw_eff']
-            jacobian2 = drz_los / cpds[smplng]['bw_eff']
-            factor = jacobian1 * jacobian2
+            rz_los = cosmo.comoving_distance(z) # in Mpc/h
+            drz_los = FCNST.c * cpds[smplng]['bw_eff']*U.Hz * (1+z)**2 / (CNST.rest_freq_HI * U.Hz) / (cosmo.H0 * cosmo.efunc(z))   # in Mpc/h
+            if units == 'Jy':
+                jacobian1 = 1 / (cpds[smplng]['bw_eff'] * U.Hz)
+                jacobian2 = drz_los / (cpds[smplng]['bw_eff'] * U.Hz)
+                temperature_from_fluxdensity = 1.0
+            elif units == 'K':
+                if not isinstance(beamparms, dict):
+                    raise TypeError('Input beamparms must be a dictionary')
+                if 'freqs' not in beamparms:
+                    beamparms['freqs'] = self.f
+                omega_bw = self.beam3Dvol(beamparms, freq_wts=cpds[smplng]['freq_wts'])
+                jacobian1 = 1 / (omega_bw * U.Hz) # The steradian is present but not explicitly assigned
+                jacobian2 = rz_los**2 * drz_los / (cpds[smplng]['bw_eff'] * U.Hz)
+                temperature_from_fluxdensity = wl**2 / (2*FCNST.k_B)
+            else:
+                raise ValueError('Input value for units invalid')
+
+            factor = jacobian1 * jacobian2 * temperature_from_fluxdensity**2
 
             result[smplng]['z'] = z
             result[smplng]['kprll'] = kprll
@@ -2589,7 +2620,7 @@ class ClosurePhaseDelaySpectrum(object):
                                     if ekey > incax:
                                         expandax_map[ekey] += 1
                                         
-                            result[smplng][dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec1.ndim-1, dtype=NP.int))) * (dspec1 * preXwts1) * (dspec2 * preXwts2).conj()
+                            result[smplng][dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec1.ndim-1, dtype=NP.int))) * (dspec1*U.Unit('Jy Hz') * preXwts1) * (dspec2*U.Unit('Jy Hz') * preXwts2).conj()
                             if xinfo['wts']['preXnorm']:
                                 result[smplng][dpool][stat] = result[smplng][dpool][stat] / NP.nansum(preXwts1 * preXwts2.conj(), axis=NP.union1d(NP.where(logical_or(NP.asarray(preXwts1.shape)>1, NP.asarray(preXwts2.shape)>1))), keepdims=True) # Normalize by summing the weights over the expanded axes
         
@@ -2647,6 +2678,12 @@ class ClosurePhaseDelaySpectrum(object):
                             diagoffsets = []
                             expandax_map = {}                            
                             
+                    if units == 'Jy':
+                        result[smplng][dpool][stat] = result[smplng][dpool][stat].to('Jy2 Mpc')
+                    elif units == 'K':
+                        result[smplng][dpool][stat] = result[smplng][dpool][stat].to('K2 Mpc3')
+                    else:
+                        raise ValueError('Input value for units invalid')
                     result[smplng][dpool]['diagoffsets'] = diagoffsets
                     result[smplng][dpool]['axesmap'] = expandax_map
 
@@ -2932,4 +2969,251 @@ class ClosurePhaseDelaySpectrum(object):
 
         return rcpdps
         
+    ############################################################################
+
+    def beam3Dvol(self, beamparms, freq_wts=None):
+
+        """
+        ------------------------------------------------------------------------
+        Compute three-dimensional (transverse-LOS) volume of the beam in units
+        of "Sr Hz".
+ 
+        Inputs:
+
+        beamparms   [dictionary] Contains beam information. It contains the
+                    following keys and values:
+                    'beamfile'  [string] If set to string, should contain the
+                                filename relative to default path or absolute 
+                                path containing the power pattern. If both 
+                                'beamfile' and 'telescope' are set, the 
+                                'beamfile' will be used. The latter is used for 
+                                determining analytic beam.
+                    'filepathtype'
+                                [string] Specifies if the beamfile is to be 
+                                found at the 'default' location or a 'custom' 
+                                location. If set to 'default', the PRISim path 
+                                is searched for the beam file. Only applies if 
+                                'beamfile' key is set.
+                    'filefmt'   [string] External file format of the beam. 
+                                Accepted values are 'uvbeam', 'fits' and 'hdf5'
+                    'telescope' [dictionary] Information used to analytically 
+                                determine the power pattern. used only if 
+                                'beamfile' is not set or set to None. This 
+                                specifies the type of element, its size and 
+                                orientation. It consists of the following keys 
+                                and values:
+                        'id'        [string] If set, will ignore the other keys 
+                                    and use telescope details for known 
+                                    telescopes. Accepted values are 'mwa', 
+                                    'vla', 'gmrt', 'hera', 'paper', 'hirax', 
+                                    and 'chime' 
+                        'shape'     [string] Shape of antenna element. Accepted 
+                                    values are 'dipole', 'delta', 'dish', 
+                                    'gaussian', 'rect' and 'square'. Will be 
+                                    ignored if key 'id' is set. 'delta' denotes 
+                                    a delta function for the antenna element 
+                                    which has an isotropic radiation pattern. 
+                                    'delta' is the default when keys 'id' and 
+                                    'shape' are not set.
+                        'size'      [scalar or 2-element list/numpy array] 
+                                    Diameter of the telescope dish (in meters) 
+                                    if the key 'shape' is set to 'dish', side 
+                                    of the square aperture (in meters) if the 
+                                    key 'shape' is set to 'square', 2-element 
+                                    sides if key 'shape' is set to 'rect', or 
+                                    length of the dipole if key 'shape' is set 
+                                    to 'dipole'. Will be ignored if key 'shape' 
+                                    is set to 'delta'. Will be ignored if key 
+                                    'id' is set and a preset value used for the 
+                                    diameter or dipole.
+                        'orientation' 
+                                    [list or numpy array] If key 'shape' is set 
+                                    to dipole, it refers to the orientation of 
+                                    the dipole element unit vector whose 
+                                    magnitude is specified by length. If key 
+                                    'shape' is set to 'dish', it refers to the 
+                                    position on the sky to which the dish is 
+                                    pointed. For a dipole, this unit vector must 
+                                    be provided in the local ENU coordinate 
+                                    system aligned with the direction cosines 
+                                    coordinate system or in the Alt-Az 
+                                    coordinate system. This will be used only 
+                                    when key 'shape' is set to 'dipole'. This 
+                                    could be a 2-element vector (transverse 
+                                    direction cosines) where the third 
+                                    (line-of-sight) component is determined, or 
+                                    a 3-element vector specifying all three 
+                                    direction cosines or a two-element 
+                                    coordinate in Alt-Az system. If not provided 
+                                    it defaults to an eastward pointing dipole. 
+                                    If key 'shape' is set to 'dish' or 
+                                    'gaussian', the orientation refers to the 
+                                    pointing center of the dish on the sky. It 
+                                    can be provided in Alt-Az system as a 
+                                    two-element vector or in the direction 
+                                    cosine coordinate system as a two- or 
+                                    three-element vector. If not set in the case 
+                                    of a dish element, it defaults to zenith. 
+                                    This is not to be confused with the key 
+                                    'pointing_center' in dictionary 
+                                    'pointing_info' which refers to the 
+                                    beamformed pointing center of the array. The 
+                                    coordinate system is specified by the key 
+                                    'ocoords'
+                        'ocoords'   [string] specifies the coordinate system 
+                                    for key 'orientation'. Accepted values are 
+                                    'altaz' and 'dircos'. 
+                        'element_locs'
+                                    [2- or 3-column array] Element locations that
+                                    constitute the tile. Each row specifies
+                                    location of one element in the tile. The
+                                    locations must be specified in local ENU
+                                    coordinate system. First column specifies along
+                                    local east, second along local north and the
+                                    third along local up. If only two columns are 
+                                    specified, the third column is assumed to be 
+                                    zeros. If 'elements_locs' is not provided, it
+                                    assumed to be a one-element system and not a
+                                    phased array as far as determination of 
+                                    primary beam is concerned.
+                        'groundplane' 
+                                    [scalar] height of telescope element above 
+                                    the ground plane (in meteres). Default=None 
+                                    will denote no ground plane effects.
+                        'ground_modify'
+                                    [dictionary] contains specifications to 
+                                    modify the analytically computed ground 
+                                    plane pattern. If absent, the ground plane 
+                                    computed will not be modified. If set, it 
+                                    may contain the following keys:
+                            'scale'     [scalar] positive value to scale the 
+                                        modifying factor with. If not set, the 
+                                        scale factor to the modification is 
+                                        unity.
+                            'max'       [scalar] positive value to clip the 
+                                        modified and scaled values to. If not 
+                                        set, there is no upper limit
+
+                    'freqs'     [numpy array] Numpy array denoting frequencies 
+                                (in Hz) at which beam integrals are to be 
+                                evaluated. If set to None, it will automatically 
+                                be set from the class attribute. 
+                    'nside'     [integer] NSIDE parameter for determining and
+                                interpolating the beam. If not set, it will be
+                                set to 64 (default).
+                    'chromatic' [boolean] If set to true, a chromatic power 
+                                pattern is used. If false, an achromatic power
+                                pattern is used based on a reference frequency 
+                                specified in 'select_freq'.
+                    'select_freq'
+                                [scalar] Selected frequency for the achromatic
+                                beam. If not set, it will be determined to be
+                                mean of the array in 'freqs'
+                    'spec_interp'
+                                [string] Method to perform spectral 
+                                interpolation. Accepted values are those 
+                                accepted in scipy.interpolate.interp1d() and
+                                'fft'. Default='cubic'.
+                                
+        freq_wts    [numpy array] Frequency weights centered on different 
+                    spectral windows or redshifts. Its shape is (nwin,nchan) 
+                    and should match the number of spectral channels in input
+                    parameter 'freqs' under 'beamparms' dictionary
+
+        Output:
+
+        omega_bw    [numpy array] Integral of the square of the power pattern
+                    over transverse and spectral axes. Its shape is (nwin,)
+        ------------------------------------------------------------------------
+        """
+
+        if not isinstance(beamparms, dict):
+            raise TypeError('Input beamparms must be a dictionary')
+        if ('beamfile' not in beamparms) and ('telescope' not in beamparms):
+            raise KeyError('Input beamparms does not contain either "beamfile" or "telescope" keys')
+        if 'freqs' not in beamparms:
+            raise KeyError('Key "freqs" not found in input beamparms')
+        if not isinstance(beamparms['freqs'], NP.ndarray):
+            raise TypeError('Key "freqs" in input beamparms must contain a numpy array')
+        if 'nside' not in beamparms:
+            beamparms['nside'] = 64
+        if not isinstance(beamparms['nside'], int):
+            raise TypeError('"nside" parameter in input beamparms must be an integer')
+        if 'chromatic' not in beamparms:
+            beamparms['chromatic'] = True
+        else:
+            if not isinstance(beamparms['chromatic'], bool):
+                raise TypeError('Beam chromaticity parameter in input beamparms must be a boolean')
+
+        if beamparms['beamfile'] is not None:
+            if 'filepathtype' in beamparms:
+                if beamparms['filepathtype'] == 'default':
+                    beamparms['beamfile'] = prisim_path+'data/beams/'+beamparms['beamfile']
+            if 'filefmt' not in beamparms:
+                raise KeyError('Input beam file format must be specified for an external beam')
+            if beamparms['filefmt'].lower() in ['hdf5', 'fits', 'uvbeam']:
+                beamparms['filefmt'] = beamparms['filefmt'].lower()
+            else:
+                raise ValueError('Invalid beam file format specified')
+            
+            if 'pol' not in beamparms:
+                raise KeyError('Beam polarization must be specified')
+            if not beamparms['chromatic']:
+                if 'select_freq' not in beamparms:
+                    raise KeyError('Input reference frequency for achromatic behavior must be specified')
+                if beamparms['select_freq'] is None:
+                    beamparms['select_freq'] = NP.mean(beamparms['freqs'])
+                if 'spec_interp' not in beamparms:
+                    beamparms['spec_interp'] = 'cubic'
+            theta, phi = HP.pix2ang(beamparms['nside'], NP.arange(HP.nside2npix(beamparms['nside'])))
+            theta_phi = NP.hstack((theta.reshape(-1,1), phi.reshape(-1,1)))
+            if beamparms['beamfile'] :
+                if beamparms['filefmt'] == 'fits':
+                    external_beam = fits.getdata(beamparms['beamfile'], extname='BEAM_{0}'.format(beamparms['pol']))
+                    external_beam_freqs = fits.getdata(beamparms['beamfile'], extname='FREQS_{0}'.format(beamparms['pol'])) # in MHz
+                    external_beam = external_beam.reshape(-1,external_beam_freqs.size) # npix x nfreqs
+                elif beamparms['filefmt'] == 'uvbeam':
+                    if uvbeam_module_found:
+                        uvbm = UVBeam()
+                        uvbm.read_beamfits(beamparms['beamfile'])
+                        axis_vec_ind = 0 # for power beam
+                        spw_ind = 0 # spectral window index
+                        if beamparms['pol'].lower() in ['x', 'e']:
+                            beam_pol_ind = 0
+                        else:
+                            beam_pol_ind = 1
+                        external_beam = uvbm.data_array[axis_vec_ind,spw_ind,beam_pol_ind,:,:].T # npix x nfreqs
+                        external_beam_freqs = uvbm.freq_array.ravel() # nfreqs (in Hz)
+                    else:
+                        raise ImportError('uvbeam module not installed/found')
+            
+                    if NP.abs(NP.abs(external_beam).max() - 1.0) > 1e-10:
+                        external_beam /= NP.abs(external_beam).max()
+                else:
+                    raise ValueError('Specified beam file format not currently supported')
+                if beamparms['chromatic']:
+                    if beamparms['spec_interp'] == 'fft':
+                        external_beam = external_beam[:,:-1]
+                        external_beam_freqs = external_beam_freqs[:-1]
+                
+                if beamparms['chromatic']:
+                    interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=beamparms['freqs'], axis=1, kind=beamparms['spec_interp'], assume_sorted=True)
+                else:
+                    nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs - beamparms['select_freq']))
+                    interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), beamparms['freqs'].size, axis=1)), theta_phi=theta_phi, inloc_axis=beamparms['freqs'], outloc_axis=beamparms['freqs'], axis=1, assume_sorted=True)
+                interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)
+                interp_logbeam_max[interp_logbeam_max <= 0.0] = 0.0
+                interp_logbeam_max = interp_logbeam_max.reshape(1,-1)
+                interp_logbeam = interp_logbeam - interp_logbeam_max
+                beam = 10**interp_logbeam
+            else:
+                altaz = NP.array([NP.pi/2, 0]).reshape(1,-1) + NP.array([-1,1]).reshape(1,-1) * theta_phi
+                if beamparms['chromatic']:
+                    beam = PB.primary_beam_generator(altaz, beamparms['select_freq'], skyunits='altaz', telescope=beamparms['telescope'], pointing_info=None, pointing_center=None, freq_scle='Hz', east2ax1=0.0)
+                    beam = beam.reshape(-1,1) * NP.ones(beamparms['freqs'].size).reshape(1,-1)
+                else:
+                    beam = PB.primary_beam_generator(altaz, beamparms['freqs'], skyunits='altaz', telescope=beamparms['telescope'], pointing_info=None, pointing_center=None, freq_scle='Hz', east2ax1=0.0)
+            omega_bw = DS.beam3Dvol(beam, beamparms['freqs'], freq_wts=freq_wts, hemisphere=True)
+            return omega_bw
+
     ############################################################################

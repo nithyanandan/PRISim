@@ -3853,6 +3853,27 @@ class DelayPowerSpectrum(object):
 
     def beam3Dvol(self, freq_wts=None, nside=32):
 
+        """
+        ------------------------------------------------------------------------
+        Compute three-dimensional (transverse-LOS) volume of the beam in units
+        of "Sr Hz".
+
+        freq_wts    [numpy array] Frequency weights centered on different 
+                    spectral windows or redshifts. Its shape is (nwin,nchan). 
+                    nchan should match the number of spectral channels in the 
+                    class attribute for frequency channels
+
+        'nside'     [integer] NSIDE parameter for determining and interpolating 
+                    the beam. If not set, it will be set to 64 (default).
+
+        Output:
+
+        omega_bw    [numpy array] Integral of the square of the power pattern
+                    over transverse and spectral axes. Its shape is (nwin,)
+        ------------------------------------------------------------------------
+        """
+                  
+
         if self.ds.ia.simparms_file is not None:
             parms_file = open(self.ds.ia.simparms_file, 'r')
             parms = yaml.safe_load(parms_file)

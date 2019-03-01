@@ -1,3 +1,30 @@
+From c143a7d (ephemeris):
+========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Import healpy, modules from Astropy, and pyuvdata
+(*) Delete import of scipy constants
+(*) Add member function beam3Dvol() under class
+ClosurePhaseDelaySpectrum that calculates the beam-frequency integral
+for conversion from Jy to K units. Update class docstring accordingly
+(*) Update inputs (add units, beamparms) to member function
+compute_power_spectrum() under class ClosurePhaseDelaySpectrum. Update
+member function docstring accordingly.
+(*) In member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum, give option to work in Jy or K units and
+return output in appropriate units while making use of the
+beam3Dvol() member function accordingly.
+
+In prisim/delay_spectrum.py,
+
+(*) Add docstring to member function beam3Dvol() under class
+DelayPowerSpectrum
+
+In prisim/primary_beams.py,
+
+(*) Minor change to docstring of function primary_beam_generator()
+
 From 4ff82de (ephemeris):
 ========================
 
