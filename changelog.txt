@@ -1,3 +1,28 @@
+From 822bd72 (ephemeris):
+========================
+
+In prisim/delay_spectrum.py,
+
+(*) Change calculation of attribute jacobian2 in __init__() member
+function of class DelayPowerSpectrum by replacing the usage of
+rz_transverse with rz_los. Update class docstring on the attribute
+accordingly
+(*) Change calculation of jacobian2 in attribute
+subband_delay_power_spectra in member function
+compute_power_spectrum() of class DelayPowerSpectrum by replacing the
+usage of rz_transverse with rz_los. Update docstring of attribute
+suband_delay_power_spectra in the class docstring.
+(*) Store rz_los in atribute suband_delay_power_spectra of class
+DelayPowerSpectrum in member function compute_power_spectrum(). Update
+class docstring on th attribute.
+(*) In member functions cosmo.comoving_transverse_distance() and 
+comoving_los_distance(), convert the distances returned explicitly to
+units of 'Mpc'
+(*) In member function compute_power_spectrum_allruns() of class
+DelayPowerSpectrum, include a calculation of rz_los, and update the
+calculation of jacobian2 by replacing the usage of rz_transverse with
+rz_los 
+
 From c143a7d (ephemeris):
 ========================
 

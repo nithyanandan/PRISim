@@ -3320,7 +3320,7 @@ class DelayPowerSpectrum(object):
                 power spectrum. It is equal to A_eff / wl**2 / bw
 
     jacobian2   [scalar] second jacobian in conversion of delay spectrum to 
-                power spectrum. It is equal to rz_transverse**2 * drz_los / bw
+                power spectrum. It is equal to rz_los**2 * drz_los / bw
 
     Jy2K        [scalar] factor to convert Jy/Sr to K. It is equal to 
                 wl**2 * Jy / (2k)
@@ -3386,6 +3386,9 @@ class DelayPowerSpectrum(object):
                             the number of baselines. The 0 index in the fourth 
                             dimenstion denotes the negative horizon limit while 
                             the 1 index denotes the positive horizon limit
+                'rz_los'    [numpy array] Comoving distance along LOS (in Mpc/h) 
+                            corresponding to the different redshifts under key 
+                            'z'. It is of size n_win
                 'rz_transverse'
                             [numpy array] transverse comoving distance 
                             (in Mpc/h) corresponding to the different redshifts
@@ -3399,7 +3402,7 @@ class DelayPowerSpectrum(object):
                             A_eff / wl**2 / bw. It is of size n_win
                 'jacobian2' [numpy array] second jacobian in conversion of delay 
                             spectrum to power spectrum. It is equal to 
-                            rz_transverse**2 * drz_los / bw. It is of size n_win
+                            rz_los**2 * drz_los / bw. It is of size n_win
                 'Jy2K'      [numpy array] factor to convert Jy/Sr to K. It is 
                             equal to wl**2 * Jy / (2k). It is of size n_win
                 'factor'    [numpy array] conversion factor to convert delay
@@ -3649,7 +3652,8 @@ class DelayPowerSpectrum(object):
         # self.jacobian1 = NP.mean(self.ds.ia.A_eff) / self.wl0**2 / self.bw
         omega_bw = self.beam3Dvol(freq_wts=self.ds.bp_wts[0,:,0])
         self.jacobian1 = 1 / omega_bw
-        self.jacobian2 = self.rz_transverse**2 * self.drz_los / self.bw
+        # self.jacobian2 = self.rz_transverse**2 * self.drz_los / self.bw
+        self.jacobian2 = self.rz_los**2 * self.drz_los / self.bw
         self.Jy2K = self.wl0**2 * CNST.Jy / (2*FCNST.k)
         self.K2Jy = 1 / self.Jy2K
 
@@ -3729,7 +3733,7 @@ class DelayPowerSpectrum(object):
         ------------------------------------------------------------------------
         """
 
-        rz_transverse = self.cosmo.comoving_transverse_distance(redshift).value   # in Mpc/h
+        rz_transverse = self.cosmo.comoving_transverse_distance(redshift).to('Mpc').value   # in Mpc/h
         if action is None:
             self.z = redshift
             self.rz_transverse = rz_transverse
@@ -3763,7 +3767,7 @@ class DelayPowerSpectrum(object):
         ------------------------------------------------------------------------
         """
 
-        rz_los = self.cosmo.comoving_distance(redshift).value   # in Mpc/h
+        rz_los = self.cosmo.comoving_distance(redshift).to('Mpc').value   # in Mpc/h
         if action is None:
             self.z = redshift
             self.rz_los = rz_los
@@ -3978,12 +3982,14 @@ class DelayPowerSpectrum(object):
                 self.subband_delay_power_spectra[key]['kprll'] = kprll
                 self.subband_delay_power_spectra[key]['kperp'] = kperp
                 self.subband_delay_power_spectra[key]['horizon_kprll_limits'] = horizon_kprll_limits
-                self.subband_delay_power_spectra[key]['rz_transverse'] = self.comoving_transverse_distance(self.subband_delay_power_spectra[key]['z'], action='return')
+                self.subband_delay_power_spectra[key]['rz_los'] = self.cosmo.comoving_distance(self.subband_delay_power_spectra[key]['z']).to('Mpc').value # in Mpc/h
+                self.subband_delay_power_spectra[key]['rz_transverse'] = self.comoving_transverse_distance(self.subband_delay_power_spectra[key]['z'], action='return') # in Mpc/h
                 self.subband_delay_power_spectra[key]['drz_los'] = self.comoving_los_depth(self.ds.subband_delay_spectra[key]['bw_eff'], self.subband_delay_power_spectra[key]['z'], action='return')
                 # self.subband_delay_power_spectra[key]['jacobian1'] = NP.mean(self.ds.ia.A_eff) / wl**2 / self.ds.subband_delay_spectra[key]['bw_eff']
                 omega_bw = self.beam3Dvol(freq_wts=self.ds.subband_delay_spectra[key]['freq_wts'])
                 self.subband_delay_power_spectra[key]['jacobian1'] = 1 / omega_bw
-                self.subband_delay_power_spectra[key]['jacobian2'] = self.subband_delay_power_spectra[key]['rz_transverse']**2 * self.subband_delay_power_spectra[key]['drz_los'] / self.ds.subband_delay_spectra[key]['bw_eff']
+                # self.subband_delay_power_spectra[key]['jacobian2'] = self.subband_delay_power_spectra[key]['rz_transverse']**2 * self.subband_delay_power_spectra[key]['drz_los'] / self.ds.subband_delay_spectra[key]['bw_eff']
+                self.subband_delay_power_spectra[key]['jacobian2'] = self.subband_delay_power_spectra[key]['rz_los']**2 * self.subband_delay_power_spectra[key]['drz_los'] / self.ds.subband_delay_spectra[key]['bw_eff']
                 self.subband_delay_power_spectra[key]['Jy2K'] = wl**2 * CNST.Jy / (2*FCNST.k)
                 self.subband_delay_power_spectra[key]['factor'] = self.subband_delay_power_spectra[key]['jacobian1'] * self.subband_delay_power_spectra[key]['jacobian2'] * self.subband_delay_power_spectra[key]['Jy2K']**2
                 conversion_factor = self.subband_delay_power_spectra[key]['factor'].reshape(1,-1,1,1)
@@ -4136,11 +4142,13 @@ class DelayPowerSpectrum(object):
             for zind,z in enumerate(redshift):
                 kprll[zind,:] = self.k_parallel(dspec['lags'], z, action='return')
                 kperp[zind,:] = self.k_perp(self.bl_length, z, action='return')
+            rz_los = self.cosmo.comoving_distance(redshift).to('Mpc').value
             rz_transverse = self.comoving_transverse_distance(redshift, action='return') # n_win
             drz_los = self.comoving_los_depth(dspec['bw_eff'], redshift, action='return') # n_win
             omega_bw = self.beam3Dvol(freq_wts=NP.squeeze(dspec['freq_wts'])) 
             jacobian1 = 1 / omega_bw # n_win
-            jacobian2 = rz_transverse**2 * drz_los / dspec['bw_eff'] # n_win
+            # jacobian2 = rz_transverse**2 * drz_los / dspec['bw_eff'] # n_win
+            jacobian2 = rz_los**2 * drz_los / dspec['bw_eff'] # n_win
             Jy2K = wl**2 * CNST.Jy / (2*FCNST.k) # n_win
             factor = jacobian1 * jacobian2 * Jy2K**2 # n_win
             factor = factor.reshape((-1,)+tuple(NP.ones(dspec['vislag1'].ndim-1, dtype=NP.int)))
