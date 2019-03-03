@@ -2638,7 +2638,9 @@ class ClosurePhaseDelaySpectrum(object):
                                             result[smplng][dpool][stat] = NP.nanmedian(result[smplng][dpool][stat], axis=expandax_map[colax][-1])
                                         diagoffsets += [lstshifts]
                                     else:
-                                        result[smplng][dpool][stat], offsets = OPS.array_trace(result[smplng][dpool][stat], offsets=None, axis1=expandax_map[colax][0], axis2=expandax_map[colax][1], outaxis='axis1')
+                                        pspec_unit = result[smplng][dpool][stat].si.unit
+                                        result[smplng][dpool][stat], offsets = OPS.array_trace(result[smplng][dpool][stat].si.value, offsets=None, axis1=expandax_map[colax][0], axis2=expandax_map[colax][1], outaxis='axis1')
+                                        result[smplng][dpool][stat] = result[smplng][dpool][stat] * pspec_unit
                                         diagoffsets += [offsets]
                                     for ekey in expandax_map:
                                         if ekey > colax:
@@ -2674,7 +2676,7 @@ class ClosurePhaseDelaySpectrum(object):
                                         del diagoffsets[colaxind]
         
                         else:
-                            result[smplng][dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec.ndim-1, dtype=NP.int))) * NP.abs(dspec)**2
+                            result[smplng][dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec.ndim-1, dtype=NP.int))) * NP.abs(dspec * U.Jy)**2
                             diagoffsets = []
                             expandax_map = {}                            
                             

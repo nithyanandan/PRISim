@@ -1,5 +1,14 @@
-From 822bd72 (ephemeris):
-========================
+From d11efe9 (bsp_pspec_units):
+==============================
+
+In prisim/bispectrum_phase.py,
+
+(*) Account for preservation of cross power spectrum units during
+mathematical operations in member function compute_power_spectrum()
+of class ClosurePhaseDelaySpectrum
+
+From 822bd72 (bsp_pspec_units):
+==============================
 
 In prisim/delay_spectrum.py,
 
