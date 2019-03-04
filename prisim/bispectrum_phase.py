@@ -2362,6 +2362,15 @@ class ClosurePhaseDelaySpectrum(object):
         ------------------------------------------------------------------------
         """
 
+        if not isinstance(units,str):
+            raise TypeError('Input parameter units must be a string')
+        if units.lower() == 'k':
+            if not isinstance(beamparms, dict):
+                raise TypeError('Input beamparms must be a dictionary')
+            if 'freqs' not in beamparms:
+                beamparms['freqs'] = self.f
+            beamparms_orig = copy.deepcopy(beamparms)
+
         if autoinfo is None:
             autoinfo = {'axes': None, 'wts': [NP.ones(1, dtpye=NP.float)]}
         elif not isinstance(autoinfo, dict):
@@ -2509,10 +2518,7 @@ class ClosurePhaseDelaySpectrum(object):
                 jacobian2 = drz_los / (cpds[smplng]['bw_eff'] * U.Hz)
                 temperature_from_fluxdensity = 1.0
             elif units == 'K':
-                if not isinstance(beamparms, dict):
-                    raise TypeError('Input beamparms must be a dictionary')
-                if 'freqs' not in beamparms:
-                    beamparms['freqs'] = self.f
+                beamparms = copy.deepcopy(beamparms_orig)
                 omega_bw = self.beam3Dvol(beamparms, freq_wts=cpds[smplng]['freq_wts'])
                 jacobian1 = 1 / (omega_bw * U.Hz) # The steradian is present but not explicitly assigned
                 jacobian2 = rz_los**2 * drz_los / (cpds[smplng]['bw_eff'] * U.Hz)

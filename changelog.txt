@@ -1,3 +1,12 @@
+From 480b8e1 (bsp_pspec_units):
+==============================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum, create a copy of the input parameter
+beamparms in order to not be affected by overwrites
+
 From d11efe9 (bsp_pspec_units):
 ==============================
 
