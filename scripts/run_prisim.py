@@ -672,7 +672,10 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
         raise ValueError('Invalid specification for obs_mode')
 
     # Initialize time objects and LST from obs_date and chosen LST
-    lst_init = pointing_info['lst_init'] * 15.0 # in deg
+    if pointing_info['lst_init'] is not None:
+        lst_init = pointing_info['lst_init'] * 15.0 # in deg
+    else:
+        lst_init = None
     jd_init = pointing_info['jd_init']
     if jd_init is None:
         if ((obs_date is not None) and (lst_init is not None)):
@@ -1719,13 +1722,11 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 src_altaz = skycoords[m2_lol[j]].transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
                 src_altaz_current = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
                 hemisphere_current = src_altaz_current[:,0] >= 0.0
-                # hemisphere_src_altaz_current = src_altaz_current[hemisphere_current,:]
-
                 src_az_current = NP.copy(src_altaz_current[:,1])
                 src_az_current[src_az_current > 360.0 - 0.5*180.0/n_sky_sectors] -= 360.0
                 roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
                 roi_subset = NP.where(NP.logical_and(hemisphere_current, roi_ind))[0].tolist()
-                src_dircos_current_subset = GEOM.altaz2dircos(src_altaz_current[roi_subset,:], units='degrees')
+                # src_dircos_current_subset = GEOM.altaz2dircos(src_altaz_current[roi_subset,:], units='degrees')
 
                 pbinfo = {}
                 if (telescope_id.lower() == 'mwa') or (phased_array) or (telescope_id.lower() == 'mwa_tools'):
@@ -1888,7 +1889,7 @@ else: # MPI based on baseline multiplexing
                     src_az_current[src_az_current > 360.0 - 0.5*180.0/n_sky_sectors] -= 360.0
                     roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
                     roi_subset = NP.where(NP.logical_and(hemisphere_current, roi_ind))[0].tolist()
-                    src_dircos_current_subset = GEOM.altaz2dircos(src_altaz_current[roi_subset,:], units='degrees')
+                    # src_dircos_current_subset = GEOM.altaz2dircos(src_altaz_current[roi_subset,:], units='degrees')
    
                     pbinfo = {}
                     if (telescope_id.lower() == 'mwa') or (phased_array) or (telescope_id.lower() == 'mwa_tools'):

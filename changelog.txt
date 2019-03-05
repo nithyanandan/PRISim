@@ -1,3 +1,12 @@
+From f18dd17 (bsp_pspec_units):
+==============================
+
+In scripts/run_prisim.py,
+
+(*) Correctly handle usage of jd_init and lst_init parameters
+(*) Remove some previously commented lines
+(*) Comment lines assigning unused variables
+
 From 480b8e1 (bsp_pspec_units):
 ==============================
 
