@@ -6063,7 +6063,7 @@ class InterferometerArray(object):
         else:
             datatype = NP.complex128
         skyvis = NP.zeros( (self.baselines.shape[0], self.channels.size), dtype=datatype)
-        if len(m2) != 0:
+        if len(m2) > 0:
             skypos_altaz_roi = skypos_altaz[m2,:]
             coords_str = 'altaz'
 

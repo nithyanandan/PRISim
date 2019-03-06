@@ -1,3 +1,15 @@
+From e31a7ef (bsp_pspec_units):
+==============================
+
+In scripts/run_prisim.py,
+
+(*) Handle snapshots when source list is empty
+
+In prisim/interferometry.py,
+
+(*) Minor change in observe() member function of class
+InterferometerArray
+
 From f18dd17 (bsp_pspec_units):
 ==============================
 

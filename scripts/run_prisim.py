@@ -1719,54 +1719,55 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             roi = RI.ROI_parameters()
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
             for j in range(n_acc):
-                src_altaz = skycoords[m2_lol[j]].transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
-                src_altaz_current = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
-                hemisphere_current = src_altaz_current[:,0] >= 0.0
-                src_az_current = NP.copy(src_altaz_current[:,1])
-                src_az_current[src_az_current > 360.0 - 0.5*180.0/n_sky_sectors] -= 360.0
-                roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
-                roi_subset = NP.where(NP.logical_and(hemisphere_current, roi_ind))[0].tolist()
-                # src_dircos_current_subset = GEOM.altaz2dircos(src_altaz_current[roi_subset,:], units='degrees')
-
-                pbinfo = {}
-                if (telescope_id.lower() == 'mwa') or (phased_array) or (telescope_id.lower() == 'mwa_tools'):
-                    if pointing_file is not None:
-                        pbinfo['delays'] = delays[j,:]
+                if m2_lol[j].size > 0:
+                    src_altaz = skycoords[m2_lol[j]].transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
+                    src_altaz_current = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
+                    hemisphere_current = src_altaz_current[:,0] >= 0.0
+                    src_az_current = NP.copy(src_altaz_current[:,1])
+                    src_az_current[src_az_current > 360.0 - 0.5*180.0/n_sky_sectors] -= 360.0
+                    roi_ind = NP.logical_or(NP.logical_and(src_az_current >= -0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < -0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors), NP.logical_and(src_az_current >= 180.0 - 0.5*180.0/n_sky_sectors + k*180.0/n_sky_sectors, src_az_current < 180.0 - 0.5*180.0/n_sky_sectors + (k+1)*180.0/n_sky_sectors))
+                    roi_subset = NP.where(NP.logical_and(hemisphere_current, roi_ind))[0].tolist()
+                    # src_dircos_current_subset = GEOM.altaz2dircos(src_altaz_current[roi_subset,:], units='degrees')
+                    
+                    pbinfo = {}
+                    if (telescope_id.lower() == 'mwa') or (phased_array) or (telescope_id.lower() == 'mwa_tools'):
+                        if pointing_file is not None:
+                            pbinfo['delays'] = delays[j,:]
+                        else:
+                            pbinfo['pointing_center'] = pointings_altaz[j,:]
+                            pbinfo['pointing_coords'] = 'altaz'
+                            
+                        if (telescope_id.lower() == 'mwa') or (phased_array):
+                            pbinfo['delayerr'] = phasedarray_delayerr
+                            pbinfo['gainerr'] = phasedarray_gainerr
+                            pbinfo['nrand'] = nrand
                     else:
                         pbinfo['pointing_center'] = pointings_altaz[j,:]
                         pbinfo['pointing_coords'] = 'altaz'
-                        
-                    if (telescope_id.lower() == 'mwa') or (phased_array):
-                        pbinfo['delayerr'] = phasedarray_delayerr
-                        pbinfo['gainerr'] = phasedarray_gainerr
-                        pbinfo['nrand'] = nrand
-                else:
-                    pbinfo['pointing_center'] = pointings_altaz[j,:]
-                    pbinfo['pointing_coords'] = 'altaz'
-
-                roiinfo = {}
-                roiinfo['ind'] = NP.asarray(m2_lol[j][roi_subset])
-                if use_external_beam:
-                    theta_phi = NP.hstack((NP.pi/2-NP.radians(src_altaz_current[roi_subset,0]).reshape(-1,1), NP.radians(src_altaz_current[roi_subset,1]).reshape(-1,1)))
-                    if beam_chromaticity:
-                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e9, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
+                    
+                    roiinfo = {}
+                    roiinfo['ind'] = NP.asarray(m2_lol[j][roi_subset])
+                    if use_external_beam:
+                        theta_phi = NP.hstack((NP.pi/2-NP.radians(src_altaz_current[roi_subset,0]).reshape(-1,1), NP.radians(src_altaz_current[roi_subset,1]).reshape(-1,1)))
+                        if beam_chromaticity:
+                            interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=chans*1e9, axis=1, kind=pbeam_spec_interp_method, assume_sorted=True)
+                        else:
+                            nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs - select_beam_freq))
+                            interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e9, outloc_axis=chans*1e9, axis=1, assume_sorted=True)
+                        interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)
+                        interp_logbeam_max[interp_logbeam_max <= 0.0] = 0.0
+                        interp_logbeam_max = interp_logbeam_max.reshape(1,-1)
+                        interp_logbeam = interp_logbeam - interp_logbeam_max
+                        roiinfo['pbeam'] = 10**interp_logbeam
                     else:
-                        nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs - select_beam_freq))
-                        interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), chans.size, axis=1)), theta_phi=theta_phi, inloc_axis=chans*1e9, outloc_axis=chans*1e9, axis=1, assume_sorted=True)
-                    interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)
-                    interp_logbeam_max[interp_logbeam_max <= 0.0] = 0.0
-                    interp_logbeam_max = interp_logbeam_max.reshape(1,-1)
-                    interp_logbeam = interp_logbeam - interp_logbeam_max
-                    roiinfo['pbeam'] = 10**interp_logbeam
-                else:
-                    roiinfo['pbeam'] = None
-                roiinfo['radius'] = roi_radius
-                roiinfo_center_hadec = GEOM.altaz2hadec(NP.asarray([90.0, 270.0]).reshape(1,-1), latitude, units='degrees').ravel()
-                roiinfo_center_radec = [lst[j]-roiinfo_center_hadec[0], roiinfo_center_hadec[1]]
-                roiinfo['center'] = NP.asarray(roiinfo_center_radec).reshape(1,-1)
-                roiinfo['center_coords'] = 'radec'
-
-                roi.append_settings(skymod, chans, pinfo=pbinfo, lst=lst[j], roi_info=roiinfo, telescope=telescope, freq_scale='GHz')
+                        roiinfo['pbeam'] = None
+                    roiinfo['radius'] = roi_radius
+                    roiinfo_center_hadec = GEOM.altaz2hadec(NP.asarray([90.0, 270.0]).reshape(1,-1), latitude, units='degrees').ravel()
+                    roiinfo_center_radec = [lst[j]-roiinfo_center_hadec[0], roiinfo_center_hadec[1]]
+                    roiinfo['center'] = NP.asarray(roiinfo_center_radec).reshape(1,-1)
+                    roiinfo['center_coords'] = 'radec'
+                    
+                    roi.append_settings(skymod, chans, pinfo=pbinfo, lst=lst[j], roi_info=roiinfo, telescope=telescope, freq_scale='GHz')
                 
                 progress.update(j+1)
             progress.finish()
@@ -1796,15 +1797,20 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
             for j in range(n_acc):
-                roi_ind_snap = fits.getdata(roifile+'.fits', extname='IND_{0:0d}'.format(j), memmap=False)
-                roi_pbeam_snap = fits.getdata(roifile+'.fits', extname='PB_{0:0d}'.format(j), memmap=False)
-                roi_pbeam_snap = roi_pbeam_snap[:,chans_chunk_indices]
-             
+                if m2_lol[j].size > 0:
+                    roi_ind_snap = fits.getdata(roifile+'.fits', extname='IND_{0:0d}'.format(j), memmap=False)
+                    roi_pbeam_snap = fits.getdata(roifile+'.fits', extname='PB_{0:0d}'.format(j), memmap=False)
+                    roi_pbeam_snap = roi_pbeam_snap[:,chans_chunk_indices]
+                else:
+                    roi_ind_snap = NP.asarray([])
+                    roi_pbeam_snap = NP.asarray([])
+
+                roi_snap_info = {'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}
                 ts = time.time()
                 if j == 0:
                     ts0 = ts
               
-                ia.observe(tobjs[j], Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail)
+                ia.observe(tobjs[j], Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info=roi_snap_info, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail)
                 te = time.time()
                 del roi_ind_snap
                 del roi_pbeam_snap
