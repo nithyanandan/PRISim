@@ -3203,8 +3203,6 @@ class ClosurePhaseDelaySpectrum(object):
                     if beamparms['spec_interp'] == 'fft':
                         external_beam = external_beam[:,:-1]
                         external_beam_freqs = external_beam_freqs[:-1]
-                
-                if beamparms['chromatic']:
                     interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=beamparms['freqs'], axis=1, kind=beamparms['spec_interp'], assume_sorted=True)
                 else:
                     nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs - beamparms['select_freq']))
@@ -3215,12 +3213,12 @@ class ClosurePhaseDelaySpectrum(object):
                 interp_logbeam = interp_logbeam - interp_logbeam_max
                 beam = 10**interp_logbeam
             else:
-                altaz = NP.array([NP.pi/2, 0]).reshape(1,-1) + NP.array([-1,1]).reshape(1,-1) * theta_phi
+                altaz = NP.array([90.0, 0.0]).reshape(1,-1) + NP.array([-1,1]).reshape(1,-1) * NP.degrees(theta_phi)
                 if beamparms['chromatic']:
-                    beam = PB.primary_beam_generator(altaz, beamparms['select_freq'], skyunits='altaz', telescope=beamparms['telescope'], pointing_info=None, pointing_center=None, freq_scle='Hz', east2ax1=0.0)
-                    beam = beam.reshape(-1,1) * NP.ones(beamparms['freqs'].size).reshape(1,-1)
+                    beam = PB.primary_beam_generator(altaz, beamparms['freqs'], beamparms['telescope'], skyunits='altaz', pointing_info=None, pointing_center=None, freq_scle='Hz', east2ax1=0.0)
                 else:
-                    beam = PB.primary_beam_generator(altaz, beamparms['freqs'], skyunits='altaz', telescope=beamparms['telescope'], pointing_info=None, pointing_center=None, freq_scle='Hz', east2ax1=0.0)
+                    beam = PB.primary_beam_generator(altaz, beamparms['select_freq'], beamparms['telescope'], skyunits='altaz', pointing_info=None, pointing_center=None, freq_scle='Hz', east2ax1=0.0)
+                    beam = beam.reshape(-1,1) * NP.ones(beamparms['freqs'].size).reshape(1,-1)
             omega_bw = DS.beam3Dvol(beam, beamparms['freqs'], freq_wts=freq_wts, hemisphere=True)
             return omega_bw
 

@@ -1,3 +1,20 @@
+From 4e32435 (ephemeris):
+========================
+
+In prisim/delay_spectrum.py,
+
+(*) Import UVBeam from UVData module
+(*) In member function beam3Dvol() of class DelayPowerSpectrum, update
+to handle external beam specified in UVBeam format.
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function beam3Dvol() of class ClosurePhaseDelaySpectrum,
+fix bug by calculating Alt-Az in degrees instead of radians.
+(*) In member function beam3Dvol() of class ClosurePhaseDelaySpectrum,
+fix bug by swapping the processing steps for achromatic and chromatic
+beams 
+ 
 From e31a7ef (bsp_pspec_units):
 ==============================
 

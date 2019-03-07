@@ -21,6 +21,12 @@ import prisim
 from prisim import primary_beams as PB
 from prisim import interferometry as RI
 from prisim import baseline_delay_horizon as DLY
+try:
+    from pyuvdata import UVBeam
+except ImportError:
+    uvbeam_module_found = False
+else:
+    uvbeam_module_found = True
 
 prisim_path = prisim.__path__[0]+'/'
 
@@ -3876,7 +3882,6 @@ class DelayPowerSpectrum(object):
                     over transverse and spectral axes. Its shape is (nwin,)
         ------------------------------------------------------------------------
         """
-                  
 
         if self.ds.ia.simparms_file is not None:
             parms_file = open(self.ds.ia.simparms_file, 'r')
@@ -3886,10 +3891,12 @@ class DelayPowerSpectrum(object):
             beam_info = parms['beam']
             use_external_beam = beam_info['use_external']
             beam_chromaticity = beam_info['chromatic']
+            theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
+            theta_phi = NP.hstack((theta.reshape(-1,1), phi.reshape(-1,1)))
             if use_external_beam:
                 beam_file = beam_info['file']
-                if beam_info['filefmt'].lower() in ['hdf5', 'fits']:
-                    beam_filefmt = beam_info['filefmt']
+                if beam_info['filefmt'].lower() in ['hdf5', 'fits', 'uvbeam']:
+                    beam_filefmt = beam_info['filefmt'].lower()
                 else:
                     raise ValueError('Invalid beam file format specified')
                 if beam_info['filepathtype'] == 'default':
@@ -3900,17 +3907,33 @@ class DelayPowerSpectrum(object):
                 if select_beam_freq is None:
                     select_beam_freq = self.f0
                 pbeam_spec_interp_method = beam_info['spec_interp']
-                if beam_filefmt.lower() == 'fits':
+                if beam_filefmt == 'fits':
                     extbeam = fits.getdata(beam_file, extname='BEAM_{0}'.format(beam_pol))
                     beam_freqs = fits.getdata(beam_file, extname='FREQS_{0}'.format(beam_pol))
+                    extbeam = extbeam.reshape(-1,beam_freqs.size) # npix x nfreqs
+                elif beam_filefmt == 'uvbeam':
+                    if uvbeam_module_found:
+                        uvbm = UVBeam()
+                        uvbm.read_beamfits(beam_file)
+                        axis_vec_ind = 0 # for power beam
+                        spw_ind = 0 # spectral window index
+                        if beam_pol.lower() in ['x', 'e']:
+                            beam_pol_ind = 0
+                        else:
+                            beam_pol_ind = 1
+                        extbeam = uvbm.data_array[axis_vec_ind,spw_ind,beam_pol_ind,:,:].T # npix x nfreqs
+                        beam_freqs = uvbm.freq_array.ravel() # nfreqs (in Hz)
+                    else:
+                        raise ImportError('uvbeam module not installed/found')
+            
+                    if NP.abs(NP.abs(extbeam).max() - 1.0) > 1e-10:
+                        extbeam /= NP.abs(extbeam).max()
                 else:
-                    raise ValueError('The external beam file format is currently not supported.')
-                extbeam = extbeam.reshape(-1,beam_freqs.size)
+                    raise ValueError('Specified external beam file format not currently supported')
+                # extbeam = extbeam.reshape(-1,beam_freqs.size)
                 beam_nside = HP.npix2nside(extbeam.shape[0])
                 if beam_nside < nside:
                     nside = beam_nside
-                theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
-                theta_phi = NP.hstack((theta.reshape(-1,1), phi.reshape(-1,1)))
                 if beam_chromaticity:
                     if pbeam_spec_interp_method == 'fft':
                         extbeam = extbeam[:,:-1]
@@ -3926,18 +3949,20 @@ class DelayPowerSpectrum(object):
                 interp_logbeam = interp_logbeam - interp_logbeam_max
                 beam = 10**interp_logbeam
             else:
-                theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
                 alt = 90.0 - NP.degrees(theta)
                 az = NP.degrees(phi)
                 altaz = NP.hstack((alt.reshape(-1,1), az.reshape(-1,1)))
-                beam = PB.primary_beam_generator(altaz, self.f, self.ds.ia.telescope, freq_scale='Hz', skyunits='altaz', east2ax1=0.0, pointing_info=None, pointing_center=None)
+                if beam_chromaticity:
+                    beam = PB.primary_beam_generator(altaz, self.f, self.ds.ia.telescope, freq_scale='Hz', skyunits='altaz', east2ax1=0.0, pointing_info=None, pointing_center=None)
+                else:
+                    beam = PB.primary_beam_generator(altaz, select_beam_freq, self.ds.ia.telescope, skyunits='altaz', pointing_info=None, pointing_center=None, freq_scle='Hz', east2ax1=0.0)
+                    beam = beam.reshape(-1,1) * NP.ones(self.f.size).reshape(1,-1)
         else:
             theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
             alt = 90.0 - NP.degrees(theta)
             az = NP.degrees(phi)
             altaz = NP.hstack((alt.reshape(-1,1), az.reshape(-1,1)))
             beam = PB.primary_beam_generator(altaz, self.f, self.ds.ia.telescope, freq_scale='Hz', skyunits='altaz', east2ax1=0.0, pointing_info=None, pointing_center=None)
-            # omega_bw =  self.wl0**2 / NP.mean(self.ds.ia.A_eff) * self.bw
 
         omega_bw = beam3Dvol(beam, self.f, freq_wts=freq_wts, hemisphere=True)
         return omega_bw
