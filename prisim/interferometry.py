@@ -4176,7 +4176,8 @@ class ROI_parameters(object):
 
         skymodel [instance of class SkyModel] The common sky model for all the
                  observing instances from which the ROI is determined based on
-                 a subset corresponding to each snapshot observation.
+                 a subset corresponding to each snapshot observation. If set 
+                 to None, the corresponding entries are all set to empty values
 
         freq     [numpy vector] Frequency channels (with units specified by the
                  attribute freq_scale)
@@ -4327,183 +4328,187 @@ class ROI_parameters(object):
         except NameError:
             raise NameError('skymodel, freq, and pinfo must be specified.')
 
-        if not isinstance(skymodel, SM.SkyModel):
+        if skymodel is None:
+            self.info['pbeam'] += [NP.asarray([])]
+            self.info['ind'] += [NP.asarray([])]
+            self.pinfo += [None]
+        elif not isinstance(skymodel, SM.SkyModel):
             raise TypeError('skymodel should be an instance of class SkyModel.')
-        elif skymodel is not None:
+        else:
             self.skymodel = skymodel
-
-        if freq is None:
-            raise ValueError('freq must be specified using a numpy array')
-        elif not isinstance(freq, NP.ndarray):
-            raise TypeError('freq must be specified using a numpy array')
-        self.freq = freq.ravel()
-
-        if (freq_scale is None) or (freq_scale == 'Hz') or (freq_scale == 'hz'):
-            self.freq = NP.asarray(freq)
-        elif freq_scale == 'GHz' or freq_scale == 'ghz':
-            self.freq = NP.asarray(freq) * 1.0e9
-        elif freq_scale == 'MHz' or freq_scale == 'mhz':
-            self.freq = NP.asarray(freq) * 1.0e6
-        elif freq_scale == 'kHz' or freq_scale == 'khz':
-            self.freq = NP.asarray(freq) * 1.0e3
-        else:
-            raise ValueError('Frequency units must be "GHz", "MHz", "kHz" or "Hz". If not set, it defaults to "Hz"')
-        self.freq_scale = 'Hz'
-
-        if self.telescope is None:
-            if isinstance(telescope, dict):
-                self.telescope = telescope
-            else:
-                raise TypeError('Input telescope must be a dictionary.')
-
-        if roi_info is None:
-            raise ValueError('roi_info dictionary must be set.')
-
-        pbeam_input = False
-        if 'ind' in roi_info:
-            if roi_info['ind'] is not None:
-                self.info['ind'] += [roi_info['ind']]
-                if roi_info['ind'].size > 0:
-                    if 'pbeam' in roi_info:
-                        if roi_info['pbeam'] is not None:
-                            try:
-                                pb = roi_info['pbeam'].reshape(-1,self.freq.size)
-                            except ValueError:
-                                raise ValueError('Number of columns of primary beam in key "pbeam" of dictionary roi_info must be equal to number of frequency channels.')
+            
+            if freq is None:
+                raise ValueError('freq must be specified using a numpy array')
+            elif not isinstance(freq, NP.ndarray):
+                raise TypeError('freq must be specified using a numpy array')
+            self.freq = freq.ravel()
     
-                            if NP.asarray(roi_info['ind']).size == pb.shape[0]:
-                                self.info['pbeam'] += [roi_info['pbeam'].astype(NP.float32)]
-                            else:
-                                raise ValueError('Number of elements in values in key "ind" and number of rows of values in key "pbeam" must be identical.')
-                            pbeam_input = True
-    
-                    if not pbeam_input: # Will require sky positions in Alt-Az coordinates
-                        if skymodel.coords == 'radec':
-                            if self.telescope['latitude'] is None:
-                                raise ValueError('Latitude of the observatory must be provided.')
-                            if lst is None:
-                                raise ValueError('LST must be provided.')
-                            skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')
-                        elif skymodel.coords == 'hadec':
-                            if self.telescope['latitude'] is None:
-                                raise ValueError('Latitude of the observatory must be provided.')
-                            skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
-    
-                        elif skymodel.coords == 'dircos':
-                            skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
-                        elif skymodel.coords == 'altaz':
-                            skypos_altaz = skymodel.location
-                        else:
-                            raise KeyError('skycoords invalid or unspecified in skymodel')
-            if 'radius' in roi_info:
-                self.info['radius'] += [roi_info['radius']]
-            if 'center' in roi_info:
-                self.info['center'] += [roi_info['center']]
-        else:
-            if roi_info['radius'] is None:
-                roi_info['radius'] = 90.0
+            if (freq_scale is None) or (freq_scale == 'Hz') or (freq_scale == 'hz'):
+                self.freq = NP.asarray(freq)
+            elif freq_scale == 'GHz' or freq_scale == 'ghz':
+                self.freq = NP.asarray(freq) * 1.0e9
+            elif freq_scale == 'MHz' or freq_scale == 'mhz':
+                self.freq = NP.asarray(freq) * 1.0e6
+            elif freq_scale == 'kHz' or freq_scale == 'khz':
+                self.freq = NP.asarray(freq) * 1.0e3
             else:
-                roi_info['radius'] = max(0.0, min(roi_info['radius'], 90.0))
-            self.info['radius'] += [roi_info['radius']]
-
-            if roi_info['center'] is None:
-                self.info['center'] += [NP.asarray([90.0, 270.0]).reshape(1,-1)]
-            else:
-                roi_info['center'] = NP.asarray(roi_info['center']).reshape(1,-1)
-                if roi_info['center_coords'] == 'dircos':
-                    self.info['center'] += [GEOM.dircos2altaz(roi_info['center'], units='degrees')]
-                elif roi_info['center_coords'] == 'altaz':
-                    self.info['center'] += [roi_info['center']]
-                elif roi_info['center_coords'] == 'hadec':
-                    self.info['center'] += [GEOM.hadec2altaz(roi_info['center'], self.telescope['latitude'], units='degrees')]
-                elif roi_info['center_coords'] == 'radec':
-                    if lst is None:
-                        raise KeyError('LST not provided for coordinate conversion')
-                    hadec = NP.asarray([lst-roi_info['center'][0,0], roi_info['center'][0,1]]).reshape(1,-1)
-                    self.info['center'] += [GEOM.hadec2altaz(hadec, self.telescope['latitude'], units='degrees')]
-                elif roi_info['center_coords'] == 'dircos':
-                    self.info['center'] += [GEOM.dircos2altaz(roi_info['center'], units='degrees')]
+                raise ValueError('Frequency units must be "GHz", "MHz", "kHz" or "Hz". If not set, it defaults to "Hz"')
+            self.freq_scale = 'Hz'
+    
+            if self.telescope is None:
+                if isinstance(telescope, dict):
+                    self.telescope = telescope
                 else:
-                    raise ValueError('Invalid coordinate system specified for center')
-
-            if skymodel.coords == 'radec':
-                if self.telescope['latitude'] is None:
-                    raise ValueError('Latitude of the observatory must be provided.')
-
-                if lst is None:
-                    raise ValueError('LST must be provided.')
-                skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')
-            elif skymodel.coords == 'hadec':
-                if self.telescope['latitude'] is None:
-                    raise ValueError('Latitude of the observatory must be provided.')
-                skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
-            elif skymodel.coords == 'dircos':
-                skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
-            elif skymodel.coords == 'altaz':
-                skypos_altaz = skymodel.location
+                    raise TypeError('Input telescope must be a dictionary.')
+    
+            if roi_info is None:
+                raise ValueError('roi_info dictionary must be set.')
+    
+            pbeam_input = False
+            if 'ind' in roi_info:
+                if roi_info['ind'] is not None:
+                    self.info['ind'] += [roi_info['ind']]
+                    if roi_info['ind'].size > 0:
+                        if 'pbeam' in roi_info:
+                            if roi_info['pbeam'] is not None:
+                                try:
+                                    pb = roi_info['pbeam'].reshape(-1,self.freq.size)
+                                except ValueError:
+                                    raise ValueError('Number of columns of primary beam in key "pbeam" of dictionary roi_info must be equal to number of frequency channels.')
+        
+                                if NP.asarray(roi_info['ind']).size == pb.shape[0]:
+                                    self.info['pbeam'] += [roi_info['pbeam'].astype(NP.float32)]
+                                else:
+                                    raise ValueError('Number of elements in values in key "ind" and number of rows of values in key "pbeam" must be identical.')
+                                pbeam_input = True
+        
+                        if not pbeam_input: # Will require sky positions in Alt-Az coordinates
+                            if skymodel.coords == 'radec':
+                                if self.telescope['latitude'] is None:
+                                    raise ValueError('Latitude of the observatory must be provided.')
+                                if lst is None:
+                                    raise ValueError('LST must be provided.')
+                                skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')
+                            elif skymodel.coords == 'hadec':
+                                if self.telescope['latitude'] is None:
+                                    raise ValueError('Latitude of the observatory must be provided.')
+                                skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
+        
+                            elif skymodel.coords == 'dircos':
+                                skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
+                            elif skymodel.coords == 'altaz':
+                                skypos_altaz = skymodel.location
+                            else:
+                                raise KeyError('skycoords invalid or unspecified in skymodel')
+                if 'radius' in roi_info:
+                    self.info['radius'] += [roi_info['radius']]
+                if 'center' in roi_info:
+                    self.info['center'] += [roi_info['center']]
             else:
-                raise KeyError('skycoords invalid or unspecified in skymodel')
-
-            dtheta = GEOM.sphdist(self.info['center'][-1][0,1], self.info['center'][-1][0,0], 270.0, 90.0)
-            if dtheta > 1e-2: # ROI center is not zenith
-                m1, m2, d12 = GEOM.spherematch(self.info['center'][-1][0,0], self.info['center'][-1][0,1], skypos_altaz[:,0], skypos_altaz[:,1], roi_info['radius'], maxmatches=0)
-            else:
-                m2, = NP.where(skypos_altaz[:,0] >= 90.0-roi_info['radius']) # select sources whose altitude (angle above horizon) is 90-radius
-            self.info['ind'] += [m2]
-
-        if self.info['center_coords'] is None:
-            if 'center_coords' in roi_info:
-                if (roi_info['center_coords'] == 'altaz') or (roi_info['center_coords'] == 'dircos') or (roi_info['center_coords'] == 'hadec') or (roi_info['center_coords'] == 'radec'):
-                    self.info['center_coords'] = roi_info['center_coords']
-
-        if not pbeam_input:
-            if pinfo is None:
-                raise ValueError('Pointing info dictionary pinfo must be specified.')
-            self.pinfo += [pinfo]
-
-            if 'pointing_coords' in pinfo: # Convert pointing coordinate to Alt-Az
-                if (pinfo['pointing_coords'] != 'dircos') and (pinfo['pointing_coords'] != 'altaz'):
+                if roi_info['radius'] is None:
+                    roi_info['radius'] = 90.0
+                else:
+                    roi_info['radius'] = max(0.0, min(roi_info['radius'], 90.0))
+                self.info['radius'] += [roi_info['radius']]
+    
+                if roi_info['center'] is None:
+                    self.info['center'] += [NP.asarray([90.0, 270.0]).reshape(1,-1)]
+                else:
+                    roi_info['center'] = NP.asarray(roi_info['center']).reshape(1,-1)
+                    if roi_info['center_coords'] == 'dircos':
+                        self.info['center'] += [GEOM.dircos2altaz(roi_info['center'], units='degrees')]
+                    elif roi_info['center_coords'] == 'altaz':
+                        self.info['center'] += [roi_info['center']]
+                    elif roi_info['center_coords'] == 'hadec':
+                        self.info['center'] += [GEOM.hadec2altaz(roi_info['center'], self.telescope['latitude'], units='degrees')]
+                    elif roi_info['center_coords'] == 'radec':
+                        if lst is None:
+                            raise KeyError('LST not provided for coordinate conversion')
+                        hadec = NP.asarray([lst-roi_info['center'][0,0], roi_info['center'][0,1]]).reshape(1,-1)
+                        self.info['center'] += [GEOM.hadec2altaz(hadec, self.telescope['latitude'], units='degrees')]
+                    elif roi_info['center_coords'] == 'dircos':
+                        self.info['center'] += [GEOM.dircos2altaz(roi_info['center'], units='degrees')]
+                    else:
+                        raise ValueError('Invalid coordinate system specified for center')
+    
+                if skymodel.coords == 'radec':
                     if self.telescope['latitude'] is None:
                         raise ValueError('Latitude of the observatory must be provided.')
-                    if pinfo['pointing_coords'] == 'radec':
-                        if lst is None:
-                            raise ValueError('LST must be provided.')
-                        self.pinfo[-1]['pointing_center'] = NP.asarray([lst-pinfo['pointing_center'][0,0], pinfo['pointing_center'][0,1]]).reshape(1,-1)
-                        self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(self.pinfo[-1]['pointing_center'], self.telescope['latitude'], units='degrees')
-                    elif pinfo[-1]['pointing_coords'] == 'hadec':
-                        self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(pinfo[-1]['pointing_center'], self.telescope['latitude'], units='degrees')
-                    else:
-                        raise ValueError('pointing_coords in dictionary pinfo must be "dircos", "altaz", "hadec" or "radec".')
-                    self.pinfo[-1]['pointing_coords'] = 'altaz'
-
-            ind = self.info['ind'][-1]
-            if ind.size > 0:
-                if 'id' in self.telescope:
-                    if self.telescope['id'] == 'mwa_tools':
-                        if not mwa_tools_found:
-                            raise ImportError('MWA_Tools could not be imported which is required for power pattern computation.')
     
-                        pbeam = NP.empty((ind.size, self.freq.size))
-                        for i in xrange(self.freq.size):
-                            pbx_MWA, pby_MWA = MWAPB.MWA_Tile_advanced(NP.radians(90.0-skypos_altaz[ind,0]).reshape(-1,1), NP.radians(skypos_altaz[ind,1]).reshape(-1,1), freq=self.freq[i], delays=self.pinfo[-1]['delays']/435e-12)
-                            if 'pol' in self.telescope:
-                                if (self.telescope['pol'] == 'X') or (self.telescope['pol'] == 'x'):
-                                    pbeam[:,i] = pbx_MWA.ravel()
-                                elif (self.telescope['pol'] == 'Y') or (self.telescope['pol'] == 'y'):
-                                    pbeam[:,i] = pby_MWA.ravel()
+                    if lst is None:
+                        raise ValueError('LST must be provided.')
+                    skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')
+                elif skymodel.coords == 'hadec':
+                    if self.telescope['latitude'] is None:
+                        raise ValueError('Latitude of the observatory must be provided.')
+                    skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
+                elif skymodel.coords == 'dircos':
+                    skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
+                elif skymodel.coords == 'altaz':
+                    skypos_altaz = skymodel.location
+                else:
+                    raise KeyError('skycoords invalid or unspecified in skymodel')
+    
+                dtheta = GEOM.sphdist(self.info['center'][-1][0,1], self.info['center'][-1][0,0], 270.0, 90.0)
+                if dtheta > 1e-2: # ROI center is not zenith
+                    m1, m2, d12 = GEOM.spherematch(self.info['center'][-1][0,0], self.info['center'][-1][0,1], skypos_altaz[:,0], skypos_altaz[:,1], roi_info['radius'], maxmatches=0)
+                else:
+                    m2, = NP.where(skypos_altaz[:,0] >= 90.0-roi_info['radius']) # select sources whose altitude (angle above horizon) is 90-radius
+                self.info['ind'] += [m2]
+    
+            if self.info['center_coords'] is None:
+                if 'center_coords' in roi_info:
+                    if (roi_info['center_coords'] == 'altaz') or (roi_info['center_coords'] == 'dircos') or (roi_info['center_coords'] == 'hadec') or (roi_info['center_coords'] == 'radec'):
+                        self.info['center_coords'] = roi_info['center_coords']
+    
+            if not pbeam_input:
+                if pinfo is None:
+                    raise ValueError('Pointing info dictionary pinfo must be specified.')
+                self.pinfo += [pinfo]
+    
+                if 'pointing_coords' in pinfo: # Convert pointing coordinate to Alt-Az
+                    if (pinfo['pointing_coords'] != 'dircos') and (pinfo['pointing_coords'] != 'altaz'):
+                        if self.telescope['latitude'] is None:
+                            raise ValueError('Latitude of the observatory must be provided.')
+                        if pinfo['pointing_coords'] == 'radec':
+                            if lst is None:
+                                raise ValueError('LST must be provided.')
+                            self.pinfo[-1]['pointing_center'] = NP.asarray([lst-pinfo['pointing_center'][0,0], pinfo['pointing_center'][0,1]]).reshape(1,-1)
+                            self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(self.pinfo[-1]['pointing_center'], self.telescope['latitude'], units='degrees')
+                        elif pinfo[-1]['pointing_coords'] == 'hadec':
+                            self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(pinfo[-1]['pointing_center'], self.telescope['latitude'], units='degrees')
+                        else:
+                            raise ValueError('pointing_coords in dictionary pinfo must be "dircos", "altaz", "hadec" or "radec".')
+                        self.pinfo[-1]['pointing_coords'] = 'altaz'
+    
+                ind = self.info['ind'][-1]
+                if ind.size > 0:
+                    if 'id' in self.telescope:
+                        if self.telescope['id'] == 'mwa_tools':
+                            if not mwa_tools_found:
+                                raise ImportError('MWA_Tools could not be imported which is required for power pattern computation.')
+        
+                            pbeam = NP.empty((ind.size, self.freq.size))
+                            for i in xrange(self.freq.size):
+                                pbx_MWA, pby_MWA = MWAPB.MWA_Tile_advanced(NP.radians(90.0-skypos_altaz[ind,0]).reshape(-1,1), NP.radians(skypos_altaz[ind,1]).reshape(-1,1), freq=self.freq[i], delays=self.pinfo[-1]['delays']/435e-12)
+                                if 'pol' in self.telescope:
+                                    if (self.telescope['pol'] == 'X') or (self.telescope['pol'] == 'x'):
+                                        pbeam[:,i] = pbx_MWA.ravel()
+                                    elif (self.telescope['pol'] == 'Y') or (self.telescope['pol'] == 'y'):
+                                        pbeam[:,i] = pby_MWA.ravel()
+                                    else:
+                                        raise ValueError('Key "pol" in attribute dictionary telescope is invalid.')
                                 else:
-                                    raise ValueError('Key "pol" in attribute dictionary telescope is invalid.')
-                            else:
-                                self.telescope['pol'] = 'X'
-                                pbeam[:,i] = pbx_MWA.ravel()
+                                    self.telescope['pol'] = 'X'
+                                    pbeam[:,i] = pbx_MWA.ravel()
+                        else:
+                            pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
                     else:
                         pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
+        
+                    self.info['pbeam'] += [pbeam.astype(NP.float64)]
                 else:
-                    pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
-    
-                self.info['pbeam'] += [pbeam.astype(NP.float64)]
-            else:
-                self.info['pbeam'] += [NP.asarray([])]
+                    self.info['pbeam'] += [NP.asarray([])]
 
     #############################################################################
 
@@ -4579,23 +4584,25 @@ class ROI_parameters(object):
             print('\t\tCreated an extension HDU of {0:0d} frequency channels'.format(self.freq.size))
 
         for i in range(len(self.info['ind'])):
-            hdulist += [fits.ImageHDU(self.info['ind'][i], name='IND_{0:0d}'.format(i))]
-            hdulist += [fits.ImageHDU(self.info['pbeam'][i], name='PB_{0:0d}'.format(i))]
+            if self.info['ind'][i].size > 0:
+                hdulist += [fits.ImageHDU(self.info['ind'][i], name='IND_{0:0d}'.format(i))]
+                hdulist += [fits.ImageHDU(self.info['pbeam'][i], name='PB_{0:0d}'.format(i))]
             if self.pinfo: # if self.pinfo is not empty
-                if 'delays' in self.pinfo[i]:
-                    hdulist += [fits.ImageHDU(self.pinfo[i]['delays'], name='DELAYS_{0:0d}'.format(i))]
-                    if 'delayerr' in self.pinfo[i]:
-                        if self.pinfo[i]['delayerr'] is not None:
-                            hdulist[-1].header['delayerr'] = (self.pinfo[i]['delayerr'], 'Jitter in delays [s]')
+                if self.pinfo[i] is not None: # if the specific i-th entry in self.pinfo is not empty
+                    if 'delays' in self.pinfo[i]:
+                        hdulist += [fits.ImageHDU(self.pinfo[i]['delays'], name='DELAYS_{0:0d}'.format(i))]
+                        if 'delayerr' in self.pinfo[i]:
+                            if self.pinfo[i]['delayerr'] is not None:
+                                hdulist[-1].header['delayerr'] = (self.pinfo[i]['delayerr'], 'Jitter in delays [s]')
+                            else:
+                                hdulist[-1].header['delayerr'] = (0.0, 'Jitter in delays [s]')
+                    
+                    if 'pointing_center' in self.pinfo[i]:
+                        hdulist += [fits.ImageHDU(self.pinfo[i]['pointing_center'], name='POINTING_CENTER_{0:0d}'.format(i))]
+                        if 'pointing_coords' in self.pinfo[i]:
+                            hdulist[-1].header['pointing_coords'] = (self.pinfo[i]['pointing_coords'], 'Pointing coordinate system')
                         else:
-                            hdulist[-1].header['delayerr'] = (0.0, 'Jitter in delays [s]')
-
-                if 'pointing_center' in self.pinfo[i]:
-                    hdulist += [fits.ImageHDU(self.pinfo[i]['pointing_center'], name='POINTING_CENTER_{0:0d}'.format(i))]
-                    if 'pointing_coords' in self.pinfo[i]:
-                        hdulist[-1].header['pointing_coords'] = (self.pinfo[i]['pointing_coords'], 'Pointing coordinate system')
-                    else:
-                        raise KeyError('Key "pointing_coords" not found in attribute pinfo.')
+                            raise KeyError('Key "pointing_coords" not found in attribute pinfo.')
 
         if verbose:
             print('\t\tCreated HDU extensions for {0:0d} observations containing ROI indices and primary beams'.format(len(self.info['ind'])))

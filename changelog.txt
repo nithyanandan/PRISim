@@ -1,3 +1,19 @@
+From 7292132 (emptysim):
+=======================
+
+In prisim/interferometry.py,
+
+(*) Update member function append_settings() of class ROI_parameters
+to append with empty lists if input skymodel is set to None. Update
+member function docstring accordingly
+(*) Update member function save() of class ROI_parameters to save only
+non-empty entries into FITS tables
+
+In scripts/run_prisim.py,
+
+(*) If no sources found in the upper hemisphere, pass empty values to
+member function append_settings() of class ROI_parameters
+
 From 4e32435 (ephemeris):
 ========================
 
