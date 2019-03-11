@@ -516,9 +516,8 @@ class ClosurePhase(object):
                     Smooth the complex exponentials of closure phases in LST  
                     bins. Both mean and median smoothing is produced.
 
-    subtract()      Subtract bispectrum phase from the current instance and 
-                    updates the cpinfo attribute
-
+    subtract()      Subtract complex exponential of the bispectrum phase 
+                    from the current instance and updates the cpinfo attribute
 
     save()          Save contents of attribute cpinfo in external HDF5 file
     ----------------------------------------------------------------------------
@@ -843,8 +842,8 @@ class ClosurePhase(object):
 
         """
         ------------------------------------------------------------------------
-        Subtract bispectrum phase from the current instance and updates the 
-        cpinfo attribute
+        Subtract complex exponential of the bispectrum phase from the current 
+        instance and updates the cpinfo attribute
 
         Inputs:
 
@@ -877,8 +876,10 @@ class ClosurePhase(object):
         self.cpinfo['processed']['submodel']['eicp'] = eicp
         self.cpinfo['processed']['residual'] = {'eicp': {}, 'cphase': {}}
         for key in ['mean', 'median']:
-            self.cpinfo['processed']['residual']['eicp'][key] = self.cpinfo['processed']['prelim']['eicp'][key] / eicp
-            self.cpinfo['processed']['residual']['cphase'][key] = MA.array(NP.angle(self.cpinfo['processed']['residual']['eicp'][key].data), mask=self.cpinfo['processed']['residual']['eicp'][key].mask)
+            eicpdiff = self.cpinfo['processed']['prelim']['eicp'][key] - eicp
+            eicpratio = self.cpinfo['processed']['prelim']['eicp'][key] / eicp
+            self.cpinfo['processed']['residual']['eicp'][key] = eicpdiff
+            self.cpinfo['processed']['residual']['cphase'][key] = MA.array(NP.angle(eicpratio.data), mask=self.cpinfo['processed']['residual']['eicp'][key].mask)
         
     ############################################################################
 

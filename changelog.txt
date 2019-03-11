@@ -1,3 +1,12 @@
+From a8639fd (ephemeris):
+========================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function subtract() of class ClosurePhase, subtract eicp
+instead of ratio for 'residual' in datapool. Update docstring of
+member function and class accordingly
+
 From 7292132 (emptysim):
 =======================
 
