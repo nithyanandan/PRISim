@@ -1,3 +1,12 @@
+From c4ed619 (BSP_PS_errorbar):
+==============================
+
+In prisim/bispectrum_phase.py,
+
+(*) Update member function FT() under class ClosurePhaseDelaySpectrum
+to calculate Fourier transform of subsample differences towards
+evaluating power spectrum uncertainties
+
 From 2c08410 (ephemeris):
 ========================
 
