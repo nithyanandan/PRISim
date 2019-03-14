@@ -456,8 +456,8 @@ class ClosurePhase(object):
     extfile         [string] Full path to external file containing information
                     of ClosurePhase instance. The file is in HDF5 format
 
-    cpinfo          [dictionary] Contains two top level keys, namely, 'raw' and
-                    'processed'. 
+    cpinfo          [dictionary] Contains the following top level keys, 
+                    namely, 'raw', 'processed', and 'errinfo'
 
                     Under key 'raw' which holds a dictionary, the subkeys 
                     include 'cphase' (nlst,ndays,ntriads,nchan), 
@@ -505,6 +505,24 @@ class ClosurePhase(object):
                         and 'median' (masked array: 
                         (ntbins,ndays,ntriads,nchan)).
 
+                    Under key 'errinfo', it contains the following keys and
+                    values:
+                    'list_of_pair_of_pairs' 
+                            List of pair of pairs for which differences of
+                            complex exponentials have been computed, where the
+                            elements are bins of days. The number of elements
+                            in the list is ncomb
+                    'eicp_diff'
+                            Difference of complex exponentials between pairs
+                            of day bins. This will be used in evaluating noise
+                            properties in power spectrum. It is of shape
+                            (nlstbins,ncomb,2,ntriads,nchan)
+                    'wts'   Weights in difference of complex exponentials 
+                            obtained by sum of squares of weights that are
+                            associated with the pair that was used in the
+                            differencing. It is of shape 
+                            (nlstbins,ncomb,2,ntriads,nchan)
+
     Member functions:
 
     __init__()      Initialize an instance of class ClosurePhase
@@ -518,6 +536,10 @@ class ClosurePhase(object):
 
     subtract()      Subtract complex exponential of the bispectrum phase 
                     from the current instance and updates the cpinfo attribute
+
+    subsample_differencing()
+                    Create subsamples and differences between subsamples to 
+                    evaluate noise properties from the data set.
 
     save()          Save contents of attribute cpinfo in external HDF5 file
     ----------------------------------------------------------------------------
@@ -607,7 +629,9 @@ class ClosurePhase(object):
 
         if 'prelim' not in self.cpinfo['processed']:
             self.cpinfo['processed']['prelim'] = {}
-            
+
+        self.cpinfo['errinfo'] = {}
+
     ############################################################################
 
     def expicp(self, force_action=False):
@@ -881,6 +905,176 @@ class ClosurePhase(object):
             self.cpinfo['processed']['residual']['eicp'][key] = eicpdiff
             self.cpinfo['processed']['residual']['cphase'][key] = MA.array(NP.angle(eicpratio.data), mask=self.cpinfo['processed']['residual']['eicp'][key].mask)
         
+    ############################################################################
+
+    def subsample_differencing(self, daybinsize=None, ndaybins=4, lstbinsize=None):
+
+        """
+        ------------------------------------------------------------------------
+        Create subsamples and differences between subsamples to evaluate noise
+        properties from the data set.
+
+        Inputs:
+
+        daybinsize  [Nonetype or scalar] Day bin size (in days) over which mean
+                    and median are estimated across different days for a fixed
+                    LST bin. If set to None, it will look for value in input
+                    ndaybins. If both are None, no smoothing is performed. Only
+                    one of daybinsize or ndaybins must be set to non-None value.
+                    Must yield greater than or equal to 4 bins
+
+        ndaybins    [NoneType or integer] Number of bins along day axis. Only 
+                    if daybinsize is set to None. It produces bins that roughly 
+                    consist of equal number of days in each bin regardless of
+                    how much the days in each bin are separated from each other. 
+                    If both are None, no smoothing is performed. Only one of 
+                    daybinsize or ndaybins must be set to non-None value. If set,
+                    it must be set to greater than or equal to 4
+
+        lstbinsize  [NoneType or scalar] LST bin size (in seconds) over which
+                    mean and median are estimated across the LST. If set to 
+                    None, no smoothing is performed
+        ------------------------------------------------------------------------
+        """
+
+        if (ndaybins is not None) and (daybinsize is not None):
+            raise ValueError('Only one of daybinsize or ndaybins should be set')
+
+        if (daybinsize is not None) or (ndaybins is not None):
+            if daybinsize is not None:
+                if not isinstance(daybinsize, (int,float)):
+                    raise TypeError('Input daybinsize must be a scalar')
+                dres = NP.diff(self.cpinfo['raw']['days']).min() # in days
+                dextent = self.cpinfo['raw']['days'].max() - self.cpinfo['raw']['days'].min() + dres # in days
+                if daybinsize > dres:
+                    daybinsize = NP.clip(daybinsize, dres, dextent)
+                    eps = 1e-10
+                    daybins = NP.arange(self.cpinfo['raw']['days'].min(), self.cpinfo['raw']['days'].max() + dres + eps, daybinsize)
+                    ndaybins = daybins.size
+                    daybins = NP.concatenate((daybins, [daybins[-1]+daybinsize+eps]))
+                    if ndaybins >= 4:
+                        daybinintervals = daybins[1:] - daybins[:-1]
+                        daybincenters = daybins[:-1] + 0.5 * daybinintervals
+                    else:
+                        raise ValueError('Could not find at least 4 bins along repeating days. Adjust binning interval.')
+                    counts, daybin_edges, daybinnum, ri = OPS.binned_statistic(self.cpinfo['raw']['days'], statistic='count', bins=daybins)
+                    counts = counts.astype(NP.int)
+    
+                    wts_daybins = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]))
+                    eicp_dmean = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]), dtype=NP.complex128)
+                    eicp_dmedian = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]), dtype=NP.complex128)
+                    cp_drms = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]))
+                    cp_dmad = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]))
+                    for binnum in xrange(counts.size):
+                        ind_daybin = ri[ri[binnum]:ri[binnum+1]]
+                        wts_daybins[:,binnum,:,:] = NP.sum(self.cpinfo['processed']['native']['wts'][:,ind_daybin,:,:].data, axis=1)
+                        eicp_dmean[:,binnum,:,:] = NP.exp(1j*NP.angle(MA.mean(self.cpinfo['processed']['native']['eicp'][:,ind_daybin,:,:], axis=1)))
+                        eicp_dmedian[:,binnum,:,:] = NP.exp(1j*NP.angle(MA.median(self.cpinfo['processed']['native']['eicp'][:,ind_daybin,:,:].real, axis=1) + 1j * MA.median(self.cpinfo['processed']['native']['eicp'][:,ind_daybin,:,:].imag, axis=1)))
+                        cp_drms[:,binnum,:,:] = MA.std(self.cpinfo['processed']['native']['cphase'][:,ind_daybin,:,:], axis=1).data
+                        cp_dmad[:,binnum,:,:] = MA.median(NP.abs(self.cpinfo['processed']['native']['cphase'][:,ind_daybin,:,:] - NP.angle(eicp_dmedian[:,binnum,:,:][:,NP.newaxis,:,:])), axis=1).data
+            else:
+                if not isinstance(ndaybins, int):
+                    raise TypeError('Input ndaybins must be an integer')
+                if ndaybins < 4:
+                    raise ValueError('Input ndaybins must be greater than or equal to 4')
+                days_split = NP.array_split(self.cpinfo['raw']['days'], ndaybins)
+                daybincenters = NP.asarray([NP.mean(days) for days in days_split])
+                daybinintervals = NP.asarray([days.max()-days.min() for days in days_split])
+                counts = NP.asarray([days.size for days in days_split])
+    
+                wts_split = NP.array_split(self.cpinfo['processed']['native']['wts'].data, ndaybins, axis=1)
+                # mask_split = NP.array_split(self.cpinfo['processed']['native']['wts'].mask, ndaybins, axis=1)
+                wts_daybins = NP.asarray([NP.sum(wtsitem, axis=1) for wtsitem in wts_split]) # ndaybins x nlst x ntriads x nchan
+                wts_daybins = NP.moveaxis(wts_daybins, 0, 1) # nlst x ndaybins x ntriads x nchan
+                mask_split = NP.array_split(self.cpinfo['processed']['native']['eicp'].mask, ndaybins, axis=1)
+                eicp_split = NP.array_split(self.cpinfo['processed']['native']['eicp'].data, ndaybins, axis=1)
+                eicp_dmean = MA.array([MA.mean(MA.array(eicp_split[i], mask=mask_split[i]), axis=1) for i in range(daybincenters.size)]) # ndaybins x nlst x ntriads x nchan
+                eicp_dmean = NP.exp(1j * NP.angle(eicp_dmean))
+                eicp_dmean = NP.moveaxis(eicp_dmean, 0, 1) # nlst x ndaybins x ntriads x nchan
+    
+                eicp_dmedian = MA.array([MA.median(MA.array(eicp_split[i].real, mask=mask_split[i]), axis=1) + 1j * MA.median(MA.array(eicp_split[i].imag, mask=mask_split[i]), axis=1) for i in range(daybincenters.size)]) # ndaybins x nlst x ntriads x nchan
+                eicp_dmedian = NP.exp(1j * NP.angle(eicp_dmedian))
+                eicp_dmedian = NP.moveaxis(eicp_dmedian, 0, 1) # nlst x ndaybins x ntriads x nchan
+                
+                cp_split = NP.array_split(self.cpinfo['processed']['native']['cphase'].data, ndaybins, axis=1)
+                cp_drms = NP.array([MA.std(MA.array(cp_split[i], mask=mask_split[i]), axis=1).data for i in range(daybincenters.size)]) # ndaybins x nlst x ntriads x nchan
+                cp_drms = NP.moveaxis(cp_drms, 0, 1) # nlst x ndaybins x ntriads x nchan
+    
+                cp_dmad = NP.array([MA.median(NP.abs(cp_split[i] - NP.angle(eicp_dmedian[:,[i],:,:])), axis=1).data for i in range(daybincenters.size)]) # ndaybins x nlst x ntriads x nchan
+                cp_dmad = NP.moveaxis(cp_dmad, 0, 1) # nlst x ndaybins x ntriads x nchan
+
+        mask = wts_daybins <= 0.0
+        cp_dmean = MA.array(NP.angle(eicp_dmean), mask=mask)
+        cp_dmedian = MA.array(NP.angle(eicp_dmedian), mask=mask)
+        self.cpinfo['errinfo']['daybins'] = daybincenters
+        self.cpinfo['errinfo']['diff_dbins'] = daybinintervals
+        self.cpinfo['errinfo']['wts'] = wts_daybins
+        self.cpinfo['errinfo']['eicp_diff'] = {}
+        if lstbinsize is not None:
+            if not isinstance(lstbinsize, (int,float)):
+                raise TypeError('Input lstbinsize must be a scalar')
+            lstbinsize = lstbinsize / 3.6e3 # in hours
+            tres = NP.diff(self.cpinfo['raw']['lst'][:,0]).min() # in hours
+            textent = self.cpinfo['raw']['lst'][:,0].max() - self.cpinfo['raw']['lst'][:,0].min() + tres # in hours
+            if lstbinsize > tres:
+                lstbinsize = NP.clip(lstbinsize, tres, textent)
+                eps = 1e-10
+                lstbins = NP.arange(self.cpinfo['raw']['lst'][:,0].min(), self.cpinfo['raw']['lst'][:,0].max() + tres + eps, lstbinsize)
+                nlstbins = lstbins.size
+                lstbins = NP.concatenate((lstbins, [lstbins[-1]+lstbinsize+eps]))
+                if nlstbins > 1:
+                    lstbinintervals = lstbins[1:] - lstbins[:-1]
+                    lstbincenters = lstbins[:-1] + 0.5 * lstbinintervals
+                else:
+                    lstbinintervals = NP.asarray(lstbinsize).reshape(-1)
+                    lstbincenters = lstbins[0] + 0.5 * lstbinintervals
+                counts, lstbin_edges, lstbinnum, ri = OPS.binned_statistic(self.cpinfo['raw']['lst'][:,0], statistic='count', bins=lstbins)
+                counts = counts.astype(NP.int)
+                self.cpinfo['errinfo']['lstbins'] = lstbincenters
+                self.cpinfo['errinfo']['dlstbins'] = lstbinintervals
+                outshape = (counts.size, wts_daybins.shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3])
+                wts_lstbins = NP.zeros(outshape)
+                eicp_tmean = NP.zeros(outshape, dtype=NP.complex128)
+                eicp_tmedian = NP.zeros(outshape, dtype=NP.complex128)
+                cp_trms = NP.zeros(outshape)
+                cp_tmad = NP.zeros(outshape)
+                for binnum in xrange(counts.size):
+                    ind_lstbin = ri[ri[binnum]:ri[binnum+1]]
+                    wts_lstbins[binnum,:,:,:] = NP.sum(wts_daybins[ind_lstbin,:,:,:].data, axis=0)
+                    eicp_tmean[binnum,:,:,:] = MA.mean(NP.exp(1j*cp_dmean[ind_lstbin,:,:,:]), axis=0)
+                    eicp_tmedian[binnum,:,:,:] = MA.median(NP.cos(cp_dmedian[ind_lstbin,:,:,:]), axis=0) + 1j * MA.median(NP.sin(cp_dmedian[ind_lstbin,:,:,:]), axis=0)
+                mask = wts_lstbins <= 0.0
+
+        ncomb = NP.sum(NP.asarray([(ndaybins-i-1)*(ndaybins-i-2)*(ndaybins-i-3)/2 for i in range(ndaybins-3)])).astype(int)
+        diff_outshape = (counts.size, ncomb, 2, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3])
+        self.cpinfo['errinfo']['eicp_diff']['mean'] = NP.empty(diff_outshape, dtype=NP.complex)
+        self.cpinfo['errinfo']['eicp_diff']['median'] = NP.empty(diff_outshape, dtype=NP.complex)
+        self.cpinfo['errinfo']['wts'] = NP.empty(diff_outshape, dtype=NP.float)
+        ind = -1
+        self.cpinfo['errinfo']['list_of_pair_of_pairs'] = []
+        for i in range(ndaybins-1):
+            for j in range(i+1,ndaybins):
+                for k in range(ndaybins-1):
+                    if (k != i) and (k != j):
+                        for m in range(k+1,ndaybins):
+                            if (m != i) and (m != j):
+                                pair_of_pairs = [set([i,j]), set([k,m])]
+                                if (pair_of_pairs not in self.cpinfo['errinfo']['list_of_pair_of_pairs']) and (pair_of_pairs[::-1] not in self.cpinfo['errinfo']['list_of_pair_of_pairs']):
+                                    ind += 1
+                                    self.cpinfo['errinfo']['list_of_pair_of_pairs'] += [copy.deepcopy(pair_of_pairs)]
+                                    for stat in ['mean', 'median']:
+                                        if stat == 'mean':
+                                            self.cpinfo['errinfo']['eicp_diff'][stat][:,ind,0,:,:] = eicp_tmean[:,j,:,:] - eicp_tmean[:,i,:,:]
+                                            self.cpinfo['errinfo']['eicp_diff'][stat][:,ind,1,:,:] = eicp_tmean[:,m,:,:] - eicp_tmean[:,k,:,:]
+                                            self.cpinfo['errinfo']['wts'][:,ind,0,:,:] = NP.sqrt(wts_lstbins[:,j,:,:]**2 + wts_lstbins[:,i,:,:]**2)
+                                            self.cpinfo['errinfo']['wts'][:,ind,1,:,:] = NP.sqrt(wts_lstbins[:,m,:,:]**2 + wts_lstbins[:,k,:,:]**2)
+                                        else:
+                                            self.cpinfo['errinfo']['eicp_diff'][stat][:,ind,0,:,:] = eicp_tmedian[:,j,:,:] - eicp_tmedian[:,i,:,:]
+                                            self.cpinfo['errinfo']['eicp_diff'][stat][:,ind,1,:,:] = eicp_tmedian[:,m,:,:] - eicp_tmedian[:,k,:,:]
+                                        mask = self.cpinfo['errinfo']['wts'] <= 0.0
+                                        self.cpinfo['errinfo']['eicp_diff'][stat] = MA.array(self.cpinfo['errinfo']['eicp_diff'][stat], mask=mask)
+                                        self.cpinfo['errinfo']['wts'] = MA.array(self.cpinfo['errinfo']['wts'], mask=mask)
+
     ############################################################################
 
     def save(self, outfile=None):
@@ -3224,3 +3418,6 @@ class ClosurePhaseDelaySpectrum(object):
             return omega_bw
 
     ############################################################################
+
+
+        

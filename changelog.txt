@@ -1,3 +1,11 @@
+From 2c08410 (ephemeris):
+========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Create member function subsample_differencing() along with
+docstring under class ClosurePhase. Update class docstring accordingly 
+
 From a8639fd (ephemeris):
 ========================
 
