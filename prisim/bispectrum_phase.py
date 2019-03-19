@@ -511,17 +511,23 @@ class ClosurePhase(object):
                             List of pair of pairs for which differences of
                             complex exponentials have been computed, where the
                             elements are bins of days. The number of elements
-                            in the list is ncomb
+                            in the list is ncomb. And each element is a smaller 
+                            (4-element) list of pair of pairs
+                         
                     'eicp_diff'
                             Difference of complex exponentials between pairs
                             of day bins. This will be used in evaluating noise
-                            properties in power spectrum. It is of shape
+                            properties in power spectrum. It is a dictionary 
+                            with two keys '0' and '1' where each contains the
+                            difference from a pair of subsamples. Each of these
+                            keys contains a numpy array of shape
                             (nlstbins,ncomb,2,ntriads,nchan)
                     'wts'   Weights in difference of complex exponentials 
                             obtained by sum of squares of weights that are
                             associated with the pair that was used in the
-                            differencing. It is of shape 
-                            (nlstbins,ncomb,2,ntriads,nchan)
+                            differencing. It is a dictionary with two keys '0' 
+                            and '1' where each contains the weights associated 
+                            It is of shape (nlstbins,ncomb,2,ntriads,nchan)
 
     Member functions:
 
@@ -842,8 +848,8 @@ class ClosurePhase(object):
                         cp_trms[binnum,:,:,:] = MA.std(indict['cphase'][ind_lstbin,:,:,:], axis=0).data
                         cp_tmad[binnum,:,:,:] = MA.median(NP.abs(indict['cphase'][ind_lstbin,:,:,:] - NP.angle(eicp_tmedian[binnum,:,:,:][NP.newaxis,:,:,:])), axis=0).data
                     else:
-                        eicp_tmean[binnum,:,:,:] = MA.mean(NP.exp(1j*indict['cphase']['mean'][ind_lstbin,:,:,:]), axis=0)
-                        eicp_tmedian[binnum,:,:,:] = MA.median(NP.cos(indict['cphase']['median'][ind_lstbin,:,:,:]), axis=0) + 1j * MA.median(NP.sin(indict['cphase']['median'][ind_lstbin,:,:,:]), axis=0)
+                        eicp_tmean[binnum,:,:,:] = NP.exp(1j*NP.angle(MA.mean(NP.exp(1j*indict['cphase']['mean'][ind_lstbin,:,:,:]), axis=0)))
+                        eicp_tmedian[binnum,:,:,:] = NP.exp(1j*NP.angle(MA.median(NP.cos(indict['cphase']['median'][ind_lstbin,:,:,:]), axis=0) + 1j * MA.median(NP.sin(indict['cphase']['median'][ind_lstbin,:,:,:]), axis=0)))
                         cp_trms[binnum,:,:,:] = MA.std(indict['cphase']['mean'][ind_lstbin,:,:,:], axis=0).data
                         cp_tmad[binnum,:,:,:] = MA.median(NP.abs(indict['cphase']['median'][ind_lstbin,:,:,:] - NP.angle(eicp_tmedian[binnum,:,:,:][NP.newaxis,:,:,:])), axis=0).data
                         
@@ -851,10 +857,10 @@ class ClosurePhase(object):
                 self.cpinfo['processed']['prelim']['wts'] = MA.array(wts_lstbins, mask=mask)
                 if 'eicp' not in self.cpinfo['processed']['prelim']:
                     self.cpinfo['processed']['prelim']['eicp'] = {}
-                self.cpinfo['processed']['prelim']['eicp']['mean'] = MA.array(eicp_tmean, mask=mask)
-                self.cpinfo['processed']['prelim']['eicp']['median'] = MA.array(eicp_tmedian, mask=mask)
                 if 'cphase' not in self.cpinfo['processed']['prelim']:
                     self.cpinfo['processed']['prelim']['cphase'] = {}
+                self.cpinfo['processed']['prelim']['eicp']['mean'] = MA.array(eicp_tmean, mask=mask)
+                self.cpinfo['processed']['prelim']['eicp']['median'] = MA.array(eicp_tmedian, mask=mask)
                 self.cpinfo['processed']['prelim']['cphase']['mean'] = MA.array(NP.angle(eicp_tmean), mask=mask)
                 self.cpinfo['processed']['prelim']['cphase']['median'] = MA.array(NP.angle(eicp_tmedian), mask=mask)
                 self.cpinfo['processed']['prelim']['cphase']['rms'] = MA.array(cp_trms, mask=mask)
@@ -1004,12 +1010,13 @@ class ClosurePhase(object):
                 cp_dmad = NP.moveaxis(cp_dmad, 0, 1) # nlst x ndaybins x ntriads x nchan
 
         mask = wts_daybins <= 0.0
+        wts_daybins = MA.array(wts_daybins, mask=mask)
         cp_dmean = MA.array(NP.angle(eicp_dmean), mask=mask)
         cp_dmedian = MA.array(NP.angle(eicp_dmedian), mask=mask)
         self.cpinfo['errinfo']['daybins'] = daybincenters
         self.cpinfo['errinfo']['diff_dbins'] = daybinintervals
-        self.cpinfo['errinfo']['wts'] = wts_daybins
-        self.cpinfo['errinfo']['eicp_diff'] = {}
+        self.cpinfo['errinfo']['wts'] = {'{0}'.format(ind): None for ind in range(2)}
+        self.cpinfo['errinfo']['eicp_diff'] = {'{0}'.format(ind): {} for ind in range(2)}
         if lstbinsize is not None:
             if not isinstance(lstbinsize, (int,float)):
                 raise TypeError('Input lstbinsize must be a scalar')
@@ -1041,17 +1048,22 @@ class ClosurePhase(object):
                 for binnum in xrange(counts.size):
                     ind_lstbin = ri[ri[binnum]:ri[binnum+1]]
                     wts_lstbins[binnum,:,:,:] = NP.sum(wts_daybins[ind_lstbin,:,:,:].data, axis=0)
-                    eicp_tmean[binnum,:,:,:] = MA.mean(NP.exp(1j*cp_dmean[ind_lstbin,:,:,:]), axis=0)
-                    eicp_tmedian[binnum,:,:,:] = MA.median(NP.cos(cp_dmedian[ind_lstbin,:,:,:]), axis=0) + 1j * MA.median(NP.sin(cp_dmedian[ind_lstbin,:,:,:]), axis=0)
+                    eicp_tmean[binnum,:,:,:] = NP.exp(1j*NP.angle(MA.mean(NP.exp(1j*cp_dmean[ind_lstbin,:,:,:]), axis=0)))
+                    eicp_tmedian[binnum,:,:,:] = NP.exp(1j*NP.angle(MA.median(NP.cos(cp_dmedian[ind_lstbin,:,:,:]), axis=0) + 1j * MA.median(NP.sin(cp_dmedian[ind_lstbin,:,:,:]), axis=0)))
                 mask = wts_lstbins <= 0.0
+                wts_lstbins = MA.array(wts_lstbins, mask=mask)
+                eicp_tmean = MA.array(eicp_tmean, mask=mask)
+                eicp_tmedian = MA.array(eicp_tmedian, mask=mask)
 
         ncomb = NP.sum(NP.asarray([(ndaybins-i-1)*(ndaybins-i-2)*(ndaybins-i-3)/2 for i in range(ndaybins-3)])).astype(int)
-        diff_outshape = (counts.size, ncomb, 2, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3])
-        self.cpinfo['errinfo']['eicp_diff']['mean'] = NP.empty(diff_outshape, dtype=NP.complex)
-        self.cpinfo['errinfo']['eicp_diff']['median'] = NP.empty(diff_outshape, dtype=NP.complex)
-        self.cpinfo['errinfo']['wts'] = NP.empty(diff_outshape, dtype=NP.float)
+        diff_outshape = (counts.size, ncomb, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3])
+        for diffind in range(2):
+            self.cpinfo['errinfo']['eicp_diff']['{0}'.format(diffind)]['mean'] = NP.empty(diff_outshape, dtype=NP.complex)
+            self.cpinfo['errinfo']['eicp_diff']['{0}'.format(diffind)]['median'] = NP.empty(diff_outshape, dtype=NP.complex)
+            self.cpinfo['errinfo']['wts']['{0}'.format(diffind)] = NP.empty(diff_outshape, dtype=NP.float)
         ind = -1
         self.cpinfo['errinfo']['list_of_pair_of_pairs'] = []
+        list_of_pair_of_pairs = []
         for i in range(ndaybins-1):
             for j in range(i+1,ndaybins):
                 for k in range(ndaybins-1):
@@ -1059,21 +1071,25 @@ class ClosurePhase(object):
                         for m in range(k+1,ndaybins):
                             if (m != i) and (m != j):
                                 pair_of_pairs = [set([i,j]), set([k,m])]
-                                if (pair_of_pairs not in self.cpinfo['errinfo']['list_of_pair_of_pairs']) and (pair_of_pairs[::-1] not in self.cpinfo['errinfo']['list_of_pair_of_pairs']):
+                                if (pair_of_pairs not in list_of_pair_of_pairs) and (pair_of_pairs[::-1] not in list_of_pair_of_pairs):
                                     ind += 1
-                                    self.cpinfo['errinfo']['list_of_pair_of_pairs'] += [copy.deepcopy(pair_of_pairs)]
+                                    list_of_pair_of_pairs += [copy.deepcopy(pair_of_pairs)]
+                                    self.cpinfo['errinfo']['list_of_pair_of_pairs'] += [[i,j,k,m]]
                                     for stat in ['mean', 'median']:
                                         if stat == 'mean':
-                                            self.cpinfo['errinfo']['eicp_diff'][stat][:,ind,0,:,:] = eicp_tmean[:,j,:,:] - eicp_tmean[:,i,:,:]
-                                            self.cpinfo['errinfo']['eicp_diff'][stat][:,ind,1,:,:] = eicp_tmean[:,m,:,:] - eicp_tmean[:,k,:,:]
-                                            self.cpinfo['errinfo']['wts'][:,ind,0,:,:] = NP.sqrt(wts_lstbins[:,j,:,:]**2 + wts_lstbins[:,i,:,:]**2)
-                                            self.cpinfo['errinfo']['wts'][:,ind,1,:,:] = NP.sqrt(wts_lstbins[:,m,:,:]**2 + wts_lstbins[:,k,:,:]**2)
+                                            self.cpinfo['errinfo']['eicp_diff']['0'][stat][:,ind,:,:] = 0.5 * (eicp_tmean[:,j,:,:] - eicp_tmean[:,i,:,:])
+                                            self.cpinfo['errinfo']['eicp_diff']['1'][stat][:,ind,:,:] = 0.5 * (eicp_tmean[:,m,:,:] - eicp_tmean[:,k,:,:])
+                                            self.cpinfo['errinfo']['wts']['0'][:,ind,:,:] = NP.sqrt(wts_lstbins[:,j,:,:]**2 + wts_lstbins[:,i,:,:]**2)
+                                            self.cpinfo['errinfo']['wts']['1'][:,ind,:,:] = NP.sqrt(wts_lstbins[:,m,:,:]**2 + wts_lstbins[:,k,:,:]**2)
                                         else:
-                                            self.cpinfo['errinfo']['eicp_diff'][stat][:,ind,0,:,:] = eicp_tmedian[:,j,:,:] - eicp_tmedian[:,i,:,:]
-                                            self.cpinfo['errinfo']['eicp_diff'][stat][:,ind,1,:,:] = eicp_tmedian[:,m,:,:] - eicp_tmedian[:,k,:,:]
-                                        mask = self.cpinfo['errinfo']['wts'] <= 0.0
-                                        self.cpinfo['errinfo']['eicp_diff'][stat] = MA.array(self.cpinfo['errinfo']['eicp_diff'][stat], mask=mask)
-                                        self.cpinfo['errinfo']['wts'] = MA.array(self.cpinfo['errinfo']['wts'], mask=mask)
+                                            self.cpinfo['errinfo']['eicp_diff']['0'][stat][:,ind,:,:] = 0.5 * (eicp_tmedian[:,j,:,:] - eicp_tmedian[:,i,:,:])
+                                            self.cpinfo['errinfo']['eicp_diff']['1'][stat][:,ind,:,:] = 0.5 * (eicp_tmedian[:,m,:,:] - eicp_tmedian[:,k,:,:])
+                                        mask0 = self.cpinfo['errinfo']['wts']['0'] <= 0.0
+                                        mask1 = self.cpinfo['errinfo']['wts']['1'] <= 0.0
+                                        self.cpinfo['errinfo']['eicp_diff']['0'][stat] = MA.array(self.cpinfo['errinfo']['eicp_diff']['0'][stat], mask=mask0)
+                                        self.cpinfo['errinfo']['eicp_diff']['1'][stat] = MA.array(self.cpinfo['errinfo']['eicp_diff']['1'][stat], mask=mask1)
+                                        self.cpinfo['errinfo']['wts']['0'] = MA.array(self.cpinfo['errinfo']['wts']['0'], mask=mask0)
+                                        self.cpinfo['errinfo']['wts']['1'] = MA.array(self.cpinfo['errinfo']['wts']['1'], mask=mask1)
 
     ############################################################################
 
@@ -1362,6 +1378,22 @@ class ClosurePhaseDelaySpectrum(object):
                                         phases based on their median across time
                                         intervals. 
                                         Shape=(nspw,nlst,ndays,ntriads,nlags)
+        'errinfo'       [dictionary] It has two keys 'dspec0' and 'dspec1' each
+                        of which are dictionaries with the following keys and
+                        values:
+                        'twts'  [numpy array] Weights for the subsample 
+                                difference. It is of shape (nlst, ndays, 
+                                ntriads, nchan)
+                        'mean'  [numpy array] Delay spectrum of the 
+                                subsample difference obtained by using the 
+                                mean statistic. It is of shape (nspw, nlst, 
+                                ndays, ntriads, nlags)
+                        'median'
+                                [numpy array] Delay spectrum of the subsample 
+                                difference obtained by using the median 
+                                statistic. It is of shape (nspw, nlst, ndays, 
+                                ntriads, nlags)
+                      
         ------------------------------------------------------------------------
         """
         
@@ -1475,7 +1507,7 @@ class ClosurePhaseDelaySpectrum(object):
         
                 npad = int(self.f.size * pad)
                 lags = DSP.spectral_axis(self.f.size + npad, delx=self.df, use_real=False, shift=True)
-                result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'fftpow': fftpow, 'npad': npad, 'lags': lags, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=-1), 'whole': {'dspec': {'twts': self.cPhase.cpinfo['processed'][datapool]['wts']}}, 'residual': {'dspec': {'twts': self.cPhase.cpinfo['processed'][datapool]['wts']}}, 'errinfo': {'dspec': {'twts': self.cPhase.cpinfo['errinfo']['wts']}}, 'submodel': {}}
+                result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'fftpow': fftpow, 'npad': npad, 'lags': lags, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=-1), 'whole': {'dspec': {'twts': self.cPhase.cpinfo['processed'][datapool]['wts']}}, 'residual': {'dspec': {'twts': self.cPhase.cpinfo['processed'][datapool]['wts']}}, 'errinfo': {'dspec0': {'twts': self.cPhase.cpinfo['errinfo']['wts']['0']}, 'dspec1': {'twts': self.cPhase.cpinfo['errinfo']['wts']['1']}}, 'submodel': {}}
     
                 if visscaleinfo is not None:
                     visscale = NP.nansum(NP.transpose(vis_ref[NP.newaxis,NP.newaxis,:,:,:], axes=(0,3,1,2,4)) * freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], axis=-1, keepdims=True) / NP.nansum(freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], axis=-1, keepdims=True) # nspw x nlst x (ndays=1) x ntriads x (nchan=1)
@@ -1483,16 +1515,17 @@ class ClosurePhaseDelaySpectrum(object):
 
                 for dpool in ['errinfo', 'prelim', 'submodel', 'residual']:
                     if dpool.lower() == 'errinfo':
-                        if apply_flags:
-                            flagwts = NP.copy(self.cPhase.cpinfo['errinfo']['wts'].data)
-                            flagwts = flagwts[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
-                            flagwts = 1.0 * flagwts / NP.mean(flagwts, axis=-1, keepdims=True) # (nspw=1) x nlst x ndays x ntriads x nchan
-                        for stat in self.cPhase.cpinfo[dpool]['eicp_diff']:
-                            eicp = NP.copy(self.cPhase.cpinfo[dpool]['eicp_diff'][stat].data) # Minimum shape as stored
-                            eicp = NP.broadcast_to(eicp, self.cPhase.cpinfo[dpool]['eicp_diff'][stat].shape) # Broadcast to final shape
-                            eicp = eicp[NP.newaxis,...] # nlst x ndayscomb x 2 x ntriads x nchan --> (nspw=1) x nlst x ndayscomb x 2 x ntriads x nchan
-                            ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,0), (0,npad)]
-                            result[dpool]['dspec'][stat] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale[:,:,NP.newaxis,...], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                        for diffind in range(2):
+                            if apply_flags:
+                                flagwts = NP.copy(self.cPhase.cpinfo['errinfo']['wts']['{0}'.format(diffind)].data)
+                                flagwts = flagwts[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
+                                flagwts = 1.0 * flagwts / NP.mean(flagwts, axis=-1, keepdims=True) # (nspw=1) x nlst x ndays x ntriads x nchan
+                            for stat in self.cPhase.cpinfo[dpool]['eicp_diff']['{0}'.format(diffind)]:
+                                eicp = NP.copy(self.cPhase.cpinfo[dpool]['eicp_diff']['{0}'.format(diffind)][stat].data) # Minimum shape as stored
+                                eicp = NP.broadcast_to(eicp, self.cPhase.cpinfo[dpool]['eicp_diff']['{0}'.format(diffind)][stat].shape) # Broadcast to final shape
+                                eicp = eicp[NP.newaxis,...] # nlst x ndayscomb x ntriads x nchan --> (nspw=1) x nlst x ndayscomb x ntriads x nchan
+                                ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
+                                result[dpool]['dspec{0}'.format(diffind)][stat] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale, ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                     else:
                         if dpool in self.cPhase.cpinfo['processed']:
                             if apply_flags:
@@ -1526,8 +1559,9 @@ class ClosurePhaseDelaySpectrum(object):
 
                 for dpool in ['errinfo', 'prelim', 'submodel', 'residual']:
                     if dpool.lower() == 'errinfo':
-                        for key in self.cPhase.cpinfo[dpool]['eicp_diff']:
-                            result_resampled[dpool]['dspec'][key] = DSP.downsampler(result_resampled[dpool]['dspec'][key], downsample_factor, axis=-1, method='FFT')
+                        for diffind in self.cPhase.cpinfo[dpool]['eicp_diff']:
+                            for key in self.cPhase.cpinfo[dpool]['eicp_diff'][diffind]:
+                                result_resampled[dpool]['dspec'+diffind][key] = DSP.downsampler(result_resampled[dpool]['dspec'+diffind][key], downsample_factor, axis=-1, method='FFT')
                     if dpool in self.cPhase.cpinfo['processed']:
                         if dpool == 'submodel':
                             result_resampled[dpool]['dspec'] = DSP.downsampler(result_resampled[dpool]['dspec'], downsample_factor, axis=-1, method='FFT')
@@ -1574,8 +1608,9 @@ class ClosurePhaseDelaySpectrum(object):
 
         Outputs:
 
-        Tuple (triad_ind, lst_ind, day_ind) containing the triad, LST, and day 
-        indices, each as a numpy array
+        Tuple (triad_ind, lst_ind, day_ind, day_ind_eicpdiff) containing the 
+        triad, LST, day, and day-pair (for subsample differences) indices, 
+        each as a numpy array
         ------------------------------------------------------------------------
         """
 
@@ -1615,25 +1650,32 @@ class ClosurePhaseDelaySpectrum(object):
             raise ValueError('LST index selection could not be performed')
                 
         day_ind = None
+        day_ind_eicpdiff = None
         if 'days' not in selection:
             if 'prelim' in self.cPhase.cpinfo['processed']:
                 day_ind = NP.arange(self.cPhase.cpinfo['processed']['prelim']['wts'].shape[1])
+            if 'errinfo' in self.cPhase.cpinfo:
+                day_ind_eicpdiff = NP.arange(len(self.cPhase.cpinfo['errinfo']['list_of_pair_of_pairs']))
         else:
             if selection['days'] is None:
                 if 'prelim' in self.cPhase.cpinfo['processed']:
                     day_ind = NP.arange(self.cPhase.cpinfo['processed']['prelim']['wts'].shape[1])
+                if 'errinfo' in self.cPhase.cpinfo:
+                    day_ind_eicpdiff = NP.arange(len(self.cPhase.cpinfo['errinfo']['list_of_pair_of_pairs']))
             elif isinstance(selection['days'], (list,NP.ndarray)):
                 if 'prelim' in self.cPhase.cpinfo['processed']:
                     day_ind = selection['days']
                     if NP.any(NP.logical_or(day_ind < 0, day_ind >= self.cPhase.cpinfo['processed']['prelim']['wts'].shape[1])):
                         raise ValueError('Input processed day indices out of bounds')
+                if 'errinfo' in self.cPhase.cpinfo:
+                    day_ind_eicpdiff = [i for i,item in enumerate(self.cPhase.cpinfo['errinfo']['list_of_pair_of_pairs']) if len(set(item)-set(selection['days']))==0]
             else:
                 raise TypeError('Wrong type for processed day indices')
 
         if day_ind is None:
             raise ValueError('Day index selection could not be performed')
                 
-        return (triad_ind, lst_ind, day_ind)
+        return (triad_ind, lst_ind, day_ind, day_ind_eicpdiff)
 
     ############################################################################
 
@@ -2062,7 +2104,7 @@ class ClosurePhaseDelaySpectrum(object):
                 else:
                     cpds[smplng] = copy.deepcopy(self.cPhaseDS_resampled)
 
-        triad_ind, lst_ind, day_ind = self.subset(selection=selection)
+        triad_ind, lst_ind, day_ind, day_ind_eicpdiff = self.subset(selection=selection)
 
         result = {'triads': self.cPhase.cpinfo['raw']['triads'][triad_ind], 'triads_ind': triad_ind, 'lst': self.cPhase.cpinfo['processed']['prelim']['lstbins'][lst_ind], 'lst_ind': lst_ind, 'dlst': self.cPhase.cpinfo['processed']['prelim']['dlstbins'][lst_ind], 'days': self.cPhase.cpinfo['processed']['prelim']['daybins'][day_ind], 'day_ind': day_ind, 'dday': self.cPhase.cpinfo['processed']['prelim']['diff_dbins'][day_ind]}
         for smplng in sampling:
@@ -2693,7 +2735,7 @@ class ClosurePhaseDelaySpectrum(object):
                 else:
                     cpds[smplng] = copy.deepcopy(self.cPhaseDS_resampled)
 
-        triad_ind, lst_ind, day_ind = self.subset(selection=selection)
+        triad_ind, lst_ind, day_ind, day_ind_eicpdiff = self.subset(selection=selection)
 
         result = {'triads': self.cPhase.cpinfo['raw']['triads'][triad_ind], 'triads_ind': triad_ind, 'lst': self.cPhase.cpinfo['processed']['prelim']['lstbins'][lst_ind], 'lst_ind': lst_ind, 'dlst': self.cPhase.cpinfo['processed']['prelim']['dlstbins'][lst_ind], 'days': self.cPhase.cpinfo['processed']['prelim']['daybins'][day_ind], 'day_ind': day_ind, 'dday': self.cPhase.cpinfo['processed']['prelim']['diff_dbins'][day_ind]}
 
@@ -2767,7 +2809,7 @@ class ClosurePhaseDelaySpectrum(object):
                     dspec_multidim_idx = NP.ix_(NP.arange(wl.size),lst_ind,day_ind,triad_ind,NP.arange(inpshape[4])) # shape=(nspw,nlst,ndays,ntriads,nchan)
                     max_wt_in_chan = NP.max(NP.sum(cpds[smplng]['whole']['dspec']['twts'].data, axis=(0,1,2)))
                     select_chan = NP.argmax(NP.sum(cpds[smplng]['whole']['dspec']['twts'].data, axis=(0,1,2)))
-                    twts = NP.copy(cpds[smplng]['whole']['dspec']['twts'].data[:,:,:,[select_chan]]) # shape=(nspw=1,nlst,ndays,ntriads,nlags=1)
+                    twts = NP.copy(cpds[smplng]['whole']['dspec']['twts'].data[:,:,:,[select_chan]]) # shape=(nlst,ndays,ntriads,nlags=1)
 
                     if nsamples_coh > 1:
                         awts_shape = tuple(NP.ones(cpds[smplng]['whole']['dspec']['mean'].ndim, dtype=NP.int))
@@ -2907,6 +2949,740 @@ class ClosurePhaseDelaySpectrum(object):
 
                     result[smplng][dpool]['nsamples_incoh'] = nsamples_incoh
                     result[smplng][dpool]['nsamples_coh'] = nsamples_coh
+
+        return result
+
+    ############################################################################
+
+    def compute_power_spectrum_uncertainty(self, cpds=None, selection=None,
+                                           autoinfo=None,xinfo=None,
+                                           cosmo=cosmo100, units='K',
+                                           beamparms=None):
+
+        """
+        ------------------------------------------------------------------------
+        Compute uncertainty in the power spectrum of closure phase data. It is 
+        in units of Mpc/h
+
+        Inputs:
+
+        cpds    [dictionary] A dictionary that contains the 'oversampled' (if 
+                resample=False) and/or 'resampled' (if resample=True) delay 
+                spectrum information on the key 'errinfo'. If it is not 
+                specified the attributes cPhaseDS['errinfo'] and 
+                cPhaseDS_resampled['errinfo'] are used. Under each of these 
+                sampling keys, it holds a dictionary that has the following 
+                keys and values:
+                'freq_center'   [numpy array] contains the center frequencies 
+                                (in Hz) of the frequency subbands of the subband
+                                delay spectra. It is of size n_win. It is 
+                                roughly equivalent to redshift(s)
+                'freq_wts'      [numpy array] Contains frequency weights applied 
+                                on each frequency sub-band during the subband 
+                                delay transform. It is of size n_win x nchan. 
+                'bw_eff'        [numpy array] contains the effective bandwidths 
+                                (in Hz) of the subbands being delay transformed. 
+                                It is of size n_win. It is roughly equivalent to 
+                                width in redshift or along line-of-sight
+                'shape'         [string] shape of the window function applied. 
+                                Accepted values are 'rect' (rectangular), 'bhw'
+                                (Blackman-Harris), 'bnw' (Blackman-Nuttall). 
+                'fftpow'        [scalar] the power to which the FFT of the window 
+                                was raised. The value is be a positive scalar 
+                                with default = 1.0
+                'npad'          [scalar] Numbber of zero-padded channels before
+                                performing the subband delay transform. 
+                'lags'          [numpy array] lags of the subband delay spectra 
+                                after padding in frequency during the transform. 
+                                It is of size nlags. The lags roughly correspond 
+                                to k_parallel.
+                'lag_kernel'    [numpy array] delay transform of the frequency 
+                                weights under the key 'freq_wts'. It is of size
+                                n_bl x n_win x nlags x n_t. 
+                'lag_corr_length' 
+                                [numpy array] It is the correlation timescale 
+                                (in pixels) of the subband delay spectra. It is 
+                                proportional to inverse of effective bandwidth. 
+                                It is of size n_win. The unit size of a pixel is 
+                                determined by the difference between adjacent 
+                                pixels in lags under key 'lags' which in turn is 
+                                effectively inverse of the effective bandwidth 
+                                of the subband specified in bw_eff
+                'errinfo'       [dictionary] It has two keys 'dspec0' and 
+                                'dspec1' each of which are dictionaries with 
+                                the following keys and values:
+                                'twts'  [numpy array] Weights for the subsample 
+                                        difference. It is of shape (nlst, ndays, 
+                                        ntriads, nchan)
+                                'mean'  [numpy array] Delay spectrum of the 
+                                        subsample difference obtained by using 
+                                        the mean statistic. It is of shape 
+                                        (nspw, nlst, ndays, ntriads, nlags)
+                                'median'
+                                        [numpy array] Delay spectrum of the 
+                                        subsample difference obtained by using 
+                                        the median statistic. It is of shape 
+                                        (nspw, nlst, ndays, ntriads, nlags)
+
+        selection   [NoneType or dictionary] Selection parameters based on which
+                    triad, LST, and day indices will be returned. If set to None
+                    (default), all triad, LST, and day indices will be returned. 
+                    Otherwise it must be a dictionary with the following keys 
+                    and values:
+                    'triads'    [NoneType or list of 3-element tuples] If set
+                                to None (default), indices of all triads are
+                                returned. Otherwise, the specific triads must
+                                be specified such as [(1,2,3), (1,2,4), ...] 
+                                and their indices will be returned
+                    'lst'       [NoneType, list or numpy array] If set to None
+                                (default), indices of all LST are returned. 
+                                Otherwise must be a list or numpy array 
+                                containing indices to LST.
+                    'days'      [NoneType, list or numpy array] If set to None
+                                (default), indices of all days are returned. 
+                                Otherwise must be a list or numpy array 
+                                containing indices to days. 
+
+        autoinfo
+                [NoneType or dictionary] Specifies parameters for processing 
+                before power spectrum in auto or cross modes. If set to None, 
+                a dictionary will be created with the default values as 
+                described below. The dictionary must have the following keys
+                and values:
+                'axes'  [NoneType/int/list/tuple/numpy array] Axes that will
+                        be averaged coherently before squaring (for auto) or
+                        cross-multiplying (for cross) power spectrum. If set 
+                        to None (default), no axes are averaged coherently. 
+                        If set to int, list, tuple or numpy array, those axes
+                        will be averaged coherently after applying the weights
+                        specified under key 'wts' along those axes. 1=lst, 
+                        3=triads. Value of 2 for axes is not allowed since 
+                        that denotes repeated days and it is along this axis
+                        that cross-power is computed regardless. 
+                'wts'   [NoneType/list/numpy array] If not provided (equivalent
+                        to setting it to None) or set to None (default), it is
+                        set to a one element list which is a one element numpy
+                        array of unity. Otherwise, it must be a list of same
+                        number of elements as in key 'axes' and each of these
+                        must be a numpy broadcast compatible array corresponding
+                        to each of the axis specified in 'axes'
+
+        xinfo   [NoneType or dictionary] Specifies parameters for processing 
+                cross power spectrum. If set to None, a dictionary will be 
+                created with the default values as described below. The 
+                dictionary must have the following keys and values:
+                'axes'  [NoneType/int/list/tuple/numpy array] Axes over which 
+                        power spectrum will be computed incoherently by cross-
+                        multiplication. If set to None (default), no cross-
+                        power spectrum is computed. If set to int, list, tuple 
+                        or numpy array, cross-power over those axes will be 
+                        computed incoherently by cross-multiplication. The 
+                        cross-spectrum over these axes will be computed after
+                        applying the pre- and post- cross-multiplication 
+                        weights specified in key 'wts'. 1=lst, 3=triads. Value 
+                        of 2 for axes is not allowed since that denotes 
+                        repeated days and it is along this axis that 
+                        cross-power is computed regardless. 
+                'collapse_axes'
+                        [list] The axes that will be collpased after the
+                        cross-power matrix is produced by cross-multiplication.
+                        If this key is not set, it will be initialized to an
+                        empty list (default), in which case none of the axes 
+                        is collapsed and the full cross-power matrix will be
+                        output. it must be a subset of values under key 'axes'.
+                        This will reduce it from a square matrix along that axis
+                        to collapsed values along each of the leading diagonals.
+                        1=lst, 3=triads.
+                'dlst'  [scalar] LST interval (in mins) or difference between LST
+                        pairs which will be determined and used for 
+                        cross-power spectrum. Will only apply if values under 
+                        'axes' contains the LST axis(=1). 
+                'dlst_range'
+                        [scalar, numpy array, or NoneType] Specifies the LST 
+                        difference(s) in minutes that are to be used in the 
+                        computation of cross-power spectra. If a scalar, only 
+                        the diagonal consisting of pairs with that LST 
+                        difference will be computed. If a numpy array, those
+                        diagonals consisting of pairs with that LST difference
+                        will be computed. If set to None (default), the main
+                        diagonal (LST difference of 0) and the first off-main 
+                        diagonal (LST difference of 1 unit) corresponding to
+                        pairs with 0 and 1 unit LST difference are computed.
+                        Applies only if key 'axes' contains LST axis (=1).
+                'avgcov'
+                        [boolean] It specifies if the collapse of square 
+                        covariance matrix is to be collapsed further to a single
+                        number after applying 'postX' weights. If not set or
+                        set to False (default), this late stage collapse will
+                        not be performed. Otherwise, it will be averaged in a 
+                        weighted average sense where the 'postX' weights would
+                        have already been applied during the collapsing 
+                        operation
+                'wts'   [NoneType or Dictionary] If not set, a default 
+                        dictionary (see default values below) will be created. 
+                        It must have the follwoing keys and values:
+                        'preX'  [list of numpy arrays] It contains pre-cross-
+                                multiplication weights. It is a list where 
+                                each element in the list is a numpy array, and
+                                the number of elements in the list must match 
+                                the number of entries in key 'axes'. If 'axes'
+                                is set None, 'preX' may be set to a list 
+                                with one element which is a numpy array of ones.
+                                The number of elements in each of the numpy 
+                                arrays must be numpy broadcastable into the 
+                                number of elements along that axis in the 
+                                delay spectrum.
+                        'preXnorm'
+                                [boolean] If False (default), no normalization
+                                is done after the application of weights. If 
+                                set to True, the delay spectrum will be 
+                                normalized by the sum of the weights. 
+                        'postX' [list of numpy arrays] It contains post-cross-
+                                multiplication weights. It is a list where 
+                                each element in the list is a numpy array, and
+                                the number of elements in the list must match 
+                                the number of entries in key 'axes'. If 'axes'
+                                is set None, 'preX' may be set to a list 
+                                with one element which is a numpy array of ones.
+                                The number of elements in each of the numpy 
+                                arrays must be numpy broadcastable into the 
+                                number of elements along that axis in the 
+                                delay spectrum. 
+                        'preXnorm'
+                                [boolean] If False (default), no normalization
+                                is done after the application of 'preX' weights. 
+                                If set to True, the delay spectrum will be 
+                                normalized by the sum of the weights. 
+                        'postXnorm'
+                                [boolean] If False (default), no normalization
+                                is done after the application of postX weights. 
+                                If set to True, the delay cross power spectrum 
+                                will be normalized by the sum of the weights. 
+
+        cosmo   [instance of cosmology class from astropy] An instance of class
+                FLRW or default_cosmology of astropy cosmology module. Default
+                uses Planck 2015 cosmology, with H0=100 h km/s/Mpc
+
+        units   [string] Specifies the units of output power spectum. Accepted
+                values are 'Jy' and 'K' (default)) and the power spectrum will 
+                be in corresponding squared units.
+
+        Output:
+
+        Dictionary with the keys 'triads' ((ntriads,3) array), 'triads_ind', 
+        ((ntriads,) array), 'lstXoffsets' ((ndlst_range,) array), 'lst' 
+        ((nlst,) array), 'dlst' ((nlst,) array), 'lst_ind' ((nlst,) array), 
+        'days' ((ndaycomb,) array), 'day_ind' ((ndaycomb,) array), 'dday' 
+        ((ndaycomb,) array), 'oversampled' and 'resampled' corresponding to 
+        whether resample was set to False or True in call to member function 
+        FT(). Values under keys 'triads_ind' and 'lst_ind' are numpy array 
+        corresponding to triad and time indices used in selecting the data. 
+        Values under keys 'oversampled' and 'resampled' each contain a 
+        dictionary with the following keys and values:
+        'z'     [numpy array] Redshifts corresponding to the band centers in 
+                'freq_center'. It has shape=(nspw,)
+        'lags'  [numpy array] Delays (in seconds). It has shape=(nlags,).
+        'kprll' [numpy array] k_parallel modes (in h/Mpc) corresponding to 
+                'lags'. It has shape=(nspw,nlags)
+        'freq_center'   
+                [numpy array] contains the center frequencies (in Hz) of the 
+                frequency subbands of the subband delay spectra. It is of size 
+                n_win. It is roughly equivalent to redshift(s)
+        'freq_wts'      
+                [numpy array] Contains frequency weights applied on each 
+                frequency sub-band during the subband delay transform. It is 
+                of size n_win x nchan. 
+        'bw_eff'        
+                [numpy array] contains the effective bandwidths (in Hz) of the 
+                subbands being delay transformed. It is of size n_win. It is 
+                roughly equivalent to width in redshift or along line-of-sight
+        'shape' [string] shape of the frequency window function applied. Usual
+                values are 'rect' (rectangular), 'bhw' (Blackman-Harris), 
+                'bnw' (Blackman-Nuttall). 
+        'fftpow'
+                [scalar] the power to which the FFT of the window was raised. 
+                The value is be a positive scalar with default = 1.0
+        'lag_corr_length' 
+                [numpy array] It is the correlation timescale (in pixels) of 
+                the subband delay spectra. It is proportional to inverse of 
+                effective bandwidth. It is of size n_win. The unit size of a 
+                pixel is determined by the difference between adjacent pixels 
+                in lags under key 'lags' which in turn is effectively inverse 
+                of the effective bandwidth of the subband specified in bw_eff
+
+        It further contains a key named 'errinfo' which is a dictionary. It 
+        contains information about power spectrum uncertainties obtained from 
+        subsample differences. It contains the following keys and values:
+        'mean'  [numpy array] Delay power spectrum uncertainties incoherently 
+                estimated over the axes specified in xinfo['axes'] using the 
+                'mean' key in input cpds or attribute 
+                cPhaseDS['errinfo']['dspec']. It has shape that depends on the 
+                combination of input parameters. See examples below. If both 
+                collapse_axes and avgcov are not set, those axes will be 
+                replaced with square covariance matrices. If collapse_axes is 
+                provided but avgcov is False, those axes will be of shape 
+                2*Naxis-1. 
+        'median'
+                [numpy array] Delay power spectrum uncertainties incoherently 
+                averaged over the axes specified in incohax using the 'median' 
+                key in input cpds or attribute cPhaseDS['errinfo']['dspec']. 
+                It has shape that depends on the combination of input 
+                parameters. See examples below. If both collapse_axes and 
+                avgcov are not set, those axes will be replaced with square 
+                covariance matrices. If collapse_axes is provided bu avgcov is 
+                False, those axes will be of shape 2*Naxis-1. 
+        'diagoffsets' 
+                [list of numpy arrays] A list with one element each for a 
+                corresponding entry in value under key 'collapse_axes' in input.
+                If 'avgcov' was set, those entries will be removed from 
+                'diagoffsets' since all the leading diagonal elements have been
+                collapsed (averaged) further. Each element is a numpy array 
+                where each element in the array corresponds to the index of that
+                leading diagonal. This should match the size of the output along 
+                that axis in 'mean' or 'median' above. 
+        'axesmap'
+                [dictionary] If covariance in cross-power is calculated but is 
+                not collapsed, the number of dimensions in the output will have
+                changed. This parameter tracks where the original axis is now 
+                placed. The keys are the original axes that are involved in 
+                incoherent cross-power, and the values are the new locations of 
+                those original axes in the output. 
+        'nsamples_incoh'
+                [integer] Number of incoherent samples in producing the power
+                spectrum
+        'nsamples_coh'
+                [integer] Number of coherent samples in producing the power
+                spectrum
+
+        Examples: 
+
+        (1)
+        Input delay spectrum of shape (Nspw, Nlst, Ndays, Ntriads, Nlags)
+        autoinfo = {'axes': 2, 'wts': None}
+        xinfo = {'axes': None, 'avgcov': False, 'collapse_axes': [], 
+                 'wts':{'preX': None, 'preXnorm': False, 
+                        'postX': None, 'postXnorm': False}}
+        This will not do anything because axes cannot include value 2 which 
+        denote the 'days' axis and the uncertainties are obtained through 
+        subsample differencing along days axis regardless. 
+        Output delay power spectrum has shape (Nspw, Nlst, Ndaycomb, Ntriads, 
+        Nlags)
+
+        (2) 
+        Input delay spectrum of shape (Nspw, Nlst, Ndays, Ntriads, Nlags)
+        autoinfo = {'axes': 2, 'wts': None}
+        xinfo = {'axes': [1,3], 'avgcov': False, 'collapse_axes': [], 
+                 'wts':{'preX': None, 'preXnorm': False, 
+                        'postX': None, 'postXnorm': False}, 
+                 'dlst_range': None}
+        This will not do anything about coherent averaging along axis=2 because 
+        axes cannot include value 2 which denote the 'days' axis and the 
+        uncertainties are obtained through subsample differencing along days 
+        axis regardless.         
+        Output delay power spectrum has shape 
+        (Nspw, 2, Nlst, Ndaycomb, Ntriads, Ntriads, Nlags)
+        diagoffsets = [NP.arange(n_dlst_range)], axesmap = {1: [1,2], 3: [4,5]}
+
+        (3) 
+        Input delay spectrum of shape (Nspw, Nlst, Ndays, Ntriads, Nlags)
+        autoinfo = {'axes': 2, 'wts': None}
+        xinfo = {'axes': [1,3], 'avgcov': False, 'collapse_axes': [3], 
+                 'dlst_range': [0.0, 1.0, 2.0]}
+        This will not do anything about coherent averaging along axis=2 because 
+        axes cannot include value 2 which denote the 'days' axis and the 
+        uncertainties are obtained through subsample differencing along days 
+        axis regardless.         
+        Output delay power spectrum has shape 
+        (Nspw, 3, Nlst, 1, 2*Ntriads-1, Nlags)
+        diagoffsets = [NP.arange(n_dlst_range), NP.arange(-Ntriads,Ntriads)], 
+        axesmap = {1: [1,2], 3: [4]}
+
+        (4) 
+        Input delay spectrum of shape (Nspw, Nlst, Ndays, Ntriads, Nlags)
+        autoinfo = {'axes': None, 'wts': None}
+        xinfo = {'axes': [1,3], 'avgcov': False, 'collapse_axes': [1,3], 
+                 'dlst_range': [1.0, 2.0, 3.0, 4.0]}
+        Output delay power spectrum has shape 
+        (Nspw, 4, Ndaycomb, 2*Ntriads-1, Nlags)
+        diagoffsets = [NP.arange(n_dlst_range), NP.arange(-Ntriads,Ntriads)], 
+        axesmap = {1: [1], 3: [3]}
+
+        (5) 
+        Input delay spectrum of shape (Nspw, Nlst, Ndays, Ntriads, Nlags)
+        autoinfo = {'axes': None, 'wts': None}
+        xinfo = {'axes': [1,3], 'avgcov': True, 'collapse_axes': [3], 
+                 'dlst_range': None}
+        Output delay power spectrum has shape 
+        (Nspw, 2, Nlst, Ndays, 1, Nlags)
+        diagoffsets = [NP.arange(n_dlst_range)], axesmap = {1: [1,2], 3: [4]}
+
+        (6) 
+        Input delay spectrum of shape (Nspw, Nlst, Ndays, Ntriads, Nlags)
+        autoinfo = {'axes': None, 'wts': None}
+        xinfo = {'axes': [1,3], 'avgcov': True, 'collapse_axes': []}
+        Output delay power spectrum has shape 
+        (Nspw, 1, Ndays, 1, Nlags)
+        diagoffsets = [], axesmap = {1: [1], 3: [3]}
+        ------------------------------------------------------------------------
+        """
+
+        if not isinstance(units,str):
+            raise TypeError('Input parameter units must be a string')
+        if units.lower() == 'k':
+            if not isinstance(beamparms, dict):
+                raise TypeError('Input beamparms must be a dictionary')
+            if 'freqs' not in beamparms:
+                beamparms['freqs'] = self.f
+            beamparms_orig = copy.deepcopy(beamparms)
+
+        if autoinfo is None:
+            autoinfo = {'axes': None, 'wts': [NP.ones(1, dtpye=NP.float)]}
+        elif not isinstance(autoinfo, dict):
+            raise TypeError('Input autoinfo must be a dictionary')
+
+        if 'axes' not in autoinfo:
+            autoinfo['axes'] = None
+        else:
+            if autoinfo['axes'] is not None:
+                if not isinstance(autoinfo['axes'], (list,tuple,NP.ndarray,int)):
+                    raise TypeError('Value under key axes in input autoinfo must be an integer, list, tuple or numpy array')
+                else:
+                    autoinfo['axes'] = NP.asarray(autoinfo['axes']).reshape(-1)
+
+        if 'wts' not in autoinfo:
+            if autoinfo['axes'] is not None:
+                autoinfo['wts'] = [NP.ones(1, dtype=NP.float)] * len(autoinfo['axes'])
+            else:
+                autoinfo['wts'] = [NP.ones(1, dtype=NP.float)]
+        else:
+            if autoinfo['axes'] is not None:
+                if not isinstance(autoinfo['wts'], list):
+                    raise TypeError('wts in input autoinfo must be a list of numpy arrays')
+                else:
+                    if len(autoinfo['wts']) != len(autoinfo['axes']):
+                        raise ValueError('Input list of wts must be same as length of autoinfo axes')
+            else:
+                autoinfo['wts'] = [NP.ones(1, dtype=NP.float)]
+
+        if xinfo is None:
+            xinfo = {'axes': None, 'wts': {'preX': [NP.ones(1, dtpye=NP.float)], 'postX': [NP.ones(1, dtpye=NP.float)], 'preXnorm': False, 'postXnorm': False}}
+        elif not isinstance(xinfo, dict):
+            raise TypeError('Input xinfo must be a dictionary')
+
+        if 'axes' not in xinfo:
+            xinfo['axes'] = None
+        else:
+            if not isinstance(xinfo['axes'], (list,tuple,NP.ndarray,int)):
+                raise TypeError('Value under key axes in input xinfo must be an integer, list, tuple or numpy array')
+            else:
+                xinfo['axes'] = NP.asarray(xinfo['axes']).reshape(-1)
+
+        if 'wts' not in xinfo:
+            xinfo['wts'] = {}
+            for xkey in ['preX', 'postX']:
+                if xinfo['axes'] is not None:
+                    xinfo['wts'][xkey] = [NP.ones(1, dtype=NP.float)] * len(xinfo['axes'])
+                else:
+                    xinfo['wts'][xkey] = [NP.ones(1, dtype=NP.float)]
+            xinfo['wts']['preXnorm'] = False
+            xinfo['wts']['postXnorm'] = False
+        else:
+            if xinfo['axes'] is not None:
+                if not isinstance(xinfo['wts'], dict):
+                    raise TypeError('wts in input xinfo must be a dictionary')
+                for xkey in ['preX', 'postX']:
+                    if not isinstance(xinfo['wts'][xkey], list):
+                        raise TypeError('{0} wts in input xinfo must be a list of numpy arrays'.format(xkey))
+                    else:
+                        if len(xinfo['wts'][xkey]) != len(xinfo['axes']):
+                            raise ValueError('Input list of {0} wts must be same as length of xinfo axes'.format(xkey))
+            else:
+                for xkey in ['preX', 'postX']:
+                    xinfo['wts'][xkey] = [NP.ones(1, dtype=NP.float)]
+
+            if 'preXnorm' not in xinfo['wts']:
+                xinfo['wts']['preXnorm'] = False
+            if 'postXnorm' not in xinfo['wts']:
+                xinfo['wts']['postXnorm'] = False
+            if not isinstance(xinfo['wts']['preXnorm'], NP.bool):
+                raise TypeError('preXnorm in input xinfo must be a boolean')
+            if not isinstance(xinfo['wts']['postXnorm'], NP.bool):
+                raise TypeError('postXnorm in input xinfo must be a boolean')
+
+        if 'avgcov' not in xinfo:
+            xinfo['avgcov'] = False
+        if not isinstance(xinfo['avgcov'], NP.bool):
+            raise TypeError('avgcov under input xinfo must be boolean')
+
+        if 'collapse_axes' not in xinfo:
+            xinfo['collapse_axes'] = []
+        if not isinstance(xinfo['collapse_axes'], (int,list,tuple,NP.ndarray)):
+            raise TypeError('collapse_axes under input xinfo must be an integer, tuple, list or numpy array')
+        else:
+            xinfo['collapse_axes'] = NP.asarray(xinfo['collapse_axes']).reshape(-1)
+
+        if (autoinfo['axes'] is not None) and (xinfo['axes'] is not None):
+            if NP.intersect1d(autoinfo['axes'], xinfo['axes']).size > 0:
+                raise ValueError("Inputs autoinfo['axes'] and xinfo['axes'] must have no intersection")
+
+        cohax = autoinfo['axes']
+        if cohax is None:
+            cohax = []
+        if 2 in cohax: # Remove axis=2 from cohax
+            if isinstance(cohax, list):
+                cohax.remove(2)
+            if isinstance(cohax, NP.ndarray):
+                cohax = cohax.tolist()
+                cohax.remove(2)
+                cohax = NP.asarray(cohax)
+        incohax = xinfo['axes']
+        if incohax is None:
+            incohax = []
+        if 2 in incohax: # Remove axis=2 from incohax
+            if isinstance(incohax, list):
+                incohax.remove(2)
+            if isinstance(incohax, NP.ndarray):
+                incohax = incohax.tolist()
+                incohax.remove(2)
+                incohax = NP.asarray(incohax)
+
+        if selection is None:
+            selection = {'triads': None, 'lst': None, 'days': None}
+        else:
+            if not isinstance(selection, dict):
+                raise TypeError('Input selection must be a dictionary')
+
+        if cpds is None:
+            cpds = {}
+            sampling = ['oversampled', 'resampled']
+            for smplng in sampling:
+                if smplng == 'oversampled':
+                    cpds[smplng] = copy.deepcopy(self.cPhaseDS)
+                else:
+                    cpds[smplng] = copy.deepcopy(self.cPhaseDS_resampled)
+
+        triad_ind, lst_ind, day_ind, day_ind_eicpdiff = self.subset(selection=selection)
+
+        result = {'triads': self.cPhase.cpinfo['raw']['triads'][triad_ind], 'triads_ind': triad_ind, 'lst': self.cPhase.cpinfo['errinfo']['lstbins'][lst_ind], 'lst_ind': lst_ind, 'dlst': self.cPhase.cpinfo['errinfo']['dlstbins'][lst_ind], 'days': self.cPhase.cpinfo['errinfo']['daybins'][day_ind], 'day_ind': day_ind_eicpdiff, 'dday': self.cPhase.cpinfo['errinfo']['diff_dbins'][day_ind]}
+
+        dlstbin = NP.mean(self.cPhase.cpinfo['errinfo']['dlstbins'])
+        if 'dlst_range' in xinfo:
+            if xinfo['dlst_range'] is None:
+                dlst_range = None
+                lstshifts = NP.arange(2) # LST index offsets of 0 and 1 are only estimated
+            else:
+                dlst_range = NP.asarray(xinfo['dlst_range']).ravel() / 60.0 # Difference in LST between a pair of LST (in hours)
+                if dlst_range.size == 1:
+                    dlst_range = NP.insert(dlst_range, 0, 0.0)
+                lstshifts = NP.arange(max([0, NP.ceil(1.0*dlst_range.min()/dlstbin).astype(NP.int)]), min([NP.ceil(1.0*dlst_range.max()/dlstbin).astype(NP.int), result['lst'].size]))
+        else:
+            dlst_range = None
+            lstshifts = NP.arange(2) # LST index offsets of 0 and 1 are only estimated
+        result['lstXoffsets'] = lstshifts * dlstbin # LST interval corresponding to diagonal offsets created by the LST covariance
+
+        for smplng in sampling:
+            result[smplng] = {}
+                
+            wl = FCNST.c / (cpds[smplng]['freq_center'] * U.Hz)
+            z = CNST.rest_freq_HI / cpds[smplng]['freq_center'] - 1
+            dz = CNST.rest_freq_HI / cpds[smplng]['freq_center']**2 * cpds[smplng]['bw_eff']
+            dkprll_deta = DS.dkprll_deta(z, cosmo=cosmo)
+            kprll = dkprll_deta.reshape(-1,1) * cpds[smplng]['lags']
+
+            rz_los = cosmo.comoving_distance(z) # in Mpc/h
+            drz_los = FCNST.c * cpds[smplng]['bw_eff']*U.Hz * (1+z)**2 / (CNST.rest_freq_HI * U.Hz) / (cosmo.H0 * cosmo.efunc(z))   # in Mpc/h
+            if units == 'Jy':
+                jacobian1 = 1 / (cpds[smplng]['bw_eff'] * U.Hz)
+                jacobian2 = drz_los / (cpds[smplng]['bw_eff'] * U.Hz)
+                temperature_from_fluxdensity = 1.0
+            elif units == 'K':
+                beamparms = copy.deepcopy(beamparms_orig)
+                omega_bw = self.beam3Dvol(beamparms, freq_wts=cpds[smplng]['freq_wts'])
+                jacobian1 = 1 / (omega_bw * U.Hz) # The steradian is present but not explicitly assigned
+                jacobian2 = rz_los**2 * drz_los / (cpds[smplng]['bw_eff'] * U.Hz)
+                temperature_from_fluxdensity = wl**2 / (2*FCNST.k_B)
+            else:
+                raise ValueError('Input value for units invalid')
+
+            factor = jacobian1 * jacobian2 * temperature_from_fluxdensity**2
+
+            result[smplng]['z'] = z
+            result[smplng]['kprll'] = kprll
+            result[smplng]['lags'] = NP.copy(cpds[smplng]['lags'])
+            result[smplng]['freq_center'] = cpds[smplng]['freq_center']
+            result[smplng]['bw_eff'] = cpds[smplng]['bw_eff']
+            result[smplng]['shape'] = cpds[smplng]['shape']
+            result[smplng]['freq_wts'] = cpds[smplng]['freq_wts']
+            result[smplng]['lag_corr_length'] = cpds[smplng]['lag_corr_length']
+
+            dpool = 'errinfo'
+            if dpool in cpds[smplng]:
+                result[smplng][dpool] = {}
+                inpshape = list(cpds[smplng][dpool]['dspec0']['mean'].shape)
+                inpshape[1] = lst_ind.size
+                inpshape[2] = day_ind_eicpdiff.size
+                inpshape[3] = triad_ind.size
+                if len(cohax) > 0:
+                    nsamples_coh = NP.prod(NP.asarray(inpshape)[NP.asarray(cohax)])
+                else:
+                    nsamples_coh = 1
+                if len(incohax) > 0:
+                    nsamples = NP.prod(NP.asarray(inpshape)[NP.asarray(incohax)])
+                    nsamples_incoh = nsamples * (nsamples - 1)
+                else:
+                    nsamples_incoh = 1
+                twts_multidim_idx = NP.ix_(lst_ind,day_ind_eicpdiff,triad_ind,NP.arange(1)) # shape=(nlst,ndays,ntriads,1)
+                dspec_multidim_idx = NP.ix_(NP.arange(wl.size),lst_ind,day_ind_eicpdiff,triad_ind,NP.arange(inpshape[4])) # shape=(nspw,nlst,ndays,ntriads,nchan)
+                max_wt_in_chan = NP.max(NP.sum(cpds[smplng]['errinfo']['dspec0']['twts'].data, axis=(0,1,2,3)))
+                select_chan = NP.argmax(NP.sum(cpds[smplng]['errinfo']['dspec0']['twts'].data, axis=(0,1,2,3)))
+                twts = {'0': NP.copy(cpds[smplng]['errinfo']['dspec0']['twts'].data[:,:,:,[select_chan]]), '1': NP.copy(cpds[smplng]['errinfo']['dspec1']['twts'].data[:,:,:,[select_chan]])}
+
+                if nsamples_coh > 1:
+                    awts_shape = tuple(NP.ones(cpds[smplng]['errinfo']['dspec']['mean'].ndim, dtype=NP.int))
+                    awts = NP.ones(awts_shape, dtype=NP.complex)
+                    awts_shape = NP.asarray(awts_shape)
+                    for caxind,caxis in enumerate(cohax):
+                        curr_awts_shape = NP.copy(awts_shape)
+                        curr_awts_shape[caxis] = -1
+                        awts = awts * autoinfo['wts'][caxind].reshape(tuple(curr_awts_shape))
+
+                for stat in ['mean', 'median']:
+                    dspec0 = NP.copy(cpds[smplng][dpool]['dspec0'][stat][dspec_multidim_idx])
+                    dspec1 = NP.copy(cpds[smplng][dpool]['dspec1'][stat][dspec_multidim_idx])
+                    if nsamples_coh > 1:
+                        if stat == 'mean':
+                            dspec0 = NP.sum(twts['0'][NP.newaxis,...] * awts * dspec0, axis=cohax, keepdims=True) / NP.sum(twts['0'][twts_multidim_idx][NP.newaxis,...] * awts, axis=cohax, keepdims=True)
+                            dspec1 = NP.sum(twts['1'][NP.newaxis,...] * awts * dspec1, axis=cohax, keepdims=True) / NP.sum(twts['1'][twts_multidim_idx][NP.newaxis,...] * awts, axis=cohax, keepdims=True)
+                        else:
+                            dspec0 = NP.median(dspec0, axis=cohax, keepdims=True)
+                            dspec1 = NP.median(dspec1, axis=cohax, keepdims=True)
+                    if nsamples_incoh > 1:
+                        expandax_map = {}
+                        wts_shape = tuple(NP.ones(dspec0.ndim, dtype=NP.int))
+                        preXwts = NP.ones(wts_shape, dtype=NP.complex)
+                        wts_shape = NP.asarray(wts_shape)
+                        for incaxind,incaxis in enumerate(xinfo['axes']):
+                            curr_wts_shape = NP.copy(wts_shape)
+                            curr_wts_shape[incaxis] = -1
+                            preXwts = preXwts * xinfo['wts']['preX'][incaxind].reshape(tuple(curr_wts_shape))
+                        preXwts0 = NP.copy(preXwts)
+                        preXwts1 = NP.copy(preXwts)
+                        for incax in NP.sort(incohax)[::-1]:
+                            dspec0 = NP.expand_dims(dspec0, axis=incax)
+                            preXwts0 = NP.expand_dims(preXwts0, axis=incax)
+                            if incax == 1:
+                                preXwts0_outshape = list(preXwts0.shape)
+                                preXwts0_outshape[incax+1] = dspec0.shape[incax+1]
+                                preXwts0_outshape = tuple(preXwts0_outshape)
+                                preXwts0 = NP.broadcast_to(preXwts0, preXwts0_outshape).copy() # For some strange reason the NP.broadcast_to() creates a "read-only" immutable array which is changed to writeable by copy()
+                                
+                                preXwts1_tmp = NP.expand_dims(preXwts1, axis=incax)
+                                preXwts1_shape = NP.asarray(preXwts1_tmp.shape)
+                                preXwts1_shape[incax] = lstshifts.size
+                                preXwts1_shape[incax+1] = preXwts0_outshape[incax+1]
+                                preXwts1_shape = tuple(preXwts1_shape)
+                                preXwts1 = NP.broadcast_to(preXwts1_tmp, preXwts1_shape).copy() # For some strange reason the NP.broadcast_to() creates a "read-only" immutable array which is changed to writeable by copy()
+
+                                dspec1_tmp = NP.expand_dims(dspec1, axis=incax)
+                                dspec1_shape = NP.asarray(dspec1_tmp.shape)
+                                dspec1_shape[incax] = lstshifts.size
+                                # dspec1_shape = NP.insert(dspec1_shape, incax, lstshifts.size)
+                                dspec1_shape = tuple(dspec1_shape)
+                                dspec1 = NP.broadcast_to(dspec1_tmp, dspec1_shape).copy() # For some strange reason the NP.broadcast_to() creates a "read-only" immutable array which is changed to writeable by copy()
+                                for lstshiftind, lstshift in enumerate(lstshifts):
+                                    dspec1[:,lstshiftind,...] = NP.roll(dspec1_tmp[:,0,...], lstshift, axis=incax)
+                                    dspec1[:,lstshiftind,:lstshift,...] = NP.nan
+                                    preXwts1[:,lstshiftind,...] = NP.roll(preXwts1_tmp[:,0,...], lstshift, axis=incax)
+                                    preXwts1[:,lstshiftind,:lstshift,...] = NP.nan
+                            else:
+                                dspec1 = NP.expand_dims(dspec1, axis=incax+1)
+                                preXwts1 = NP.expand_dims(preXwts1, axis=incax+1)
+                            expandax_map[incax] = incax + NP.arange(2)
+                            for ekey in expandax_map:
+                                if ekey > incax:
+                                    expandax_map[ekey] += 1
+                                    
+                        result[smplng][dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec0.ndim-1, dtype=NP.int))) * (dspec0*U.Unit('Jy Hz') * preXwts0) * (dspec1*U.Unit('Jy Hz') * preXwts1).conj()
+                        if xinfo['wts']['preXnorm']:
+                            result[smplng][dpool][stat] = result[smplng][dpool][stat] / NP.nansum(preXwts0 * preXwts1.conj(), axis=NP.union1d(NP.where(logical_or(NP.asarray(preXwts0.shape)>1, NP.asarray(preXwts1.shape)>1))), keepdims=True) # Normalize by summing the weights over the expanded axes
+        
+                        if (len(xinfo['collapse_axes']) > 0) or (xinfo['avgcov']):
+                            # Remove axis=2 if present
+                            if 2 in xinfo['collapse_axes']:
+                                # Remove axis=2 from cohax
+                                if isinstance(xinfo['collapse_axes'], list):
+                                    xinfo['collapse_axes'].remove(2)
+                                if isinstance(xinfo['collapse_axes'], NP.ndarray):
+                                    xinfo['collapse_axes'] = xinfo['collapse_axes'].tolist()
+                                    xinfo['collapse_axes'].remove(2)
+                                    xinfo['collapse_axes'] = NP.asarray(xinfo['collapse_axes'])
+
+                        if (len(xinfo['collapse_axes']) > 0) or (xinfo['avgcov']):
+                            # if any one of collapsing of incoherent axes or 
+                            # averaging of full covariance is requested
+        
+                            diagoffsets = [] # Stores the correlation index difference along each axis.
+                            for colaxind, colax in enumerate(xinfo['collapse_axes']):
+                                if colax == 1:
+                                    if stat == 'mean':
+                                        result[smplng][dpool][stat] = NP.nanmean(result[smplng][dpool][stat], axis=expandax_map[colax][-1])
+                                    else:
+                                        result[smplng][dpool][stat] = NP.nanmedian(result[smplng][dpool][stat], axis=expandax_map[colax][-1])
+                                    diagoffsets += [lstshifts]
+                                else:
+                                    pspec_unit = result[smplng][dpool][stat].si.unit
+                                    result[smplng][dpool][stat], offsets = OPS.array_trace(result[smplng][dpool][stat].si.value, offsets=None, axis1=expandax_map[colax][0], axis2=expandax_map[colax][1], outaxis='axis1')
+                                    result[smplng][dpool][stat] = result[smplng][dpool][stat] * pspec_unit
+                                    diagoffsets += [offsets]
+                                for ekey in expandax_map:
+                                    if ekey > colax:
+                                        expandax_map[ekey] -= 1
+                                expandax_map[colax] = NP.asarray(expandax_map[colax][0]).ravel()
+        
+                            wts_shape = tuple(NP.ones(result[smplng][dpool][stat].ndim, dtype=NP.int))
+                            postXwts = NP.ones(wts_shape, dtype=NP.complex)
+                            wts_shape = NP.asarray(wts_shape)
+                            for colaxind, colax in enumerate(xinfo['collapse_axes']):
+                                curr_wts_shape = NP.copy(wts_shape)
+                                curr_wts_shape[expandax_map[colax]] = -1
+                                postXwts = postXwts * xinfo['wts']['postX'][colaxind].reshape(tuple(curr_wts_shape))
+                                
+                            result[smplng][dpool][stat] = result[smplng][dpool][stat] * postXwts
+        
+                            axes_to_sum = tuple(NP.asarray([expandax_map[colax] for colax in xinfo['collapse_axes']]).ravel()) # for post-X normalization and collapse of covariance matrix
+        
+                            if xinfo['wts']['postXnorm']:
+                                result[smplng][dpool][stat] = result[smplng][dpool][stat] / NP.nansum(postXwts, axis=axes_to_sum, keepdims=True) # Normalize by summing the weights over the collapsed axes
+                            if xinfo['avgcov']:
+        
+                                # collapse the axes further (postXwts have already
+                                # been applied)
+        
+                                result[smplng][dpool][stat] = NP.nanmean(result[smplng][dpool][stat], axis=axes_to_sum, keepdims=True)
+                                for colaxind in zip(*sorted(zip(NP.arange(xinfo['collapse_axes'].size), xinfo['collapse_axes']), reverse=True))[0]:
+        
+                                    # It is import to sort the collapsable axes in
+                                    # reverse order before deleting elements below,
+                                    # otherwise the axes ordering may be get messed up
+        
+                                    del diagoffsets[colaxind]
+        
+                    else:
+                        result[smplng][dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec.ndim-1, dtype=NP.int))) * NP.abs(dspec * U.Jy)**2
+                        diagoffsets = []
+                        expandax_map = {}                            
+                        
+                if units == 'Jy':
+                    result[smplng][dpool][stat] = result[smplng][dpool][stat].to('Jy2 Mpc')
+                elif units == 'K':
+                    result[smplng][dpool][stat] = result[smplng][dpool][stat].to('K2 Mpc3')
+                else:
+                    raise ValueError('Input value for units invalid')
+                result[smplng][dpool]['diagoffsets'] = diagoffsets
+                result[smplng][dpool]['axesmap'] = expandax_map
+
+                result[smplng][dpool]['nsamples_incoh'] = nsamples_incoh
+                result[smplng][dpool]['nsamples_coh'] = nsamples_coh
 
         return result
 

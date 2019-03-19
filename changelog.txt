@@ -1,3 +1,36 @@
+From 5d0cbaa (BSP_PS_errorbar):
+==============================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function smooth_in_tbins() of class ClosurePhase,
+adjust mean and median of eicp quantities to unit amplitudes.
+(*) In member function subsample_differencing() of class ClosurePhase,
+adjust mean and median of eicp quantities to unit amplitudes.
+(*) In member function subsample_differencing() of class ClosurePhase,
+weight the subsample differences by 0.5 to get noise properties with
+the right scaling
+(*) In member function subsample_differencing() of class ClosurePhase,
+change returned list_of_pair_of_pairs attribute to be a numpy array
+instead of a list of pairs of sets
+(*) In member function FT() of class ClosurePhaseDelaySpectrum,
+update returned dictionary to contain two separate keys, one for each
+pair difference in subsample difference. Similarly compute FT() for
+each pair difference separately under different keys as well as
+the corresponding downsampling. Update member function docstring
+accordingly
+(*) In member function subset() of class ClosurePhaseDelaySpectrum,
+return indices of the days in the subsample differences as the last
+value in the returned tuple. update docstring to accurately represent
+the returned values.
+(*) In member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum, modify call to member function subset() of
+class ClosurePhaseDelaySpectrum based on aforementioned changes.
+(*) Add new member function compute_power_spectrum_uncertainty() under
+class ClosurePhaseDelaySpectrum along with docstring. This function
+computes the error bars from subsample differences. Update class
+docstring accordingly.
+
 From c4ed619 (BSP_PS_errorbar):
 ==============================
 
