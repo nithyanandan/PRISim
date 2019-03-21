@@ -1,3 +1,12 @@
+From ccae7ac (BSP_PS_errorbar):
+==============================
+
+In prisim/bispectrum_phase.py,
+
+(*) Remove deprecated member function compute_power_spectrum_old()
+under class ClosurePhaseDelaySpectrum. Update class docstring
+accordingly
+
 From fe688ef (BSP_PS_errorbar):
 ==============================
 
