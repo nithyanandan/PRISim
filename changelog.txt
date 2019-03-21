@@ -1,3 +1,23 @@
+From fe688ef (BSP_PS_errorbar):
+==============================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum, compute and return diagonal weights in the
+output. Update member function docstring accordingly
+(*) In member function compute_power_spectrum() of class
+ClosurePhaseDelaySpectrum, instead of returning traces of diagonals
+which represent the sum, return the means along the traces along with
+the diagonal weights.
+(*) In member function compute_power_spectrum_uncertainty() of class
+ClosurePhaseDelaySpectrcompute_power_spectrum_uncertainty diagonal 
+weights in the output. Update member function docstring accordingly
+(*) In member function compute_power_spectrum_uncertainty() of class
+ClosurePhaseDelaySpectrum, instead of returning traces of diagonals
+which represent the sum, return the means along the traces along with
+the diagonal weights.
+
 From 5d0cbaa (BSP_PS_errorbar):
 ==============================
 
