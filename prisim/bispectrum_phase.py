@@ -2359,7 +2359,12 @@ class ClosurePhaseDelaySpectrum(object):
                                 diagweights = {} # Stores the number of points summed in the trace along the offset diagonal
                                 for colaxind, colax in enumerate(xinfo['collapse_axes']):
                                     if colax == 1:
-                                        diagweights[colax] = result[smplng][dpool][stat].shape[expandax_map[colax][-1]] - lstshifts
+                                        shp = NP.ones(dspec.ndim, dtype=NP.int)
+                                        shp[colax] = lst_ind.size
+                                        multdim_idx = tuple([NP.arange(axdim) for axdim in shp])
+                                        diagweights[colax] = NP.sum(NP.logical_not(NP.isnan(dspec[multdim_idx]))) - lstshifts
+                                        # diagweights[colax] = result[smplng][dpool][stat].shape[expandax_map[colax][-1]] - lstshifts
+
                                         if stat == 'mean':
                                             result[smplng][dpool][stat] = NP.nanmean(result[smplng][dpool][stat], axis=expandax_map[colax][-1])
                                         else:
@@ -3105,7 +3110,12 @@ class ClosurePhaseDelaySpectrum(object):
                             diagweights = {} # Stores the number of points summed in the trace along the offset diagonal
                             for colaxind, colax in enumerate(xinfo['collapse_axes']):
                                 if colax == 1:
-                                    diagweights[colax] = result[smplng][dpool][stat].shape[expandax_map[colax][-1]] - lstshifts
+                                    shp = NP.ones(cpds[smplng][dpool]['dspec0'][stat].ndim, dtype=NP.int)
+                                    shp[colax] = lst_ind.size
+                                    multdim_idx = tuple([NP.arange(axdim) for axdim in shp])
+                                    diagweights[colax] = NP.sum(NP.logical_not(NP.isnan(cpds[smplng][dpool]['dspec0'][stat][dspec_multidim_idx][multdim_idx]))) - lstshifts
+                                    # diagweights[colax] = result[smplng][dpool][stat].shape[expandax_map[colax][-1]] - lstshifts
+
                                     if stat == 'mean':
                                         result[smplng][dpool][stat] = NP.nanmean(result[smplng][dpool][stat], axis=expandax_map[colax][-1])
                                     else:
