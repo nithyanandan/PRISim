@@ -1239,13 +1239,34 @@ class ClosurePhaseDelaySpectrum(object):
                     [dictionary] Dictionary containing reference visibilities
                     based on which the closure phases will be scaled to units
                     of visibilities. It contains the following keys and values:
-                    'vis'   [numpy array] Reference visibilities from the 
-                            baselines that form the triad. It must be of shape 
-                            (nbl, nlst_vis, nchan). The nearest LST will be 
-                            looked up and applied after smoothing along LST
-                            based on the smoothing parameter 'smooth'
+                    'vis'   [numpy array or instance of class 
+                            InterferometerArray] Reference visibilities from the 
+                            baselines that form the triad. It can be an instance
+                            of class RI.InterferometerArray or a numpy array. 
+                            If an instance of class InterferometerArray, the 
+                            baseline triplet must be set in key 'bltriplet' 
+                            and value in key 'lst' will be ignored. If the 
+                            value under this key 'vis' is set to a numpy array, 
+                            it must be of shape (nbl=3, nlst_vis, nchan). In 
+                            this case the value under key 'bltriplet' will be
+                            ignored. The nearest LST will be looked up and 
+                            applied after smoothing along LST based on the 
+                            smoothing parameter 'smooth'
+                    'bltriplet'
+                            [Numpy array] Will be used in searching for matches
+                            to these three baseline vectors if the value under
+                            key 'vis' is set to an instance of class
+                            InterferometerArray. However, if value under key
+                            'vis' is a numpy array, this key 'bltriplet' will
+                            be ignored. 
                     'lst'   [numpy array] Reference LST (in hours). It is of
-                            shape (nlst_vis,)
+                            shape (nlst_vis,). It will be used only if value 
+                            under key 'vis' is a numpy array, otherwise it will
+                            be ignored and read from the instance of class
+                            InterferometerArray passed under key 'vis'. If the
+                            specified LST range does not cover the data LST
+                            range, those LST will contain NaN in the delay
+                            spectrum
                     'smoothinfo'
                             [dictionary] Dictionary specifying smoothing and/or 
                             interpolation parameters. It has the following keys
@@ -1453,15 +1474,41 @@ class ClosurePhaseDelaySpectrum(object):
         if visscaleinfo is not None:
             if not isinstance(visscaleinfo, dict):
                 raise TypeError('Input visscaleinfo must be a dictionary')
-            for vkey in ['vis', 'lst']:
-                if vkey not in visscaleinfo:
-                    raise KeyError('Input visscaleinfo does not contain key "{0}"'.format(vkey))
-            lst_vis = visscaleinfo['lst'] * 15.0
+            if 'vis' not in visscaleinfo:
+                raise KeyError('Input visscaleinfo does not contain key "vis"')
+            if not isinstance(visscaleinfo['vis'], RI.InterferometerArray):
+                if 'lst' not in visscaleinfo:
+                    raise KeyError('Input visscaleinfo does not contain key "lst"')
+                lst_vis = visscaleinfo['lst'] * 15.0
+                if not isinstance(visscaleinfo['vis'], (NP.ndarray,MA.MaskedArray)):
+                    raise TypeError('Input visibilities must be a numpy or a masked array')
+                if not isinstance(visscaleinfo['vis'], MA.MaskedArray):
+                    visscaleinfo['vis'] = MA.array(visscaleinfo['vis'], mask=NP.isnan(visscaleinfo['vis']))
+                vistriad = MA.copy(visscaleinfo['vis'])
+            else:
+                if 'bltriplet' not in visscaleinfo:
+                    raise KeyError('Input dictionary visscaleinfo does not contain key "bltriplet"')
+                blind, blrefind, dbl = LKP.find_1NN(visscaleinfo['vis'].baselines, visscaleinfo['bltriplet'], distance_ULIM=0.2, remove_oob=True)
+                if blrefind.size != 3:
+                    blind_missing = NP.setdiff1d(NP.arange(3), blind, assume_unique=True)
+                    blind_next, blrefind_next, dbl_next = LKP.find_1NN(visscaleinfo['vis'].baselines, -1*visscaleinfo['bltriplet'][blind_missing,:], distance_ULIM=0.2, remove_oob=True)
+                    if blind_next.size + blind.size != 3:
+                        raise ValueError('Exactly three baselines were not found in the reference baselines')
+                    else:
+                        blind = NP.append(blind, blind_missing[blind_next])
+                        blrefind = NP.append(blrefind, blrefind_next)
+                else:
+                    blind_missing = []
+                    
+                vistriad = NP.transpose(visscaleinfo['vis'].skyvis_freq[blrefind,:,:], (0,2,1))
+                if len(blind_missing) > 0:
+                    vistriad[-blrefind_next.size:,:,:] = vistriad[-blrefind_next.size:,:,:].conj()
+                vistriad = MA.array(vistriad, mask=NP.isnan(vistriad))
+                lst_vis = visscaleinfo['vis'].lst
+                
+            viswts = MA.array(NP.ones_like(vistriad.data), mask=vistriad.mask, dtype=NP.float)
             lst_out = self.cPhase.cpinfo['processed']['prelim']['lstbins'] * 15.0
-            if not isinstance(visscaleinfo['vis'], MA.MaskedArray):
-                visscaleinfo['vis'] = MA.array(visscaleinfo['vis'], mask=NP.isnan(visscaleinfo['vis']))
-            viswts = MA.array(NP.ones_like(visscaleinfo['vis'].data), mask=visscaleinfo['vis'].mask, dtype=NP.float)
-            vis_ref, wts_ref = OPS.interpolate_masked_array_1D(visscaleinfo['vis'], viswts, 1, visscaleinfo['smoothinfo'], inploc=lst_vis, outloc=lst_out)
+            vis_ref, wts_ref = OPS.interpolate_masked_array_1D(vistriad, viswts, 1, visscaleinfo['smoothinfo'], inploc=lst_vis, outloc=lst_out)
 
         if not isinstance(method, str):
             raise TypeError('Input method must be a string')
@@ -1520,7 +1567,7 @@ class ClosurePhaseDelaySpectrum(object):
                                 eicp = NP.broadcast_to(eicp, self.cPhase.cpinfo[dpool]['eicp_diff']['{0}'.format(diffind)][stat].shape) # Broadcast to final shape
                                 eicp = eicp[NP.newaxis,...] # nlst x ndayscomb x ntriads x nchan --> (nspw=1) x nlst x ndayscomb x ntriads x nchan
                                 ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
-                                result[dpool]['dspec{0}'.format(diffind)][stat] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale, ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                                result[dpool]['dspec{0}'.format(diffind)][stat] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale.filled(NP.nan), ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                     else:
                         if dpool in self.cPhase.cpinfo['processed']:
                             if apply_flags:
@@ -1533,16 +1580,16 @@ class ClosurePhaseDelaySpectrum(object):
                                 eicp = NP.broadcast_to(eicp, self.cPhase.cpinfo['processed'][datapool]['eicp']['mean'].shape) # Broadcast to final shape
                                 eicp = eicp[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
                                 ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
-                                result[dpool]['dspec'] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale, ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                                result[dpool]['dspec'] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale.filled(NP.nan), ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                             else:
                                 for key in self.cPhase.cpinfo['processed'][dpool]['eicp']:
                                     eicp = NP.copy(self.cPhase.cpinfo['processed'][dpool]['eicp'][key].data)
                                     eicp = eicp[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
                                     ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
                                     if dpool == 'prelim':
-                                        result['whole']['dspec'][key] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale, ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                                        result['whole']['dspec'][key] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale.filled(NP.nan), ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                                     else:
-                                        result[dpool]['dspec'][key] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale, ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                                        result[dpool]['dspec'][key] = DSP.FT1D(NP.pad(eicp*flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:]*visscale.filled(NP.nan), ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
                 result['lag_kernel'] = DSP.FT1D(NP.pad(flagwts*freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], ndim_padtuple, mode='constant'), ax=-1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
 
             self.cPhaseDS = result
