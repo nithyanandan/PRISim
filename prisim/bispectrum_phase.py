@@ -443,6 +443,119 @@ def npz2hdf5(npzfile, hdf5file, longitude=0.0, latitude=0.0):
             
 ################################################################################
 
+def incoherent_cross_power_spectrum_average(xcpdps, excpdps=None, diagoffsets=None):
+
+    if isinstance(xcpdps, dict):
+        xcpdps = [xcpdps]
+    if not isinstance(xcpdps, list):
+        raise TypeError('Invalid data type provided for input xcpdps')
+
+    if excpdps is not None:
+        if isinstance(excpdps, dict):
+            excpdps = [excpdps]
+        if not isinstance(excpdps, list):
+            raise TypeError('Invalid data type provided for input excpdps')
+        if len(xcpdps) != len(excpdps):
+            raise ValueError('Inputs xcpdps and excpdps found to have unequal number of values')
+
+    out_xcpdps = {'triads': xcpdps[0]['triads'], 'triads_ind': xcpdps[0]['triads_ind'], 'lst': xcpdps[0]['lst'], 'lst_ind': xcpdps[0]['lst_ind'], 'dlst': xcpdps[0]['dlst'], 'days': xcpdps[0]['days'], 'day_ind': xcpdps[0]['day_ind'], 'dday': xcpdps[0]['dday']}
+    
+    out_excpdps = None
+    if excpdps is not None:
+        out_excpdps = {'triads': excpdps[0]['triads'], 'triads_ind': excpdps[0]['triads_ind'], 'lst': excpdps[0]['lst'], 'lst_ind': excpdps[0]['lst_ind'], 'dlst': excpdps[0]['dlst'], 'days': excpdps[0]['days'], 'day_ind': excpdps[0]['day_ind'], 'dday': excpdps[0]['dday']}
+
+    for smplng in ['oversampled', 'resampled']:
+        if smplng in xcpdps[0]:
+            out_xcpdps[smplng] = {'z': xcpdps[0][smplng]['z'], 'kprll': xcpdps[0][smplng]['kprll'], 'lags': xcpdps[0][smplng]['lags'], 'freq_center': xcpdps[0][smplng]['freq_center'], 'bw_eff': xcpdps[0][smplng]['bw_eff'], 'shape': xcpdps[0][smplng]['shape'], 'freq_wts': xcpdps[0][smplng]['freq_wts'], 'lag_corr_length': xcpdps[0][smplng]['lag_corr_length']}
+            if excpdps is not None:
+                out_excpdps[smplng] = {'z': excpdps[0][smplng]['z'], 'kprll': excpdps[0][smplng]['kprll'], 'lags': excpdps[0][smplng]['lags'], 'freq_center': excpdps[0][smplng]['freq_center'], 'bw_eff': excpdps[0][smplng]['bw_eff'], 'shape': excpdps[0][smplng]['shape'], 'freq_wts': excpdps[0][smplng]['freq_wts'], 'lag_corr_length': excpdps[0][smplng]['lag_corr_length']}
+
+            for dpool in ['whole', 'submodel', 'residual']:
+                if dpool in xcpdps[0][smplng]:
+                    out_xcpdps[smplng][dpool] = {'diagoffsets': xcpdps[0][smplng][dpool]['diagoffsets'], 'axesmap': xcpdps[0][smplng][dpool]['axesmap']}
+                    for stat in ['mean', 'median']:
+                        if stat in xcpdps[0][smplng][dpool]:
+                            out_xcpdps[smplng][dpool][stat] = {}
+                            arr = []
+                            diagweights = []
+                            diagwts = 1.0
+                            for i in range(len(xcpdps)):
+                                arr += [xcpdps[i][smplng][dpool][stat].si.value]
+                                arr_units = xcpdps[i][smplng][dpool][stat].si.unit
+                                diagwts_shape = NP.ones(xcpdps[i][smplng][dpool][stat].ndim, dtype=NP.int)
+                                for ax in xcpdps[i][smplng][dpool]['diagweights']:
+                                    tmp_shape = NP.copy(diagwts_shape)
+                                    tmp_shape[xcpdps[i][smplng][dpool]['axesmap'][ax]] = xcpdps[i][smplng][dpool]['diagweights'][ax].size
+                                    diagwts = diagwts * xcpdps[i][smplng][dpool]['diagweights'][ax].reshape(tuple(tmp_shape))
+                                diagweights += [diagwts]
+                            diagweights = NP.asarray(diagweights)
+                            arr = NP.asarray(arr)
+                            arr = NP.nansum(arr * diagweights, axis=0) / NP.nansum(diagweights, axis=0) * arr_units
+                            diagweights = NP.nansum(diagweights, axis=0)
+                        out_xcpdps[smplng][dpool][stat] = arr
+                    out_xcpdps[smplng][dpool]['diagweights'] = diagweights
+
+            for dpool in ['errinfo']:
+                if dpool in excpdps[0][smplng]:
+                    out_excpdps[smplng][dpool] = {'diagoffsets': excpdps[0][smplng][dpool]['diagoffsets'], 'axesmap': excpdps[0][smplng][dpool]['axesmap']}
+                    for stat in ['mean', 'median']:
+                        if stat in excpdps[0][smplng][dpool]:
+                            out_excpdps[smplng][dpool][stat] = {}
+                            arr = []
+                            diagweights = []
+                            diagwts = 1.0
+                            for i in range(len(excpdps)):
+                                arr += [excpdps[i][smplng][dpool][stat].si.value]
+                                arr_units = excpdps[i][smplng][dpool][stat].si.unit
+                                diagwts_shape = NP.ones(excpdps[i][smplng][dpool][stat].ndim, dtype=NP.int)
+                                for ax in excpdps[i][smplng][dpool]['diagweights']:
+                                    tmp_shape = NP.copy(diagwts_shape)
+                                    tmp_shape[excpdps[i][smplng][dpool]['axesmap'][ax]] = excpdps[i][smplng][dpool]['diagweights'][ax].size
+                                    diagwts = diagwts * excpdps[i][smplng][dpool]['diagweights'][ax].reshape(tuple(tmp_shape))
+                                diagweights += [diagwts]
+                            diagweights = NP.asarray(diagweights)
+                            arr = NP.asarray(arr)
+                            arr = NP.nansum(arr * diagweights, axis=0) / NP.nansum(diagweights, axis=0) * arr_units
+                            diagweights = NP.nansum(diagweights, axis=0)
+                        out_excpdps[smplng][dpool][stat] = arr
+                    out_excpdps[smplng][dpool]['diagweights'] = diagweights
+
+    if diagoffsets is not None:
+        if isinstance(diagoffsets, dict):
+            diagoffsets = [diagoffsets]
+        if not isinstance(diagoffsets, list):
+            raise TypeError('Input diagoffsets must be a list of dictionaries')
+        for ind in range(len(diagoffsets)):
+            for ax in diagoffsets[ind]:
+                if not isinstance(diagoffsets[ind][ax], (list, NP.ndarray)):
+                    raise TypeError('Values in input dictionary diagoffsets must be a list or numpy array')
+                diagoffsets[ind][ax] = NP.asarray(diagoffsets[ind][ax])
+
+        for smplng in ['oversampled', 'resampled']:
+            if smplng in out_xcpdps:
+                for dpool in ['whole', 'submodel', 'residual']:
+                    if dpool in out_xcpdps[smplng]:
+                        masks = []
+                        for ind in range(len(diagoffsets)):
+                            mask = NP.ones(out_xcpdps[smplng][dpool]['diagweights'].shape, dtype=NP.bool)
+                            for ax in diagoffsets[ind]:
+                                mask[NP.take(mask, NP.where(NP.isin(out_xcpdps[smplng][dpool]['diagoffsets'][ax], diagoffsets[ind][ax]))[0], axis=out_xcpdps[smplng][dpool]['axesmap'][ax])] = False
+                                masks += [NP.copy(mask)]
+                        diagwts = NP.copy(out_xcpdps[smplng][dpool]['diagweights'])
+                        out_xcpdps[smplng][dpool]['diagweights'] = []
+                        for stat in ['mean', 'median']:
+                            if stat in out_xcpdps[smplng][dpool]:
+                                arr = NP.copy(out_xcpdps[smplng][dpool][stat])
+                                out_xcpdps[smplng][dpool][stat] = []
+                                for ind in range(len(diagoffsets)):
+                                    masked_diagwts = MA.array(diagwts, mask=masks[ind])
+                                    axes_to_avg = tuple([out_xcpdps[smplng][dpool]['axesmap'][ax] for ax in diagoffsets[ind]])
+                                    out_xcpdps[smplng][dpool][stat] += [MA.sum(arr * masked_diagwts, axis=axes_to_avg, keepdims=True) / MA.sum(masked_diagwts, axis=axes_to_avg, keepdims=True)]
+                                    if len(out_xcpdps[smplng][dpool]['diagweights']) < len(diagoffsets):
+                                        out_xcpdps[smplng][dpool]['diagweights'] += [MA.sum(masked_diagwts, axis=axes_to_avg, keepdims=True)]
+
+################################################################################
+
 class ClosurePhase(object):
 
     """
@@ -2710,7 +2823,7 @@ class ClosurePhaseDelaySpectrum(object):
                 It has shape that depends on the combination of input 
                 parameters. See examples below. If both collapse_axes and 
                 avgcov are not set, those axes will be replaced with square 
-                covariance matrices. If collapse_axes is provided bu avgcov is 
+                covariance matrices. If collapse_axes is provided but avgcov is 
                 False, those axes will be of shape 2*Naxis-1. 
         'diagoffsets' 
                 [list of numpy arrays] A list with one element each for a 
