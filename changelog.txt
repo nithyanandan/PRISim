@@ -1,3 +1,13 @@
+From d59fce7 (BSP_PS_errorbar):
+==============================
+
+In prisim/bispectrum_phase.py,
+
+(*) Remove commented lines due to change made earlier in the way
+diagonal offsets are stored in member functions
+compute_power_spectrum() and compute_power_spectrum_uncertainty() of
+class ClosurePhaseDelaySpectrum
+
 From 5547b9e (BSP_PS_errorbar):
 ==============================
 

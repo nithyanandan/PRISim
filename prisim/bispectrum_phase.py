@@ -2487,7 +2487,6 @@ class ClosurePhaseDelaySpectrum(object):
                                 # if any one of collapsing of incoherent axes or 
                                 # averaging of full covariance is requested
         
-                                # diagoffsets = [] # Stores the correlation index difference along each axis.
                                 diagoffsets = {} # Stores the correlation index difference along each axis.
                                 diagweights = {} # Stores the number of points summed in the trace along the offset diagonal
                                 for colaxind, colax in enumerate(xinfo['collapse_axes']):
@@ -2503,13 +2502,11 @@ class ClosurePhaseDelaySpectrum(object):
                                         else:
                                             result[smplng][dpool][stat] = NP.nanmedian(result[smplng][dpool][stat], axis=expandax_map[colax][-1])
                                         diagoffsets[colax] = lstshifts
-                                        # diagoffsets += [lstshifts]
                                     else:
                                         pspec_unit = result[smplng][dpool][stat].si.unit
                                         result[smplng][dpool][stat], offsets, diagwts = OPS.array_trace(result[smplng][dpool][stat].si.value, offsets=None, axis1=expandax_map[colax][0], axis2=expandax_map[colax][1], outaxis='axis1')
                                         diagwts_shape = NP.ones(result[smplng][dpool][stat].ndim, dtype=NP.int)
                                         diagwts_shape[expandax_map[colax][0]] = diagwts.size
-                                        # diagoffsets += [offsets]
                                         diagoffsets[colax] = offsets
                                         diagweights[colax] = NP.copy(diagwts)
                                         result[smplng][dpool][stat] = result[smplng][dpool][stat] * pspec_unit / diagwts.reshape(diagwts_shape)
@@ -2547,11 +2544,9 @@ class ClosurePhaseDelaySpectrum(object):
                                         diagoffset_weights_shape[expandax_map[xinfo['collapse_axes'][colaxind]][0]] = diagweights[xinfo['collapse_axes'][colaxind]].size
                                         diagoffset_weights = diagoffset_weights * diagweights[xinfo['collapse_axes'][colaxind]].reshape(diagoffset_weights_shape)
                                         del diagoffsets[xinfo['collapse_axes'][colaxind]]
-                                        # del diagoffsets[colaxind]
                                     result[smplng][dpool][stat] = NP.nansum(result[smplng][dpool][stat]*diagoffset_weights, axis=axes_to_sum, keepdims=True) / NP.nansum(diagoffset_weights, axis=axes_to_sum, keepdims=True)
                         else:
                             result[smplng][dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec.ndim-1, dtype=NP.int))) * NP.abs(dspec * U.Jy)**2
-                            # diagoffsets = []
                             diagoffsets = {}
                             expandax_map = {}                            
                             
@@ -3246,7 +3241,6 @@ class ClosurePhaseDelaySpectrum(object):
                             # if any one of collapsing of incoherent axes or 
                             # averaging of full covariance is requested
         
-                            # diagoffsets = [] # Stores the correlation index difference along each axis.
                             diagoffsets = {} # Stores the correlation index difference along each axis.
                             diagweights = {} # Stores the number of points summed in the trace along the offset diagonal
                             for colaxind, colax in enumerate(xinfo['collapse_axes']):
@@ -3262,13 +3256,11 @@ class ClosurePhaseDelaySpectrum(object):
                                     else:
                                         result[smplng][dpool][stat] = NP.nanmedian(result[smplng][dpool][stat], axis=expandax_map[colax][-1])
                                     diagoffsets[colax] = lstshifts
-                                    # diagoffsets += [lstshifts]
                                 else:
                                     pspec_unit = result[smplng][dpool][stat].si.unit
                                     result[smplng][dpool][stat], offsets, diagwts = OPS.array_trace(result[smplng][dpool][stat].si.value, offsets=None, axis1=expandax_map[colax][0], axis2=expandax_map[colax][1], outaxis='axis1')
                                     diagwts_shape = NP.ones(result[smplng][dpool][stat].ndim, dtype=NP.int)
                                     diagwts_shape[expandax_map[colax][0]] = diagwts.size
-                                    # diagoffsets += [offsets]
                                     diagoffsets[colax] = offsets
                                     diagweights[colax] = NP.copy(diagwts)
                                     result[smplng][dpool][stat] = result[smplng][dpool][stat] * pspec_unit / diagwts.reshape(diagwts_shape)
@@ -3308,11 +3300,9 @@ class ClosurePhaseDelaySpectrum(object):
                                     diagoffset_weights_shape[expandax_map[xinfo['collapse_axes'][colaxind]][0]] = diagweights[xinfo['collapse_axes'][colaxind]].size
                                     diagoffset_weights = diagoffset_weights * diagweights[xinfo['collapse_axes'][colaxind]].reshape(diagoffset_weights_shape)
                                     del diagoffsets[xinfo['collapse_axes'][colaxind]]
-                                    # del diagoffsets[colaxind]
                                 result[smplng][dpool][stat] = NP.nansum(result[smplng][dpool][stat]*diagoffset_weights, axis=axes_to_sum, keepdims=True) / NP.nansum(diagoffset_weights, axis=axes_to_sum, keepdims=True)
                     else:
                         result[smplng][dpool][stat] = factor.reshape((-1,)+tuple(NP.ones(dspec.ndim-1, dtype=NP.int))) * NP.abs(dspec * U.Jy)**2
-                        # diagoffsets = []
                         diagoffsets = {}
                         expandax_map = {}                            
                         
