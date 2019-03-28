@@ -1,3 +1,11 @@
+From 5547b9e (BSP_PS_errorbar):
+==============================
+
+In prisim/bispectrum_phase.py,
+
+(*) Develop work on producing incoherent average of power spectrum
+through function incoherent_cross_power_spectrum_average()
+
 From 0172ece (BSP_PS_errorbar):
 ==============================
 

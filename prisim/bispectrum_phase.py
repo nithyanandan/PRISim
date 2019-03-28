@@ -537,22 +537,38 @@ def incoherent_cross_power_spectrum_average(xcpdps, excpdps=None, diagoffsets=No
                     if dpool in out_xcpdps[smplng]:
                         masks = []
                         for ind in range(len(diagoffsets)):
-                            mask = NP.ones(out_xcpdps[smplng][dpool]['diagweights'].shape, dtype=NP.bool)
+                            mask_ones = NP.ones(out_xcpdps[smplng][dpool]['diagweights'].shape, dtype=NP.bool)
+                            mask_agg = None
                             for ax in diagoffsets[ind]:
-                                mask[NP.take(mask, NP.where(NP.isin(out_xcpdps[smplng][dpool]['diagoffsets'][ax], diagoffsets[ind][ax]))[0], axis=out_xcpdps[smplng][dpool]['axesmap'][ax])] = False
-                                masks += [NP.copy(mask)]
+                                mltdim_slice = [slice(None)] * mask_ones.ndim
+                                mltdim_slice[out_xcpdps[smplng][dpool]['axesmap'][ax].squeeze()] = NP.where(NP.isin(out_xcpdps[smplng][dpool]['diagoffsets'][ax], diagoffsets[ind][ax]))[0]
+                                mask_tmp = NP.copy(mask_ones)
+                                mask_tmp[tuple(mltdim_slice)] = False
+                                if mask_agg is None:
+                                    mask_agg = NP.copy(mask_tmp)
+                                else:
+                                    mask_agg = NP.logical_or(mask_agg, mask_tmp)
+                                
+                                # mltdim_idx = [NP.arange(axdim) for axdim in mask.shape]
+                                # mltdim_idx[out_xcpdps[smplng][dpool]['axesmap'][ax].squeeze()] = NP.where(NP.isin(out_xcpdps[smplng][dpool]['diagoffsets'][ax], diagoffsets[ind][ax]))[0]
+                                # mask[NP.ix_(tuple(mltdim_idx))] = False
+                                # mask[NP.take(mask, NP.where(NP.isin(out_xcpdps[smplng][dpool]['diagoffsets'][ax], diagoffsets[ind][ax]))[0], axis=out_xcpdps[smplng][dpool]['axesmap'][ax].squeeze())] = False
+                            masks += [NP.copy(mask_agg)]
                         diagwts = NP.copy(out_xcpdps[smplng][dpool]['diagweights'])
                         out_xcpdps[smplng][dpool]['diagweights'] = []
                         for stat in ['mean', 'median']:
                             if stat in out_xcpdps[smplng][dpool]:
-                                arr = NP.copy(out_xcpdps[smplng][dpool][stat])
+                                arr = NP.copy(out_xcpdps[smplng][dpool][stat].si.value)
+                                arr_units = out_xcpdps[smplng][dpool][stat].si.unit
                                 out_xcpdps[smplng][dpool][stat] = []
                                 for ind in range(len(diagoffsets)):
                                     masked_diagwts = MA.array(diagwts, mask=masks[ind])
-                                    axes_to_avg = tuple([out_xcpdps[smplng][dpool]['axesmap'][ax] for ax in diagoffsets[ind]])
-                                    out_xcpdps[smplng][dpool][stat] += [MA.sum(arr * masked_diagwts, axis=axes_to_avg, keepdims=True) / MA.sum(masked_diagwts, axis=axes_to_avg, keepdims=True)]
+                                    axes_to_avg = tuple([out_xcpdps[smplng][dpool]['axesmap'][ax][0] for ax in diagoffsets[ind]])
+                                    out_xcpdps[smplng][dpool][stat] += [MA.sum(arr * masked_diagwts, axis=axes_to_avg, keepdims=True) / MA.sum(masked_diagwts, axis=axes_to_avg, keepdims=True) * arr_units]
                                     if len(out_xcpdps[smplng][dpool]['diagweights']) < len(diagoffsets):
-                                        out_xcpdps[smplng][dpool]['diagweights'] += [MA.sum(masked_diagwts, axis=axes_to_avg, keepdims=True)]
+                                        out_xcpdps[smplng][dpool]['diagweights'] += [MA.sum(NP.logical_not(masked_diagwts).astype(int), axis=axes_to_avg, keepdims=True)]
+    
+    return (out_xcpdps, out_excpdps)
 
 ################################################################################
 
