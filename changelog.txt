@@ -1,3 +1,13 @@
+From 0172ece (BSP_PS_errorbar):
+==============================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member functions compute_power_spectrum() and
+compute_power_spectrum_uncertainty() of class
+ClosurePhaseDelaySpectrum, update diagoffsets to be a dictionary
+instead of a list. Update respective docstrings accordingly
+
 From 08df256 (BSP_PS_errorbar):
 ==============================
 
