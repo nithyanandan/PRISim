@@ -1,3 +1,12 @@
+From e6a7ebb (BSP_PS_errorbar):
+==============================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function smooth_in_tbins() and subsample_differencing()
+of class ClosurePhase, if the LST cross the 24-hour boundary, unwrap
+them to remove the discontinuity.
+
 From d59fce7 (BSP_PS_errorbar):
 ==============================
 

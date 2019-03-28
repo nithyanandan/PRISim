@@ -931,13 +931,16 @@ class ClosurePhase(object):
         if lstbinsize is not None:
             if not isinstance(lstbinsize, (int,float)):
                 raise TypeError('Input lstbinsize must be a scalar')
+            rawlst = NP.degrees(NP.unwrap(NP.radians(self.cpinfo['raw']['lst'] * 15.0), discont=NP.pi, axis=0)) / 15.0 # in hours but unwrapped to have no discontinuities
+            if NP.any(rawlst > 24.0):
+                rawlst -= 24.0
             lstbinsize = lstbinsize / 3.6e3 # in hours
-            tres = NP.diff(self.cpinfo['raw']['lst'][:,0]).min() # in hours
-            textent = self.cpinfo['raw']['lst'][:,0].max() - self.cpinfo['raw']['lst'][:,0].min() + tres # in hours
+            tres = NP.diff(rawlst[:,0]).min() # in hours
+            textent = rawlst[:,0].max() - rawlst[:,0].min() + tres # in hours
             if lstbinsize > tres:
                 lstbinsize = NP.clip(lstbinsize, tres, textent)
                 eps = 1e-10
-                lstbins = NP.arange(self.cpinfo['raw']['lst'][:,0].min(), self.cpinfo['raw']['lst'][:,0].max() + tres + eps, lstbinsize)
+                lstbins = NP.arange(rawlst[:,0].min(), rawlst[:,0].max() + tres + eps, lstbinsize)
                 nlstbins = lstbins.size
                 lstbins = NP.concatenate((lstbins, [lstbins[-1]+lstbinsize+eps]))
                 if nlstbins > 1:
@@ -946,7 +949,7 @@ class ClosurePhase(object):
                 else:
                     lstbinintervals = NP.asarray(lstbinsize).reshape(-1)
                     lstbincenters = lstbins[0] + 0.5 * lstbinintervals
-                counts, lstbin_edges, lstbinnum, ri = OPS.binned_statistic(self.cpinfo['raw']['lst'][:,0], statistic='count', bins=lstbins)
+                counts, lstbin_edges, lstbinnum, ri = OPS.binned_statistic(rawlst[:,0], statistic='count', bins=lstbins)
                 counts = counts.astype(NP.int)
 
                 if 'prelim' not in self.cpinfo['processed']:
@@ -1149,13 +1152,14 @@ class ClosurePhase(object):
         if lstbinsize is not None:
             if not isinstance(lstbinsize, (int,float)):
                 raise TypeError('Input lstbinsize must be a scalar')
+            rawlst = NP.degrees(NP.unwrap(NP.radians(self.cpinfo['raw']['lst'] * 15.0), discont=NP.pi, axis=0)) / 15.0 # in hours but unwrapped to have no discontinuities
             lstbinsize = lstbinsize / 3.6e3 # in hours
-            tres = NP.diff(self.cpinfo['raw']['lst'][:,0]).min() # in hours
-            textent = self.cpinfo['raw']['lst'][:,0].max() - self.cpinfo['raw']['lst'][:,0].min() + tres # in hours
+            tres = NP.diff(rawlst[:,0]).min() # in hours
+            textent = rawlst[:,0].max() - rawlst[:,0].min() + tres # in hours
             if lstbinsize > tres:
                 lstbinsize = NP.clip(lstbinsize, tres, textent)
                 eps = 1e-10
-                lstbins = NP.arange(self.cpinfo['raw']['lst'][:,0].min(), self.cpinfo['raw']['lst'][:,0].max() + tres + eps, lstbinsize)
+                lstbins = NP.arange(rawlst[:,0].min(), rawlst[:,0].max() + tres + eps, lstbinsize)
                 nlstbins = lstbins.size
                 lstbins = NP.concatenate((lstbins, [lstbins[-1]+lstbinsize+eps]))
                 if nlstbins > 1:
@@ -1164,7 +1168,7 @@ class ClosurePhase(object):
                 else:
                     lstbinintervals = NP.asarray(lstbinsize).reshape(-1)
                     lstbincenters = lstbins[0] + 0.5 * lstbinintervals
-                counts, lstbin_edges, lstbinnum, ri = OPS.binned_statistic(self.cpinfo['raw']['lst'][:,0], statistic='count', bins=lstbins)
+                counts, lstbin_edges, lstbinnum, ri = OPS.binned_statistic(rawlst[:,0], statistic='count', bins=lstbins)
                 counts = counts.astype(NP.int)
                 self.cpinfo['errinfo']['lstbins'] = lstbincenters
                 self.cpinfo['errinfo']['dlstbins'] = lstbinintervals
