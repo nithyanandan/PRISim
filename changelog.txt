@@ -1,3 +1,11 @@
+From fd86c01 (BSP_PS_errorbar):
+==============================
+
+In prisim/bispectrum_phase.py,
+
+(*) In save() member function of class InterferometerArray, fix bug
+in writing of baseline labels.
+
 From e6a7ebb (BSP_PS_errorbar):
 ==============================
 

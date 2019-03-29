@@ -8583,9 +8583,14 @@ class InterferometerArray(object):
                 sky_group['pointing_center'] = self.pointing_center
                 sky_group['phase_center'] = self.phase_center
                 array_group = fileobj.create_group('array')
-                label_lengths = [len(label[0]) for label in self.labels]
-                maxlen = max(label_lengths)
-                labels = NP.asarray(self.labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
+                # label_lengths = [len(label[0]) for label in self.labels]
+                # maxlen = max(label_lengths)
+                # labels = NP.asarray(self.labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
+                if isinstance(self.labels, list):
+                    str_dtype = str(NP.asarray(self.labels).dtype)
+                elif isinstance(self.labels, NP.ndarray):
+                    str_dtype = str(NP.asarray(self.labels.tolist()).dtype)
+                labels = NP.asarray(self.labels, dtype=[('A2', str_dtype), ('A1', str_dtype)])
                 array_group['labels'] = labels
                 array_group['baselines'] = self.baselines
                 array_group['baseline_coords'] = self.baseline_coords
