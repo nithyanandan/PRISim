@@ -1,3 +1,14 @@
+From 72be647 (BSP_PS_errorbar):
+==============================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function subsample_differencing() of class ClosurePhase,
+enforce masked values to data difference of the two terms in eicp_diff
+values
+(*) Update incoherent averaging of subsample differences in function
+incoherent_cross_power_spectrum_average()
+
 From fd86c01 (BSP_PS_errorbar):
 ==============================
 

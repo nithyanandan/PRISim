@@ -444,6 +444,11 @@ def npz2hdf5(npzfile, hdf5file, longitude=0.0, latitude=0.0):
 ################################################################################
 
 def incoherent_cross_power_spectrum_average(xcpdps, excpdps=None, diagoffsets=None):
+    """
+    ----------------------------------------------------------------------------
+    
+    ----------------------------------------------------------------------------
+    """
 
     if isinstance(xcpdps, dict):
         xcpdps = [xcpdps]
@@ -548,11 +553,6 @@ def incoherent_cross_power_spectrum_average(xcpdps, excpdps=None, diagoffsets=No
                                     mask_agg = NP.copy(mask_tmp)
                                 else:
                                     mask_agg = NP.logical_or(mask_agg, mask_tmp)
-                                
-                                # mltdim_idx = [NP.arange(axdim) for axdim in mask.shape]
-                                # mltdim_idx[out_xcpdps[smplng][dpool]['axesmap'][ax].squeeze()] = NP.where(NP.isin(out_xcpdps[smplng][dpool]['diagoffsets'][ax], diagoffsets[ind][ax]))[0]
-                                # mask[NP.ix_(tuple(mltdim_idx))] = False
-                                # mask[NP.take(mask, NP.where(NP.isin(out_xcpdps[smplng][dpool]['diagoffsets'][ax], diagoffsets[ind][ax]))[0], axis=out_xcpdps[smplng][dpool]['axesmap'][ax].squeeze())] = False
                             masks += [NP.copy(mask_agg)]
                         diagwts = NP.copy(out_xcpdps[smplng][dpool]['diagweights'])
                         out_xcpdps[smplng][dpool]['diagweights'] = []
@@ -566,8 +566,42 @@ def incoherent_cross_power_spectrum_average(xcpdps, excpdps=None, diagoffsets=No
                                     axes_to_avg = tuple([out_xcpdps[smplng][dpool]['axesmap'][ax][0] for ax in diagoffsets[ind]])
                                     out_xcpdps[smplng][dpool][stat] += [MA.sum(arr * masked_diagwts, axis=axes_to_avg, keepdims=True) / MA.sum(masked_diagwts, axis=axes_to_avg, keepdims=True) * arr_units]
                                     if len(out_xcpdps[smplng][dpool]['diagweights']) < len(diagoffsets):
-                                        out_xcpdps[smplng][dpool]['diagweights'] += [MA.sum(NP.logical_not(masked_diagwts).astype(int), axis=axes_to_avg, keepdims=True)]
-    
+                                        out_xcpdps[smplng][dpool]['diagweights'] += [MA.sum(masked_diagwts, axis=axes_to_avg, keepdims=True)]
+
+        if excpdps is not None:
+            for smplng in ['oversampled', 'resampled']:
+                if smplng in out_excpdps:
+                    for dpool in ['errinfo']:
+                        if dpool in out_excpdps[smplng]:
+                            masks = []
+                            for ind in range(len(diagoffsets)):
+                                mask_ones = NP.ones(out_excpdps[smplng][dpool]['diagweights'].shape, dtype=NP.bool)
+                                mask_agg = None
+                                for ax in diagoffsets[ind]:
+                                    if ax != 2:
+                                        mltdim_slice = [slice(None)] * mask_ones.ndim
+                                        mltdim_slice[out_excpdps[smplng][dpool]['axesmap'][ax].squeeze()] = NP.where(NP.isin(out_excpdps[smplng][dpool]['diagoffsets'][ax], diagoffsets[ind][ax]))[0]
+                                        mask_tmp = NP.copy(mask_ones)
+                                        mask_tmp[tuple(mltdim_slice)] = False
+                                        if mask_agg is None:
+                                            mask_agg = NP.copy(mask_tmp)
+                                        else:
+                                            mask_agg = NP.logical_or(mask_agg, mask_tmp)
+                                masks += [NP.copy(mask_agg)]
+                            diagwts = NP.copy(out_excpdps[smplng][dpool]['diagweights'])
+                            out_excpdps[smplng][dpool]['diagweights'] = []
+                            for stat in ['mean', 'median']:
+                                if stat in out_excpdps[smplng][dpool]:
+                                    arr = NP.copy(out_excpdps[smplng][dpool][stat].si.value)
+                                    arr_units = out_excpdps[smplng][dpool][stat].si.unit
+                                    out_excpdps[smplng][dpool][stat] = []
+                                    for ind in range(len(diagoffsets)):
+                                        masked_diagwts = MA.array(diagwts, mask=masks[ind])
+                                        axes_to_avg = tuple([out_excpdps[smplng][dpool]['axesmap'][ax][0] for ax in diagoffsets[ind]])
+                                        out_excpdps[smplng][dpool][stat] += [MA.sum(arr * masked_diagwts, axis=axes_to_avg, keepdims=True) / MA.sum(masked_diagwts, axis=axes_to_avg, keepdims=True) * arr_units]
+                                        if len(out_excpdps[smplng][dpool]['diagweights']) < len(diagoffsets):
+                                            out_excpdps[smplng][dpool]['diagweights'] += [MA.sum(masked_diagwts, axis=axes_to_avg, keepdims=True)]
+                                        
     return (out_xcpdps, out_excpdps)
 
 ################################################################################
@@ -1191,9 +1225,9 @@ class ClosurePhase(object):
         ncomb = NP.sum(NP.asarray([(ndaybins-i-1)*(ndaybins-i-2)*(ndaybins-i-3)/2 for i in range(ndaybins-3)])).astype(int)
         diff_outshape = (counts.size, ncomb, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3])
         for diffind in range(2):
-            self.cpinfo['errinfo']['eicp_diff']['{0}'.format(diffind)]['mean'] = NP.empty(diff_outshape, dtype=NP.complex)
-            self.cpinfo['errinfo']['eicp_diff']['{0}'.format(diffind)]['median'] = NP.empty(diff_outshape, dtype=NP.complex)
-            self.cpinfo['errinfo']['wts']['{0}'.format(diffind)] = NP.empty(diff_outshape, dtype=NP.float)
+            self.cpinfo['errinfo']['eicp_diff']['{0}'.format(diffind)]['mean'] = MA.empty(diff_outshape, dtype=NP.complex)
+            self.cpinfo['errinfo']['eicp_diff']['{0}'.format(diffind)]['median'] = MA.empty(diff_outshape, dtype=NP.complex)
+            self.cpinfo['errinfo']['wts']['{0}'.format(diffind)] = MA.empty(diff_outshape, dtype=NP.float)
         ind = -1
         self.cpinfo['errinfo']['list_of_pair_of_pairs'] = []
         list_of_pair_of_pairs = []
@@ -1210,13 +1244,19 @@ class ClosurePhase(object):
                                     self.cpinfo['errinfo']['list_of_pair_of_pairs'] += [[i,j,k,m]]
                                     for stat in ['mean', 'median']:
                                         if stat == 'mean':
-                                            self.cpinfo['errinfo']['eicp_diff']['0'][stat][:,ind,:,:] = 0.5 * (eicp_tmean[:,j,:,:] - eicp_tmean[:,i,:,:])
-                                            self.cpinfo['errinfo']['eicp_diff']['1'][stat][:,ind,:,:] = 0.5 * (eicp_tmean[:,m,:,:] - eicp_tmean[:,k,:,:])
-                                            self.cpinfo['errinfo']['wts']['0'][:,ind,:,:] = NP.sqrt(wts_lstbins[:,j,:,:]**2 + wts_lstbins[:,i,:,:]**2)
-                                            self.cpinfo['errinfo']['wts']['1'][:,ind,:,:] = NP.sqrt(wts_lstbins[:,m,:,:]**2 + wts_lstbins[:,k,:,:]**2)
+                                            self.cpinfo['errinfo']['eicp_diff']['0'][stat][:,ind,:,:] = MA.array(0.5 * (eicp_tmean[:,j,:,:].data - eicp_tmean[:,i,:,:].data), mask=NP.logical_or(eicp_tmean[:,j,:,:].mask, eicp_tmean[:,i,:,:].mask))
+                                            self.cpinfo['errinfo']['eicp_diff']['1'][stat][:,ind,:,:] = MA.array(0.5 * (eicp_tmean[:,m,:,:].data - eicp_tmean[:,k,:,:].data), mask=NP.logical_or(eicp_tmean[:,m,:,:].mask, eicp_tmean[:,k,:,:].mask))
+                                            self.cpinfo['errinfo']['wts']['0'][:,ind,:,:] = MA.array(NP.sqrt(wts_lstbins[:,j,:,:].data**2 + wts_lstbins[:,i,:,:].data**2), mask=NP.logical_or(wts_lstbins[:,j,:,:].mask, wts_lstbins[:,i,:,:].mask))
+                                            self.cpinfo['errinfo']['wts']['1'][:,ind,:,:] = MA.array(NP.sqrt(wts_lstbins[:,m,:,:].data**2 + wts_lstbins[:,k,:,:].data**2), mask=NP.logical_or(wts_lstbins[:,m,:,:].mask, wts_lstbins[:,k,:,:].mask))
+                                            # self.cpinfo['errinfo']['eicp_diff']['0'][stat][:,ind,:,:] = 0.5 * (eicp_tmean[:,j,:,:] - eicp_tmean[:,i,:,:])
+                                            # self.cpinfo['errinfo']['eicp_diff']['1'][stat][:,ind,:,:] = 0.5 * (eicp_tmean[:,m,:,:] - eicp_tmean[:,k,:,:])
+                                            # self.cpinfo['errinfo']['wts']['0'][:,ind,:,:] = NP.sqrt(wts_lstbins[:,j,:,:]**2 + wts_lstbins[:,i,:,:]**2)
+                                            # self.cpinfo['errinfo']['wts']['1'][:,ind,:,:] = NP.sqrt(wts_lstbins[:,m,:,:]**2 + wts_lstbins[:,k,:,:]**2)
                                         else:
-                                            self.cpinfo['errinfo']['eicp_diff']['0'][stat][:,ind,:,:] = 0.5 * (eicp_tmedian[:,j,:,:] - eicp_tmedian[:,i,:,:])
-                                            self.cpinfo['errinfo']['eicp_diff']['1'][stat][:,ind,:,:] = 0.5 * (eicp_tmedian[:,m,:,:] - eicp_tmedian[:,k,:,:])
+                                            self.cpinfo['errinfo']['eicp_diff']['0'][stat][:,ind,:,:] = MA.array(0.5 * (eicp_tmedian[:,j,:,:].data - eicp_tmedian[:,i,:,:].data), mask=NP.logical_or(eicp_tmedian[:,j,:,:].mask, eicp_tmedian[:,i,:,:].mask))
+                                            self.cpinfo['errinfo']['eicp_diff']['1'][stat][:,ind,:,:] = MA.array(0.5 * (eicp_tmedian[:,m,:,:].data - eicp_tmedian[:,k,:,:].data), mask=NP.logical_or(eicp_tmedian[:,m,:,:].mask, eicp_tmedian[:,k,:,:].mask))
+                                            # self.cpinfo['errinfo']['eicp_diff']['0'][stat][:,ind,:,:] = 0.5 * (eicp_tmedian[:,j,:,:] - eicp_tmedian[:,i,:,:])
+                                            # self.cpinfo['errinfo']['eicp_diff']['1'][stat][:,ind,:,:] = 0.5 * (eicp_tmedian[:,m,:,:] - eicp_tmedian[:,k,:,:])
                                         mask0 = self.cpinfo['errinfo']['wts']['0'] <= 0.0
                                         mask1 = self.cpinfo['errinfo']['wts']['1'] <= 0.0
                                         self.cpinfo['errinfo']['eicp_diff']['0'][stat] = MA.array(self.cpinfo['errinfo']['eicp_diff']['0'][stat], mask=mask0)
@@ -1685,7 +1725,7 @@ class ClosurePhaseDelaySpectrum(object):
                 result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'fftpow': fftpow, 'npad': npad, 'lags': lags, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=-1), 'whole': {'dspec': {'twts': self.cPhase.cpinfo['processed'][datapool]['wts']}}, 'residual': {'dspec': {'twts': self.cPhase.cpinfo['processed'][datapool]['wts']}}, 'errinfo': {'dspec0': {'twts': self.cPhase.cpinfo['errinfo']['wts']['0']}, 'dspec1': {'twts': self.cPhase.cpinfo['errinfo']['wts']['1']}}, 'submodel': {}}
     
                 if visscaleinfo is not None:
-                    visscale = NP.nansum(NP.transpose(vis_ref[NP.newaxis,NP.newaxis,:,:,:], axes=(0,3,1,2,4)) * freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], axis=-1, keepdims=True) / NP.nansum(freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], axis=-1, keepdims=True) # nspw x nlst x (ndays=1) x ntriads x (nchan=1)
+                    visscale = NP.nansum(NP.transpose(vis_ref[NP.newaxis,NP.newaxis,:,:,:], axes=(0,3,1,2,4)) * freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], axis=-1, keepdims=True) / NP.nansum(freq_wts[:,NP.newaxis,NP.newaxis,NP.newaxis,:], axis=-1, keepdims=True) # nspw x nlst x (ndays=1) x (nbl=3) x (nchan=1)
                     visscale = NP.sqrt(1.0/NP.nansum(1/NP.abs(visscale)**2, axis=-2, keepdims=True)) # nspw x nlst x (ndays=1) x (ntriads=1) x (nchan=1)
 
                 for dpool in ['errinfo', 'prelim', 'submodel', 'residual']:
@@ -1697,6 +1737,7 @@ class ClosurePhaseDelaySpectrum(object):
                                 flagwts = 1.0 * flagwts / NP.mean(flagwts, axis=-1, keepdims=True) # (nspw=1) x nlst x ndays x ntriads x nchan
                             for stat in self.cPhase.cpinfo[dpool]['eicp_diff']['{0}'.format(diffind)]:
                                 eicp = NP.copy(self.cPhase.cpinfo[dpool]['eicp_diff']['{0}'.format(diffind)][stat].data) # Minimum shape as stored
+                                # eicp = NP.copy(self.cPhase.cpinfo[dpool]['eicp_diff']['{0}'.format(diffind)][stat].filled(0.0)) # Minimum shape as stored
                                 eicp = NP.broadcast_to(eicp, self.cPhase.cpinfo[dpool]['eicp_diff']['{0}'.format(diffind)][stat].shape) # Broadcast to final shape
                                 eicp = eicp[NP.newaxis,...] # nlst x ndayscomb x ntriads x nchan --> (nspw=1) x nlst x ndayscomb x ntriads x nchan
                                 ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
@@ -1710,6 +1751,7 @@ class ClosurePhaseDelaySpectrum(object):
                         
                             if dpool == 'submodel':
                                 eicp = NP.copy(self.cPhase.cpinfo['processed'][dpool]['eicp'].data) # Minimum shape as stored
+                                # eicp = NP.copy(self.cPhase.cpinfo['processed'][dpool]['eicp'].filled(1.0)) # Minimum shape as stored
                                 eicp = NP.broadcast_to(eicp, self.cPhase.cpinfo['processed'][datapool]['eicp']['mean'].shape) # Broadcast to final shape
                                 eicp = eicp[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
                                 ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
@@ -1717,6 +1759,7 @@ class ClosurePhaseDelaySpectrum(object):
                             else:
                                 for key in self.cPhase.cpinfo['processed'][dpool]['eicp']:
                                     eicp = NP.copy(self.cPhase.cpinfo['processed'][dpool]['eicp'][key].data)
+                                    # eicp = NP.copy(self.cPhase.cpinfo['processed'][dpool]['eicp'][key].filled(1.0))
                                     eicp = eicp[NP.newaxis,...] # nlst x ndays x ntriads x nchan --> (nspw=1) x nlst x ndays x ntriads x nchan
                                     ndim_padtuple = [(0,0)]*(eicp.ndim-1) + [(0,npad)] # [(0,0), (0,0), (0,0), (0,0), (0,npad)]
                                     if dpool == 'prelim':
