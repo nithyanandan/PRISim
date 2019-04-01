@@ -446,7 +446,262 @@ def npz2hdf5(npzfile, hdf5file, longitude=0.0, latitude=0.0):
 def incoherent_cross_power_spectrum_average(xcpdps, excpdps=None, diagoffsets=None):
     """
     ----------------------------------------------------------------------------
+    Perform incoherent averaging of cross power spectrum along specified axes
     
+    Inputs:
+
+    xcpdps      [dictionary or list of dictionaries] If provided as a list of 
+                dictionaries, each dictionary consists of cross power spectral
+                information coming possible from different sources, and they 
+                will be averaged be averaged incoherently. If a single 
+                dictionary is provided instead of a list of dictionaries, the 
+                said averaging does not take place. Each dictionary is 
+                essentially an output of the member function 
+                compute_power_spectrum() of class ClosurePhaseDelaySpectrum. It 
+                has the following key-value structure:
+                'triads' ((ntriads,3) array), 'triads_ind', 
+                ((ntriads,) array), 'lstXoffsets' ((ndlst_range,) array), 'lst' 
+                ((nlst,) array), 'dlst' ((nlst,) array), 'lst_ind' ((nlst,) 
+                array), 'days' ((ndays,) array), 'day_ind' ((ndays,) array), 
+                'dday' ((ndays,) array), 'oversampled' and 'resampled' 
+                corresponding to whether resample was set to False or True in 
+                call to member function FT(). Values under keys 'triads_ind' 
+                and 'lst_ind' are numpy array corresponding to triad and time 
+                indices used in selecting the data. Values under keys 
+                'oversampled' and 'resampled' each contain a dictionary with 
+                the following keys and values:
+                'z'     [numpy array] Redshifts corresponding to the band 
+                        centers in 'freq_center'. It has shape=(nspw,)
+                'lags'  [numpy array] Delays (in seconds). It has shape=(nlags,)
+                'kprll' [numpy array] k_parallel modes (in h/Mpc) corresponding 
+                        to 'lags'. It has shape=(nspw,nlags)
+                'freq_center'   
+                        [numpy array] contains the center frequencies (in Hz) 
+                        of the frequency subbands of the subband delay spectra. 
+                        It is of size n_win. It is roughly equivalent to 
+                        redshift(s)
+                'freq_wts'      
+                        [numpy array] Contains frequency weights applied on 
+                        each frequency sub-band during the subband delay 
+                        transform. It is of size n_win x nchan. 
+                'bw_eff'        
+                        [numpy array] contains the effective bandwidths (in Hz) 
+                        of the subbands being delay transformed. It is of size 
+                        n_win. It is roughly equivalent to width in redshift or 
+                        along line-of-sight
+                'shape' [string] shape of the frequency window function applied. 
+                        Usual values are 'rect' (rectangular), 'bhw' 
+                        (Blackman-Harris), 'bnw' (Blackman-Nuttall). 
+                'fftpow'
+                        [scalar] the power to which the FFT of the window was 
+                        raised. The value is be a positive scalar with 
+                        default = 1.0
+                'lag_corr_length' 
+                        [numpy array] It is the correlation timescale (in 
+                        pixels) of the subband delay spectra. It is proportional 
+                        to inverse of effective bandwidth. It is of size n_win. 
+                        The unit size of a pixel is determined by the difference
+                        between adjacent pixels in lags under key 'lags' which 
+                        in turn is effectively inverse of the effective 
+                        bandwidth of the subband specified in bw_eff
+                
+                It further contains 3 keys named 'whole', 'submodel', and 
+                'residual' each of which is a dictionary. 'whole' contains power 
+                spectrum info about the input closure phases. 'submodel' 
+                contains power spectrum info about the model that will have been 
+                subtracted (as closure phase) from the 'whole' model. 'residual' 
+                contains power spectrum info about the closure phases obtained 
+                as a difference between 'whole' and 'submodel'. It contains the 
+                following keys and values:
+                'mean'  [numpy array] Delay power spectrum incoherently 
+                        estimated over the axes specified in xinfo['axes'] 
+                        using the 'mean' key in input cpds or attribute 
+                        cPhaseDS['processed']['dspec']. It has shape that 
+                        depends on the combination of input parameters. See 
+                        examples below. If both collapse_axes and avgcov are 
+                        not set, those axes will be replaced with square 
+                        covariance matrices. If collapse_axes is provided but 
+                        avgcov is False, those axes will be of shape 2*Naxis-1. 
+                'median'
+                        [numpy array] Delay power spectrum incoherently averaged 
+                        over the axes specified in incohax using the 'median' 
+                        key in input cpds or attribute 
+                        cPhaseDS['processed']['dspec']. It has shape that 
+                        depends on the combination of input parameters. See 
+                        examples below. If both collapse_axes and avgcov are not 
+                        set, those axes will be replaced with square covariance 
+                        matrices. If collapse_axes is provided bu avgcov is 
+                        False, those axes will be of shape 2*Naxis-1. 
+                'diagoffsets' 
+                        [dictionary] Same keys corresponding to keys under 
+                        'collapse_axes' in input containing the diagonal 
+                        offsets for those axes. If 'avgcov' was set, those 
+                        entries will be removed from 'diagoffsets' since all the 
+                        leading diagonal elements have been collapsed (averaged) 
+                        further. Value under each key is a numpy array where 
+                        each element in the array corresponds to the index of 
+                        that leading diagonal. This should match the size of the 
+                        output along that axis in 'mean' or 'median' above. 
+                'diagweights'
+                        [dictionary] Each key is an axis specified in 
+                        collapse_axes and the value is a numpy array of weights 
+                        corresponding to the diagonal offsets in that axis.
+                'axesmap'
+                        [dictionary] If covariance in cross-power is calculated 
+                        but is not collapsed, the number of dimensions in the 
+                        output will have changed. This parameter tracks where 
+                        the original axis is now placed. The keys are the 
+                        original axes that are involved in incoherent 
+                        cross-power, and the values are the new locations of 
+                        those original axes in the output. 
+                'nsamples_incoh'
+                        [integer] Number of incoherent samples in producing the 
+                        power spectrum
+                'nsamples_coh'
+                        [integer] Number of coherent samples in producing the 
+                        power spectrum
+
+    excpdps     [dictionary or list of dictionaries] If provided as a list of 
+                dictionaries, each dictionary consists of cross power spectral
+                information of subsample differences coming possible from 
+                different sources, and they will be averaged be averaged 
+                incoherently. This is optional. If not set (default=None), no 
+                incoherent averaging happens. If a single dictionary is provided 
+                instead of a list of dictionaries, the said averaging does not 
+                take place. Each dictionary is essentially an output of the 
+                member function compute_power_spectrum_uncertainty() of class 
+                ClosurePhaseDelaySpectrum. It has the following key-value 
+                structure:
+                'triads' ((ntriads,3) array), 'triads_ind', 
+                ((ntriads,) array), 'lstXoffsets' ((ndlst_range,) array), 'lst' 
+                ((nlst,) array), 'dlst' ((nlst,) array), 'lst_ind' ((nlst,) 
+                array), 'days' ((ndaycomb,) array), 'day_ind' ((ndaycomb,) 
+                array), 'dday' ((ndaycomb,) array), 'oversampled' and 
+                'resampled' corresponding to whether resample was set to False 
+                or True in call to member function FT(). Values under keys 
+                'triads_ind' and 'lst_ind' are numpy array corresponding to 
+                triad and time indices used in selecting the data. Values under 
+                keys 'oversampled' and 'resampled' each contain a dictionary 
+                with the following keys and values:
+                'z'     [numpy array] Redshifts corresponding to the band 
+                        centers in 'freq_center'. It has shape=(nspw,)
+                'lags'  [numpy array] Delays (in seconds). It has shape=(nlags,)
+                'kprll' [numpy array] k_parallel modes (in h/Mpc) corresponding
+                        to 'lags'. It has shape=(nspw,nlags)
+                'freq_center'   
+                        [numpy array] contains the center frequencies (in Hz) of 
+                        the frequency subbands of the subband delay spectra. It 
+                        is of size n_win. It is roughly equivalent to 
+                        redshift(s)
+                'freq_wts'      
+                        [numpy array] Contains frequency weights applied on each 
+                        frequency sub-band during the subband delay transform. 
+                        It is of size n_win x nchan. 
+                'bw_eff'        
+                        [numpy array] contains the effective bandwidths (in Hz) 
+                        of the subbands being delay transformed. It is of size 
+                        n_win. It is roughly equivalent to width in redshift or 
+                        along line-of-sight
+                'shape' [string] shape of the frequency window function applied. 
+                        Usual values are 'rect' (rectangular), 'bhw' 
+                        (Blackman-Harris), 'bnw' (Blackman-Nuttall). 
+                'fftpow'
+                        [scalar] the power to which the FFT of the window was 
+                        raised. The value is be a positive scalar with 
+                        default = 1.0
+                'lag_corr_length' 
+                        [numpy array] It is the correlation timescale (in 
+                        pixels) of the subband delay spectra. It is proportional 
+                        to inverse of effective bandwidth. It is of size n_win. 
+                        The unit size of a pixel is determined by the difference 
+                        between adjacent pixels in lags under key 'lags' which 
+                        in turn is effectively inverse of the effective 
+                        bandwidth of the subband specified in bw_eff
+                
+                It further contains a key named 'errinfo' which is a dictionary. 
+                It contains information about power spectrum uncertainties 
+                obtained from subsample differences. It contains the following 
+                keys and values:
+                'mean'  [numpy array] Delay power spectrum uncertainties 
+                        incoherently estimated over the axes specified in 
+                        xinfo['axes'] using the 'mean' key in input cpds or 
+                        attribute cPhaseDS['errinfo']['dspec']. It has shape 
+                        that depends on the combination of input parameters. See 
+                        examples below. If both collapse_axes and avgcov are not 
+                        set, those axes will be replaced with square covariance 
+                        matrices. If collapse_axes is provided but avgcov is 
+                        False, those axes will be of shape 2*Naxis-1. 
+                'median'
+                        [numpy array] Delay power spectrum uncertainties 
+                        incoherently averaged over the axes specified in incohax 
+                        using the 'median' key in input cpds or attribute 
+                        cPhaseDS['errinfo']['dspec']. It has shape that depends 
+                        on the combination of input parameters. See examples 
+                        below. If both collapse_axes and avgcov are not set, 
+                        those axes will be replaced with square covariance 
+                        matrices. If collapse_axes is provided but avgcov is 
+                        False, those axes will be of shape 2*Naxis-1. 
+                'diagoffsets' 
+                        [dictionary] Same keys corresponding to keys under 
+                        'collapse_axes' in input containing the diagonal offsets 
+                        for those axes. If 'avgcov' was set, those entries will 
+                        be removed from 'diagoffsets' since all the leading 
+                        diagonal elements have been collapsed (averaged) further. 
+                        Value under each key is a numpy array where each element 
+                        in the array corresponds to the index of that leading 
+                        diagonal. This should match the size of the output along 
+                        that axis in 'mean' or 'median' above. 
+                'diagweights'
+                        [dictionary] Each key is an axis specified in 
+                        collapse_axes and the value is a numpy array of weights 
+                        corresponding to the diagonal offsets in that axis.
+                'axesmap'
+                        [dictionary] If covariance in cross-power is calculated 
+                        but is not collapsed, the number of dimensions in the 
+                        output will have changed. This parameter tracks where 
+                        the original axis is now placed. The keys are the 
+                        original axes that are involved in incoherent 
+                        cross-power, and the values are the new locations of 
+                        those original axes in the output. 
+                'nsamples_incoh'
+                        [integer] Number of incoherent samples in producing the 
+                        power spectrum
+                'nsamples_coh'
+                        [integer] Number of coherent samples in producing the 
+                        power spectrum
+
+    diagoffsets [NoneType or dictionary or list of dictionaries] This info is
+                used for incoherent averaging along specified diagonals along
+                specified axes. This incoherent averaging is performed after
+                incoherently averaging multiple cross-power spectra (if any). 
+                If set to None, this incoherent averaging is not performed. 
+                Many combinations of axes and diagonals can be specified as 
+                individual dictionaries in a list. If only one dictionary is
+                specified, then it assumed that only one combination of axes
+                and diagonals is requested. If a list of dictionaries is given,
+                each dictionary in the list specifies a different combination
+                for incoherent averaging. Each dictionary should have the 
+                following key-value pairs. The key is the axis number (allowed 
+                values are 1, 2, 3) that denote the axis type (1=LST, 2=Days, 
+                3=Triads to be averaged), and the value under they keys is a
+                list or numpy array of diagonals to be averaged incoherently. 
+                These axes-diagonal combinations apply to both the inputs 
+                xcpdps and excpdps, except axis=2 does not apply to excpdps 
+                (since it is made of subsample differences already) and will be
+                skipped. 
+
+    Outputs:
+
+    A tuple consisting of two dictionaries. The first dictionary contains the
+    incoherent averaging of xcpdps as specified by the inputs, while the second
+    consists of incoherent of excpdps as specified by the inputs. The structure
+    of these dictionaries are practically the same as the dictionary inputs 
+    xcpdps and excpdps respectively. The only differences in dictionary 
+    structure are:
+    * Under key ['oversampled'/'resampled']['whole'/'submodel'/'residual'
+      /'effinfo']['mean'/'median'] is a list of numpy arrays, where each
+      array in the list corresponds to the dictionary in the list in input
+      diagoffsets that defines the axes-diagonal combination. 
     ----------------------------------------------------------------------------
     """
 

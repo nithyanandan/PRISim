@@ -1,3 +1,11 @@
+From 7783d74 (BSP_PS_errorbar):
+==============================
+
+In prisim/bispectrum_phase.py,
+
+(*) Add docstring for function
+incoherent_cross_power_spectrum_average()
+
 From 72be647 (BSP_PS_errorbar):
 ==============================
 
