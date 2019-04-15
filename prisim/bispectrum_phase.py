@@ -1181,6 +1181,264 @@ def incoherent_cross_power_spectrum_average(xcpdps, excpdps=None, diagoffsets=No
 
 ################################################################################
 
+def incoherent_kbin_averaging(xcpdps, kbins=None, num_kbins=None, kbintype='log'):
+
+    """
+    ----------------------------------------------------------------------------
+    Averages the power spectrum incoherently by binning in bins of k. Returns
+    the power spectrum in units of both standard power spectrum and \Delta^2
+
+    Inputs:
+
+    xcpdps      [dictionary] A dictionary that contains the incoherent averaged
+                power spectrum along LST and/or triads axes. This dictionary is
+                essentially the one(s) returned as the output of the function
+                incoherent_cross_power_spectrum_average()
+
+    kbins       [NoneType, list or numpy array] Bins in k. If set to None 
+                (default), it will be determined automatically based on the 
+                inputs in num_kbins, and kbintype. If num_kbins is None and 
+                kbintype='linear', the negative and positive values of k are
+                folded into a one-sided power spectrum. In this case, the 
+                bins will approximately have the same resolution as the k-values 
+                in the input power spectrum for all the spectral windows. 
+                
+
+    num_kbins   [NoneType or integer] Number of k-bins. Used only if kbins is 
+                set to None. If kbintype is set to 'linear', the negative and 
+                positive values of k are folded into a one-sided power spectrum.
+                In this case, the bins will approximately have the same 
+                resolution as the k-values in the input power spectrum for all
+                the spectral windows. 
+
+    kbintype    [string] Specifies the type of binning, used only if kbins is 
+                set to None. Accepted values are 'linear' and 'log' for linear 
+                and logarithmic bins respectively.
+
+    Outputs:
+
+    Dictionary containing the power spectrum information. At the top level, it
+    contains keys specifying the sampling to be 'oversampled' or 'resampled'. 
+    Under each of these keys is another dictionary containing the following 
+    keys:
+    'z'     [numpy array] Redshifts corresponding to the band centers in 
+            'freq_center'. It has shape=(nspw,)
+    'lags'  [numpy array] Delays (in seconds). It has shape=(nlags,).
+    'freq_center'   
+            [numpy array] contains the center frequencies (in Hz) of the 
+            frequency subbands of the subband delay spectra. It is of size 
+            n_win. It is roughly equivalent to redshift(s)
+    'freq_wts'      
+            [numpy array] Contains frequency weights applied on each 
+            frequency sub-band during the subband delay transform. It is 
+            of size n_win x nchan. 
+    'bw_eff'        
+            [numpy array] contains the effective bandwidths (in Hz) of the 
+            subbands being delay transformed. It is of size n_win. It is 
+            roughly equivalent to width in redshift or along line-of-sight
+    'shape' [string] shape of the frequency window function applied. Usual
+            values are 'rect' (rectangular), 'bhw' (Blackman-Harris), 
+            'bnw' (Blackman-Nuttall). 
+    'fftpow'
+            [scalar] the power to which the FFT of the window was raised. 
+            The value is be a positive scalar with default = 1.0
+    'lag_corr_length' 
+            [numpy array] It is the correlation timescale (in pixels) of 
+            the subband delay spectra. It is proportional to inverse of 
+            effective bandwidth. It is of size n_win. The unit size of a 
+            pixel is determined by the difference between adjacent pixels 
+            in lags under key 'lags' which in turn is effectively inverse 
+            of the effective bandwidth of the subband specified in bw_eff
+        It further contains 3 keys named 'whole', 'submodel', and 'residual'
+        or one key named 'errinfo' each of which is a dictionary. 'whole' 
+        contains power spectrum info about the input closure phases. 'submodel' 
+        contains power spectrum info about the model that will have been 
+        subtracted (as closure phase) from the 'whole' model. 'residual' 
+        contains power spectrum info about the closure phases obtained as a 
+        difference between 'whole' and 'submodel'. 'errinfo' contains power
+        spectrum information about the subsample differences. There is also 
+        another dictionary under key 'kbininfo' that contains information about
+        k-bins. These dictionaries contain the following keys and values:
+        'whole'/'submodel'/'residual'/'errinfo'
+            [dictionary] It contains the following keys and values:
+            'mean'  [dictionary] Delay power spectrum information under the 
+                    'mean' statistic incoherently obtained by averaging the 
+                    input power spectrum in bins of k. It contains output power 
+                    spectrum expressed as two quantities each of which is a 
+                    dictionary with the following key-value pairs:
+                    'PS'    [list of numpy arrays] Standard power spectrum in
+                            units of 'K2 Mpc3'. Each numpy array in the list 
+                            maps to a specific combination of axes and axis 
+                            diagonals chosen for incoherent averaging in 
+                            earlier processing such as in the function 
+                            incoherent_cross_power_spectrum_average(). The 
+                            numpy array has a shape similar to the input power
+                            spectrum, but that last axis (k-axis) will have a
+                            different size that depends on the k-bins that
+                            were used in the incoherent averaging along that
+                            axis. 
+                    'Del2'  [list of numpy arrays] power spectrum in Delta^2
+                            units of 'K2'. Each numpy array in the list 
+                            maps to a specific combination of axes and axis 
+                            diagonals chosen for incoherent averaging in 
+                            earlier processing such as in the function 
+                            incoherent_cross_power_spectrum_average(). The 
+                            numpy array has a shape similar to the input power
+                            spectrum, but that last axis (k-axis) will have a
+                            different size that depends on the k-bins that
+                            were used in the incoherent averaging along that
+                            axis. 
+            'median'
+                    [dictionary] Delay power spectrum information under the 
+                    'median' statistic incoherently obtained by averaging the 
+                    input power spectrum in bins of k. It contains output power 
+                    spectrum expressed as two quantities each of which is a 
+                    dictionary with the following key-value pairs:
+                    'PS'    [list of numpy arrays] Standard power spectrum in
+                            units of 'K2 Mpc3'. Each numpy array in the list 
+                            maps to a specific combination of axes and axis 
+                            diagonals chosen for incoherent averaging in 
+                            earlier processing such as in the function 
+                            incoherent_cross_power_spectrum_average(). The 
+                            numpy array has a shape similar to the input power
+                            spectrum, but that last axis (k-axis) will have a
+                            different size that depends on the k-bins that
+                            were used in the incoherent averaging along that
+                            axis. 
+                    'Del2'  [list of numpy arrays] power spectrum in Delta^2
+                            units of 'K2'. Each numpy array in the list 
+                            maps to a specific combination of axes and axis 
+                            diagonals chosen for incoherent averaging in 
+                            earlier processing such as in the function 
+                            incoherent_cross_power_spectrum_average(). The 
+                            numpy array has a shape similar to the input power
+                            spectrum, but that last axis (k-axis) will have a
+                            different size that depends on the k-bins that
+                            were used in the incoherent averaging along that
+                            axis. 
+        'kbininfo'  
+            [dictionary] Contains the k-bin information. It contains the 
+            following key-value pairs:
+            'counts'    
+                [list] List of numpy arrays where each numpy array in the stores 
+                the counts in the determined k-bins. Each numpy array in the 
+                list corresponds to a spectral window (redshift subband). The 
+                shape of each numpy array is (nkbins,)
+            'kbin_edges'
+                [list] List of numpy arrays where each numpy array contains the 
+                k-bin edges. Each array in the list corresponds to a spectral 
+                window (redshift subband). The shape of each array is 
+                (nkbins+1,). 
+            'kbinnum'
+                [list] List of numpy arrays containing the bin number under 
+                which the k value falls. Each array in the list corresponds to 
+                a spectral window (redshift subband). The shape of each array 
+                is (nlags,).
+            'ri'
+                [list] List of numpy arrays containing the reverse indices for 
+                each k-bin. Each array in the list corresponds to a spectral 
+                window (redshift subband). The shape of each array is 
+                (nlags+nkbins+1,).
+            'whole'/'submodel'/'residual' or 'errinfo' [dictionary] k-bin info 
+                estimated for the different datapools under different stats 
+                and PS definitions. It has the keys 'mean' and 'median' for the
+                mean and median statistic respectively. Each of them contain a
+                dictionary with the following key-value pairs:
+                'PS'    [list] List of numpy arrays where each numpy array 
+                        contains a standard power spectrum typically in units of
+                        'K2 Mpc3'. Its shape is the same as input power spectrum
+                        except the k-axis which now has nkbins number of 
+                        elements. 
+                'Del2'  [list] List of numpy arrays where each numpy array 
+                        contains a Delta^2 power spectrum typically in units of
+                        'K2'. Its shape is the same as input power spectrum
+                        except the k-axis which now has nkbins number of 
+                        elements. 
+    ----------------------------------------------------------------------------
+    """
+
+    if not isinstance(xcpdps, dict):
+        raise TypeError('Input xcpdps must be a dictionary')
+    if kbins is not None:
+        if not isinstance(kbins, (list,NP.ndarray)):
+            raise TypeError('Input kbins must be a list or numpy array')
+    else:
+        if not isinstance(kbintype, str):
+            raise TypeError('Input kbintype must be a string')
+        if kbintype.lower() not in ['linear', 'log']:
+            raise ValueError('Input kbintype must be set to "linear" or "log"')
+        if kbintype.lower() == 'log':
+            if num_kbins is None:
+                num_kbins = 10
+    psinfo = {}
+    keys = ['triads', 'triads_ind', 'lst', 'lst_ind', 'dlst', 'days', 'day_ind', 'dday']
+    for key in keys:
+        psinfo[key] = xcpdps[key]
+    sampling = ['oversampled', 'resampled']
+    sampling_keys = ['z', 'freq_center', 'bw_eff', 'shape', 'freq_wts', 'lag_corr_length']
+    dpool_keys = ['whole', 'submodel', 'residual', 'errinfo']
+    for smplng in sampling:
+        if smplng in xcpdps:
+            psinfo[smplng] = {}
+            for key in sampling_keys:
+                psinfo[smplng][key] = xcpdps[smplng][key]
+            kprll = xcpdps[smplng]['kprll']
+            lags = xcpdps[smplng]['lags']
+            eps = 1e-10
+            if kbins is None:
+                dkprll = NP.max(NP.mean(NP.diff(kprll, axis=-1), axis=-1))
+                if kbintype.lower() == 'linear':
+                    bins_kprll = NP.linspace(eps, NP.abs(kprll).max()+eps, num=kprll.shape[1]/2+1, endpoint=True)
+                else:
+                    bins_kprll = NP.geomspace(eps, NP.abs(kprll).max()+eps, num=num_kbins+1, endpoint=True)
+                bins_kprll = NP.insert(bins_kprll, 0, -eps)
+            else:
+                bins_kprll = NP.asarray(kbins)
+            num_kbins = bins_kprll.size - 1
+            psinfo[smplng]['kbininfo'] = {'counts': [], 'kbin_edges': [], 'kbinnum': [], 'ri': []}
+            for spw in range(kprll.shape[0]):
+                counts, kbin_edges, kbinnum, ri = OPS.binned_statistic(NP.abs(kprll[spw,:]), statistic='count', bins=bins_kprll)
+                counts = counts.astype(NP.int)           
+                psinfo[smplng]['kbininfo']['counts'] += [NP.copy(counts)]
+                psinfo[smplng]['kbininfo']['kbin_edges'] += [kbin_edges / U.Mpc]
+                psinfo[smplng]['kbininfo']['kbinnum'] += [NP.copy(kbinnum)]
+                psinfo[smplng]['kbininfo']['ri'] += [NP.copy(ri)]
+            for dpool in dpool_keys:
+                if dpool in xcpdps[smplng]:
+                    psinfo[smplng][dpool] = {}
+                    psinfo[smplng]['kbininfo'][dpool] = {}
+                    keys = ['diagoffsets', 'diagweights', 'axesmap']
+                    for key in keys:
+                        psinfo[smplng][dpool][key] = xcpdps[smplng][dpool][key]
+                    for stat in ['mean', 'median']:
+                        if stat in xcpdps[smplng][dpool]:
+                            psinfo[smplng][dpool][stat] = {'PS': [], 'Del2': []}
+                            psinfo[smplng]['kbininfo'][dpool][stat] = []
+                            for combi in range(len(xcpdps[smplng][dpool][stat])):
+                                outshape = NP.asarray(xcpdps[smplng][dpool][stat][combi].shape)
+                                outshape[-1] = num_kbins
+                                tmp_dps = NP.full(tuple(outshape), NP.nan, dtype=NP.complex) * U.Unit(xcpdps[smplng][dpool][stat][combi].unit)
+                                tmp_Del2 = NP.full(tuple(outshape), NP.nan, dtype=NP.complex) * U.Unit(xcpdps[smplng][dpool][stat][combi].unit / U.Mpc**3)
+                                tmp_kprll = NP.full(tuple(outshape), NP.nan, dtype=NP.float) / U.Mpc
+                                for spw in range(kprll.shape[0]):
+                                    counts = NP.copy(psinfo[smplng]['kbininfo']['counts'][spw])
+                                    ri = NP.copy(psinfo[smplng]['kbininfo']['ri'][spw])
+                                    for binnum in range(num_kbins):
+                                        if counts[binnum] > 0:
+                                            ind_kbin = ri[ri[binnum]:ri[binnum+1]]
+                                            tmp_dps[spw,...,binnum] = NP.nanmean(NP.take(xcpdps[smplng][dpool][stat][combi][spw], ind_kbin, axis=-1), axis=-1)
+                                            k_shape = NP.ones(NP.take(xcpdps[smplng][dpool][stat][combi][spw], ind_kbin, axis=-1).ndim, dtype=NP.int)
+                                            k_shape[-1] = -1
+                                            tmp_Del2[spw,...,binnum] = NP.nanmean(NP.abs(kprll[spw,ind_kbin].reshape(tuple(k_shape))/U.Mpc)**3 * NP.take(xcpdps[smplng][dpool][stat][combi][spw], ind_kbin, axis=-1), axis=-1) / (2*NP.pi**2)
+                                            tmp_kprll[spw,...,binnum] = NP.nansum(NP.abs(kprll[spw,ind_kbin].reshape(tuple(k_shape))/U.Mpc) * NP.abs(NP.take(xcpdps[smplng][dpool][stat][combi][spw], ind_kbin, axis=-1)), axis=-1) / NP.nansum(NP.abs(NP.take(xcpdps[smplng][dpool][stat][combi][spw], ind_kbin, axis=-1)), axis=-1)
+                                psinfo[smplng][dpool][stat]['PS'] += [copy.deepcopy(tmp_dps)]
+                                psinfo[smplng][dpool][stat]['Del2'] += [copy.deepcopy(tmp_Del2)]
+                                psinfo[smplng]['kbininfo'][dpool][stat] += [copy.deepcopy(tmp_kprll)]
+
+    return psinfo
+
+################################################################################
+
 class ClosurePhase(object):
 
     """

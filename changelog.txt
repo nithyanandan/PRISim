@@ -1,3 +1,18 @@
+From fda8c3f (BPS_PS_errorbar):
+==============================
+
+In prisim/bispectrum_phase.py,
+
+(*) Add function incoherent_kbin_averaging() along with docstring, to
+perform incoherent averaging of power spectra in k-bins and also to
+compute power spectrum in Delta^2 units.
+(*) Update function save_CPhase_cross_power_spectrum() to save cross
+power spectrum info of closure phases in a dictionary to an external
+HDF5 file. 
+(*) Update function read_CPhase_cross_power_spectrum() to read cross
+power spectrum info of closure phases from an external HDF5 file into
+a dictionary 
+
 From 55df5dc (BSP_PS_errorbar):
 ==============================
 
