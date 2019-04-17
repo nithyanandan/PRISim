@@ -1,3 +1,12 @@
+From d277b30 (BPS_PS_errorbar):
+==============================
+
+In prisim/bispectrum_phase.py,
+
+(*) In function read_CPhase_cross_power_spectrum(), ensure reading of
+the group name (which is a string) is converted to int for certain
+cases as appropriate and to ensure comptability.
+
 From fda8c3f (BPS_PS_errorbar):
 ==============================
 

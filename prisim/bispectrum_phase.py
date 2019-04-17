@@ -750,7 +750,7 @@ def read_CPhase_cross_power_spectrum(infile):
                             if isinstance(dpoolgrp[key], h5py.Group):
                                 xcpdps[smplng][dpool][key] = {}
                                 for subkey in dpoolgrp[key]:
-                                    xcpdps[smplng][dpool][key][subkey] = dpoolgrp[key][subkey].value                                
+                                    xcpdps[smplng][dpool][key][int(subkey)] = dpoolgrp[key][subkey].value                                
                             elif isinstance(dpoolgrp[key], h5py.Dataset):
                                 xcpdps[smplng][dpool][key] = dpoolgrp[key].value
                             else:
