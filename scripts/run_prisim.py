@@ -1767,7 +1767,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                     roiinfo['center'] = NP.asarray(roiinfo_center_radec).reshape(1,-1)
                     roiinfo['center_coords'] = 'radec'
                     
-                    roi.append_settings(skymod, chans, pinfo=pbinfo, lst=lst[j], roi_info=roiinfo, telescope=telescope, freq_scale='GHz')
+                    roi.append_settings(skymod, chans, pinfo=pbinfo, lst=lst[j], time_jd=tobjs[j].jd, roi_info=roiinfo, telescope=telescope, freq_scale='GHz')
                 else: # Empty sky
                     roi.append_settings(None, None)
                 

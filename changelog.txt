@@ -1,3 +1,23 @@
+From 2c562ed (ephemeris):
+========================
+
+In prisim/interferometry.py,
+
+(*) Import Galactic from astropy.coordinates
+(*) In member function append_settings() of class ROI_parameters,
+add input keyword time_jd to pass time in JD for accurate ephemeris
+calculation. Update and adjust member function docstring accordingly
+(*) In member function append_settings() of class ROI_parameters,
+fix bug in inaccurate calculation of Alt-Az and use the astropy
+coordinate transformation instead to convert from RA-Dec to Alt-Az
+using the location and time information.
+
+In scripts/run_prisim.py,
+
+(*) Pass time in JD as input in call to member function
+append_settings() of class RI.ROI_parameters based on the changes
+above
+
 From d277b30 (BPS_PS_errorbar):
 ==============================
 

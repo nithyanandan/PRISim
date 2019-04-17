@@ -8,7 +8,7 @@ import os, ast
 import copy
 import astropy
 from astropy.io import fits, ascii
-from astropy.coordinates import SkyCoord, ICRS, FK5, AltAz, EarthLocation
+from astropy.coordinates import Galactic, SkyCoord, ICRS, FK5, AltAz, EarthLocation
 from astropy import units
 from astropy.time import Time
 import warnings
@@ -4162,8 +4162,9 @@ class ROI_parameters(object):
 
     #############################################################################
 
-    def append_settings(self, skymodel, freq, pinfo=None, lst=None,
-                        roi_info=None, telescope=None, freq_scale='GHz'):
+    def append_settings(self, skymodel, freq, pinfo=None, lst=None, 
+                        time_jd=None, roi_info=None, telescope=None,
+                        freq_scale='GHz'):
 
         """
         ------------------------------------------------------------------------
@@ -4174,51 +4175,60 @@ class ROI_parameters(object):
 
         Inputs:
 
-        skymodel [instance of class SkyModel] The common sky model for all the
-                 observing instances from which the ROI is determined based on
-                 a subset corresponding to each snapshot observation. If set 
-                 to None, the corresponding entries are all set to empty values
+        skymodel 
+                [instance of class SkyModel] The common sky model for all the
+                observing instances from which the ROI is determined based on
+                a subset corresponding to each snapshot observation. If set 
+                to None, the corresponding entries are all set to empty values
 
-        freq     [numpy vector] Frequency channels (with units specified by the
-                 attribute freq_scale)
+        freq    [numpy vector] Frequency channels (with units specified by the
+                attribute freq_scale)
 
-        pinfo    [list of dictionaries] Each dictionary element in the list
-                 corresponds to a specific snapshot. It contains information
-                 relating to the pointing center. The pointing center can be
-                 specified either via element delay compensation or by directly
-                 specifying the pointing center in a certain coordinate system.
-                 Default = None (pointing centered at zenith). Each dictionary
-                 element may consist of the following keys and information:
-                 'gains'           [numpy array] Complex element gains. Must be
-                                   of size equal to the number of elements as
-                                   specified by the number of rows in
-                                   'element_locs'. If set to None (default), all
-                                   element gains are assumed to be unity.
-                 'delays'          [numpy array] Delays (in seconds) to be
-                                   applied to the tile elements. Size should be
-                                   equal to number of tile elements (number of
-                                   rows in antpos). Default = None will set all
-                                   element delays to zero phasing them to zenith
-                 'pointing_center' [numpy array] This will apply in the absence
-                                   of key 'delays'. This can be specified as a
-                                   row vector. Should have two-columns if using
-                                   Alt-Az coordinates, or two or three columns
-                                   if using direction cosines. There is no
-                                   default. The coordinate system must be
-                                   specified in 'pointing_coords' if
-                                   'pointing_center' is to be used.
-                 'pointing_coords' [string scalar] Coordinate system in which
-                                   the pointing_center is specified. Accepted
-                                   values are 'altaz' or 'dircos'. Must be
-                                   provided if 'pointing_center' is to be used.
-                                   No default.
-                 'delayerr'        [int, float] RMS jitter in delays used in
-                                   the beamformer. Random jitters are drawn
-                                   from a normal distribution with this rms.
-                                   Must be a non-negative scalar. If not
-                                   provided, it defaults to 0 (no jitter).
+        pinfo   [list of dictionaries] Each dictionary element in the list
+                corresponds to a specific snapshot. It contains information
+                relating to the pointing center. The pointing center can be
+                specified either via element delay compensation or by directly
+                specifying the pointing center in a certain coordinate system.
+                Default = None (pointing centered at zenith). Each dictionary
+                element may consist of the following keys and information:
+                'gains'           [numpy array] Complex element gains. Must be
+                                  of size equal to the number of elements as
+                                  specified by the number of rows in
+                                  'element_locs'. If set to None (default), all
+                                  element gains are assumed to be unity.
+                'delays'          [numpy array] Delays (in seconds) to be
+                                  applied to the tile elements. Size should be
+                                  equal to number of tile elements (number of
+                                  rows in antpos). Default = None will set all
+                                  element delays to zero phasing them to zenith
+                'pointing_center' [numpy array] This will apply in the absence
+                                  of key 'delays'. This can be specified as a
+                                  row vector. Should have two-columns if using
+                                  Alt-Az coordinates, or two or three columns
+                                  if using direction cosines. There is no
+                                  default. The coordinate system must be
+                                  specified in 'pointing_coords' if
+                                  'pointing_center' is to be used.
+                'pointing_coords' [string scalar] Coordinate system in which
+                                  the pointing_center is specified. Accepted
+                                  values are 'altaz' or 'dircos'. Must be
+                                  provided if 'pointing_center' is to be used.
+                                  No default.
+                'delayerr'        [int, float] RMS jitter in delays used in
+                                  the beamformer. Random jitters are drawn
+                                  from a normal distribution with this rms.
+                                  Must be a non-negative scalar. If not
+                                  provided, it defaults to 0 (no jitter).
 
-    telescope   [dictionary] Contains information about the telescope parameters
+        lst     [scalar] LST in degrees. Will be used in determination of sky
+                coordinates inside ROI if not provided. Default=None. 
+
+        time_jd [scalar] Time of the snapshot in JD. Will be used in 
+                determination of sky coordinates inside ROI if not provided. 
+                Default=None. 
+
+        telescope   
+                [dictionary] Contains information about the telescope parameters
                 using which the primary beams in the regions of interest are
                 determined. It specifies the type of element, element size and
                 orientation. It consists of the following keys and information:
@@ -4384,11 +4394,16 @@ class ROI_parameters(object):
         
                         if not pbeam_input: # Will require sky positions in Alt-Az coordinates
                             if skymodel.coords == 'radec':
+                                skycoords = SkyCoord(ra=skymodel.location[:,0]*units.deg, dec=skymodel.location[:,1]*units.deg, frame='icrs', equinox=skymodel.epoch)
                                 if self.telescope['latitude'] is None:
                                     raise ValueError('Latitude of the observatory must be provided.')
                                 if lst is None:
                                     raise ValueError('LST must be provided.')
-                                skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')
+                                if time_jd is None:
+                                    raise ValueError('Time in JD must be provided')
+                                skycoords_altaz = skycoords.transform_to(AltAz(obstime=Time(time_jd, format='jd', scale='utc'), location=EarthLocation(lon=self.telescope['longitude']*units.deg, lat=self.telescope['latitude']*units.deg, height=self.telescope['altitude']*units.m)))
+                                skypos_altaz = NP.hstack((skycoords_altaz.alt.deg.reshape(-1,1), skycoords_altaz.az.deg.reshape(-1,1)))
+                                # skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees') # Need to accurately take ephemeris into account
                             elif skymodel.coords == 'hadec':
                                 if self.telescope['latitude'] is None:
                                     raise ValueError('Latitude of the observatory must be provided.')
@@ -4434,10 +4449,14 @@ class ROI_parameters(object):
                 if skymodel.coords == 'radec':
                     if self.telescope['latitude'] is None:
                         raise ValueError('Latitude of the observatory must be provided.')
-    
                     if lst is None:
                         raise ValueError('LST must be provided.')
-                    skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')
+                    if time_jd is None:
+                        raise ValueError('Time in JD must be provided')
+                    skycoords = SkyCoord(ra=skymodel.location[:,0]*units.deg, dec=skymodel.location[:,1]*units.deg, frame='icrs', equinox=skymodel.epoch)
+                    skycoords_altaz = skycoords.transform_to(AltAz(obstime=Time(time_jd, format='jd', scale='utc'), location=EarthLocation(lon=self.telescope['longitude']*units.deg, lat=self.telescope['latitude']*units.deg, height=self.telescope['altitude']*units.m)))
+                    skypos_altaz = NP.hstack((skycoords_altaz.alt.deg.reshape(-1,1), skycoords_altaz.az.deg.reshape(-1,1)))
+                    # skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')
                 elif skymodel.coords == 'hadec':
                     if self.telescope['latitude'] is None:
                         raise ValueError('Latitude of the observatory must be provided.')
