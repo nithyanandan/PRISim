@@ -1539,8 +1539,8 @@ else:
     nsrc_used = None
 m2_lol = comm.bcast(m2_lol, root=0)
 nsrc_used = comm.bcast(nsrc_used, root=0)
-
 nsrc = skymod.location.shape[0]
+
 # if fsky is None:
 #     usable_fsky = 1.0
 # elif isinstance(fsky, (int, float)):
@@ -1552,13 +1552,13 @@ npol = 1
 nbl = total_baselines
 if gradient_mode is not None:
     if gradient_mode.lower() == 'baseline':
-        size_DFT_matrix = 1.0 * nsrc_used * nchan * nbl * npol * 3
-        # size_DFT_matrix = (usable_fsky * nsrc_used) * nchan * nbl * npol * 3
+        size_DFT_matrix = 1.0 * max([nsrc_used, 1]) * nchan * nbl * npol * 3
+        # size_DFT_matrix = (usable_fsky * max([nsrc_used, 1])) * nchan * nbl * npol * 3
     else:
         raise ValueError('Specified gradient_mode is currently not supported')
 else:
-    size_DFT_matrix = 1.0 * nsrc_used * nchan * nbl * npol
-    # size_DFT_matrix = (usable_fsky * nsrc_used) * nchan * nbl * npol
+    size_DFT_matrix = 1.0 * max([nsrc_used, 1]) * nchan * nbl * npol
+    # size_DFT_matrix = (usable_fsky * max([nsrc_used, 1])) * nchan * nbl * npol
 if memsave: # 64 bits per complex sample (single precision)
     nbytes_per_complex_sample = 8.0
 else: # 128 bits per complex sample (double precision)
@@ -1661,6 +1661,9 @@ if rank == 0:
         yaml.dump(chunkinfo, cfile, default_flow_style=False)
 
 ## Set up the observing run
+
+if rank == 0:
+    pbinfo = None
 
 process_complete = False
 if mpi_on_src: # MPI based on source multiplexing
@@ -1769,7 +1772,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                     
                     roi.append_settings(skymod, chans, pinfo=pbinfo, lst=lst[j], time_jd=tobjs[j].jd, roi_info=roiinfo, telescope=telescope, freq_scale='GHz')
                 else: # Empty sky
-                    roi.append_settings(None, None)
+                    roi.append_settings(None, chans, telescope=telescope, freq_scale='GHz')
                 
                 progress.update(j+1)
             progress.finish()

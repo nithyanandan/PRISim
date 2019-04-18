@@ -1,3 +1,21 @@
+From 4e8154a (emptysim):
+=======================
+
+In prisim/interferometry.py,
+
+(*) In member function append_settings() of class ROI_parameters,
+initialize telescope and freq attributes if they are found to be None.
+
+In scripts/run_prisim.py,
+
+(*) If no sources are found to be simulated for the entire simulation,
+one source is assumed to be present just for purposes of memory
+estimates.
+(*) Pass chans, telescope, and freq_scale inputs in call to member
+function append_settings() of class ROI_parameters even in case of
+no sources (empty simulation).
+(*) Update code to handle a completely empty simulation.
+
 From 2c562ed (ephemeris):
 ========================
 

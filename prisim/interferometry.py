@@ -4338,15 +4338,7 @@ class ROI_parameters(object):
         except NameError:
             raise NameError('skymodel, freq, and pinfo must be specified.')
 
-        if skymodel is None:
-            self.info['pbeam'] += [NP.asarray([])]
-            self.info['ind'] += [NP.asarray([])]
-            self.pinfo += [None]
-        elif not isinstance(skymodel, SM.SkyModel):
-            raise TypeError('skymodel should be an instance of class SkyModel.')
-        else:
-            self.skymodel = skymodel
-            
+        if self.freq is None:
             if freq is None:
                 raise ValueError('freq must be specified using a numpy array')
             elif not isinstance(freq, NP.ndarray):
@@ -4364,13 +4356,41 @@ class ROI_parameters(object):
             else:
                 raise ValueError('Frequency units must be "GHz", "MHz", "kHz" or "Hz". If not set, it defaults to "Hz"')
             self.freq_scale = 'Hz'
-    
-            if self.telescope is None:
-                if isinstance(telescope, dict):
-                    self.telescope = telescope
+
+        if self.telescope is None:
+            if isinstance(telescope, dict):
+                self.telescope = telescope
+            else:
+                raise TypeError('Input telescope must be a dictionary.')
+
+        if skymodel is None:
+            self.info['pbeam'] += [NP.asarray([])]
+            self.info['ind'] += [NP.asarray([])]
+            self.pinfo += [None]
+        elif not isinstance(skymodel, SM.SkyModel):
+            raise TypeError('skymodel should be an instance of class SkyModel.')
+        else:
+            self.skymodel = skymodel
+            
+            if self.freq is None:
+                if freq is None:
+                    raise ValueError('freq must be specified using a numpy array')
+                elif not isinstance(freq, NP.ndarray):
+                    raise TypeError('freq must be specified using a numpy array')
+                self.freq = freq.ravel()
+                
+                if (freq_scale is None) or (freq_scale == 'Hz') or (freq_scale == 'hz'):
+                    self.freq = NP.asarray(freq)
+                elif freq_scale == 'GHz' or freq_scale == 'ghz':
+                    self.freq = NP.asarray(freq) * 1.0e9
+                elif freq_scale == 'MHz' or freq_scale == 'mhz':
+                    self.freq = NP.asarray(freq) * 1.0e6
+                elif freq_scale == 'kHz' or freq_scale == 'khz':
+                    self.freq = NP.asarray(freq) * 1.0e3
                 else:
-                    raise TypeError('Input telescope must be a dictionary.')
-    
+                    raise ValueError('Frequency units must be "GHz", "MHz", "kHz" or "Hz". If not set, it defaults to "Hz"')
+                self.freq_scale = 'Hz'
+   
             if roi_info is None:
                 raise ValueError('roi_info dictionary must be set.')
     
