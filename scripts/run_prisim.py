@@ -649,8 +649,10 @@ if pointing_file is not None:
 
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
     pointings_hadec = GEOM.altaz2hadec(pointings_altaz, latitude, units='degrees')
-    pointings_radec = NP.hstack(((lst-pointings_hadec[:,0]).reshape(-1,1), pointings_hadec[:,1].reshape(-1,1)))
-    pointings_radec[:,0] = pointings_radec[:,0] % 360.0
+    pointings_radec = ET.hadec2radec(pointings_hadec, lst, obstime=tobjs[0], epoch_RA=tobjs[0], time_type=None)
+    # pointings_radec_v2 = ET.altaz2radec(pointings_altaz, EarthLocation(lat=telescope['latitude']*U.deg, lon=telescope['longitude']*U.deg, height=telescope['altitude']*U.m), obstime=tobjs[0], epoch_RA=tobjs[0], time_type=None)
+    # pointings_radec = NP.hstack(((lst-pointings_hadec[:,0]).reshape(-1,1), pointings_hadec[:,1].reshape(-1,1)))
+    # pointings_radec[:,0] = pointings_radec[:,0] % 360.0
     t_obs = NP.sum(t_acc)
 elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     pointing_file = None
@@ -682,7 +684,8 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
             tobj0 = Time(obs_date.replace('/', '-'), format='iso', scale='utc', location=('{0:.6f}d'.format(telescope['longitude']), '{0:.6f}d'.format(telescope['latitude']), '{0:.6f}m'.format(telescope['altitude']))) # Time object at obs_date beginning
             jd_init = ET.julian_date_from_LAST(lst_init/15.0, tobj0.jd, telescope['longitude']/15.0) # Julian date at beginning of observation
             jd_init = jd_init[0]
-    tobj_init = Time(jd_init, format='jd', scale='utc', location=('{0:.6f}d'.format(telescope['longitude']), '{0:.6f}d'.format(telescope['latitude']), '{0:.6f}m'.format(telescope['altitude']))) # Time object at beginning of observation
+    tobj_init = Time(jd_init, format='jd', scale='utc', location=EarthLocation(longitude=telescope['longitude']*U.deg, latitude=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)) # Time object at beginning of observation
+    # tobj_init = Time(jd_init, format='jd', scale='utc', location=('{0:.6f}d'.format(telescope['longitude']), '{0:.6f}d'.format(telescope['latitude']), '{0:.6f}m'.format(telescope['altitude']))) # Time object at beginning of observation
     lst_init = tobj_init.sidereal_time('apparent').deg # Update LST init
     tobjs = tobj_init + NP.arange(n_acc) * t_acc * U.s # Time objects for the observation
     lst = tobjs.sidereal_time('apparent').deg # Local Apparent Sidereal time (in degrees) for the observation
@@ -714,7 +717,9 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     t_acc = t_acc + NP.zeros(n_acc)
     pointings_altaz = GEOM.hadec2altaz(pointings_hadec, latitude, units='degrees')
     pointings_dircos = GEOM.altaz2dircos(pointings_altaz, units='degrees')
-    pointings_radec = NP.hstack(((lst-pointings_hadec[:,0]).reshape(-1,1), pointings_hadec[:,1].reshape(-1,1)))
+    pointings_radec = ET.hadec2radec(pointings_hadec, lst, obstime=tobjs[0], epoch_RA=tobjs[0], time_type=None)
+    # pointings_radec_v2 = ET.altaz2radec(pointings_altaz, EarthLocation(lat=telescope['latitude']*U.deg, lon=telescope['longitude']*U.deg, height=telescope['altitude']*U.m), obstime=tobjs[0], epoch_RA=tobjs[0], time_type=None)
+    # pointings_radec = NP.hstack(((lst-pointings_hadec[:,0]).reshape(-1,1), pointings_hadec[:,1].reshape(-1,1)))
     
     duration_str = '_{0:0d}x{1:.1f}s'.format(n_acc, t_acc[0])
 
@@ -1525,7 +1530,8 @@ skycoords = SkyCoord(ra=skymod.location[:,0]*U.deg, dec=skymod.location[:,1]*U.d
 # Set up chunking for parallelization
 
 if rank == 0:
-    tobj0 = Time(obs_date.replace('/', '-'), format='iso', scale='utc', location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m))
+    # tobj0 = Time(obs_date.replace('/', '-'), format='iso', scale='utc', location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m))
+    tobj0 = tobjs[0]
     skymod_radec = SkyCoord(ra=skymod.location[:,0]*U.deg, dec=skymod.location[:,1]*U.deg, equinox=skymod.epoch, frame='icrs')
     skymod_radec_t0 = skymod_radec.transform_to(FK5(equinox=tobj0))
     m1, m2, d12 = GEOM.spherematch(pointings_radec[:,0], pointings_radec[:,1], skymod_radec_t0.ra.deg, skymod_radec_t0.dec.deg, matchrad=roi_radius, nnearest=0, maxmatches=0)
@@ -1541,24 +1547,15 @@ m2_lol = comm.bcast(m2_lol, root=0)
 nsrc_used = comm.bcast(nsrc_used, root=0)
 nsrc = skymod.location.shape[0]
 
-# if fsky is None:
-#     usable_fsky = 1.0
-# elif isinstance(fsky, (int, float)):
-#     fsky = float(fsky)
-#     usable_fsky = NP.clip(0.5/fsky, 0.5, 1.0)
-# else:
-#     raise TypeError('Input fsky must be a scalar number')
 npol = 1
 nbl = total_baselines
 if gradient_mode is not None:
     if gradient_mode.lower() == 'baseline':
         size_DFT_matrix = 1.0 * max([nsrc_used, 1]) * nchan * nbl * npol * 3
-        # size_DFT_matrix = (usable_fsky * max([nsrc_used, 1])) * nchan * nbl * npol * 3
     else:
         raise ValueError('Specified gradient_mode is currently not supported')
 else:
     size_DFT_matrix = 1.0 * max([nsrc_used, 1]) * nchan * nbl * npol
-    # size_DFT_matrix = (usable_fsky * max([nsrc_used, 1])) * nchan * nbl * npol
 if memsave: # 64 bits per complex sample (single precision)
     nbytes_per_complex_sample = 8.0
 else: # 128 bits per complex sample (double precision)

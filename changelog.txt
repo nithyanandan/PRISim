@@ -1,3 +1,11 @@
+From e88db86 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Use updated ephemeris calculations from
+astroutils.ephemeris_timing.py
+
 From 4e8154a (emptysim):
 =======================
 
