@@ -1,3 +1,17 @@
+From f84aef6 (ephemeris):
+========================
+
+In scripts/run_prisim.py,
+
+(*) Remove recently commented lines related to recent changes in
+handling ephemeris
+
+In prisim/interferometry.py,
+
+(*) Remove recently commented lines related to recent changes in
+handling ephemeris in member function observe() of class
+InterferometerArray
+
 From baa9f04 (ephemeris):
 ========================
 

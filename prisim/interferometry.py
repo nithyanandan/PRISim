@@ -6066,12 +6066,10 @@ class InterferometerArray(object):
             raise TypeError('skymodel should be an instance of class SkyModel.')
 
         skycoords = SkyCoord(ra=skymodel.location[:,0]*units.deg, dec=skymodel.location[:,1]*units.deg, frame='fk5', equinox=Time(skymodel.epoch, format='jyear_str', scale='utc')).transform_to(FK5(equinox=timeobj))
-        # skycoords = SkyCoord(ra=skymodel.location[:,0]*units.deg, dec=skymodel.location[:,1]*units.deg, frame='icrs', equinox=skymodel.epoch)
         
         if self.skycoords == 'hadec':
             skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.latitude, units='degrees')
         elif self.skycoords == 'radec':
-            # skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.latitude, units='degrees')
             src_altaz = skycoords.transform_to(AltAz(obstime=timeobj, location=EarthLocation(lon=self.longitude*units.deg, lat=self.latitude*units.deg, height=self.altitude*units.m)))
             skypos_altaz = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
 
@@ -6101,7 +6099,6 @@ class InterferometerArray(object):
 
             if roi_center == 'pointing_center':
                 m1, m2, d12 = GEOM.spherematch(pointing_lon, pointing_lat, skycoords.ra.deg, skycoords.dec.deg, roi_radius, maxmatches=0)
-                # m1, m2, d12 = GEOM.spherematch(pointing_lon, pointing_lat, skymodel.location[:,0], skymodel.location[:,1], roi_radius, maxmatches=0)
             else: # roi_center = 'zenith'
                 m2 = NP.arange(skypos_altaz.shape[0])
                 m2 = m2[NP.where(skypos_altaz[:,0] >= 90.0-roi_radius)] # select sources whose altitude (angle above horizon) is 90-roi_radius
