@@ -684,7 +684,7 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
             tobj0 = Time(obs_date.replace('/', '-'), format='iso', scale='utc', location=('{0:.6f}d'.format(telescope['longitude']), '{0:.6f}d'.format(telescope['latitude']), '{0:.6f}m'.format(telescope['altitude']))) # Time object at obs_date beginning
             jd_init = ET.julian_date_from_LAST(lst_init/15.0, tobj0.jd, telescope['longitude']/15.0) # Julian date at beginning of observation
             jd_init = jd_init[0]
-    tobj_init = Time(jd_init, format='jd', scale='utc', location=EarthLocation(longitude=telescope['longitude']*U.deg, latitude=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)) # Time object at beginning of observation
+    tobj_init = Time(jd_init, format='jd', scale='utc', location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)) # Time object at beginning of observation
     # tobj_init = Time(jd_init, format='jd', scale='utc', location=('{0:.6f}d'.format(telescope['longitude']), '{0:.6f}d'.format(telescope['latitude']), '{0:.6f}m'.format(telescope['altitude']))) # Time object at beginning of observation
     lst_init = tobj_init.sidereal_time('apparent').deg # Update LST init
     tobjs = tobj_init + NP.arange(n_acc) * t_acc * U.s # Time objects for the observation
@@ -1525,16 +1525,23 @@ elif use_custom:
 
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
-skycoords = SkyCoord(ra=skymod.location[:,0]*U.deg, dec=skymod.location[:,1]*U.deg, frame='icrs', equinox=skymod.epoch)
+# Precess Sky model to observing epoch
+
+skycoords = SkyCoord(ra=skymod.location[:,0]*U.deg, dec=skymod.location[:,1]*U.deg, frame='fk5', equinox=Time(skymod.epoch, format='jyear_str', scale='utc')).transform_to(FK5(equinox=tobjs[0]))
+# skycoords = SkyCoord(ra=skymod.location[:,0]*U.deg, dec=skymod.location[:,1]*U.deg, frame='icrs', equinox=skymod.epoch)
+skymod.location = NP.hstack((skycoords.ra.deg.reshape(-1,1), skycoords.dec.deg.reshape(-1,1)))
+skymod.epoch = 'J{0:.12f}'.format(skycoords.equinox.jyear)
 
 # Set up chunking for parallelization
 
 if rank == 0:
     # tobj0 = Time(obs_date.replace('/', '-'), format='iso', scale='utc', location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m))
-    tobj0 = tobjs[0]
-    skymod_radec = SkyCoord(ra=skymod.location[:,0]*U.deg, dec=skymod.location[:,1]*U.deg, equinox=skymod.epoch, frame='icrs')
-    skymod_radec_t0 = skymod_radec.transform_to(FK5(equinox=tobj0))
-    m1, m2, d12 = GEOM.spherematch(pointings_radec[:,0], pointings_radec[:,1], skymod_radec_t0.ra.deg, skymod_radec_t0.dec.deg, matchrad=roi_radius, nnearest=0, maxmatches=0)
+    # tobj0 = tobjs[0]
+    # skymod_radec = SkyCoord(ra=skymod.location[:,0]*U.deg, dec=skymod.location[:,1]*U.deg, equinox=skymod.epoch, frame='icrs')
+    # skymod_radec_t0 = skymod_radec.transform_to(FK5(equinox=tobj0))
+    # skymod_radec_t0 = skymod_radec.transform_to(FK5(equinox=tobjs[0]))
+    # m1, m2, d12 = GEOM.spherematch(pointings_radec[:,0], pointings_radec[:,1], skymod_radec_t0.ra.deg, skymod_radec_t0.dec.deg, matchrad=roi_radius, nnearest=0, maxmatches=0)
+    m1, m2, d12 = GEOM.spherematch(pointings_radec[:,0], pointings_radec[:,1], skycoords.ra.deg, skycoords.dec.deg, matchrad=roi_radius, nnearest=0, maxmatches=0)
     m1 = NP.asarray(m1)
     m2 = NP.asarray(m2)
     d12 = NP.asarray(d12)

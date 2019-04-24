@@ -1,3 +1,19 @@
+From baa9f04 (ephemeris):
+========================
+
+In scripts/run_prisim.py,
+
+(*) Minor changes in the way earth location of the osberver is
+initialized
+(*) Sky model is precessed to the observing epoch
+(*) Comment out some redundant sky coordinate conversions
+
+In prisim/interferometry.py,
+
+(*) In member function observe() of class InterferometerArray, take
+precessed version of sky model to observing epoch before calculating
+altaz coordinates. 
+
 From e88db86 (master):
 =====================
 
