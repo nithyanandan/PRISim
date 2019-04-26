@@ -1,3 +1,16 @@
+From 1d10033 (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Add input keyword lst_format to function npz2hdf5() to allow
+different unit/format inputs for LST. Update function docstring
+accordingly
+
+(*) Add input keyword lst_format to function loadnpz() to allow
+different unit/format inputs for LST. Update function docstring
+accordingly
+
 From f84aef6 (ephemeris):
 ========================
 

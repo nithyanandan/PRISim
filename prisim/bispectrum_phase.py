@@ -9,7 +9,7 @@ import healpy as HP
 import warnings
 import copy
 import astropy.cosmology as CP
-from astropy.time import Time
+from astropy.time import Time, TimeDelta
 from astropy.io import fits
 from astropy import units as U
 from astropy import constants as FCNST
@@ -249,7 +249,7 @@ def write_PRISim_bispectrum_phase_to_npz(infile_prefix, outfile_prefix,
 
 ################################################################################
 
-def loadnpz(npzfile, longitude=0.0, latitude=0.0):
+def loadnpz(npzfile, longitude=0.0, latitude=0.0, lst_format='fracday'):
 
     """
     ----------------------------------------------------------------------------
@@ -287,6 +287,11 @@ def loadnpz(npzfile, longitude=0.0, latitude=0.0):
     longitude   [scalar int or float] Longitude of site (in degrees). 
                 Default=0.0 deg.
 
+    lst_format  [string] Specifies the format/units in which the 'last' key
+                is to be interpreted. If set to 'hourangle', the LST is in 
+                units of hour angle. If set to 'fracday', the fractional 
+                portion of the 'last' value is the LST in units of days.
+
     Output:
 
     cpinfo          [dictionary] Contains one top level keys, namely, 'raw' 
@@ -303,11 +308,17 @@ def loadnpz(npzfile, longitude=0.0, latitude=0.0):
     triadsdata = npzdata['triads']
     flagsdata = npzdata['flags']
     location = ('{0:.5f}d'.format(longitude), '{0:.5f}d'.format(latitude))
-    # lstdata = Time(npzdata['last'].astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=('+21.4278d', '-30.7224d')).sidereal_time('apparent') # Subtract 6713 based on CASA convention to obtain MJD
-    lstfrac, lstint = NP.modf(npzdata['last'])
-    lstday = Time(lstint.astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=location) # Subtract 6713 based on CASA convention to obtain MJD
-    lstHA = lstfrac * 24.0 # in hours
     daydata = Time(npzdata['days'].astype(NP.float64), scale='utc', format='jd', location=location)
+    # lstdata = Time(npzdata['last'].astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=('+21.4278d', '-30.7224d')).sidereal_time('apparent') # Subtract 6713 based on CASA convention to obtain MJD
+    if lst_format.lower() == 'hourangle':
+        lstHA = npzdata['last']
+        lstday = daydata.reshape(1,-1) + TimeDelta(NP.zeros(lstHA.shape[0]).reshape(-1,1)*U.s)
+    elif lst_format.lower() == 'fracday':
+        lstfrac, lstint = NP.modf(npzdata['last'])
+        lstday = Time(lstint.astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=location) # Subtract 6713 based on CASA convention to obtain MJD
+        lstHA = lstfrac * 24.0 # in hours
+    else:
+        raise ValueError('Input lst_format invalid')
 
     cp = cpdata.astype(NP.float64)
     flags = flagsdata.astype(NP.bool)
@@ -328,7 +339,7 @@ def loadnpz(npzfile, longitude=0.0, latitude=0.0):
             elif qty == 'lst':
                 cpinfo[dpool][qty] = NP.copy(lstHA)
             elif qty == 'lst-day':
-                cpinfo[dpool][qty] = NP.copy(lstday.value)
+                cpinfo[dpool][qty] = NP.copy(lstday.jd)
             elif qty == 'days':
                 cpinfo[dpool][qty] = NP.copy(daydata.jd)
             elif qty == 'dayavg':
@@ -345,7 +356,8 @@ def loadnpz(npzfile, longitude=0.0, latitude=0.0):
 
 ################################################################################
 
-def npz2hdf5(npzfile, hdf5file, longitude=0.0, latitude=0.0):
+def npz2hdf5(npzfile, hdf5file, longitude=0.0, latitude=0.0,
+             lst_format='fracday'):
 
     """
     ----------------------------------------------------------------------------
@@ -384,6 +396,11 @@ def npz2hdf5(npzfile, hdf5file, longitude=0.0, latitude=0.0):
 
     longitude   [scalar int or float] Longitude of site (in degrees). 
                 Default=0.0 deg.
+
+    lst_format  [string] Specifies the format/units in which the 'last' key
+                is to be interpreted. If set to 'hourangle', the LST is in 
+                units of hour angle. If set to 'fracday', the fractional 
+                portion of the 'last' value is the LST in units of days.
     ----------------------------------------------------------------------------
     """
 
@@ -392,11 +409,18 @@ def npz2hdf5(npzfile, hdf5file, longitude=0.0, latitude=0.0):
     triadsdata = npzdata['triads']
     flagsdata = npzdata['flags']
     location = ('{0:.5f}d'.format(longitude), '{0:.5f}d'.format(latitude))
-    # lstdata = Time(npzdata['last'].astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=('+21.4278d', '-30.7224d')).sidereal_time('apparent') # Subtract 6713 based on CASA convention to obtain MJD
-    lstfrac, lstint = NP.modf(npzdata['last'])
-    lstday = Time(lstint.astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=location) # Subtract 6713 based on CASA convention to obtain MJD
-    lstHA = lstfrac * 24.0 # in hours
     daydata = Time(npzdata['days'].astype(NP.float64), scale='utc', format='jd', location=location)
+
+    # lstdata = Time(npzdata['last'].astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=('+21.4278d', '-30.7224d')).sidereal_time('apparent') # Subtract 6713 based on CASA convention to obtain MJD
+    if lst_format.lower() == 'hourangle':
+        lstHA = npzdata['last']
+        lstday = daydata.reshape(1,-1) + TimeDelta(NP.zeros(lstHA.shape[0]).reshape(-1,1)*U.s)
+    elif lst_format.lower() == 'fracday':
+        lstfrac, lstint = NP.modf(npzdata['last'])
+        lstday = Time(lstint.astype(NP.float64) - 6713.0, scale='utc', format='mjd', location=location) # Subtract 6713 based on CASA convention to obtain MJD
+        lstHA = lstfrac * 24.0 # in hours
+    else:
+        raise ValueError('Input lst_format invalid')
 
     cp = cpdata.astype(NP.float64)
     flags = flagsdata.astype(NP.bool)
@@ -426,7 +450,7 @@ def npz2hdf5(npzfile, hdf5file, longitude=0.0, latitude=0.0):
                 elif qty == 'lst':
                     data = NP.copy(lstHA)
                 elif qty == 'lst-day':
-                    data = NP.copy(lstday.value)
+                    data = NP.copy(lstday.jd)
                 elif qty == 'days':
                     data = NP.copy(daydata.jd)
                 elif qty == 'dayavg':
