@@ -1,3 +1,30 @@
+From fd82446 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) In function thermalNoiseRMS(), revise RMS calculation by removing
+the factor 2 inside square root to account for a complex-valued rms
+that is made of both real and imaginary parts. Earlier the presence
+of the factor 2 inside the square root corresponds to only the real
+or the imaginary rms. Update docstring accordingly with a reference
+for the equation used from SIRA II
+
+(*) In function generateNoise(), update docstring to make it explicit
+that the input RMS corresponds to a complex value that comprises of
+both real and imaginary values and therefore, only 1/sqrt(2) of that
+goes into the real and imaginary values. Include a reference to the
+equations in SIRA II
+
+(*) In member function generate_noise() of class InterferometerArray,
+revise RMS calculation by removing the factor 2 inside square root
+to account for a complex-valued rms that is made of both real and
+imaginary parts. Earlier the presence of the factor 2 inside the
+square root corresponds to only the real or the imaginary rms. This
+is consistent with other changes (see above) in this commit. 
+Update docstring accordingly with a reference for the equation used
+from SIRA II. 
+
 From 9f5487a (master):
 =====================
 

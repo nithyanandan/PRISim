@@ -90,7 +90,12 @@ def thermalNoiseRMS(A_eff, df, dt, Tsys, nbl=1, nchan=1, ntimes=1,
 
     """
     -------------------------------------------------------------------------
-    Generates thermal noise RMS from instrument parameters
+    Generates thermal noise RMS from instrument parameters for a complex-
+    valued visibility measurement by an interferometer. 
+
+    [Based on equations 9-12 through 9-15 or section 5 in chapter 9 on 
+    Sensitivity in SIRA II wherein the equations are for real and imaginary 
+    parts separately.]
 
     A_eff       [scalar or numpy array] Effective area of the interferometer.
                 Has to be in units of m^2. If only a scalar value
@@ -136,7 +141,13 @@ def thermalNoiseRMS(A_eff, df, dt, Tsys, nbl=1, nchan=1, ntimes=1,
     Output:
 
     Numpy array of thermal noise RMS (in units of K or Jy depending on 
-    flux_unit) of shape (nbl, nchan, ntimes)
+    flux_unit) of shape (nbl, nchan, ntimes) expected on a complex-valued
+    visibility measurement from an interferometer. 1/sqrt(2) of this goes 
+    each into the real and imaginary parts.
+
+    [Based on equations 9-12 through 9-15 or section 5 in chapter 9 on 
+    Sensitivity in SIRA II wherein the equations are for real and imaginary 
+    parts separately.]
     -------------------------------------------------------------------------
     """
 
@@ -213,9 +224,9 @@ def thermalNoiseRMS(A_eff, df, dt, Tsys, nbl=1, nchan=1, ntimes=1,
             raise ValueError('Input flux_unit must be set to K or Jy')
 
     if flux_unit.lower() == 'k':
-        rms = Tsys/eff_Q/NP.sqrt(2.0*dt*df)
+        rms = Tsys/eff_Q/NP.sqrt(dt*df)
     else:
-        rms = 2.0 * FCNST.k / NP.sqrt(2.0*dt*df) * (Tsys/A_eff/eff_Q) / CNST.Jy
+        rms = 2.0 * FCNST.k / NP.sqrt(dt*df) * (Tsys/A_eff/eff_Q) / CNST.Jy
 
     return rms
 
@@ -226,7 +237,12 @@ def generateNoise(noiseRMS=None, A_eff=None, df=None, dt=None, Tsys=None, nbl=1,
 
     """
     -------------------------------------------------------------------------
-    Generates thermal noise from instrument parameters 
+    Generates thermal noise from instrument parameters for a complex-valued
+    visibility measurement from an interferometer.
+
+    [Based on equations 9-12 through 9-15 or section 5 in chapter 9 on 
+    Sensitivity in SIRA II wherein the equations are for real and imaginary 
+    parts separately.]
 
     noiseRMS    [NoneType or scalar or numpy array] If set to None (default), 
                 the rest of the parameters are used in determining the RMS of 
@@ -236,7 +252,9 @@ def generateNoise(noiseRMS=None, A_eff=None, df=None, dt=None, Tsys=None, nbl=1,
                 shape broadcastable to (nbl,nchan,ntimes). So accpeted shapes 
                 can be (1,1,1), (1,1,ntimes), (1,nchan,1), (nbl,1,1), 
                 (1,nchan,ntimes), (nbl,nchan,1), (nbl,1,ntimes), or 
-                (nbl,nchan,ntimes). 
+                (nbl,nchan,ntimes). It is assumed to be an RMS comprising of
+                both real and imaginary parts. Therefore, 1/sqrt(2) of this
+                goes into each of the real and imaginary parts.
 
     A_eff       [scalar or numpy array] Effective area of the interferometer.
                 Has to be in units of m^2. If only a scalar value
@@ -284,7 +302,12 @@ def generateNoise(noiseRMS=None, A_eff=None, df=None, dt=None, Tsys=None, nbl=1,
     Output:
 
     Numpy array of thermal noise (units of noiseRMS if specified or in units 
-    of K or Jy depending on flux_unit) of shape (nbl, nchan, ntimes)
+    of K or Jy depending on flux_unit) of shape (nbl, nchan, ntimes) for a 
+    complex-valued visibility measurement from an interferometer.
+
+    [Based on equations 9-12 through 9-15 or section 5 in chapter 9 on 
+    Sensitivity in SIRA II wherein the equations are for real and imaginary 
+    parts separately.]
     -------------------------------------------------------------------------
     """
 
@@ -6519,7 +6542,13 @@ class InterferometerArray(object):
         """
         -------------------------------------------------------------------------
         Generates thermal noise from attributes that describe system parameters
-        which can be added to sky visibilities
+        which can be added to sky visibilities. Thermal RMS here corresponds to
+        a complex value comprising of both real and imaginary parts. Thus only
+        1/sqrt(2) goes into each real and imaginary parts. 
+
+        [Based on equations 9-12 through 9-15 or section 5 in chapter 9 on 
+        Sensitivity in SIRA II wherein the equations are for real and imaginary 
+        parts separately.]
         -------------------------------------------------------------------------
         """
 
@@ -6534,9 +6563,9 @@ class InterferometerArray(object):
         t_acc = t_acc[NP.newaxis,NP.newaxis,:]
 
         if (self.flux_unit == 'JY') or (self.flux_unit == 'jy') or (self.flux_unit == 'Jy'):
-            self.vis_rms_freq = 2.0 * FCNST.k / NP.sqrt(2.0*t_acc*self.freq_resolution) * (self.Tsys/A_eff/eff_Q) / CNST.Jy
+            self.vis_rms_freq = 2.0 * FCNST.k / NP.sqrt(t_acc*self.freq_resolution) * (self.Tsys/A_eff/eff_Q) / CNST.Jy
         elif (self.flux_unit == 'K') or (self.flux_unit == 'k'):
-            self.vis_rms_freq = 1 / NP.sqrt(2.0*t_acc*self.freq_resolution) * self.Tsys/eff_Q
+            self.vis_rms_freq = 1 / NP.sqrt(t_acc*self.freq_resolution) * self.Tsys/eff_Q
         else:
             raise ValueError('Flux density units can only be in Jy or K.')
 
