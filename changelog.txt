@@ -1,3 +1,10 @@
+From 9f5487a (master):
+=====================
+
+(*) Add script altsim_interface.py to scripts/ folder. This
+script converts YAML used in pyuvsim to a YAML that can be used for
+PRISim
+
 From 1d10033 (closure-adv):
 ==========================
 
