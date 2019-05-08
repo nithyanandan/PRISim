@@ -1,3 +1,18 @@
+From 0d3c19c (noise):
+====================
+
+In examples/simparms/defaultparms.yaml,
+
+(*) Add parameters eff_aprtr (for aperture efficiency), and eff_Q
+(quantization efficiency) for enabling better estimates of thermal
+noise RMS
+
+In scripts/run_prisim.py,
+
+(*) Read and process eff_aprtr, and eff_Q parameters from the input
+YAML file and pass appropriate values while creating instances of
+class InterferometerArray.
+
 From fd82446 (master):
 =====================
 
