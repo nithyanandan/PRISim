@@ -1,3 +1,11 @@
+From 58b3903 (pyuvsim):
+======================
+
+In scripts/altsim_interface.py,
+
+(*) In function simparms_from_pyuvsim_to_prisim(), change some
+defaults, and fix some parameters
+
 From 0d3c19c (noise):
 ====================
 

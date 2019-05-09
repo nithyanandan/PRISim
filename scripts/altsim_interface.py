@@ -20,7 +20,7 @@ def simparms_from_pyuvsim_to_prisim(pyuvsim_parms, prisim_parms):
     pyuvsim_outpath_hierarchy = pyuvsim_outpath.split('/')
     pyuvsim_outpath_hierarchy = [item for item in pyuvsim_outpath_hierarchy if item != '']
     prisim_parms['dirstruct']['rootdir'] = '/' + '/'.join(pyuvsim_outpath_hierarchy[:-1]) + '/'
-    prisim_parms['dirstruct']['project'] = '/'.join(pyuvsim_outpath_hierarchy[-1:]) + '/'
+    prisim_parms['dirstruct']['project'] = '/'.join(pyuvsim_outpath_hierarchy[-1:])
     prisim_parms['dirstruct']['simid'] = pyuvsim_parms['filing']['outfile_name']
 
     # Telescope parameters
@@ -118,15 +118,18 @@ def simparms_from_pyuvsim_to_prisim(pyuvsim_parms, prisim_parms):
     pa = NP.zeros(fint.size, dtype=NP.float)
     prisim_parms['skyparm']['epoch'] = epoch
     prisim_parms['skyparm']['flux_unit'] = 'Jy'
-    prisim_parms['skyparm']['custom_reffreq'] = ref_freq[0]
+    prisim_parms['skyparm']['flux_min'] = None
+    prisim_parms['skyparm']['flux_max'] = None
+    prisim_parms['skyparm']['custom_reffreq'] = float(ref_freq[0]) / 1e9
 
     ascii.write([ra_deg, dec_deg, fint, spindex, majax, minax, pa], prisim_parms['catalog']['custom_file'], names=['RA', 'DEC', 'F_INT', 'SPINDEX', 'MAJAX', 'MINAX', 'PA'], delimiter='    ', format='fixed_width', formats={'RA': '%11.7f', 'DEC': '%12.7f', 'F_INT': '%10.4f', 'SPINDEX': '%8.5f', 'MAJAX': '%8.5f', 'MINAX': '%8.5f', 'PA': '%8.5f'}, bookend=False, overwrite=True)
 
     # Save format parameters
 
+    prisim_parms['save_formats']['npz'] = False
     prisim_parms['save_formats']['uvfits'] = False
     prisim_parms['save_formats']['uvh5'] = True
-
+   
     return prisim_parms
 
 if __name__ == '__main__':
