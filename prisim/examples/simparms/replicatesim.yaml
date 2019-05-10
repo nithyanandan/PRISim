@@ -45,11 +45,14 @@ telescope   :
                                 # Effective area of antenna element
                                 # in m^2
 
-    eff_Q           : 0.89
-                                # Interferometer efficiency. Value
-                                # must lie in [0,1]. Default=0.89
+    eff_aprtr       : 0.65
+                                # Aperture efficiency. The effective 
+                                # area will be A_eff * eff_aprtr
 
-    Trx             : 50.0
+    eff_Q           : 0.96
+                                # Quantization efficiency
+
+    Trx             : 162.0
                                 # Receiver temperature (in K)
 
     Tant_freqref    : 150000000.0

@@ -81,6 +81,8 @@ if __name__ == '__main__':
 
     Tsys = NP.asarray(Tsys).reshape(1,-1,1)
     A_eff = parms['telescope']['A_eff']
+    eff_aprtr = parms['telescope']['eff_aprtr']
+    A_eff *= eff_aprtr
     eff_Q = parms['telescope']['eff_Q']
 
     replicate_info = parms['replicate']

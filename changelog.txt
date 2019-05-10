@@ -1,3 +1,16 @@
+From 6d211aa (noise):
+====================
+
+In examples/simparms/replicatesim.yaml,
+
+(*) Add input parameters eff_aprtr and eff_Q
+(*) Change default value of Trx to 162 K from 50 K
+
+In scripts/replicate_sim.py,
+
+(*) Accept input parameters eff_aprtr and eff_Q from the YAML file
+with template in examples/simparms/replicatesim.yaml
+
 From 58b3903 (pyuvsim):
 ======================
 
