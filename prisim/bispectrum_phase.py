@@ -21,6 +21,7 @@ from astroutils import mathops as OPS
 from astroutils import lookup_operations as LKP
 import prisim
 from prisim import interferometry as RI
+from prisim import primary_beams as PB
 from prisim import delay_spectrum as DS
 try:
     from pyuvdata import UVBeam
@@ -4708,6 +4709,8 @@ class ClosurePhaseDelaySpectrum(object):
             if not isinstance(beamparms['chromatic'], bool):
                 raise TypeError('Beam chromaticity parameter in input beamparms must be a boolean')
 
+        theta, phi = HP.pix2ang(beamparms['nside'], NP.arange(HP.nside2npix(beamparms['nside'])))
+        theta_phi = NP.hstack((theta.reshape(-1,1), phi.reshape(-1,1)))
         if beamparms['beamfile'] is not None:
             if 'filepathtype' in beamparms:
                 if beamparms['filepathtype'] == 'default':
@@ -4728,54 +4731,52 @@ class ClosurePhaseDelaySpectrum(object):
                     beamparms['select_freq'] = NP.mean(beamparms['freqs'])
                 if 'spec_interp' not in beamparms:
                     beamparms['spec_interp'] = 'cubic'
-            theta, phi = HP.pix2ang(beamparms['nside'], NP.arange(HP.nside2npix(beamparms['nside'])))
-            theta_phi = NP.hstack((theta.reshape(-1,1), phi.reshape(-1,1)))
-            if beamparms['beamfile'] :
-                if beamparms['filefmt'] == 'fits':
-                    external_beam = fits.getdata(beamparms['beamfile'], extname='BEAM_{0}'.format(beamparms['pol']))
-                    external_beam_freqs = fits.getdata(beamparms['beamfile'], extname='FREQS_{0}'.format(beamparms['pol'])) # in MHz
-                    external_beam = external_beam.reshape(-1,external_beam_freqs.size) # npix x nfreqs
-                elif beamparms['filefmt'] == 'uvbeam':
-                    if uvbeam_module_found:
-                        uvbm = UVBeam()
-                        uvbm.read_beamfits(beamparms['beamfile'])
-                        axis_vec_ind = 0 # for power beam
-                        spw_ind = 0 # spectral window index
-                        if beamparms['pol'].lower() in ['x', 'e']:
-                            beam_pol_ind = 0
-                        else:
-                            beam_pol_ind = 1
-                        external_beam = uvbm.data_array[axis_vec_ind,spw_ind,beam_pol_ind,:,:].T # npix x nfreqs
-                        external_beam_freqs = uvbm.freq_array.ravel() # nfreqs (in Hz)
+
+            if beamparms['filefmt'] == 'fits':
+                external_beam = fits.getdata(beamparms['beamfile'], extname='BEAM_{0}'.format(beamparms['pol']))
+                external_beam_freqs = fits.getdata(beamparms['beamfile'], extname='FREQS_{0}'.format(beamparms['pol'])) # in MHz
+                external_beam = external_beam.reshape(-1,external_beam_freqs.size) # npix x nfreqs
+            elif beamparms['filefmt'] == 'uvbeam':
+                if uvbeam_module_found:
+                    uvbm = UVBeam()
+                    uvbm.read_beamfits(beamparms['beamfile'])
+                    axis_vec_ind = 0 # for power beam
+                    spw_ind = 0 # spectral window index
+                    if beamparms['pol'].lower() in ['x', 'e']:
+                        beam_pol_ind = 0
                     else:
-                        raise ImportError('uvbeam module not installed/found')
+                        beam_pol_ind = 1
+                    external_beam = uvbm.data_array[axis_vec_ind,spw_ind,beam_pol_ind,:,:].T # npix x nfreqs
+                    external_beam_freqs = uvbm.freq_array.ravel() # nfreqs (in Hz)
+                else:
+                    raise ImportError('uvbeam module not installed/found')
             
-                    if NP.abs(NP.abs(external_beam).max() - 1.0) > 1e-10:
-                        external_beam /= NP.abs(external_beam).max()
-                else:
-                    raise ValueError('Specified beam file format not currently supported')
-                if beamparms['chromatic']:
-                    if beamparms['spec_interp'] == 'fft':
-                        external_beam = external_beam[:,:-1]
-                        external_beam_freqs = external_beam_freqs[:-1]
-                    interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=beamparms['freqs'], axis=1, kind=beamparms['spec_interp'], assume_sorted=True)
-                else:
-                    nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs - beamparms['select_freq']))
-                    interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), beamparms['freqs'].size, axis=1)), theta_phi=theta_phi, inloc_axis=beamparms['freqs'], outloc_axis=beamparms['freqs'], axis=1, assume_sorted=True)
-                interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)
-                interp_logbeam_max[interp_logbeam_max <= 0.0] = 0.0
-                interp_logbeam_max = interp_logbeam_max.reshape(1,-1)
-                interp_logbeam = interp_logbeam - interp_logbeam_max
-                beam = 10**interp_logbeam
+                if NP.abs(NP.abs(external_beam).max() - 1.0) > 1e-10:
+                    external_beam /= NP.abs(external_beam).max()
             else:
-                altaz = NP.array([90.0, 0.0]).reshape(1,-1) + NP.array([-1,1]).reshape(1,-1) * NP.degrees(theta_phi)
-                if beamparms['chromatic']:
-                    beam = PB.primary_beam_generator(altaz, beamparms['freqs'], beamparms['telescope'], skyunits='altaz', pointing_info=None, pointing_center=None, freq_scle='Hz', east2ax1=0.0)
-                else:
-                    beam = PB.primary_beam_generator(altaz, beamparms['select_freq'], beamparms['telescope'], skyunits='altaz', pointing_info=None, pointing_center=None, freq_scle='Hz', east2ax1=0.0)
-                    beam = beam.reshape(-1,1) * NP.ones(beamparms['freqs'].size).reshape(1,-1)
-            omega_bw = DS.beam3Dvol(beam, beamparms['freqs'], freq_wts=freq_wts, hemisphere=True)
-            return omega_bw
+                raise ValueError('Specified beam file format not currently supported')
+            if beamparms['chromatic']:
+                if beamparms['spec_interp'] == 'fft':
+                    external_beam = external_beam[:,:-1]
+                    external_beam_freqs = external_beam_freqs[:-1]
+                interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(external_beam), theta_phi=theta_phi, inloc_axis=external_beam_freqs, outloc_axis=beamparms['freqs'], axis=1, kind=beamparms['spec_interp'], assume_sorted=True)
+            else:
+                nearest_freq_ind = NP.argmin(NP.abs(external_beam_freqs - beamparms['select_freq']))
+                interp_logbeam = OPS.healpix_interp_along_axis(NP.log10(NP.repeat(external_beam[:,nearest_freq_ind].reshape(-1,1), beamparms['freqs'].size, axis=1)), theta_phi=theta_phi, inloc_axis=beamparms['freqs'], outloc_axis=beamparms['freqs'], axis=1, assume_sorted=True)
+            interp_logbeam_max = NP.nanmax(interp_logbeam, axis=0)
+            interp_logbeam_max[interp_logbeam_max <= 0.0] = 0.0
+            interp_logbeam_max = interp_logbeam_max.reshape(1,-1)
+            interp_logbeam = interp_logbeam - interp_logbeam_max
+            beam = 10**interp_logbeam
+        else:
+            altaz = NP.array([90.0, 0.0]).reshape(1,-1) + NP.array([-1,1]).reshape(1,-1) * NP.degrees(theta_phi)
+            if beamparms['chromatic']:
+                beam = PB.primary_beam_generator(altaz, beamparms['freqs'], beamparms['telescope'], skyunits='altaz', pointing_info=None, pointing_center=None, freq_scale='Hz', east2ax1=0.0)
+            else:
+                beam = PB.primary_beam_generator(altaz, beamparms['select_freq'], beamparms['telescope'], skyunits='altaz', pointing_info=None, pointing_center=None, freq_scale='Hz', east2ax1=0.0)
+                beam = beam.reshape(-1,1) * NP.ones(beamparms['freqs'].size).reshape(1,-1)
+        omega_bw = DS.beam3Dvol(beam, beamparms['freqs'], freq_wts=freq_wts, hemisphere=True)
+        return omega_bw
 
     ############################################################################
 

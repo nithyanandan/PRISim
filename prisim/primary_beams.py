@@ -242,7 +242,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
             else:
                 dish_dia = 6.0
             pb = airy_disk_pattern(dish_dia, skypos, frequency, skyunits=skyunits,
-                                   peak=1.0, pointing_center=telescope['orientation'], 
+                                   peak=1.0, pointing_center=NP.asarray(telescope['orientation']), 
                                    pointing_coords=telescope['ocoords'],
                                    power=True, small_angle_tol=1e-10)
         elif telescope['id'] == 'mwa':

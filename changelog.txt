@@ -1,3 +1,17 @@
+From d6090ea (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Import primary_beams module
+(*) In member function beam3Dvol() of class ClosurePhaseDelaySpectrum,
+fix bug in computation of analytic power pattern
+
+In prisim/primary_beams.py,
+
+(*) In function primary_beam_generator(), pass telecope orientation
+as a numpy array in call to function airy_disk_pattern()
+
 From 892760b (closure-adv):
 ==========================
 
