@@ -1,3 +1,15 @@
+From 892760b (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function smooth_in_tbins() of class ClosurePhase, add
+ability to handle when LST binning is not requested or if there is
+only one LST.
+(*) In member function subsample_differencing() of class ClosurePhase, 
+add ability to handle when LST binning is not requested or if there is
+only one LST.
+
 From 6d211aa (noise):
 ====================
 
