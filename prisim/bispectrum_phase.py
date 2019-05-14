@@ -2569,7 +2569,11 @@ class ClosurePhaseDelaySpectrum(object):
                 
             viswts = MA.array(NP.ones_like(vistriad.data), mask=vistriad.mask, dtype=NP.float)
             lst_out = self.cPhase.cpinfo['processed']['prelim']['lstbins'] * 15.0
-            vis_ref, wts_ref = OPS.interpolate_masked_array_1D(vistriad, viswts, 1, visscaleinfo['smoothinfo'], inploc=lst_vis, outloc=lst_out)
+            if lst_vis.size == 1: # Apply the visibility scaling from one reference LST to all LST
+                vis_ref = vistriad * NP.ones(lst_out.size).reshape(1,-1,1)
+                wts_ref = viswts * NP.ones(lst_out.size).reshape(1,-1,1)
+            else:
+                vis_ref, wts_ref = OPS.interpolate_masked_array_1D(vistriad, viswts, 1, visscaleinfo['smoothinfo'], inploc=lst_vis, outloc=lst_out)
 
         if not isinstance(method, str):
             raise TypeError('Input method must be a string')

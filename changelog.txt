@@ -1,3 +1,12 @@
+From e64b513 (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function FT() of class ClosurePhaseDelaySpectrum, add
+ability to handle if the reference visibility is provided only at a
+single LST, in which case this scaling applies to all the LST 
+
 From d6090ea (closure-adv):
 ==========================
 
