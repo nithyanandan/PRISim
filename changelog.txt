@@ -1,3 +1,11 @@
+From d9ddcd8 (pyuvdata):
+=======================
+
+In scripts/make_redundant_visibilities.py,
+
+(*) Update to save redundant visibilities in UVFITS format
+(*) Start work on saving redundant visibilities in uvh5 format
+
 From e64b513 (closure-adv):
 ==========================
 

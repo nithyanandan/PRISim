@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     output_group = parser.add_argument_group('Output parameters', 'Output specifications')
     output_group.add_argument('-o', '--outfile', dest='outfile', default=None, type=str, required=True, help='Output File with redundant measurements')
-    output_group.add_argument('--outfmt', dest='outfmt', default=['hdf5'], type=str, required=True, nargs='*', choices=['HDF5', 'hdf5', 'UVFITS', 'uvfits'], help='Output file format')
+    output_group.add_argument('--outfmt', dest='outfmt', default=['hdf5'], type=str, required=True, nargs='*', choices=['HDF5', 'hdf5', 'UVFITS', 'uvfits', 'UVH5', 'uvh5'], help='Output file format')
 
     misc_group = parser.add_argument_group('Misc parameters', 'Misc specifications')
     misc_group.add_argument('-w', '--wait', dest='wait', action='store_true', help='Wait after run')
@@ -77,27 +77,33 @@ if __name__ == '__main__':
                 parms = yaml.safe_load(pfile)
             
             uvfits_parms = None
-            if parms['save_formats']['phase_center'] is None:
-                phase_center = simobj.pointing_center[0,:].reshape(1,-1)
-                phase_center_coords = simobj.pointing_coords
-                if phase_center_coords == 'dircos':
-                    phase_center = GEOM.dircos2altaz(phase_center, units='degrees')
-                    phase_center_coords = 'altaz'
-                if phase_center_coords == 'altaz':
-                    phase_center = GEOM.altaz2hadec(phase_center, simobj.latitude, units='degrees')
-                    phase_center_coords = 'hadec'
-                if phase_center_coords == 'hadec':
-                    phase_center = NP.hstack((simobj.lst[0]-phase_center[0,0], phase_center[0,1]))
-                    phase_center_coords = 'radec'
-                if phase_center_coords != 'radec':
-                    raise ValueError('Invalid phase center coordinate system')
-                    
-                uvfits_ref_point = {'location': phase_center.reshape(1,-1), 'coords': 'radec'}
-            else:
-                uvfits_ref_point = {'location': NP.asarray(parms['save_formats']['phase_center']).reshape(1,-1), 'coords': 'radec'}
-            uvfits_parms = {'ref_point': uvfits_ref_point, 'method': parms['save_formats']['uvfits_method']}
+            if outfmt.lower() == 'uvfits':
+                if parms['save_formats']['phase_center'] is None:
+                    phase_center = simobj.pointing_center[0,:].reshape(1,-1)
+                    phase_center_coords = simobj.pointing_coords
+                    if phase_center_coords == 'dircos':
+                        phase_center = GEOM.dircos2altaz(phase_center, units='degrees')
+                        phase_center_coords = 'altaz'
+                    if phase_center_coords == 'altaz':
+                        phase_center = GEOM.altaz2hadec(phase_center, simobj.latitude, units='degrees')
+                        phase_center_coords = 'hadec'
+                    if phase_center_coords == 'hadec':
+                        phase_center = NP.hstack((simobj.lst[0]-phase_center[0,0], phase_center[0,1]))
+                        phase_center_coords = 'radec'
+                    if phase_center_coords != 'radec':
+                        raise ValueError('Invalid phase center coordinate system')
+                        
+                    uvfits_ref_point = {'location': phase_center.reshape(1,-1), 'coords': 'radec'}
+                else:
+                    uvfits_ref_point = {'location': NP.asarray(parms['save_formats']['phase_center']).reshape(1,-1), 'coords': 'radec'}
+
+                # Phase the visibilities to a phase reference point
+                simobj.rotate_visibilities(uvfits_ref_point)
+                uvfits_parms = {'ref_point': None, 'datapool': None, 'method': None}
+                # uvfits_parms = {'ref_point': uvfits_ref_point, 'method': parms['save_formats']['uvfits_method']}
             
-            simobj.write_uvfits(outfile, uvfits_parms=uvfits_parms, overwrite=True)
+            simobj.pyuvdata_write(outfile, formats=[outfmt.lower()], uvfits_parms=uvfits_parms, overwrite=True)
+            # simobj.write_uvfits(outfile, uvfits_parms=uvfits_parms, overwrite=True)
 
     if wait_after_run:
         PDB.set_trace()
