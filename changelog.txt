@@ -1,3 +1,19 @@
+From dade112 (pyuvdata):
+=======================
+
+In prisim/interferometry.py,
+
+(*) In member function save() of class InterferometerArray, fix bug
+in writing the correct attribute for projected_baselines, wherein
+earlier it only wrote baselines attribute wrongly in place of the
+projected_baselines attribute
+
+In scripts/make_redundant_visibilities.py,
+
+(*) Insert a comment that can temporarily fix the bug that was saving
+incorrect projected_baselines (see above), which will be a
+placeholder until all simulations have got this bug fixed in them
+
 From d9ddcd8 (pyuvdata):
 =======================
 

@@ -66,6 +66,9 @@ if __name__ == '__main__':
     else:
         simobj.duplicate_measurements()
 
+    # if simobj.n_acc == 1:
+    #     simobj.projected_baselines = simobj.projected_baselines[...,NP.newaxis] # (nbl,nchan) --> (nbl,nchan,ntimes=1)
+
     for outfmt in args['outfmt']:
         if outfmt.lower() == 'hdf5':
             simobj.save(outfile, fmt=outfmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)

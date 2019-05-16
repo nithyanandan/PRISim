@@ -8663,7 +8663,7 @@ class InterferometerArray(object):
                 array_group['baseline_coords'] = self.baseline_coords
                 array_group['baselines'].attrs['coords'] = 'local-ENU'
                 array_group['baselines'].attrs['units'] = 'm'
-                array_group['projected_baselines'] = self.baselines
+                array_group['projected_baselines'] = self.projected_baselines
                 array_group['baselines'].attrs['coords'] = 'eq-XYZ'
                 array_group['baselines'].attrs['units'] = 'm'
                 instr_group = fileobj.create_group('instrument')
