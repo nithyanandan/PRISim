@@ -1020,16 +1020,20 @@ elif use_HI_monopole:
     spectrum = skymod.generate_spectrum()
 
 elif use_GSM:
-    dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
+    dsm_file = DSM_file_prefix+'_150.0_MHz_nside_{0:0d}.fits'.format(nside)
+    # dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
     hdulist = fits.open(dsm_file)
     pixres = hdulist[0].header['PIXAREA']
     dsm_table = hdulist[1].data
     ra_deg_DSM = dsm_table['RA']
     dec_deg_DSM = dsm_table['DEC']
-    temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
-    fluxes_DSM = temperatures * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
+    temperatures = dsm_table['T_{0:.0f}'.format(150.0)]
+    # temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
+    fluxes_DSM = temperatures * 2.0 * FCNST.k * (150e6/FCNST.c)**2 * pixres / CNST.Jy
+    # fluxes_DSM = temperatures * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
     spindex = dsm_table['spindex'] + 2.0
-    freq_DSM = freq/1e9 # in GHz
+    freq_DSM = 0.150 # in GHz
+    # freq_DSM = freq/1e9 # in GHz
     freq_catalog = freq_DSM * 1e9 + NP.zeros(fluxes_DSM.size)
     catlabel = NP.repeat('DSM', fluxes_DSM.size)
     ra_deg = ra_deg_DSM + 0.0
@@ -1137,17 +1141,21 @@ elif use_GSM:
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
 elif use_DSM:
-    dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
+    dsm_file = DSM_file_prefix+'_150.0_MHz_nside_{0:0d}.fits'.format(nside)
+    # dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
     hdulist = fits.open(dsm_file)
     pixres = hdulist[0].header['PIXAREA']
     dsm_table = hdulist[1].data
     ra_deg_DSM = dsm_table['RA']
     dec_deg_DSM = dsm_table['DEC']
-    temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
-    fluxes_DSM = temperatures * (2.0 * FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
+    temperatures = dsm_table['T_{0:.0f}'.format(150.0)]
+    # temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
+    fluxes_DSM = temperatures * 2.0 * FCNST.k * (150e6/FCNST.c)**2 * pixres / CNST.Jy
+    # fluxes_DSM = temperatures * (2.0 * FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
     flux_unit = 'Jy'
     spindex = dsm_table['spindex'] + 2.0
-    freq_DSM = freq/1e9 # in GHz
+    freq_DSM = 0.150 # in GHz
+    # freq_DSM = freq/1e9 # in GHz
     freq_catalog = freq_DSM * 1e9 + NP.zeros(fluxes_DSM.size)
     catlabel = NP.repeat('DSM', fluxes_DSM.size)
     ra_deg = ra_deg_DSM
@@ -1173,17 +1181,21 @@ elif use_DSM:
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
 elif use_USM:
-    dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
+    dsm_file = DSM_file_prefix+'_150.0_MHz_nside_{0:0d}.fits'.format(nside)
+    # dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
     hdulist = fits.open(dsm_file)
     pixres = hdulist[0].header['PIXAREA']
     dsm_table = hdulist[1].data
     ra_deg = dsm_table['RA']
     dec_deg = dsm_table['DEC']
-    temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
+    temperatures = dsm_table['T_{0:.0f}'.format(150.0)]
+    # temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
     avg_temperature = NP.mean(temperatures)
-    fluxes_USM = avg_temperature * (2.0 * FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy * NP.ones(temperatures.size)
+    fluxes_DSM = temperatures * 2.0 * FCNST.k * (150e6/FCNST.c)**2 * pixres / CNST.Jy
+    # fluxes_USM = avg_temperature * (2.0 * FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy * NP.ones(temperatures.size)
     spindex = NP.zeros(fluxes_USM.size)
-    freq_USM = 0.185 # in GHz
+    freq_USM = 0.150 # in GHz
+    # freq_USM = 0.185 # in GHz
     freq_catalog = freq_USM * 1e9 + NP.zeros(fluxes_USM.size)
     catlabel = NP.repeat('USM', fluxes_USM.size)
     majax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_USM.size)

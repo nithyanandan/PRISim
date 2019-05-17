@@ -1,3 +1,13 @@
+From 07e1117 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Modify DSM to be read from the default file independent of the
+'freq' parameter and simply use spectral index to extrapolate to
+any frequency. Make this update for skymodel when set to 'dsm', 'gsm'
+or 'usm'
+
 From dade112 (pyuvdata):
 =======================
 
