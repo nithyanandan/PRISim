@@ -1773,8 +1773,10 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                     else:
                         roiinfo['pbeam'] = None
                     roiinfo['radius'] = roi_radius
+                    # roiinfo_center_altaz = AltAz(alt=NP.asarray([90.0])*U.deg, az=NP.asarray([270.0])*U.deg, obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m))
                     roiinfo_center_hadec = GEOM.altaz2hadec(NP.asarray([90.0, 270.0]).reshape(1,-1), latitude, units='degrees').ravel() # Seems to be a hard-coding of ROI center to zenith, but that's only to determine the sources in the upper hemisphere
                     roiinfo_center_radec = [lst[j]-roiinfo_center_hadec[0], roiinfo_center_hadec[1]]
+                    # roiinfo_center_radec = ET.altaz2radec(NP.asarray([90.0, 270.0]).reshape(1,-1), EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m), obstime=tobjs[j], epoch_RA=tobjs[j])
                     roiinfo['center'] = NP.asarray(roiinfo_center_radec).reshape(1,-1)
                     roiinfo['center_coords'] = 'radec'
                     
@@ -1945,8 +1947,10 @@ else: # MPI based on baseline multiplexing
                     else:
                         roiinfo['pbeam'] = None
                     roiinfo['radius'] = roi_radius
-                    roiinfo_center_hadec = GEOM.altaz2hadec(NP.asarray([90.0, 270.0]).reshape(1,-1), latitude, units='degrees').ravel()
+                    # roiinfo_center_altaz = AltAz(alt=NP.asarray([90.0])*U.deg, az=NP.asarray([270.0])*U.deg, obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m))
+                    roiinfo_center_hadec = GEOM.altaz2hadec(NP.asarray([90.0, 270.0]).reshape(1,-1), latitude, units='degrees').ravel() # Seems to be a hard-coding of ROI center to zenith, but that's only to determine the sources in the upper hemisphere
                     roiinfo_center_radec = [lst[j]-roiinfo_center_hadec[0], roiinfo_center_hadec[1]]
+                    # roiinfo_center_radec = ET.altaz2radec(NP.asarray([90.0, 270.0]).reshape(1,-1), EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m), obstime=tobjs[j], epoch_RA=tobjs[j])
                     roiinfo['center'] = NP.asarray(roiinfo_center_radec).reshape(1,-1)
                     roiinfo['center_coords'] = 'radec'
 

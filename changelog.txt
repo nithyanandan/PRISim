@@ -1,3 +1,11 @@
+From 6a21515 (ephemeris):
+========================
+
+In scripts/run_prisim.py,
+
+(*) Add hooks to improve ephemeris in conversion of ROI center alt-az
+to RA-Dec, but still commented just to act as a placeholder
+
 From d2d33ae (ephemeris):
 ========================
 
