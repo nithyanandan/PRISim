@@ -4437,7 +4437,8 @@ class ROI_parameters(object):
         
                         if not pbeam_input: # Will require sky positions in Alt-Az coordinates
                             if skymodel.coords == 'radec':
-                                skycoords = SkyCoord(ra=skymodel.location[:,0]*units.deg, dec=skymodel.location[:,1]*units.deg, frame='icrs', equinox=skymodel.epoch)
+                                skycoords = SkyCoord(ra=skymodel.location[:,0]*units.deg, dec=skymodel.location[:,1]*units.deg, frame='fk5', equinox=Time(skymodel.epoch, format='jyear_str', scale='utc'))
+                                # skycoords = SkyCoord(ra=skymodel.location[:,0]*units.deg, dec=skymodel.location[:,1]*units.deg, frame='icrs', equinox=skymodel.epoch)
                                 if self.telescope['latitude'] is None:
                                     raise ValueError('Latitude of the observatory must be provided.')
                                 if lst is None:
@@ -4496,7 +4497,8 @@ class ROI_parameters(object):
                         raise ValueError('LST must be provided.')
                     if time_jd is None:
                         raise ValueError('Time in JD must be provided')
-                    skycoords = SkyCoord(ra=skymodel.location[:,0]*units.deg, dec=skymodel.location[:,1]*units.deg, frame='icrs', equinox=skymodel.epoch)
+                    skycoords = SkyCoord(ra=skymodel.location[:,0]*units.deg, dec=skymodel.location[:,1]*units.deg, frame='fk5', equinox=Time(skymodel.epoch, format='jyear_str', scale='utc'))
+                    # skycoords = SkyCoord(ra=skymodel.location[:,0]*units.deg, dec=skymodel.location[:,1]*units.deg, frame='icrs', equinox=skymodel.epoch)
                     skycoords_altaz = skycoords.transform_to(AltAz(obstime=Time(time_jd, format='jd', scale='utc'), location=EarthLocation(lon=self.telescope['longitude']*units.deg, lat=self.telescope['latitude']*units.deg, height=self.telescope['altitude']*units.m)))
                     skypos_altaz = NP.hstack((skycoords_altaz.alt.deg.reshape(-1,1), skycoords_altaz.az.deg.reshape(-1,1)))
                     # skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')

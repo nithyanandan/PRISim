@@ -1773,7 +1773,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                     else:
                         roiinfo['pbeam'] = None
                     roiinfo['radius'] = roi_radius
-                    roiinfo_center_hadec = GEOM.altaz2hadec(NP.asarray([90.0, 270.0]).reshape(1,-1), latitude, units='degrees').ravel()
+                    roiinfo_center_hadec = GEOM.altaz2hadec(NP.asarray([90.0, 270.0]).reshape(1,-1), latitude, units='degrees').ravel() # Seems to be a hard-coding of ROI center to zenith, but that's only to determine the sources in the upper hemisphere
                     roiinfo_center_radec = [lst[j]-roiinfo_center_hadec[0], roiinfo_center_hadec[1]]
                     roiinfo['center'] = NP.asarray(roiinfo_center_radec).reshape(1,-1)
                     roiinfo['center_coords'] = 'radec'

@@ -1,3 +1,20 @@
+From c46e608 (ephemeris):
+========================
+
+In prisim/interferometry.py,
+
+(*) In member function append_settings() of class ROI_parameters,
+initialize sky coordinates in FK5 frame instead of ICRS to fix bug in
+ephemeris and to be consistent with ephemeris calculations in
+scripts/run_prisim.py
+(*) In member function append_settings() of class ROI_parameters,
+comment out the previous initialization of sky coords in ICRS frame
+
+In scripts/run_prisim.py,
+
+(*) Add a comment to clarify the intention behind computing of the
+variable roi_center_hadec
+
 From 07e1117 (master):
 =====================
 
