@@ -1,3 +1,11 @@
+From d2d33ae (ephemeris):
+========================
+
+In prisim/interferometry.py,
+
+(*) In member function append_settings() of class ROI_parameters,
+remove commented lines in the previous commit 
+
 From c46e608 (ephemeris):
 ========================
 
