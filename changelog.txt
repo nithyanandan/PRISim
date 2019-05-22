@@ -1,3 +1,20 @@
+From 08d74fd (pyuvdata):
+=======================
+
+In scripts/make_redundant_visibilities.py,
+
+(*) Import script scripts/write_PRISim_visibilities.py as a module
+(*) Update the __main__() function to set up parameters to be passed
+to save() function in imported scripts/write_PRISim_visibilities.py
+module to save the outputs in the requested formats. This removes the
+duplication of saving output in this script and instead calls the
+imported script
+(*) Fix minor typo in a printed message of a raised exception
+
+In scripts/write_PRISim_visibilities.py,
+
+(*) Fix minor typo in a printed message of a raised exception
+
 From 7355c0a (pyuvdata):
 =======================
 

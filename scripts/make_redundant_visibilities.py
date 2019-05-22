@@ -4,6 +4,7 @@ import yaml
 import argparse
 import numpy as NP
 from prisim import interferometry as RI
+import write_PRISim_visibilities as PRISimWriter
 import ipdb as PDB
 
 if __name__ == '__main__':
@@ -25,7 +26,8 @@ if __name__ == '__main__':
     
     args = vars(parser.parse_args())
     outfile = args['outfile']
-    wait_after_run = args['wait']
+    outformats = args['outfmt']
+    parmsfile = args['parmsfile']
 
     simobj = RI.InterferometerArray(None, None, None, init_file=args['simfile'])
     if args['parmsfile'] is not None:
@@ -74,49 +76,13 @@ if __name__ == '__main__':
         if simobj.projected_baselines.ndim == 2:
             simobj.projected_baselines = simobj.projected_baselines[...,NP.newaxis] # (nbl,nchan) --> (nbl,nchan,ntimes=1)
         else:
-            raise ValueError('Arrtibute projected_baselines of PRISim object has incompatible dimensions')
+            raise ValueError('Atrribute projected_baselines of PRISim object has incompatible dimensions')
 
     # if simobj.n_acc == 1:
     #     simobj.projected_baselines = simobj.projected_baselines[...,NP.newaxis] # (nbl,nchan) --> (nbl,nchan,ntimes=1)
 
-    for outfmt in args['outfmt']:
-        if outfmt.lower() == 'hdf5':
-            simobj.save(outfile, fmt=outfmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
-        else:
-            if args['parmsfile'] is None:
-                parmsfile = simobj.simparms_file
-                
-            with open(parmsfile, 'r') as pfile:
-                parms = yaml.safe_load(pfile)
-            
-            uvfits_parms = None
-            if outfmt.lower() == 'uvfits':
-                if parms['save_formats']['phase_center'] is None:
-                    phase_center = simobj.pointing_center[0,:].reshape(1,-1)
-                    phase_center_coords = simobj.pointing_coords
-                    if phase_center_coords == 'dircos':
-                        phase_center = GEOM.dircos2altaz(phase_center, units='degrees')
-                        phase_center_coords = 'altaz'
-                    if phase_center_coords == 'altaz':
-                        phase_center = GEOM.altaz2hadec(phase_center, simobj.latitude, units='degrees')
-                        phase_center_coords = 'hadec'
-                    if phase_center_coords == 'hadec':
-                        phase_center = NP.hstack((simobj.lst[0]-phase_center[0,0], phase_center[0,1]))
-                        phase_center_coords = 'radec'
-                    if phase_center_coords != 'radec':
-                        raise ValueError('Invalid phase center coordinate system')
-                        
-                    uvfits_ref_point = {'location': phase_center.reshape(1,-1), 'coords': 'radec'}
-                else:
-                    uvfits_ref_point = {'location': NP.asarray(parms['save_formats']['phase_center']).reshape(1,-1), 'coords': 'radec'}
+    PRISimWriter.save(simobj, outfile, outformats, parmsfile=parmsfile)
 
-                # Phase the visibilities to a phase reference point
-                simobj.rotate_visibilities(uvfits_ref_point)
-                uvfits_parms = {'ref_point': None, 'datapool': None, 'method': None}
-                # uvfits_parms = {'ref_point': uvfits_ref_point, 'method': parms['save_formats']['uvfits_method']}
-            
-            simobj.pyuvdata_write(outfile, formats=[outfmt.lower()], uvfits_parms=uvfits_parms, overwrite=True)
-            # simobj.write_uvfits(outfile, uvfits_parms=uvfits_parms, overwrite=True)
-
+    wait_after_run = args['wait']
     if wait_after_run:
         PDB.set_trace()

@@ -78,7 +78,7 @@ if __name__ == '__main__':
         if simobj.projected_baselines.ndim == 2:
             simobj.projected_baselines = simobj.projected_baselines[...,NP.newaxis] # (nbl,nchan) --> (nbl,nchan,ntimes=1)
         else:
-            raise ValueError('Arrtibute projected_baselines of PRISim object has incompatible dimensions')
+            raise ValueError('Attribute projected_baselines of PRISim object has incompatible dimensions')
 
     save(simobj, outfile, outformats, parmsfile=parmsfile)
 
