@@ -1,3 +1,13 @@
+From 7355c0a (pyuvdata):
+=======================
+
+(*) Add scripts/write_PRISim_visibilities.py to repo
+
+In scripts/make_redundant_visibilities.py,
+
+(*) Introduce a conditional statement to fix previous erroneous
+outputs of attribute projected_baselines in the wrong shape.
+
 From 6a21515 (ephemeris):
 ========================
 

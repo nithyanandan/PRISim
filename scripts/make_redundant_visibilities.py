@@ -66,6 +66,16 @@ if __name__ == '__main__':
     else:
         simobj.duplicate_measurements()
 
+    # The following "if" statement is to allow previous buggy saved versions
+    # of HDF5 files that did not save the projected_baselines attribute in the
+    # right shape when n_acc=1
+    
+    if simobj.projected_baselines.ndim != 3:
+        if simobj.projected_baselines.ndim == 2:
+            simobj.projected_baselines = simobj.projected_baselines[...,NP.newaxis] # (nbl,nchan) --> (nbl,nchan,ntimes=1)
+        else:
+            raise ValueError('Arrtibute projected_baselines of PRISim object has incompatible dimensions')
+
     # if simobj.n_acc == 1:
     #     simobj.projected_baselines = simobj.projected_baselines[...,NP.newaxis] # (nbl,nchan) --> (nbl,nchan,ntimes=1)
 
