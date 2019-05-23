@@ -1,3 +1,16 @@
+From 8700a47 (noise):
+====================
+
+(*) Add prisim/examples/simparms/noise_update_parms.yaml that serves
+as a template for scripts/update_PRISim_noise.py
+
+(*) Update .gitignore
+
+In scripts/update_PRISim_noise.py,
+
+(*) Update default location of noise parameters file to
+prisim/examples/simparms/noise_update_parms.yaml
+
 From 518ca3c (pyuvdata):
 =======================
 

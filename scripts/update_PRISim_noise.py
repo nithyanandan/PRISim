@@ -24,7 +24,7 @@ if __name__ == '__main__':
     output_group.add_argument('--outfmt', dest='outfmt', default=['hdf5'], type=str, required=True, nargs='*', choices=['HDF5', 'hdf5', 'UVFITS', 'uvfits', 'UVH5', 'uvh5'], help='Output file format')
 
     noise_parms_group = parser.add_argument_group('Noise parameters', 'Noise specifications')
-    noise_parms_group.add_argument('-n', '--noise_parmsfile', dest='noise_parmsfile', default=prisim_path+'examples/simparms/noiseparms.yaml', type=file, required=True, help='File specifying noise parameters for updating noise in PRISim output')
+    noise_parms_group.add_argument('-n', '--noise_parmsfile', dest='noise_parmsfile', default=prisim_path+'examples/simparms/noise_update_parms.yaml', type=file, required=True, help='File specifying noise parameters for updating noise in PRISim output')
     
     misc_group = parser.add_argument_group('Misc parameters', 'Misc specifications')
     misc_group.add_argument('-w', '--wait', dest='wait', action='store_true', help='Wait after run')
