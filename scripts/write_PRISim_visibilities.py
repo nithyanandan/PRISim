@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
     ## Parse input arguments
     
-    parser = argparse.ArgumentParser(description='Program to duplicate redundant baseline measurements')
+    parser = argparse.ArgumentParser(description='Program to save PRIS?im visibilities')
     
     input_group = parser.add_argument_group('Input parameters', 'Input specifications')
     input_group.add_argument('-s', '--simfile', dest='simfile', type=str, required=True, help='HDF5 file from PRISim simulation')

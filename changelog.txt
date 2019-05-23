@@ -1,3 +1,20 @@
+From fb71114 (noise):
+====================
+
+(*) Add scripts/update_PRISim_noise.py to repo, which updates noise
+in a PRISim output
+
+In prisim/interferometry.py,
+
+(*) In member function save() of class InterferometerArray, fix bug
+in saving Tsysinfo parameters
+(*) In member function __init__() of class InterferometerArray, fix
+bug in reading Tsysinfo parameters
+
+In scripts/write_PRISim_visibilities.py,
+
+(*) Minor change in description string
+
 From 08d74fd (pyuvdata):
 =======================
 

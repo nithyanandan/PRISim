@@ -286,7 +286,7 @@ def generateNoise(noiseRMS=None, A_eff=None, df=None, dt=None, Tsys=None, nbl=1,
     ntimes      [integer] Number of time stamps. Default=1
 
     flux_unit   [string] Units of thermal noise RMS to be returned. Accepted
-                values are 'K' or 'Jy' (default). Will onyl apply if noiseRMS
+                values are 'K' or 'Jy' (default). Will only apply if noiseRMS
                 is set to None. Otherwise the flux_unit will be ignored and 
                 the returned value will be in same units as noiseRMS
 
@@ -5244,12 +5244,15 @@ class InterferometerArray(object):
                                 raise KeyError('Key "t_acc" not found in init_file')
 
                         if key == 'instrument':
-                            if ('Trx' in grp) and ('Tant' in grp) and ('spindex' in grp) and ('Tnet' in grp):
-                                for ti in xrange(grp['Trx'].value.size):
+                            if ('Trx' in grp) or ('Tant' in grp) or ('spindex' in grp) or ('Tnet' in grp):
+                                for ti in range(grp['Trx'].value.size):
                                     tsysinfo = {}
                                     tsysinfo['Trx'] = grp['Trx'].value[ti]
-                                    tsysinfo['Tant'] = {'Tant0': grp['Tant0'].value[ti], 'f0': grp['f0'].value[ti], 'spindex': grp['spindex'].value[ti]}
+                                    tsysinfo['Tant'] = {'T0': grp['Tant0'].value[ti], 'f0': grp['f0'].value[ti], 'spindex': grp['spindex'].value[ti]}
                                     tsysinfo['Tnet'] = None
+                                    if 'Tnet' in grp:
+                                        if grp['Tnet'].value[ti] > 0:
+                                            tsysinfo['Tnet'] = grp['Tnet'].value[ti]
                                     self.Tsysinfo += [tsysinfo]
                             if 'Tsys' in grp:
                                 self.Tsys = grp['Tsys'].value
@@ -8678,6 +8681,8 @@ class InterferometerArray(object):
                     instr_group['Trx'].attrs['units'] = 'K'
                     instr_group['Tant0'].attrs['units'] = 'K'
                     instr_group['f0'].attrs['units'] = 'Hz'
+                    instr_group['Tnet'] = NP.asarray([elem['Tnet'] if elem['Tnet'] is not None else -999 for elem in self.Tsysinfo], dtype=NP.float)
+                    instr_group['Tnet'].attrs['units'] = 'K'
                 instr_group['Tsys'] = self.Tsys
                 instr_group['Tsys'].attrs['units'] = 'K'
                 vis_group = fileobj.create_group('visibilities')
