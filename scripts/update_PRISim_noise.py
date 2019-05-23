@@ -41,11 +41,35 @@ if __name__ == '__main__':
     # of HDF5 files that did not save the projected_baselines attribute in the
     # right shape when n_acc=1
     
+    update_projected_baselines = False
     if simobj.projected_baselines.ndim != 3:
-        if simobj.projected_baselines.ndim == 2:
-            simobj.projected_baselines = simobj.projected_baselines[...,NP.newaxis] # (nbl,nchan) --> (nbl,nchan,ntimes=1)
+        update_projected_baselines = True
+    else:
+        if simobj.projected_baselines.shape[2] != simobj.n_acc:
+            update_projected_baselines = True
+
+    if update_projected_baselines:
+        uvw_ref_point = None
+        if parms['save_formats']['phase_center'] is None:
+            phase_center = simobj.pointing_center[0,:].reshape(1,-1)
+            phase_center_coords = simobj.pointing_coords
+            if phase_center_coords == 'dircos':
+                phase_center = GEOM.dircos2altaz(phase_center, units='degrees')
+                phase_center_coords = 'altaz'
+            if phase_center_coords == 'altaz':
+                phase_center = GEOM.altaz2hadec(phase_center, simobj.latitude, units='degrees')
+                phase_center_coords = 'hadec'
+            if phase_center_coords == 'hadec':
+                phase_center = NP.hstack((simobj.lst[0]-phase_center[0,0], phase_center[0,1]))
+                phase_center_coords = 'radec'
+            if phase_center_coords != 'radec':
+                raise ValueError('Invalid phase center coordinate system')
+                
+            uvw_ref_point = {'location': phase_center.reshape(1,-1), 'coords': 'radec'}
         else:
-            raise ValueError('Attribute projected_baselines of PRISim object has incompatible dimensions')
+            uvw_ref_point = {'location': NP.asarray(parms['save_formats']['phase_center']).reshape(1,-1), 'coords': 'radec'}
+        
+        simobj.project_baselines(uvw_ref_point)
 
     freqs = simobj.channels
     nchan = freqs.size
