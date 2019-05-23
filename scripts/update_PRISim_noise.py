@@ -35,6 +35,9 @@ if __name__ == '__main__':
     outformats = args['outfmt']
     parmsfile = args['parmsfile']
 
+    with open(parmsfile, 'r') as pfile:
+        parms = yaml.safe_load(pfile)
+
     simobj = RI.InterferometerArray(None, None, None, init_file=args['simfile'])
 
     # The following "if" statement is to allow previous buggy saved versions
@@ -91,10 +94,6 @@ if __name__ == '__main__':
     Tsysinfo = {'Trx': Trx, 'Tant':{'f0': Tant_freqref, 'spindex': Tant_spindex, 'T0': Tant_ref}, 'Tnet': Tsys}
     if Tsys is None:
         Tsys_arr = Trx + Tant_ref * (freqs/Tant_freqref)**Tant_spindex
-
-    parmsfile = args['parmsfile']
-    with open(parmsfile, 'r') as pfile:
-        parms = yaml.safe_load(pfile)
 
     parms['telescope']['Tsys'] = noise_parms['Tsys']
     parms['telescope']['Trx'] = noise_parms['Trx']

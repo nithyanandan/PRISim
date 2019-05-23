@@ -69,6 +69,11 @@ if __name__ == '__main__':
     parmsfile = args['parmsfile']
 
     simobj = RI.InterferometerArray(None, None, None, init_file=args['simfile'])
+    if parmsfile is None:
+        parmsfile = simobj.simparms_file
+
+    with open(parmsfile, 'r') as pfile:
+        parms = yaml.safe_load(pfile)
 
     # The following "if" statement is to allow previous buggy saved versions
     # of HDF5 files that did not save the projected_baselines attribute in the
