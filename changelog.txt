@@ -1,3 +1,18 @@
+From 518ca3c (pyuvdata):
+=======================
+
+In scripts/make_redundant_visibilities.py,
+
+(*) Fix bug in reading and saving of attribute projected_baselines
+
+In scripts/update_PRISim_noise.py,
+
+(*) Fix bug in reading and saving of attribute projected_baselines
+
+In scripts/write_PRISim_visibilities.py,
+
+(*) Fix bug in reading and saving of attribute projected_baselines
+
 From fb71114 (noise):
 ====================
 
