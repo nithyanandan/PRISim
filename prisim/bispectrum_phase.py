@@ -2111,7 +2111,7 @@ class ClosurePhase(object):
                 self.cpinfo['errinfo']['dlstbins'] = NP.zeros(1)
             
         ncomb = NP.sum(NP.asarray([(ndaybins-i-1)*(ndaybins-i-2)*(ndaybins-i-3)/2 for i in range(ndaybins-3)])).astype(int)
-        diff_outshape = (lstbins.size, ncomb, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3])
+        diff_outshape = (nlstbins, ncomb, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3])
         for diffind in range(2):
             self.cpinfo['errinfo']['eicp_diff']['{0}'.format(diffind)]['mean'] = MA.empty(diff_outshape, dtype=NP.complex)
             self.cpinfo['errinfo']['eicp_diff']['{0}'.format(diffind)]['median'] = MA.empty(diff_outshape, dtype=NP.complex)

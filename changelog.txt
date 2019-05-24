@@ -1,3 +1,11 @@
+From aadeca3 (noise):
+====================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function subsample_differencing() of class ClosurePhase,
+fix bug in creation of the outshape
+
 From 8700a47 (noise):
 ====================
 
