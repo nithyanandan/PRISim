@@ -10,8 +10,8 @@ nproc = comm.Get_size()
 name = MPI.Get_processor_name()
 
 if rank == 0:
-    print '\n{0} processes initiated...'.format(nproc)
+    print('\n{0} processes initiated...'.format(nproc))
 
-print '\tProcess #{0} completed'.format(rank)
+print('\tProcess #{0} completed'.format(rank))
 if rank == 0:
-    print 'MPI test successful\n'
+    print('MPI test successful\n')

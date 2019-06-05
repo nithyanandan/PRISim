@@ -105,16 +105,16 @@ def grepPRISim(parms, verbose=True):
     reduced_parms = NMO.recursive_find_notNone_in_dict(parms)
     select_ind = NP.asarray([True] * len(parms_list), dtype=NP.bool)
     if verbose:
-        print '\nThe following parameters are searched for:'
+        print('\nThe following parameters are searched for:')
     for ikey, ival in reduced_parms.iteritems():
         if verbose:
-            print '\t'+ikey
+            print('\t'+ikey)
         for subkey in ival.iterkeys():
             vals = [parm[ikey][subkey] for parm in parms_list]
             refval = reduced_parms[ikey][subkey]
             select_ind = NP.logical_and(select_ind, grepValue(vals, refval))
             if verbose:
-                print '\t\t'+subkey
+                print('\t\t'+subkey)
 
     select_ind, = NP.where(select_ind)
     outkeys = [metadata_list[ind].keys()[0] for ind in select_ind]
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     selectsims = grepPRISim(parms, verbose=args['verbose'])
     if args['sort'] == 'alphabetical':
         selectsims = sorted(selectsims)
-    print '\nThe following simulation runs were found to contain the searched parameters:\n'
+    print('\nThe following simulation runs were found to contain the searched parameters:\n')
     for simrun in selectsims:
-        print '\t'+simrun
-    print '\n'
+        print('\t'+simrun)
+    print('\n')

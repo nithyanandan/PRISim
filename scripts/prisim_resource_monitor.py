@@ -25,9 +25,9 @@ def monitor_memory(pids, tint=2.0):
     while True:
         subprocess.call(['clear'])
         with WM.term.location(0, 0):
-            print 'Resources under PRISim processes...'
+            print('Resources under PRISim processes...')
         with WM.term.location(0, 1):
-            print '{0:>8} {1:>8} {2:>12}'.format('PID', 'CPU [%]', 'Memory [GB]')
+            print('{0:>8} {1:>8} {2:>12}'.format('PID', 'CPU [%]', 'Memory [GB]'))
         cpu = NP.zeros(len(pids))
         mem = NP.zeros(len(pids))
         for pi, pid in enumerate(pids):
@@ -36,9 +36,9 @@ def monitor_memory(pids, tint=2.0):
             cpu[pi] = proc.cpu_percent(interval=0.01) # CPU usage in percent
             mem[pi] = proc.memory_info().rss / 2.0**30 # memory used in GB
             with WM.term.location(0, 2+pi):
-                print '{0:8d} {1:8.1f} {2:12.4f}'.format(pid, cpu[pi], mem[pi])
+                print('{0:8d} {1:8.1f} {2:12.4f}'.format(pid, cpu[pi], mem[pi]))
         with WM.term.location(0, len(pids)+2):
-            print '{0:>8} {1:8.1f} {2:12.4f}'.format('Total', NP.sum(cpu), NP.sum(mem))
+            print('{0:>8} {1:8.1f} {2:12.4f}'.format('Total', NP.sum(cpu), NP.sum(mem)))
         time.sleep(tint)
 
 if __name__ == '__main__':

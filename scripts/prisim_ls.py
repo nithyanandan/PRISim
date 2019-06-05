@@ -102,7 +102,7 @@ if __name__ == '__main__':
             with open(args['output'], 'w+') as outfile:
                 outfile.write(linestr)
         except IOError:
-            print linestr
+            print(linestr)
             raise IOError('Specified output file/folder invalid')
     else:
-        print linestr
+        print(linestr)

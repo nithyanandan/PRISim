@@ -4,7 +4,7 @@ import multiprocessing as MP
 import itertools as IT
 import progressbar as PGB
 # import aipy as AP
-import astropy 
+import astropy
 from astropy.io import fits
 import astropy.cosmology as CP
 import scipy.constants as FCNST
@@ -21,10 +21,18 @@ import prisim
 from prisim import primary_beams as PB
 from prisim import interferometry as RI
 from prisim import baseline_delay_horizon as DLY
+try:
+    from pyuvdata import UVBeam
+except ImportError:
+    uvbeam_module_found = False
+else:
+    uvbeam_module_found = True
 
 prisim_path = prisim.__path__[0]+'/'
 
-cosmo100 = CP.FlatLambdaCDM(H0=100.0, Om0=0.27)  # Using H0 = 100 km/s/Mpc
+# cosmo100 = CP.FlatLambdaCDM(H0=100.0, Om0=0.27)  # Using H0 = 100 km/s/Mpc
+cosmoPlanck15 = CP.Planck15 # Planck 2015 cosmology
+cosmo100 = cosmoPlanck15.clone(name='Modified Planck 2015 cosmology with h=1.0', H0=100.0) # Modified Planck 2015 cosmology with h=1.0, H= 100 km/s/Mpc
 
 #################################################################################
 
@@ -73,7 +81,7 @@ def _astropy_columns(cols, tabtype='BinTableHDU'):
 #                   verbose=False, autoscale=True):
 
 #     if verbose:
-#         print "Performing gentle clean..."
+#         print("Performing gentle clean...")
 
 #     scale_factor = 1.0
 #     if autoscale:
@@ -89,14 +97,14 @@ def _astropy_columns(cols, tabtype='BinTableHDU'):
 #     inside_res = NP.std(dd[area!=0])
 #     outside_res = NP.std(dd[area==0])
 #     initial_res = inside_res
-#     #print inside_res,'->',
+#     #print(inside_res,'->',)
 #     ncycle=0
 #     if verbose:
-#         print "inside_res outside_res"
-#         print inside_res, outside_res
+#         print("inside_res outside_res")
+#         print(inside_res, outside_res)
 #     inside_res = 2*outside_res #just artifically bump up the inside res so the loop runs at least once
 #     while(inside_res>outside_res and maxiter>0):
-#         if verbose: print '.',
+#         if verbose: print('.',)
 #         _d_cl, info = AP.deconv.clean(dd, _w, tol=tol, area=area, stop_if_div=stop_if_div, maxiter=maxiter, verbose=verbose, pos_def=True)
 #         res = info['res']
 #         inside_res = NP.std(res[area!=0])
@@ -104,7 +112,7 @@ def _astropy_columns(cols, tabtype='BinTableHDU'):
 #         dd = info['res']
 #         cc += _d_cl
 #         ncycle += 1
-#         if verbose: print inside_res*scale_factor, outside_res*scale_factor
+#         if verbose: print(inside_res*scale_factor, outside_res*scale_factor)
 #         if ncycle>1000: break
 
 #     info['ncycle'] = ncycle-1
@@ -169,7 +177,7 @@ def complex1dClean(inp, kernel, cbox=None, gain=0.1, maxiter=10000,
              set to 'asbolute' it is the actual value down to which inp should 
              be cleaned. Default='relative'
 
-    verbose  [boolean] If set to True (default), print diagnostic and progress 
+    verbose  [boolean] If set to True (default), print diagnostic and progress
              messages. If set to False, no such messages are printed.
 
     progressbar 
@@ -871,6 +879,10 @@ class DelaySpectrum(object):
                 Computes delay transform on multiple frequency sub-bands with 
                 specified weights for multiple realizations of visibilities
 
+    subband_delay_transform_closure_phase()
+                Computes delay transform of closure phases on antenna triplets 
+                on multiple frequency sub-bands with specified weights
+
     get_horizon_delay_limits()
                 Estimates the delay envelope determined by the sky horizon 
                 for the baseline(s) for the phase centers 
@@ -926,7 +938,7 @@ class DelaySpectrum(object):
                 hdulist = fits.open(init_file)
             except IOError:
                 argument_init = True
-                print '\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...'
+                print('\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...')
 
             extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,len(hdulist))]
             try:
@@ -1249,21 +1261,21 @@ class DelaySpectrum(object):
                     transformed quantities. If set to 'store', these quantities
                     will be stored as internal attributes
 
-        verbose     [boolean] If set to True (default), print diagnostic and 
+        verbose     [boolean] If set to True (default), print diagnostic and
                     progress messages. If set to False, no such messages are
                     printed.
         ------------------------------------------------------------------------
         """
 
         if verbose:
-            print 'Preparing to compute delay transform...\n\tChecking input parameters for compatibility...'
+            print('Preparing to compute delay transform...\n\tChecking input parameters for compatibility...')
 
         if not isinstance(pad, (int, float)):
             raise TypeError('pad fraction must be a scalar value.')
         if pad < 0.0:
             pad = 0.0
             if verbose:
-                print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                print('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
 
         if freq_wts is not None:
             if freq_wts.size == self.f.size:
@@ -1279,13 +1291,13 @@ class DelaySpectrum(object):
         else:
             freq_wts = self.bp_wts
         if verbose:
-            print '\tFrequency window weights assigned.'
+            print('\tFrequency window weights assigned.')
 
         if not isinstance(downsample, bool):
             raise TypeError('Input downsample must be of boolean type')
 
         if verbose:
-            print '\tInput parameters have been verified to be compatible.\n\tProceeding to compute delay transform.'
+            print('\tInput parameters have been verified to be compatible.\n\tProceeding to compute delay transform.')
             
         result = {}
         result['freq_wts'] = freq_wts
@@ -1297,7 +1309,7 @@ class DelaySpectrum(object):
             result['vis_noise_lag'] = DSP.FT1D(self.ia.vis_noise_freq * self.bp * freq_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
             result['lag_kernel'] = DSP.FT1D(self.bp * freq_wts, ax=1, inverse=True, use_real=False, shift=True) * self.f.size * self.df
             if verbose:
-                print '\tDelay transform computed without padding.'
+                print('\tDelay transform computed without padding.')
         else:
             npad = int(self.f.size * pad)
             result['vis_lag'] = DSP.FT1D(NP.pad(self.ia.vis_freq * self.bp * freq_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
@@ -1305,7 +1317,7 @@ class DelaySpectrum(object):
             result['vis_noise_lag'] = DSP.FT1D(NP.pad(self.ia.vis_noise_freq * self.bp * freq_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
             result['lag_kernel'] = DSP.FT1D(NP.pad(self.bp * freq_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
             if verbose:
-                print '\tDelay transform computed with padding fraction {0:.1f}'.format(pad)
+                print('\tDelay transform computed with padding fraction {0:.1f}'.format(pad))
 
         if downsample:
             result['vis_lag'] = DSP.downsampler(result['vis_lag'], 1+pad, axis=1)
@@ -1315,8 +1327,8 @@ class DelaySpectrum(object):
             result['lags'] = DSP.downsampler(result['lags'], 1+pad)
             result['lags'] = result['lags'].flatten()
             if verbose:
-                print '\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad)
-                print 'delay_transform() completed successfully.'
+                print('\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad))
+                print('delay_transform() completed successfully.')
 
         if action == 'store':
             self.pad = pad
@@ -1361,7 +1373,7 @@ class DelaySpectrum(object):
     #                 array. Default (None) will not apply windowing and only the
     #                 inherent bandpass will be used.
 
-    #     verbose     [boolean] If set to True (default), print diagnostic and 
+    #     verbose     [boolean] If set to True (default), print diagnostic and
     #                 progress messages. If set to False, no such messages are
     #                 printed.
     #     ------------------------------------------------------------------------
@@ -1372,7 +1384,7 @@ class DelaySpectrum(object):
     #     if pad < 0.0:
     #         pad = 0.0
     #         if verbose:
-    #             print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+    #             print('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
     
     #     if freq_wts is not None:
     #         if freq_wts.size == self.f.size:
@@ -1387,7 +1399,7 @@ class DelaySpectrum(object):
     #             raise ValueError('window shape dimensions incompatible with number of channels and/or number of tiemstamps.')
     #         self.bp_wts = freq_wts
     #         if verbose:
-    #             print '\tFrequency window weights assigned.'
+    #             print('\tFrequency window weights assigned.')
 
     #     bw = self.df * self.f.size
     #     pc = self.ia.phase_center
@@ -1499,7 +1511,7 @@ class DelaySpectrum(object):
                     False, no downsampling will be done even if the original 
                     quantities were padded 
 
-        verbose     [boolean] If set to True (default), print diagnostic and 
+        verbose     [boolean] If set to True (default), print diagnostic and
                     progress messages. If set to False, no such messages are
                     printed.
 
@@ -1526,7 +1538,7 @@ class DelaySpectrum(object):
         """
 
         if verbose:
-            print 'Preparing to compute delay transform...\n\tChecking input parameters for compatibility...'
+            print('Preparing to compute delay transform...\n\tChecking input parameters for compatibility...')
 
         try:
             vis
@@ -1551,7 +1563,7 @@ class DelaySpectrum(object):
         if pad < 0.0:
             pad = 0.0
             if verbose:
-                print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                print('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
 
         if freq_wts is not None:
             if freq_wts.shape == self.f.shape:
@@ -1568,13 +1580,13 @@ class DelaySpectrum(object):
             freq_wts = self.bp_wts.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+self.bp_wts.shape)
         bp = self.bp.reshape(tuple(NP.ones(len(vis.shape[:-3]),dtype=NP.int))+self.bp.shape)
         if verbose:
-            print '\tFrequency window weights assigned.'
+            print('\tFrequency window weights assigned.')
 
         if not isinstance(downsample, bool):
             raise TypeError('Input downsample must be of boolean type')
 
         if verbose:
-            print '\tInput parameters have been verified to be compatible.\n\tProceeding to compute delay transform.'
+            print('\tInput parameters have been verified to be compatible.\n\tProceeding to compute delay transform.')
             
         result = {}
         result['freq_wts'] = freq_wts
@@ -1584,7 +1596,7 @@ class DelaySpectrum(object):
             result['vis_lag'] = DSP.FT1D(vis * bp * freq_wts, ax=-2, inverse=True, use_real=False, shift=True) * self.f.size * self.df
             result['lag_kernel'] = DSP.FT1D(bp * freq_wts, ax=-2, inverse=True, use_real=False, shift=True) * self.f.size * self.df
             if verbose:
-                print '\tDelay transform computed without padding.'
+                print('\tDelay transform computed without padding.')
         else:
             npad = int(self.f.size * pad)
             pad_shape = NP.zeros((len(vis.shape[:-3]),2), dtype=NP.int).tolist()
@@ -1592,7 +1604,7 @@ class DelaySpectrum(object):
             result['vis_lag'] = DSP.FT1D(NP.pad(vis * bp * freq_wts, pad_shape, mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
             result['lag_kernel'] = DSP.FT1D(NP.pad(bp * freq_wts, pad_shape, mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
             if verbose:
-                print '\tDelay transform computed with padding fraction {0:.1f}'.format(pad)
+                print('\tDelay transform computed with padding fraction {0:.1f}'.format(pad))
 
         if downsample:
             result['vis_lag'] = DSP.downsampler(result['vis_lag'], 1+pad, axis=-2)
@@ -1600,8 +1612,8 @@ class DelaySpectrum(object):
             result['lags'] = DSP.downsampler(result['lags'], 1+pad)
             result['lags'] = result['lags'].flatten()
             if verbose:
-                print '\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad)
-                print 'delay_transform() completed successfully.'
+                print('\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad))
+                print('delay_transform() completed successfully.')
 
         return result
 
@@ -1680,7 +1692,7 @@ class DelaySpectrum(object):
                  cores in the system minus one to avoid locking the system out 
                  for other processes
 
-        verbose  [boolean] If set to True (default), print diagnostic and 
+        verbose  [boolean] If set to True (default), print diagnostic and
                  progress messages. If set to False, no such messages are
                  printed.
         ------------------------------------------------------------------------
@@ -1691,7 +1703,7 @@ class DelaySpectrum(object):
         if pad < 0.0:
             pad = 0.0
             if verbose:
-                print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                print('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
     
         if freq_wts is not None:
             if freq_wts.size == self.f.size:
@@ -1706,7 +1718,7 @@ class DelaySpectrum(object):
                 raise ValueError('window shape dimensions incompatible with number of channels and/or number of tiemstamps.')
             self.bp_wts = freq_wts
             if verbose:
-                print '\tFrequency window weights assigned.'
+                print('\tFrequency window weights assigned.')
 
         bw = self.df * self.f.size
         pc = self.ia.phase_center
@@ -1839,7 +1851,7 @@ class DelaySpectrum(object):
         Inputs:
 
         bw_eff       [dictionary] dictionary with two keys 'cc' and 'sim' to
-                     specify effective bandwidths (in Hz) on the elected 
+                     specify effective bandwidths (in Hz) on the selected 
                      frequency windows for subband delay 
                      transform of CLEANed and simulated visibilities 
                      respectively. The values under these keys can be a scalar, 
@@ -1898,7 +1910,7 @@ class DelaySpectrum(object):
                      dictionary corresponding to resampled/downsampled delay
                      space quantities and updates the attribute.
 
-        verbose      [boolean] If set to True (default), print diagnostic and 
+        verbose      [boolean] If set to True (default), print diagnostic and
                      progress messages. If set to False, no such messages are
                      printed.
 
@@ -2064,7 +2076,7 @@ class DelaySpectrum(object):
             raise NameError('Effective bandwidth must be specified')
         else:
             if not isinstance(bw_eff, dict):
-                raise TypeError('Effective bandiwdth must be specified as a dictionary')
+                raise TypeError('Effective bandwidth must be specified as a dictionary')
             for key in ['cc','sim']:
                 if key in bw_eff:
                     if not isinstance(bw_eff[key], (int, float, list, NP.ndarray)):
@@ -2130,7 +2142,7 @@ class DelaySpectrum(object):
                 if pad[key] < 0.0:
                     pad[key] = 0.0
                     if verbose:
-                        print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                        print('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
 
         if not isinstance(bpcorrect, bool):
             raise TypeError('Input keyword bpcorrect must be of boolean type')
@@ -2199,7 +2211,7 @@ class DelaySpectrum(object):
                 else:
                     result[key]['vis_noise_lag'] = vis_noise_lag
         if verbose:
-            print '\tSub-band(s) delay transform computed'
+            print('\tSub-band(s) delay transform computed')
 
         self.subband_delay_spectra = result
 
@@ -2225,7 +2237,7 @@ class DelaySpectrum(object):
                 else:
                     result_resampled[key]['vis_noise_lag'] = DSP.downsampler(result[key]['vis_noise_lag'], downsample_factor, axis=2, method='FFT')
         if verbose:
-            print '\tDownsampled Sub-band(s) delay transform computed'
+            print('\tDownsampled Sub-band(s) delay transform computed')
 
         self.subband_delay_spectra_resampled = result_resampled
 
@@ -2291,7 +2303,7 @@ class DelaySpectrum(object):
                      output dictionary corresponding to resampled/downsampled 
                      delay space quantities.
 
-        verbose      [boolean] If set to True (default), print diagnostic and 
+        verbose      [boolean] If set to True (default), print diagnostic and
                      progress messages. If set to False, no such messages are
                      printed.
 
@@ -2443,7 +2455,7 @@ class DelaySpectrum(object):
             if pad < 0.0:
                 pad = 0.0
                 if verbose:
-                    print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                    print('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
 
         result = {}
         freq_wts = NP.empty((bw_eff.size, self.f.size), dtype=NP.float_)
@@ -2481,7 +2493,7 @@ class DelaySpectrum(object):
         result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'npad': npad, 'lags': lags, 'vis_lag': vis_lag, 'lag_kernel': lag_kernel, 'lag_corr_length': self.f.size / NP.squeeze(NP.sum(freq_wts, axis=-2))}
 
         if verbose:
-            print '\tSub-band(s) delay transform computed'
+            print('\tSub-band(s) delay transform computed')
 
         if action is not None:
             action = 'return_resampled'
@@ -2499,9 +2511,467 @@ class DelaySpectrum(object):
             raise ValueError('Invalid value specified for keyword input action')
 
         if verbose:
-            print '\tDownsampled Sub-band(s) delay transform computed'
+            print('\tDownsampled Sub-band(s) delay transform computed')
 
     #############################################################################
+
+    def subband_delay_transform_closure_phase(self, bw_eff, cpinfo=None,
+                                              antenna_triplets=None,
+                                              specsmooth_info=None,
+                                              delay_filter_info=None,
+                                              spectral_window_info=None,
+                                              freq_center=None, shape=None, 
+                                              fftpow=None, pad=None, action=None,
+                                              verbose=True):
+
+        """
+        ------------------------------------------------------------------------
+        Computes delay transform of closure phases on antenna triplets on 
+        multiple frequency sub-bands with specified weights. It will have units 
+        of Hz
+
+        Inputs:
+
+        bw_eff      [scalar or numpy array] effective bandwidths (in Hz) on the 
+                    selected frequency windows for subband delay transform of 
+                    closure phases. If a scalar value is provided, the same 
+                    will be applied to all frequency windows
+
+        cpinfo      [dictionary] If set to None, it will be determined based on
+                    other inputs. Otherwise, it will be used directly. The 
+                    dictionary will contain the following keys and values:
+                    'closure_phase_skyvis'  [numpy array] [optional] Closure 
+                                            phases (in radians) for the given 
+                                            antenna triplets from the noiseless 
+                                            visibilities. It is of shape
+                                            ntriplets x ... x nchan x ntimes
+                    'closure_phase_vis'     [numpy array] [optional] Closure 
+                                            phases (in radians) for the given 
+                                            antenna triplets for noisy 
+                                            visibilities. It is of shape 
+                                            ntriplets x ... x nchan x ntimes
+                    'closure_phase_noise'   [numpy array] [optional] Closure 
+                                            phases (in radians) for the given 
+                                            antenna triplets for thermal noise 
+                                            in visibilities. It is of shape 
+                                            ntriplets x ... x nchan x ntimes
+                    'antenna_triplets'      [list of tuples] List of 
+                                            three-element tuples of antenna IDs 
+                                            for which the closure phases are 
+                                            calculated.
+                    'baseline_triplets'     [numpy array] List of 3x3 numpy 
+                                            arrays. Each 3x3 unit in the list 
+                                            represents triplets of baseline 
+                                            vectors where the three rows denote 
+                                            the three baselines in the triplet 
+                                            and the three columns define the x-, 
+                                            y- and z-components of the triplet. 
+                                            The number of 3x3 unit elements in 
+                                            the list will equal the number of 
+                                            elements in the list under key 
+                                            'antenna_triplets'. 
+
+        antenna_triplets
+                    [list of tuples] List of antenna ID triplets where each 
+                    triplet is given as a tuple. If set to None (default), all
+                    the unique triplets based on the antenna layout attribute
+                    in class InterferometerArray
+
+        specsmooth_info         
+                    [NoneType or dictionary] Spectral smoothing window to be 
+                    applied prior to the delay transform. If set to None, no 
+                    smoothing is done. This is usually set if spectral 
+                    smoothing is to be done such as in the case of RFI. The 
+                    smoothing window parameters are specified using the
+                    following keys and values:
+                    'op_type'     [string] Smoothing operation type. 
+                                  Default='median' (currently accepts only 
+                                  'median' or 'interp'). 
+                    'window_size' [integer] Size of smoothing window (in 
+                                  pixels) along frequency axis. Applies only
+                                  if op_type is set to 'median'
+                    'maskchans'   [NoneType or numpy array] Numpy boolean array
+                                  of size nchan. False entries imply those
+                                  channels are not masked and will be used in 
+                                  in interpolation while True implies they are
+                                  masked and will not be used in determining the
+                                  interpolation function. If set to None, all
+                                  channels are assumed to be unmasked (False).
+                    'evalchans'   [NoneType or numpy array] Channel numbers at 
+                                  which visibilities are to be evaluated. Will 
+                                  be useful for filling in RFI flagged channels.
+                                  If set to None, all channels will be evaluated
+                    'noiseRMS'    [NoneType or scalar or numpy array] If set to 
+                                  None (default), the rest of the parameters are 
+                                  used in determining the RMS of thermal noise. 
+                                  If specified as scalar, all other parameters 
+                                  will be ignored in estimating noiseRMS and 
+                                  this value will be used instead. If specified 
+                                  as a numpy array, it must be of shape 
+                                  broadcastable to (nbl,nchan,ntimes). So 
+                                  accpeted shapes can be (1,1,1), (1,1,ntimes), 
+                                  (1,nchan,1), (nbl,1,1), (1,nchan,ntimes), 
+                                  (nbl,nchan,1), (nbl,1,ntimes), or 
+                                  (nbl,nchan,ntimes). 
+
+        delay_filter_info
+                    [NoneType or dictionary] Info containing delay filter 
+                    parameters. If set to None (default), no delay filtering is
+                    performed. Otherwise, delay filter is applied on each of the
+                    visibilities in the triplet before computing the closure
+                    phases. The delay filter parameters are specified in a 
+                    dictionary as follows:
+                    'type'      [string] 'horizon' (default) or 'regular'. If
+                                set to 'horizon', the horizon delay limits are
+                                estimated from the respective baseline lengths
+                                in the triplet. If set to 'regular', the extent
+                                of the filter is determined by the 'min' and
+                                'width' keys (see below). 
+                    'min'       [scalar] Non-negative number (in seconds) that
+                                specifies the minimum delay in the filter span.
+                                If not specified, it is assumed to be 0. If 
+                                'type' is set to 'horizon', the 'min' is ignored 
+                                and set to 0. 
+                    'width'     [scalar] Non-negative number (in numbers of 
+                                inverse bandwidths). If 'type' is set to 
+                                'horizon', the width represents the delay 
+                                buffer beyond the horizon. If 'type' is set to
+                                'regular', this number has to be positive and
+                                determines the span of the filter starting from
+                                the minimum delay in key 'min'. 
+                    'mode'      [string] 'discard' (default) or 'retain'. If set
+                                to 'discard', the span defining the filter is
+                                discarded and the rest retained. If set to 
+                                'retain', the span defining the filter is 
+                                retained and the rest discarded. For example, 
+                                if 'type' is set to 'horizon' and 'mode' is set
+                                to 'discard', the horizon-to-horizon is 
+                                filtered out (discarded).
+
+        spectral_window_info    
+                    [NoneType or dictionary] Spectral window parameters to 
+                    determine the spectral weights and apply to the visibilities 
+                    in the frequency domain before filtering in the delay domain. 
+                    THESE PARAMETERS ARE APPLIED ON THE INDIVIDUAL VISIBILITIES 
+                    THAT GO INTO THE CLOSURE PHASE. THESE ARE NOT TO BE CONFUSED 
+                    WITH THE PARAMETERS THAT WILL BE USED IN THE ACTUAL DELAY 
+                    TRANSFORM OF CLOSURE PHASE SPECTRA WHICH ARE SPECIFIED
+                    SEPARATELY FURTHER BELOW. 
+                    If set to None (default), unity spectral weights are applied. 
+                    If spectral weights are to be applied, it must be a provided 
+                    as a dictionary with the following keys and values:
+                    bw_eff       [scalar] effective bandwidths (in Hz) for the 
+                                 spectral window
+                    freq_center  [scalar] frequency center (in Hz) for the 
+                                 spectral window
+                    shape        [string] frequency window shape for the 
+                                 spectral window. Accepted values are 'rect' or 
+                                 'RECT' (for rectangular), 'bnw' and 'BNW' (for 
+                                 Blackman-Nuttall), and 'bhw' or 'BHW' (for 
+                                 Blackman-Harris). Default=None sets it to 'rect' 
+                    fftpow       [scalar] power to which the FFT of the window 
+                                 will be raised. The value must be a positive 
+                                 scalar. 
+
+        freq_center [scalar, list or numpy array] frequency centers (in Hz) of 
+                    the selected frequency windows for subband delay transform 
+                    of closure phases. The value can be a scalar, list or numpy 
+                    array. If a scalar is provided, the same will be applied to 
+                    all frequency windows. Default=None uses the center 
+                    frequency from the class attribute named channels
+
+        shape       [string] frequency window shape for subband delay transform 
+                    of closure phases. Accepted values for the string are 
+                    'rect' or 'RECT' (for rectangular), 'bnw' and 'BNW' (for 
+                    Blackman-Nuttall), and 'bhw' or 'BHW' (for 
+                    Blackman-Harris). Default=None sets it to 'rect' 
+                    (rectangular window)
+
+        fftpow      [scalar] the power to which the FFT of the window will be 
+                    raised. The value must be a positive scalar. Default = 1.0
+
+        pad         [scalar] padding fraction relative to the number of 
+                    frequency channels for closure phases. Value must be a 
+                    non-negative scalar. For e.g., a pad of 1.0 pads the 
+                    frequency axis with zeros of the same width as the number 
+                    of channels. After the delay transform, the transformed 
+                    closure phases are downsampled by a factor of 1+pad. If a 
+                    negative value is specified, delay transform will be 
+                    performed with no padding. Default=None sets to padding 
+                    factor to 1.0
+
+        action      [string or None] If set to None (default) just updates the 
+                    attribute. If set to 'return_oversampled' it returns the 
+                    output dictionary corresponding to oversampled delay space
+                    quantities with full resolution in delay space. If set to 
+                    None (default) or 'return_resampled', it returns the output 
+                    dictionary corresponding to resampled or downsampled delay 
+                    space quantities.
+
+        verbose     [boolean] If set to True (default), print diagnostic and 
+                    progress messages. If set to False, no such messages are
+                    printed.
+
+        Output: 
+
+        If keyword input action is set to 'return_oversampled', the following  
+        output is returned. The output is a dictionary that contains information 
+        about delay spectra of different frequency sub-bands (n_win in number) 
+        under the following keys:
+        'antenna_triplets'
+                    [list of tuples] List of antenna ID triplets where each 
+                    triplet is given as a tuple. Closure phase delay spectra in
+                    subbands is computed for each of these antenna triplets
+        'baseline_triplets'     
+                    [numpy array] List of 3x3 numpy arrays. Each 3x3
+                    unit in the list represents triplets of baseline
+                    vectors where the three rows denote the three 
+                    baselines in the triplet and the three columns 
+                    define the x-, y- and z-components of the 
+                    triplet. The number of 3x3 unit elements in the 
+                    list will equal the number of elements in the 
+                    list under key 'antenna_triplets'. Closure phase delay 
+                    spectra in subbands is computed for each of these baseline
+                    triplets which correspond to the antenna triplets
+        'freq_center' 
+                    [numpy array] contains the center frequencies 
+                    (in Hz) of the frequency subbands of the subband
+                    delay spectra. It is of size n_win. It is roughly 
+                    equivalent to redshift(s)
+        'freq_wts'  [numpy array] Contains frequency weights applied 
+                    on each frequency sub-band during the subband delay 
+                    transform. It is of size n_win x nchan. 
+        'bw_eff'    [numpy array] contains the effective bandwidths 
+                    (in Hz) of the subbands being delay transformed. It
+                    is of size n_win. It is roughly equivalent to width 
+                    in redshift or along line-of-sight
+        'shape'     [string] shape of the window function applied. 
+                    Accepted values are 'rect' (rectangular), 'bhw'
+                    (Blackman-Harris), 'bnw' (Blackman-Nuttall). 
+        'npad'      [scalar] Numbber of zero-padded channels before
+                    performing the subband delay transform. 
+        'lags'      [numpy array] lags of the subband delay spectra 
+                    after padding in frequency during the transform. It
+                    is of size nchan+npad where npad is the number of 
+                    frequency channels padded specified under the key 
+                    'npad'
+        'lag_kernel'
+                    [numpy array] delay transform of the frequency 
+                    weights under the key 'freq_wts'. It is of size
+                    n_triplets x ... x n_win x (nchan+npad) x n_t.
+        'lag_corr_length' 
+                    [numpy array] It is the correlation timescale (in 
+                    pixels) of the subband delay spectra. It is 
+                    proportional to inverse of effective bandwidth. It
+                    is of size n_win. The unit size of a pixel is 
+                    determined by the difference between adjacent pixels 
+                    in lags under key 'lags' which in turn is 
+                    effectively inverse of the total bandwidth 
+                    (nchan x df) simulated.
+        'closure_phase_skyvis'
+                    [numpy array] subband delay spectra of closure phases
+                    of noiseless sky visiblities from the specified 
+                    antenna triplets. It is of size n_triplets x ... n_win x 
+                    nlags x n_t. It is in units of Hz
+        'closure_phase_vis'
+                    [numpy array] subband delay spectra of closure phases
+                    of noisy sky visiblities from the specified antenna 
+                    triplets. It is of size n_triplets x ... x n_win x 
+                    nlags x n_t. It is in units of Hz
+        'closure_phase_noise'
+                    [numpy array] subband delay spectra of closure phases
+                    of noise visiblities from the specified antenna triplets.
+                    It is of size n_triplets x ... x n_win x nlags x n_t. It 
+                    is in units of Hz
+
+        If action is set to 'return_resampled', the following  
+        output is returned. The output is a dictionary that contains 
+        information about closure phases. Under each of these keys is
+        information about delay spectra of different frequency sub-bands 
+        (n_win in number) under the following keys:
+        'antenna_triplets'
+                    [list of tuples] List of antenna ID triplets where each 
+                    triplet is given as a tuple. Closure phase delay spectra in
+                    subbands is computed for each of these antenna triplets
+        'baseline_triplets'     
+                    [numpy array] List of 3x3 numpy arrays. Each 3x3
+                    unit in the list represents triplets of baseline
+                    vectors where the three rows denote the three 
+                    baselines in the triplet and the three columns 
+                    define the x-, y- and z-components of the 
+                    triplet. The number of 3x3 unit elements in the 
+                    list will equal the number of elements in the 
+                    list under key 'antenna_triplets'. Closure phase delay 
+                    spectra in subbands is computed for each of these baseline
+                    triplets which correspond to the antenna triplets
+        'freq_center' 
+                    [numpy array] contains the center frequencies 
+                    (in Hz) of the frequency subbands of the subband
+                    delay spectra. It is of size n_win. It is roughly 
+                    equivalent to redshift(s)
+        'bw_eff'    [numpy array] contains the effective bandwidths 
+                    (in Hz) of the subbands being delay transformed. It
+                    is of size n_win. It is roughly equivalent to width 
+                    in redshift or along line-of-sight
+        'lags'      [numpy array] lags of the resampled subband delay spectra 
+                    after padding in frequency during the transform. It
+                    is of size nlags where nlags is the number of 
+                    independent delay bins
+        'lag_kernel'
+                    [numpy array] delay transform of the frequency 
+                    weights under the key 'freq_wts'. It is of size
+                    n_triplets x ... x n_win x nlags x n_t.
+        'lag_corr_length' 
+                    [numpy array] It is the correlation timescale (in 
+                    pixels) of the resampled subband delay spectra. It is 
+                    proportional to inverse of effective bandwidth. It
+                    is of size n_win. The unit size of a pixel is 
+                    determined by the difference between adjacent pixels 
+                    in lags under key 'lags' which in turn is 
+                    effectively inverse of the effective bandwidth 
+        'closure_phase_skyvis'
+                    [numpy array] subband delay spectra of closure phases
+                    of noiseless sky visiblities from the specified 
+                    antenna triplets. It is of size n_triplets x ... x n_win x 
+                    nlags x n_t. It is in units of Hz
+        'closure_phase_vis'
+                    [numpy array] subband delay spectra of closure phases
+                    of noisy sky visiblities from the specified antenna 
+                    triplets. It is of size n_triplets x ... x n_win x 
+                    nlags x n_t. It is in units of Hz
+        'closure_phase_noise'
+                    [numpy array] subband delay spectra of closure phases
+                    of noise visiblities from the specified antenna triplets.
+                    It is of size n_triplets x ... x n_win x nlags x n_t. It is 
+                    in units of Hz
+        ------------------------------------------------------------------------
+        """
+
+        try:
+            bw_eff
+        except NameError:
+            raise NameError('Effective bandwidth must be specified')
+        else:
+            if not isinstance(bw_eff, (int, float, list, NP.ndarray)):
+                raise TypeError('Value of effective bandwidth must be a scalar, list or numpy array')
+            bw_eff = NP.asarray(bw_eff).reshape(-1)
+            if NP.any(bw_eff <= 0.0):
+                raise ValueError('All values in effective bandwidth must be strictly positive')
+        if freq_center is None:
+            freq_center = NP.asarray(self.f[self.f.size/2]).reshape(-1)
+        elif isinstance(freq_center, (int, float, list, NP.ndarray)):
+            freq_center = NP.asarray(freq_center).reshape(-1)
+            if NP.any((freq_center <= self.f.min()) | (freq_center >= self.f.max())):
+                raise ValueError('Value(s) of frequency center(s) must lie strictly inside the observing band')
+        else:
+            raise TypeError('Values(s) of frequency center must be scalar, list or numpy array')
+
+        if (bw_eff.size == 1) and (freq_center.size > 1):
+            bw_eff = NP.repeat(bw_eff, freq_center.size)
+        elif (bw_eff.size > 1) and (freq_center.size == 1):
+            freq_center = NP.repeat(freq_center, bw_eff.size)
+        elif bw_eff.size != freq_center.size:
+            raise ValueError('Effective bandwidth(s) and frequency center(s) must have same number of elements')
+            
+        if shape is not None:
+            if not isinstance(shape, str):
+                raise TypeError('Window shape must be a string')
+            if shape not in ['rect', 'bhw', 'bnw', 'RECT', 'BHW', 'BNW']:
+                raise ValueError('Invalid value for window shape specified.')
+        else:
+            shape = 'rect'
+
+        if fftpow is None:
+            fftpow = 1.0
+        else:
+            if not isinstance(fftpow, (int, float)):
+                raise TypeError('Power to raise window FFT by must be a scalar value.')
+            if fftpow < 0.0:
+                raise ValueError('Power for raising FFT of window by must be positive.')
+
+        if pad is None:
+            pad = 1.0
+        else:
+            if not isinstance(pad, (int, float)):
+                raise TypeError('pad fraction must be a scalar value.')
+            if pad < 0.0:
+                pad = 0.0
+                if verbose:
+                    print('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
+
+        if cpinfo is not None:
+            if not isinstance(cpinfo, dict):
+                raise TypeError('Input cpinfo must be a dictionary')
+        else:
+            cpinfo = self.ia.getClosurePhase(antenna_triplets=antenna_triplets, specsmooth_info=specsmooth_info, delay_filter_info=delay_filter_info, spectral_window_info=spectral_window_info)
+        result = {'antenna_triplets': cpinfo['antenna_triplets'], 'baseline_triplets': cpinfo['baseline_triplets']}
+
+        freq_wts = NP.empty((bw_eff.size, self.f.size), dtype=NP.float_)
+        frac_width = DSP.window_N2width(n_window=None, shape=shape, fftpow=fftpow, area_normalize=False, power_normalize=True)
+        window_loss_factor = 1 / frac_width
+        n_window = NP.round(window_loss_factor * bw_eff / self.df).astype(NP.int)
+        ind_freq_center, ind_channels, dfrequency = LKP.find_1NN(self.f.reshape(-1,1), freq_center.reshape(-1,1), distance_ULIM=0.5*self.df, remove_oob=True)
+        sortind = NP.argsort(ind_channels)
+        ind_freq_center = ind_freq_center[sortind]
+        ind_channels = ind_channels[sortind]
+        dfrequency = dfrequency[sortind]
+        n_window = n_window[sortind]
+
+        for i,ind_chan in enumerate(ind_channels):
+            window = NP.sqrt(frac_width * n_window[i]) * DSP.window_fftpow(n_window[i], shape=shape, fftpow=fftpow, centering=True, peak=None, area_normalize=False, power_normalize=True)
+            window_chans = self.f[ind_chan] + self.df * (NP.arange(n_window[i]) - int(n_window[i]/2))
+            ind_window_chans, ind_chans, dfreq = LKP.find_1NN(self.f.reshape(-1,1), window_chans.reshape(-1,1), distance_ULIM=0.5*self.df, remove_oob=True)
+            sind = NP.argsort(ind_window_chans)
+            ind_window_chans = ind_window_chans[sind]
+            ind_chans = ind_chans[sind]
+            dfreq = dfreq[sind]
+            window = window[ind_window_chans]
+            window = NP.pad(window, ((ind_chans.min(), self.f.size-1-ind_chans.max())), mode='constant', constant_values=((0.0,0.0)))
+            freq_wts[i,:] = window
+
+        npad = int(self.f.size * pad)
+        lags = DSP.spectral_axis(self.f.size + npad, delx=self.df, use_real=False, shift=True)
+    
+        # lag_kernel = DSP.FT1D(NP.pad(self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        # lag_kernel = DSP.FT1D(NP.pad(freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        result = {'freq_center': freq_center, 'shape': shape, 'freq_wts': freq_wts, 'bw_eff': bw_eff, 'npad': npad, 'lags': lags, 'lag_corr_length': self.f.size / NP.sum(freq_wts, axis=-1)}
+
+        for key in cpinfo:
+            if key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
+                available_CP_key = key
+                ndim_padtuple = [(0,0) for i in range(1+len(cpinfo[key].shape[:-2]))] + [(0,npad), (0,0)]
+                result[key] = DSP.FT1D(NP.pad(NP.exp(-1j*cpinfo[key].reshape(cpinfo[key].shape[:-2]+(1,)+cpinfo[key].shape[-2:])) * freq_wts.reshape(tuple(NP.ones(len(cpinfo[key].shape[:-2])).astype(int))+freq_wts.shape+(1,)), ndim_padtuple, mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+                # result[key] = DSP.FT1D(NP.pad(NP.exp(-1j*cpinfo[key][:,NP.newaxis,:,:]) * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        lag_kernel = DSP.FT1D(NP.pad(freq_wts.reshape(tuple(NP.ones(len(cpinfo[available_CP_key].shape[:-2])).astype(int))+freq_wts.shape+(1,)), ndim_padtuple, mode='constant'), ax=-2, inverse=True, use_real=False, shift=True) * (npad + self.f.size) * self.df
+        result['lag_kernel'] = lag_kernel
+        if verbose:
+            print('\tSub-band(s) delay transform computed')
+
+        result_resampled = {'antenna_triplets': cpinfo['antenna_triplets'], 'baseline_triplets': cpinfo['baseline_triplets']}
+        result_resampled['freq_center'] = result['freq_center']
+        result_resampled['bw_eff'] = result['bw_eff']
+        result_resampled['freq_wts'] = result['freq_wts']
+    
+        downsample_factor = NP.min((self.f.size + npad) * self.df / result_resampled['bw_eff'])
+        result_resampled['lags'] = DSP.downsampler(result['lags'], downsample_factor, axis=-1, method='interp', kind='linear')
+        result_resampled['lag_kernel'] = DSP.downsampler(result['lag_kernel'], downsample_factor, axis=-2, method='interp', kind='linear')
+        dlag = result_resampled['lags'][1] - result_resampled['lags'][0]
+        result_resampled['lag_corr_length'] = (1/result['bw_eff']) / dlag
+        for key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
+            if key in result:
+                result_resampled[key] = DSP.downsampler(result[key], downsample_factor, axis=-2, method='FFT')
+
+        if verbose:
+            print('\tDownsampled Sub-band(s) delay transform computed')
+
+        if (action is None) or (action.lower() == 'return_resampled'):
+            return result_resampled
+        elif action.lower() == 'return_oversampled':
+            return result
+        else:
+            raise ValueError('Invalid action specified')
+
+################################################################################
 
     def get_horizon_delay_limits(self, phase_center=None,
                                  phase_center_coords=None):
@@ -2612,13 +3082,13 @@ class DelaySpectrum(object):
             raise NameError('Both delay spectrum and interferometer array output filenames must be specified. Aborting DelaySpectrum.save()...')
 
         if verbose:
-            print '\nSaving information about interferometer array...'
+            print('\nSaving information about interferometer array...')
 
         self.ia.save(ia_outfile, tabtype=tabtype, overwrite=overwrite,
                      verbose=verbose)
 
         if verbose:
-            print '\nSaving information about delay spectra...'
+            print('\nSaving information about delay spectra...')
 
         hdulist = []
         hdulist += [fits.PrimaryHDU()]
@@ -2632,7 +3102,7 @@ class DelaySpectrum(object):
         hdulist[0].header['IARRAY'] = (ia_outfile+'.fits', 'Location of InterferometerArray simulated visibilities')
 
         if verbose:
-            print '\tCreated a primary HDU.'
+            print('\tCreated a primary HDU.')
 
         # cols = []
         # cols += [fits.Column(name='frequency', format='D', array=self.f)]
@@ -2642,30 +3112,30 @@ class DelaySpectrum(object):
         # tbhdu.header.set('EXTNAME', 'SPECTRAL INFO')
         # hdulist += [tbhdu]
         # if verbose:
-        #     print '\tCreated an extension for spectral information.'
+        #     print('\tCreated an extension for spectral information.')
 
         hdulist += [fits.ImageHDU(self.f, name='FREQUENCIES')]
         hdulist += [fits.ImageHDU(self.lags, name='LAGS')]
         if verbose:
-            print '\tCreated an extension for spectral information.'
+            print('\tCreated an extension for spectral information.')
 
         hdulist += [fits.ImageHDU(self.horizon_delay_limits, name='HORIZON LIMITS')]
         if verbose:
-            print '\tCreated an extension for horizon delay limits of size {0[0]} x {0[1]} x {0[2]} as a function of snapshot instance, baseline, and (min,max) limits'.format(self.horizon_delay_limits.shape)
+            print('\tCreated an extension for horizon delay limits of size {0[0]} x {0[1]} x {0[2]} as a function of snapshot instance, baseline, and (min,max) limits'.format(self.horizon_delay_limits.shape))
 
         hdulist += [fits.ImageHDU(self.bp, name='BANDPASS')]
         if verbose:
-            print '\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape)
+            print('\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape))
 
         hdulist += [fits.ImageHDU(self.bp_wts, name='BANDPASS WEIGHTS')]
         if verbose:
-            print '\tCreated an extension for bandpass weights of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp_wts.shape)
+            print('\tCreated an extension for bandpass weights of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp_wts.shape))
 
         if self.lag_kernel is not None:
             hdulist += [fits.ImageHDU(self.lag_kernel.real, name='LAG KERNEL REAL')]
             hdulist += [fits.ImageHDU(self.lag_kernel.imag, name='LAG KERNEL IMAG')]
             if verbose:
-                print '\tCreated an extension for convolving lag kernel of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.lag_kernel.shape)
+                print('\tCreated an extension for convolving lag kernel of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.lag_kernel.shape))
         
         if self.skyvis_lag is not None:
             hdulist += [fits.ImageHDU(self.skyvis_lag.real, name='NOISELESS DELAY SPECTRA REAL')]
@@ -2682,13 +3152,13 @@ class DelaySpectrum(object):
         if self.cc_lags is not None:
             hdulist += [fits.ImageHDU(self.cc_lags, name='CLEAN LAGS')]
         if verbose:
-            print '\tCreated an extension for spectral axes of clean components'
+            print('\tCreated an extension for spectral axes of clean components')
 
         if self.cc_lag_kernel is not None:
             hdulist += [fits.ImageHDU(self.cc_lag_kernel.real, name='CLEAN LAG KERNEL REAL')]
             hdulist += [fits.ImageHDU(self.cc_lag_kernel.imag, name='CLEAN LAG KERNEL IMAG')]
             if verbose:
-                print '\tCreated an extension for deconvolving lag kernel of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.cc_lag_kernel.shape)
+                print('\tCreated an extension for deconvolving lag kernel of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.cc_lag_kernel.shape))
 
         if self.cc_skyvis_lag is not None:
             hdulist += [fits.ImageHDU(self.cc_skyvis_lag.real, name='CLEAN NOISELESS DELAY SPECTRA REAL')]
@@ -2723,7 +3193,7 @@ class DelaySpectrum(object):
             hdulist += [fits.ImageHDU(self.cc_vis_res_freq.imag, name='CLEAN NOISY VISIBILITIES RESIDUALS IMAG')]
         
         if verbose:
-            print '\tCreated extensions for clean components of noiseless, noisy and residuals of visibilities in frequency and delay coordinates of size {0[0]} x {0[1]} x {0[2]} as a function of baselines, lags/frequency and snapshot instance'.format(self.lag_kernel.shape)
+            print('\tCreated extensions for clean components of noiseless, noisy and residuals of visibilities in frequency and delay coordinates of size {0[0]} x {0[1]} x {0[2]} as a function of baselines, lags/frequency and snapshot instance'.format(self.lag_kernel.shape))
 
         if self.subband_delay_spectra:
             hdulist[0].header['SBDS'] = (1, 'Presence of Subband Delay Spectra')
@@ -2754,7 +3224,7 @@ class DelaySpectrum(object):
                     hdulist += [fits.ImageHDU(self.subband_delay_spectra[key]['vis_res_lag'].imag, name='{0}-SBDS-VISRESLAG-IMAG'.format(key))]
 
             if verbose:
-                print '\tCreated extensions for information on subband delay spectra for simulated and clean components of visibilities as a function of baselines, lags/frequency and snapshot instance'
+                print('\tCreated extensions for information on subband delay spectra for simulated and clean components of visibilities as a function of baselines, lags/frequency and snapshot instance')
 
         if self.subband_delay_spectra_resampled:
             hdulist[0].header['SBDS-RS'] = (1, 'Presence of Resampled Subband Delay Spectra')
@@ -2780,7 +3250,7 @@ class DelaySpectrum(object):
                     hdulist += [fits.ImageHDU(self.subband_delay_spectra_resampled[key]['vis_res_lag'].imag, name='{0}-SBDSRS-VISRESLAG-IMAG'.format(key))]
 
             if verbose:
-                print '\tCreated extensions for information on resampled subband delay spectra for simulated and clean components of visibilities as a function of baselines, lags/frequency and snapshot instance'
+                print('\tCreated extensions for information on resampled subband delay spectra for simulated and clean components of visibilities as a function of baselines, lags/frequency and snapshot instance')
                 
         hdu = fits.HDUList(hdulist)
         hdu.writeto(ds_outfile+'.ds.fits', clobber=overwrite)
@@ -2856,7 +3326,7 @@ class DelayPowerSpectrum(object):
                 power spectrum. It is equal to A_eff / wl**2 / bw
 
     jacobian2   [scalar] second jacobian in conversion of delay spectrum to 
-                power spectrum. It is equal to rz_transverse**2 * drz_los / bw
+                power spectrum. It is equal to rz_los**2 * drz_los / bw
 
     Jy2K        [scalar] factor to convert Jy/Sr to K. It is equal to 
                 wl**2 * Jy / (2k)
@@ -2922,6 +3392,9 @@ class DelayPowerSpectrum(object):
                             the number of baselines. The 0 index in the fourth 
                             dimenstion denotes the negative horizon limit while 
                             the 1 index denotes the positive horizon limit
+                'rz_los'    [numpy array] Comoving distance along LOS (in Mpc/h) 
+                            corresponding to the different redshifts under key 
+                            'z'. It is of size n_win
                 'rz_transverse'
                             [numpy array] transverse comoving distance 
                             (in Mpc/h) corresponding to the different redshifts
@@ -2935,7 +3408,7 @@ class DelayPowerSpectrum(object):
                             A_eff / wl**2 / bw. It is of size n_win
                 'jacobian2' [numpy array] second jacobian in conversion of delay 
                             spectrum to power spectrum. It is equal to 
-                            rz_transverse**2 * drz_los / bw. It is of size n_win
+                            rz_los**2 * drz_los / bw. It is of size n_win
                 'Jy2K'      [numpy array] factor to convert Jy/Sr to K. It is 
                             equal to wl**2 * Jy / (2k). It is of size n_win
                 'factor'    [numpy array] conversion factor to convert delay
@@ -3016,7 +3489,7 @@ class DelayPowerSpectrum(object):
                 'horizon_kprll_limits'
                             [numpy array] limits on k_parallel corresponding to 
                             limits on horizon delays for each subband. It is of 
-                            size N x n_win x M x 2 denoting the neagtive and 
+                            size N x n_win x M x 2 denoting the negative and 
                             positive horizon delay limits where N is the number 
                             of timestamps, n_win is the number of subbands, M is 
                             the number of baselines. The 0 index in the fourth 
@@ -3113,6 +3586,19 @@ class DelayPowerSpectrum(object):
                 Compute delay power spectrum in units of K^2 (Mpc/h)^3 from the 
                 delay spectrum in units of Jy Hz from multiple runs of 
                 visibilities
+
+    compute_individual_closure_phase_power_spectrum()
+                Compute delay power spectrum of closure phase in units of 
+                K^2 (Mpc/h)^3 from the delay spectrum in units of Jy Hz where 
+                the original visibility amplitudes of closure phase complex 
+                exponents are assumed to be 1 Jy across the band
+
+    compute_averaged_closure_phase_power_spectrum()
+                Compute delay power spectrum of closure phase in units of 
+                K^2 (Mpc/h)^3 from the delay spectrum in units of Jy Hz and 
+                average over 'auto' and 'cross' modes, where the original 
+                visibility amplitudes of closure phase complex exponents are 
+                assumed to be 1 Jy across the band
     ----------------------------------------------------------------------------
     """
 
@@ -3172,7 +3658,8 @@ class DelayPowerSpectrum(object):
         # self.jacobian1 = NP.mean(self.ds.ia.A_eff) / self.wl0**2 / self.bw
         omega_bw = self.beam3Dvol(freq_wts=self.ds.bp_wts[0,:,0])
         self.jacobian1 = 1 / omega_bw
-        self.jacobian2 = self.rz_transverse**2 * self.drz_los / self.bw
+        # self.jacobian2 = self.rz_transverse**2 * self.drz_los / self.bw
+        self.jacobian2 = self.rz_los**2 * self.drz_los / self.bw
         self.Jy2K = self.wl0**2 * CNST.Jy / (2*FCNST.k)
         self.K2Jy = 1 / self.Jy2K
 
@@ -3252,7 +3739,7 @@ class DelayPowerSpectrum(object):
         ------------------------------------------------------------------------
         """
 
-        rz_transverse = self.cosmo.comoving_transverse_distance(redshift).value   # in Mpc/h
+        rz_transverse = self.cosmo.comoving_transverse_distance(redshift).to('Mpc').value   # in Mpc/h
         if action is None:
             self.z = redshift
             self.rz_transverse = rz_transverse
@@ -3286,7 +3773,7 @@ class DelayPowerSpectrum(object):
         ------------------------------------------------------------------------
         """
 
-        rz_los = self.cosmo.comoving_distance(redshift).value   # in Mpc/h
+        rz_los = self.cosmo.comoving_distance(redshift).to('Mpc').value   # in Mpc/h
         if action is None:
             self.z = redshift
             self.rz_los = rz_los
@@ -3319,7 +3806,8 @@ class DelayPowerSpectrum(object):
         Outputs:
 
         If keyword input action is set to 'return', the line-of-sight 
-        wavenumbers (h/Mpc) computed is returned
+        wavenumbers (h/Mpc) computed is returned. It is of same size as input
+        lags
         ------------------------------------------------------------------------
         """
 
@@ -3375,6 +3863,26 @@ class DelayPowerSpectrum(object):
 
     def beam3Dvol(self, freq_wts=None, nside=32):
 
+        """
+        ------------------------------------------------------------------------
+        Compute three-dimensional (transverse-LOS) volume of the beam in units
+        of "Sr Hz".
+
+        freq_wts    [numpy array] Frequency weights centered on different 
+                    spectral windows or redshifts. Its shape is (nwin,nchan). 
+                    nchan should match the number of spectral channels in the 
+                    class attribute for frequency channels
+
+        'nside'     [integer] NSIDE parameter for determining and interpolating 
+                    the beam. If not set, it will be set to 64 (default).
+
+        Output:
+
+        omega_bw    [numpy array] Integral of the square of the power pattern
+                    over transverse and spectral axes. Its shape is (nwin,)
+        ------------------------------------------------------------------------
+        """
+
         if self.ds.ia.simparms_file is not None:
             parms_file = open(self.ds.ia.simparms_file, 'r')
             parms = yaml.safe_load(parms_file)
@@ -3383,10 +3891,12 @@ class DelayPowerSpectrum(object):
             beam_info = parms['beam']
             use_external_beam = beam_info['use_external']
             beam_chromaticity = beam_info['chromatic']
+            theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
+            theta_phi = NP.hstack((theta.reshape(-1,1), phi.reshape(-1,1)))
             if use_external_beam:
                 beam_file = beam_info['file']
-                if beam_info['filefmt'].lower() in ['hdf5', 'fits']:
-                    beam_filefmt = beam_info['filefmt']
+                if beam_info['filefmt'].lower() in ['hdf5', 'fits', 'uvbeam']:
+                    beam_filefmt = beam_info['filefmt'].lower()
                 else:
                     raise ValueError('Invalid beam file format specified')
                 if beam_info['filepathtype'] == 'default':
@@ -3397,17 +3907,33 @@ class DelayPowerSpectrum(object):
                 if select_beam_freq is None:
                     select_beam_freq = self.f0
                 pbeam_spec_interp_method = beam_info['spec_interp']
-                if beam_filefmt.lower() == 'fits':
+                if beam_filefmt == 'fits':
                     extbeam = fits.getdata(beam_file, extname='BEAM_{0}'.format(beam_pol))
                     beam_freqs = fits.getdata(beam_file, extname='FREQS_{0}'.format(beam_pol))
+                    extbeam = extbeam.reshape(-1,beam_freqs.size) # npix x nfreqs
+                elif beam_filefmt == 'uvbeam':
+                    if uvbeam_module_found:
+                        uvbm = UVBeam()
+                        uvbm.read_beamfits(beam_file)
+                        axis_vec_ind = 0 # for power beam
+                        spw_ind = 0 # spectral window index
+                        if beam_pol.lower() in ['x', 'e']:
+                            beam_pol_ind = 0
+                        else:
+                            beam_pol_ind = 1
+                        extbeam = uvbm.data_array[axis_vec_ind,spw_ind,beam_pol_ind,:,:].T # npix x nfreqs
+                        beam_freqs = uvbm.freq_array.ravel() # nfreqs (in Hz)
+                    else:
+                        raise ImportError('uvbeam module not installed/found')
+            
+                    if NP.abs(NP.abs(extbeam).max() - 1.0) > 1e-10:
+                        extbeam /= NP.abs(extbeam).max()
                 else:
-                    raise ValueError('The external beam file format is currently not supported.')
-                extbeam = extbeam.reshape(-1,beam_freqs.size)
+                    raise ValueError('Specified external beam file format not currently supported')
+                # extbeam = extbeam.reshape(-1,beam_freqs.size)
                 beam_nside = HP.npix2nside(extbeam.shape[0])
                 if beam_nside < nside:
                     nside = beam_nside
-                theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
-                theta_phi = NP.hstack((theta.reshape(-1,1), phi.reshape(-1,1)))
                 if beam_chromaticity:
                     if pbeam_spec_interp_method == 'fft':
                         extbeam = extbeam[:,:-1]
@@ -3423,18 +3949,20 @@ class DelayPowerSpectrum(object):
                 interp_logbeam = interp_logbeam - interp_logbeam_max
                 beam = 10**interp_logbeam
             else:
-                theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
                 alt = 90.0 - NP.degrees(theta)
                 az = NP.degrees(phi)
                 altaz = NP.hstack((alt.reshape(-1,1), az.reshape(-1,1)))
-                beam = PB.primary_beam_generator(altaz, self.f, self.ds.ia.telescope, freq_scale='Hz', skyunits='altaz', east2ax1=0.0, pointing_info=None, pointing_center=None)
+                if beam_chromaticity:
+                    beam = PB.primary_beam_generator(altaz, self.f, self.ds.ia.telescope, freq_scale='Hz', skyunits='altaz', east2ax1=0.0, pointing_info=None, pointing_center=None)
+                else:
+                    beam = PB.primary_beam_generator(altaz, select_beam_freq, self.ds.ia.telescope, skyunits='altaz', pointing_info=None, pointing_center=None, freq_scle='Hz', east2ax1=0.0)
+                    beam = beam.reshape(-1,1) * NP.ones(self.f.size).reshape(1,-1)
         else:
             theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
             alt = 90.0 - NP.degrees(theta)
             az = NP.degrees(phi)
             altaz = NP.hstack((alt.reshape(-1,1), az.reshape(-1,1)))
             beam = PB.primary_beam_generator(altaz, self.f, self.ds.ia.telescope, freq_scale='Hz', skyunits='altaz', east2ax1=0.0, pointing_info=None, pointing_center=None)
-            # omega_bw =  self.wl0**2 / NP.mean(self.ds.ia.A_eff) * self.bw
 
         omega_bw = beam3Dvol(beam, self.f, freq_wts=freq_wts, hemisphere=True)
         return omega_bw
@@ -3479,12 +4007,14 @@ class DelayPowerSpectrum(object):
                 self.subband_delay_power_spectra[key]['kprll'] = kprll
                 self.subband_delay_power_spectra[key]['kperp'] = kperp
                 self.subband_delay_power_spectra[key]['horizon_kprll_limits'] = horizon_kprll_limits
-                self.subband_delay_power_spectra[key]['rz_transverse'] = self.comoving_transverse_distance(self.subband_delay_power_spectra[key]['z'], action='return')
+                self.subband_delay_power_spectra[key]['rz_los'] = self.cosmo.comoving_distance(self.subband_delay_power_spectra[key]['z']).to('Mpc').value # in Mpc/h
+                self.subband_delay_power_spectra[key]['rz_transverse'] = self.comoving_transverse_distance(self.subband_delay_power_spectra[key]['z'], action='return') # in Mpc/h
                 self.subband_delay_power_spectra[key]['drz_los'] = self.comoving_los_depth(self.ds.subband_delay_spectra[key]['bw_eff'], self.subband_delay_power_spectra[key]['z'], action='return')
                 # self.subband_delay_power_spectra[key]['jacobian1'] = NP.mean(self.ds.ia.A_eff) / wl**2 / self.ds.subband_delay_spectra[key]['bw_eff']
                 omega_bw = self.beam3Dvol(freq_wts=self.ds.subband_delay_spectra[key]['freq_wts'])
                 self.subband_delay_power_spectra[key]['jacobian1'] = 1 / omega_bw
-                self.subband_delay_power_spectra[key]['jacobian2'] = self.subband_delay_power_spectra[key]['rz_transverse']**2 * self.subband_delay_power_spectra[key]['drz_los'] / self.ds.subband_delay_spectra[key]['bw_eff']
+                # self.subband_delay_power_spectra[key]['jacobian2'] = self.subband_delay_power_spectra[key]['rz_transverse']**2 * self.subband_delay_power_spectra[key]['drz_los'] / self.ds.subband_delay_spectra[key]['bw_eff']
+                self.subband_delay_power_spectra[key]['jacobian2'] = self.subband_delay_power_spectra[key]['rz_los']**2 * self.subband_delay_power_spectra[key]['drz_los'] / self.ds.subband_delay_spectra[key]['bw_eff']
                 self.subband_delay_power_spectra[key]['Jy2K'] = wl**2 * CNST.Jy / (2*FCNST.k)
                 self.subband_delay_power_spectra[key]['factor'] = self.subband_delay_power_spectra[key]['jacobian1'] * self.subband_delay_power_spectra[key]['jacobian2'] * self.subband_delay_power_spectra[key]['Jy2K']**2
                 conversion_factor = self.subband_delay_power_spectra[key]['factor'].reshape(1,-1,1,1)
@@ -3637,11 +4167,13 @@ class DelayPowerSpectrum(object):
             for zind,z in enumerate(redshift):
                 kprll[zind,:] = self.k_parallel(dspec['lags'], z, action='return')
                 kperp[zind,:] = self.k_perp(self.bl_length, z, action='return')
+            rz_los = self.cosmo.comoving_distance(redshift).to('Mpc').value
             rz_transverse = self.comoving_transverse_distance(redshift, action='return') # n_win
             drz_los = self.comoving_los_depth(dspec['bw_eff'], redshift, action='return') # n_win
             omega_bw = self.beam3Dvol(freq_wts=NP.squeeze(dspec['freq_wts'])) 
             jacobian1 = 1 / omega_bw # n_win
-            jacobian2 = rz_transverse**2 * drz_los / dspec['bw_eff'] # n_win
+            # jacobian2 = rz_transverse**2 * drz_los / dspec['bw_eff'] # n_win
+            jacobian2 = rz_los**2 * drz_los / dspec['bw_eff'] # n_win
             Jy2K = wl**2 * CNST.Jy / (2*FCNST.k) # n_win
             factor = jacobian1 * jacobian2 * Jy2K**2 # n_win
             factor = factor.reshape((-1,)+tuple(NP.ones(dspec['vislag1'].ndim-1, dtype=NP.int)))
@@ -3651,6 +4183,351 @@ class DelayPowerSpectrum(object):
         if mode == 'cross':
             dps[key] *= 2
         return dps
+
+    ############################################################################
+
+    def compute_individual_closure_phase_power_spectrum(self, closure_phase_delay_spectra):
+
+        """
+        ------------------------------------------------------------------------
+        Compute delay power spectrum of closure phase in units of Mpc/h from the 
+        delay spectrum in units of Hz
+
+        Inputs:
+
+        closure_phase_delay_spectra
+        [dictionary] contains information about closure phase delay spectra of 
+        different frequency sub-bands (n_win in number) under the following 
+        keys:
+        'antenna_triplets'
+                    [list of tuples] List of antenna ID triplets where each 
+                    triplet is given as a tuple. Closure phase delay spectra in
+                    subbands is computed for each of these antenna triplets
+        'baseline_triplets'     
+                    [numpy array] List of 3x3 numpy arrays. Each 3x3
+                    unit in the list represents triplets of baseline
+                    vectors where the three rows denote the three 
+                    baselines in the triplet and the three columns 
+                    define the x-, y- and z-components of the 
+                    triplet. The number of 3x3 unit elements in the 
+                    list will equal the number of elements in the 
+                    list under key 'antenna_triplets'. Closure phase delay 
+                    spectra in subbands is computed for each of these baseline
+                    triplets which correspond to the antenna triplets
+        'freq_center' 
+                    [numpy array] contains the center frequencies 
+                    (in Hz) of the frequency subbands of the subband
+                    delay spectra. It is of size n_win. It is roughly 
+                    equivalent to redshift(s)
+        'bw_eff'    [numpy array] contains the effective bandwidths 
+                    (in Hz) of the subbands being delay transformed. It
+                    is of size n_win. It is roughly equivalent to width 
+                    in redshift or along line-of-sight
+        'lags'      [numpy array] lags of the resampled subband delay spectra 
+                    after padding in frequency during the transform. It
+                    is of size nlags where nlags is the number of 
+                    independent delay bins
+        'lag_kernel'
+                    [numpy array] delay transform of the frequency 
+                    weights under the key 'freq_wts'. It is of size
+                    n_bl x n_win x nlags x n_t.
+        'lag_corr_length' 
+                    [numpy array] It is the correlation timescale (in 
+                    pixels) of the resampled subband delay spectra. It is 
+                    proportional to inverse of effective bandwidth. It
+                    is of size n_win. The unit size of a pixel is 
+                    determined by the difference between adjacent pixels 
+                    in lags under key 'lags' which in turn is 
+                    effectively inverse of the effective bandwidth 
+        'closure_phase_skyvis' (optional)
+                    [numpy array] subband delay spectra of closure phases
+                    of noiseless sky visiblities from the specified 
+                    antenna triplets. It is of size n_triplets x n_win x 
+                    nlags x n_t. It must be in units of Hz.
+        'closure_phase_vis' (optional)
+                    [numpy array] subband delay spectra of closure phases
+                    of noisy sky visiblities from the specified antenna 
+                    triplets. It is of size n_triplets x n_win x nlags x n_t.
+                    It must be in units of Hz.
+        'closure_phase_noise' (optional)
+                    [numpy array] subband delay spectra of closure phases
+                    of noise visiblities from the specified antenna triplets.
+                    It is of size n_triplets x n_win x nlags x n_t. It must be 
+                    in units of Hz.
+        
+        Output:
+
+        Dictionary with closure phase delay power spectra containing the 
+        following keys and values:
+        'z'         [numpy array] Redshifts corresponding to the centers of the
+                    frequency subbands. Same size as number of values under key
+                    'freq_center' which is n_win
+        'kprll'     [numpy array] k_parallel (h/Mpc) for different subbands and
+                    various delays. It is of size n_win x nlags
+        'kperp'     [numpy array] k_perp (h/Mpc) for different subbands and the
+                    antenna/baseline triplets. It is of size n_win x n_triplets
+                    x 3 x 3 where the 3 x 3 refers to 3 different baselines and 
+                    3 components of the baseline vector respectively
+        'horizon_kprll_limits' 
+                    [numpy array] limits on k_parallel corresponding to limits 
+                    on horizon delays for each of the baseline triplets and 
+                    subbands. It is of shape n_t x n_win x n_triplets x 3 x 2, 
+                    where 3 is for the three baselines involved in the triplet, 
+                    2 limits (upper and lower). It has units of h/Mpc
+        'closure_phase_skyvis'
+                    [numpy array] subband delay power spectra of closure phases
+                    of noiseless sky visiblities from the specified 
+                    antenna triplets. It is of size n_triplets x n_win x 
+                    nlags x n_t. It is in units of Mpc/h. This is returned if 
+                    this key is present in the input closure_phase_delay_spectra
+        'closure_phase_vis'
+                    [numpy array] subband delay power spectra of closure phases
+                    of noisy sky visiblities from the specified antenna 
+                    triplets. It is of size n_triplets x n_win x nlags x n_t.
+                    It is in units of Mpc/h. This is returned if this key is 
+                    present in the input closure_phase_delay_spectra
+        'closure_phase_noise'
+                    [numpy array] subband delay power spectra of closure phases
+                    of noise visiblities from the specified antenna triplets.
+                    It is of size n_triplets x n_win x nlags x n_t. It is in 
+                    units of Mpc/h. This is returned if this key is present in 
+                    the input closure_phase_delay_spectra
+        ------------------------------------------------------------------------
+        """
+
+        try:
+            closure_phase_delay_spectra
+        except NameError:
+            raise NameError('Input closure_phase_delay_spectra must be provided')
+
+        closure_phase_delay_power_spectra = {}
+        wl = FCNST.c / closure_phase_delay_spectra['freq_center']
+        z = CNST.rest_freq_HI / closure_phase_delay_spectra['freq_center'] - 1
+        dz = CNST.rest_freq_HI / closure_phase_delay_spectra['freq_center']**2 * closure_phase_delay_spectra['bw_eff']
+        kprll = NP.empty((closure_phase_delay_spectra['freq_center'].size, closure_phase_delay_spectra['lags'].size))
+        kperp = NP.empty((closure_phase_delay_spectra['freq_center'].size, len(closure_phase_delay_spectra['antenna_triplets']), 3)) # n_win x n_triplets x 3, where 3 is for the three baselines involved
+        horizon_kprll_limits = NP.empty((self.ds.n_acc, closure_phase_delay_spectra['freq_center'].size, len(closure_phase_delay_spectra['antenna_triplets']), 3, 2)) # n_t x n_win x n_triplets x 3 x 2, where 3 is for the three baselines involved
+
+        for zind,redshift in enumerate(z):
+            kprll[zind,:] = self.k_parallel(closure_phase_delay_spectra['lags'], redshift, action='return')
+            for triplet_ind, ant_triplet in enumerate(closure_phase_delay_spectra['antenna_triplets']):
+                bl_lengths = NP.sqrt(NP.sum(closure_phase_delay_spectra['baseline_triplets'][triplet_ind]**2, axis=1))
+                kperp[zind,triplet_ind,:] = self.k_perp(bl_lengths, redshift, action='return')
+                horizon_delay_limits = bl_lengths.reshape(1,-1,1) / FCNST.c # 1x3x1, where 1 phase center, 3 is for the three baselines involved in the triplet, 1 upper limit
+                horizon_delay_limits = NP.concatenate((horizon_delay_limits, -horizon_delay_limits), axis=2) # 1x3x2, where 1 phase center, 3 is for the three baselines involved in the triplet, 2 limits (upper and lower)
+                horizon_kprll_limits[:,zind,triplet_ind,:,:] = self.k_parallel(horizon_delay_limits, redshift, action='return') # 1 x n_win x n_triplets x 3 x 2, where 1 phase center, 3 is for the three baselines involved in the triplet, 2 limits (upper and lower)
+        
+        closure_phase_delay_power_spectra['z'] = z
+        closure_phase_delay_power_spectra['kprll'] = kprll
+        closure_phase_delay_power_spectra['kperp'] = kperp
+        closure_phase_delay_power_spectra['horizon_kprll_limits'] = horizon_kprll_limits
+        # rz_transverse = self.comoving_transverse_distance(closure_phase_delay_power_spectra['z'], action='return')
+        drz_los = self.comoving_los_depth(closure_phase_delay_spectra['bw_eff'], closure_phase_delay_power_spectra['z'], action='return')
+        # omega_bw = self.beam3Dvol(freq_wts=closure_phase_delay_spectra['freq_wts'])
+        # jacobian1 = 1 / omega_bw
+        # jacobian2 = rz_transverse**2 * drz_los / closure_phase_delay_spectra['bw_eff']
+        # Jy2K = wl**2 * CNST.Jy / (2*FCNST.k)
+        jacobian1 = 1 / closure_phase_delay_spectra['bw_eff']
+        jacobian2 = drz_los / closure_phase_delay_spectra['bw_eff']
+        factor = jacobian1 * jacobian2
+        conversion_factor = factor.reshape(1,-1,1,1)
+        for key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
+            if key in closure_phase_delay_spectra:
+                closure_phase_delay_power_spectra[key] = NP.abs(closure_phase_delay_spectra[key])**2 * conversion_factor
+
+        return closure_phase_delay_power_spectra
+
+    ############################################################################
+
+    def compute_averaged_closure_phase_power_spectrum(self, closure_phase_delay_spectra):
+
+        """
+        ------------------------------------------------------------------------
+        Compute delay power spectrum of closure phase in units of Mpc/h from the 
+        delay spectrum in units of Jy Hz and average over 'auto' and 'cross' 
+        modes
+
+        Inputs:
+
+        closure_phase_delay_spectra
+        [dictionary] contains information about closure phase delay spectra of 
+        different frequency sub-bands (n_win in number) under the following 
+        keys:
+        'antenna_triplets'
+                    [list of tuples] List of antenna ID triplets where each 
+                    triplet is given as a tuple. Closure phase delay spectra in
+                    subbands is computed for each of these antenna triplets
+        'baseline_triplets'     
+                    [numpy array] List of 3x3 numpy arrays. Each 3x3
+                    unit in the list represents triplets of baseline
+                    vectors where the three rows denote the three 
+                    baselines in the triplet and the three columns 
+                    define the x-, y- and z-components of the 
+                    triplet. The number of 3x3 unit elements in the 
+                    list will equal the number of elements in the 
+                    list under key 'antenna_triplets'. Closure phase delay 
+                    spectra in subbands is computed for each of these baseline
+                    triplets which correspond to the antenna triplets
+        'freq_center' 
+                    [numpy array] contains the center frequencies 
+                    (in Hz) of the frequency subbands of the subband
+                    delay spectra. It is of size n_win. It is roughly 
+                    equivalent to redshift(s)
+        'bw_eff'    [numpy array] contains the effective bandwidths 
+                    (in Hz) of the subbands being delay transformed. It
+                    is of size n_win. It is roughly equivalent to width 
+                    in redshift or along line-of-sight
+        'lags'      [numpy array] lags of the resampled subband delay spectra 
+                    after padding in frequency during the transform. It
+                    is of size nlags where nlags is the number of 
+                    independent delay bins
+        'lag_kernel'
+                    [numpy array] delay transform of the frequency 
+                    weights under the key 'freq_wts'. It is of size
+                    n_bl x n_win x nlags x n_t.
+        'lag_corr_length' 
+                    [numpy array] It is the correlation timescale (in 
+                    pixels) of the resampled subband delay spectra. It is 
+                    proportional to inverse of effective bandwidth. It
+                    is of size n_win. The unit size of a pixel is 
+                    determined by the difference between adjacent pixels 
+                    in lags under key 'lags' which in turn is 
+                    effectively inverse of the effective bandwidth 
+        'closure_phase_skyvis' (optional)
+                    [numpy array] subband delay spectra of closure phases
+                    of noiseless sky visiblities from the specified 
+                    antenna triplets. It is of size n_triplets x n_win x 
+                    nlags x n_t. It must be in units of Hz.
+        'closure_phase_vis' (optional)
+                    [numpy array] subband delay spectra of closure phases
+                    of noisy sky visiblities from the specified antenna 
+                    triplets. It is of size n_triplets x n_win x nlags x n_t.
+                    It must be in units of Hz.
+        'closure_phase_noise' (optional)
+                    [numpy array] subband delay spectra of closure phases
+                    of noise visiblities from the specified antenna triplets.
+                    It is of size n_triplets x n_win x nlags x n_t. It must be 
+                    in units of Hz.
+        
+        Output:
+
+        Dictionary with closure phase delay power spectra containing the 
+        following keys and values:
+        'z'         [numpy array] Redshifts corresponding to the centers of the
+                    frequency subbands. Same size as number of values under key
+                    'freq_center' which is n_win
+        'kprll'     [numpy array] k_parallel (h/Mpc) for different subbands and
+                    various delays. It is of size n_win x nlags
+        'kperp'     [numpy array] k_perp (h/Mpc) for different subbands and the
+                    antenna/baseline triplets. It is of size n_win x n_triplets
+                    x 3 x 3 where the 3 x 3 refers to 3 different baselines and 
+                    3 components of the baseline vector respectively
+        'horizon_kprll_limits' 
+                    [numpy array] limits on k_parallel corresponding to limits 
+                    on horizon delays for each of the baseline triplets and 
+                    subbands. It is of shape n_t x n_win x n_triplets x 3 x 2, 
+                    where 3 is for the three baselines involved in the triplet, 
+                    2 limits (upper and lower). It has units of h/Mpc
+        'auto'      [dictionary] average of diagonal terms in the power spectrum
+                    matrix with possibly the following keys and values:
+                    'closure_phase_skyvis'
+                          [numpy array] subband delay power spectra of closure 
+                          phases of noiseless sky visiblities from the specified 
+                          antenna triplets. It is of size n_triplets x n_win x 
+                          nlags x n_t. It is in units of Mpc/h. This is returned 
+                          if this key is present in the input 
+                          closure_phase_delay_spectra
+                    'closure_phase_vis'
+                          [numpy array] subband delay power spectra of closure 
+                          phases of noisy sky visiblities from the specified 
+                          antenna triplets. It is of size 
+                          1 x n_win x nlags x n_t. It is in units of Mpc/h. This 
+                          is returned if this key is present in the input 
+                          closure_phase_delay_spectra
+                    'closure_phase_noise'
+                          [numpy array] subband delay power spectra of closure 
+                          phases of noise visiblities from the specified antenna 
+                          triplets. It is of size 1 x n_win x nlags x n_t. It is 
+                          in units of Mpc/h. This is returned if this key is 
+                          present in the input closure_phase_delay_spectra
+        'cross'     [dictionary] average of off-diagonal terms in the power 
+                    spectrum matrix with possibly the following keys and values:
+                    'closure_phase_skyvis'
+                          [numpy array] subband delay power spectra of closure 
+                          phases of noiseless sky visiblities from the specified 
+                          antenna triplets. It is of size n_triplets x n_win x 
+                          nlags x n_t. It is in units of Mpc/h. This is returned 
+                          if this key is present in the input 
+                          closure_phase_delay_spectra
+                    'closure_phase_vis'
+                          [numpy array] subband delay power spectra of closure 
+                          phases of noisy sky visiblities from the specified 
+                          antenna triplets. It is of size 
+                          1 x n_win x nlags x n_t. It is in units of Mpc/h. This 
+                          is returned if this key is present 
+                          in the input closure_phase_delay_spectra
+                    'closure_phase_noise'
+                          [numpy array] subband delay power spectra of closure 
+                          phases of noise visiblities from the specified antenna 
+                          triplets. It is of size 1 x n_win x nlags x n_t. It is 
+                          in units of Mpc/h. This is returned if this key is 
+                          present in the input closure_phase_delay_spectra
+        ------------------------------------------------------------------------
+        """
+
+        try:
+            closure_phase_delay_spectra
+        except NameError:
+            raise NameError('Input closure_phase_delay_spectra must be provided')
+
+        closure_phase_delay_power_spectra = {}
+        wl = FCNST.c / closure_phase_delay_spectra['freq_center']
+        z = CNST.rest_freq_HI / closure_phase_delay_spectra['freq_center'] - 1
+        dz = CNST.rest_freq_HI / closure_phase_delay_spectra['freq_center']**2 * closure_phase_delay_spectra['bw_eff']
+        kprll = NP.empty((closure_phase_delay_spectra['freq_center'].size, closure_phase_delay_spectra['lags'].size))
+        kperp = NP.empty((closure_phase_delay_spectra['freq_center'].size, len(closure_phase_delay_spectra['antenna_triplets']), 3)) # n_win x n_triplets x 3, where 3 is for the three baselines involved
+        horizon_kprll_limits = NP.empty((self.ds.n_acc, closure_phase_delay_spectra['freq_center'].size, len(closure_phase_delay_spectra['antenna_triplets']), 3, 2)) # n_t x n_win x n_triplets x 3 x 2, where 3 is for the three baselines involved
+
+        for zind,redshift in enumerate(z):
+            kprll[zind,:] = self.k_parallel(closure_phase_delay_spectra['lags'], redshift, action='return')
+            for triplet_ind, ant_triplet in enumerate(closure_phase_delay_spectra['antenna_triplets']):
+                bl_lengths = NP.sqrt(NP.sum(closure_phase_delay_spectra['baseline_triplets'][triplet_ind]**2, axis=1))
+                kperp[zind,triplet_ind,:] = self.k_perp(bl_lengths, redshift, action='return')
+                horizon_delay_limits = bl_lengths.reshape(1,-1,1) / FCNST.c # 1x3x1, where 1 phase center, 3 is for the three baselines involved in the triplet, 1 upper limit
+                horizon_delay_limits = NP.concatenate((horizon_delay_limits, -horizon_delay_limits), axis=2) # 1x3x2, where 1 phase center, 3 is for the three baselines involved in the triplet, 2 limits (upper and lower)
+                horizon_kprll_limits[:,zind,triplet_ind,:,:] = self.k_parallel(horizon_delay_limits, redshift, action='return') # 1 x n_win x n_triplets x 3 x 2, where 1 phase center, 3 is for the three baselines involved in the triplet, 2 limits (upper and lower)
+        
+        closure_phase_delay_power_spectra['z'] = z
+        closure_phase_delay_power_spectra['kprll'] = kprll
+        closure_phase_delay_power_spectra['kperp'] = kperp
+        closure_phase_delay_power_spectra['horizon_kprll_limits'] = horizon_kprll_limits
+        # rz_transverse = self.comoving_transverse_distance(closure_phase_delay_power_spectra['z'], action='return')
+        drz_los = self.comoving_los_depth(closure_phase_delay_spectra['bw_eff'], closure_phase_delay_power_spectra['z'], action='return')
+        # omega_bw = self.beam3Dvol(freq_wts=closure_phase_delay_spectra['freq_wts'])
+        # jacobian1 = 1 / omega_bw
+        # jacobian2 = rz_transverse**2 * drz_los / closure_phase_delay_spectra['bw_eff']
+        # Jy2K = wl**2 * CNST.Jy / (2*FCNST.k)
+        jacobian1 = 1 / closure_phase_delay_spectra['bw_eff']
+        jacobian2 = drz_los / closure_phase_delay_spectra['bw_eff']
+        factor = jacobian1 * jacobian2
+        for key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
+            if key in closure_phase_delay_spectra:
+                ndim_shape = NP.ones(closure_phase_delay_spectra[key].ndim, dtype=int)
+                ndim_shape[-3] = -1
+                ndim_shape = tuple(ndim_shape)
+                conversion_factor = factor.reshape(ndim_shape)
+
+        for mode in ['auto', 'cross']:
+            closure_phase_delay_power_spectra[mode] = {}
+            for key in ['closure_phase_skyvis', 'closure_phase_vis', 'closure_phase_noise']:
+                if key in closure_phase_delay_spectra:
+                    nruns = closure_phase_delay_spectra[key].shape[0]
+                    if mode == 'auto':
+                        closure_phase_delay_power_spectra[mode][key] = NP.mean(NP.abs(closure_phase_delay_spectra[key])**2, axis=0, keepdims=True) * conversion_factor
+                    else:
+                        closure_phase_delay_power_spectra[mode][key] = 1.0 / (nruns*(nruns-1)) * (conversion_factor * NP.abs(NP.sum(closure_phase_delay_spectra[key], axis=0, keepdims=True))**2 - nruns * closure_phase_delay_power_spectra['auto'][key])
+
+        return closure_phase_delay_power_spectra
 
     ############################################################################
 

@@ -40,11 +40,12 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                               values are 'mwa', 'vla', 'gmrt', 'hera', 'paper', 
                               'hirax', and 'chime' 
                 'shape'       [string] Shape of antenna element. Accepted values
-                              are 'dipole', 'delta', 'dish', 'rect' and 'square'. 
-                              Will be ignored if key 'id' is set. 'delta' denotes 
-                              a delta function for the antenna element which has 
-                              an isotropic radiation pattern. 'delta' is the 
-                              default when keys 'id' and 'shape' are not set.
+                              are 'dipole', 'delta', 'dish', 'gaussian', 'rect' 
+                              and 'square'. Will be ignored if key 'id' is set. 
+                              'delta' denotes a delta function for the antenna 
+                              element which has an isotropic radiation pattern. 
+                              'delta' is the default when keys 'id' and 'shape' 
+                              are not set.
                 'size'        [scalar or 2-element list/numpy array] Diameter of 
                               the telescope dish (in meters) if the key 'shape' 
                               is set to 'dish', side of the square aperture (in 
@@ -70,17 +71,17 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                               specifying all three direction cosines or a two-
                               element coordinate in Alt-Az system. If not provided 
                               it defaults to an eastward pointing dipole. If key
-                              'shape' is set to 'dish', the orientation refers 
-                              to the pointing center of the dish on the sky. It
-                              can be provided in Alt-Az system as a two-element
-                              vector or in the direction cosine coordinate
-                              system as a two- or three-element vector. If not
-                              set in the case of a dish element, it defaults to 
-                              zenith. This is not to be confused with the key
-                              'pointing_center' in dictionary 'pointing_info' 
-                              which refers to the beamformed pointing center of
-                              the array. The coordinate system is specified by 
-                              the key 'ocoords'
+                              'shape' is set to 'dish' or 'gaussian', the 
+                              orientation refers to the pointing center of the 
+                              dish on the sky. It can be provided in Alt-Az 
+                              system as a two-element vector or in the direction 
+                              cosine coordinate system as a two- or three-element 
+                              vector. If not set in the case of a dish element, 
+                              it defaults to zenith. This is not to be confused 
+                              with the key 'pointing_center' in dictionary 
+                              'pointing_info' which refers to the beamformed 
+                              pointing center of the array. The coordinate system 
+                              is specified by the key 'ocoords'
                 'ocoords'     [scalar string] specifies the coordinate system 
                               for key 'orientation'. Accepted values are 'altaz'
                               and 'dircos'. 
@@ -198,7 +199,8 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
 
     Output:
 
-    [Numpy array] Power pattern at the specified sky positions. 
+    [Numpy array] Power pattern at the specified sky positions. Shape is 
+                  (nsrc, nchan)
     -----------------------------------------------------------------------------
     """
 
@@ -240,9 +242,9 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
             else:
                 dish_dia = 6.0
             pb = airy_disk_pattern(dish_dia, skypos, frequency, skyunits=skyunits,
-                                   peak=1.0, pointing_center=telescope['orientation'], 
+                                   peak=1.0, pointing_center=NP.asarray(telescope['orientation']), 
                                    pointing_coords=telescope['ocoords'],
-                                   gaussian=False, power=True, small_angle_tol=1e-10)
+                                   power=True, small_angle_tol=1e-10)
         elif telescope['id'] == 'mwa':
             if (skyunits == 'altaz') or (skyunits == 'dircos'):
                 if ('orientation' in telescope) and ('ocoords' in telescope):
@@ -367,7 +369,11 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
         elif telescope['shape'] == 'dish':
             ep = airy_disk_pattern(telescope['size'], skypos, frequency, skyunits=skyunits,
                                    peak=1.0, pointing_center=pointing_center, 
-                                   gaussian=False, power=False, small_angle_tol=1e-10)
+                                   power=False, small_angle_tol=1e-10)
+            ep = ep[:,:,NP.newaxis]   # add an axis to be compatible with random ralizations
+        elif telescope['shape'] == 'gaussian':
+            ep = gaussian_beam(telescope['size'], skypos, frequency, skyunits=skyunits,
+                                   pointing_center=pointing_center, power=False)
             ep = ep[:,:,NP.newaxis]   # add an axis to be compatible with random ralizations
         elif telescope['shape'] == 'rect':
             ep = uniform_rectangular_aperture(telescope['size'], skypos, frequency, skyunits=skyunits, east2ax1=east2ax1, pointing_center=pointing_center, power=False)
@@ -505,7 +511,7 @@ def VLA_primary_beam_PBCOR(skypos, frequency, skyunits='degrees'):
 
 def airy_disk_pattern(diameter, skypos, frequency, skyunits='altaz', peak=1.0, 
                       pointing_center=None, pointing_coords=None,
-                      small_angle_tol=1e-10, power=True, gaussian=False):
+                      small_angle_tol=1e-10, power=True):
 
     """
     -----------------------------------------------------------------------------
@@ -540,10 +546,6 @@ def airy_disk_pattern(diameter, skypos, frequency, skyunits='altaz', peak=1.0,
                 [string] Coordiantes of the pointing center. If None specified, 
                 it is assumed to be same as skyunits. Same allowed values as 
                 skyunits. Default = None.
-
-    gaussian    [boolean] If set to True, use a gaussian shape to approximate
-                the power pattern. If False, use the standard airy pattern.
-                Default = False
 
     power       [boolean] If set to True (default), compute power pattern,
                 otherwise compute field pattern.
@@ -615,6 +617,111 @@ def airy_disk_pattern(diameter, skypos, frequency, skyunits='altaz', peak=1.0,
         
     pattern *= peak / maxval 
     
+    return pattern
+
+##########################################################################
+
+def gaussian_beam(diameter, skypos, frequency, skyunits='altaz', 
+                  pointing_center=None, pointing_coords=None, power=True):
+
+    """
+    -----------------------------------------------------------------------------
+    Field/power pattern of a Gaussian illumination
+
+    Inputs:
+
+    diameter    [scalar] FWHM diameter of the dish (in m)
+
+    skypos      [list or numpy vector] Sky positions at which the power pattern 
+                is to be estimated. Size is M x N where M is the number of 
+                locations and N = 1 (if skyunits = degrees), N = 2 (if
+                skyunits = altaz denoting Alt-Az coordinates), or N = 3 (if
+                skyunits = dircos denoting direction cosine coordinates). If
+                skyunits = altaz, then altitude and azimuth must be in degrees
+
+    frequency   [list or numpy vector] frequencies (in GHz) at which the power 
+                pattern is to be estimated. Frequencies differing by too much
+                and extending over the usual bands cannot be given. 
+
+    skyunits    [string] string specifying the coordinate system of the sky 
+                positions. Accepted values are 'degrees', 'altaz', and 'dircos'.
+                Default = 'degrees'. If 'dircos', the direction cosines are 
+                aligned with the local East, North, and Up. If 'altaz', then 
+                altitude and azimuth must be in degrees.
+
+    pointing_center
+                [numpy array] 1xN numpy array, where N is the same as in skypos.
+                If None specified, pointing_center is assumed to be at zenith.
+                
+    pointing_coords
+                [string] Coordiantes of the pointing center. If None specified, 
+                it is assumed to be same as skyunits. Same allowed values as 
+                skyunits. Default = None.
+
+    power       [boolean] If set to True (default), compute power pattern,
+                otherwise compute field pattern.
+
+    Output:
+
+    [Numpy array] Field or Power pattern at the specified sky positions. 
+    -----------------------------------------------------------------------------
+    """
+    try:
+        diameter, skypos, frequency
+    except NameError:
+        raise NameError('diameter, skypos and frequency are required in airy_disk_pattern().')
+
+    skypos = NP.asarray(skypos)
+    frequency = NP.asarray(frequency).ravel()
+
+    if pointing_center is None:
+        if skyunits == 'degrees':
+            x = NP.radians(skypos)
+        elif skyunits == 'altaz':
+            x = NP.radians(90.0 - skypos[:,0])
+        elif skyunits == 'dircos':
+            x = NP.arcsin(NP.sqrt(skypos[:,0]**2 + skypos[:,1]**2))
+        else:
+            raise ValueError('skyunits must be "degrees", "altaz" or "dircos" in GMRT_primary_beam().')
+        zero_ind = x >= NP.pi/2   # Determine positions beyond the horizon
+    else:
+        if pointing_coords is None:
+            pointing_coords = skyunits
+        if skyunits == 'degrees':
+            x = NP.radians(skypos)
+        else:
+            pc_altaz = pointing_center.reshape(1,-1)
+            if pointing_coords == 'altaz':
+                if pc_altaz.size != 2:
+                    raise IndexError('Pointing center in Alt-Az coordinates must contain exactly two elements.')
+            elif pointing_coords == 'dircos':
+                if pc_altaz.size != 3:
+                    raise IndexError('Pointing center in direction cosine coordinates must contain exactly three elements.')
+                pc_altaz = GEOM.dircos2altaz(pc_altaz, units='degrees')
+
+            skypos_altaz = NP.copy(skypos)
+            if skyunits == 'dircos':
+                skypos_altaz = GEOM.dircos2altaz(skypos, units='degrees')
+            elif skyunits != 'altaz':
+                raise ValueError('skyunits must be "degrees", "altaz" or "dircos" in GMRT_primary_beam().')
+            x = GEOM.sphdist(skypos_altaz[:,1], skypos_altaz[:,0], pc_altaz[0,1], pc_altaz[0,0])
+            x = NP.radians(x)
+            zero_ind = NP.logical_or(x >= NP.pi/2, skypos_altaz[:,0] <= 0.0)   # Determine positions beyond the horizon of the sky as well as those beyond the horizon of the dish, if it is pointed away from the horizon
+
+    x = x.reshape(-1,1) # nsrc x 1
+    sigma_aprtr = diameter / (2.0 * NP.sqrt(2.0 * NP.log(2.0))) / (FCNST.c/frequency) # in units of "u"
+    # exp(-a t**2) <--> exp(-(pi*f)**2/a)
+    # 2 x sigma_aprtr**2 = 1/a
+    # 2 x sigma_dircos**2 = a / pi**2 = 1 / (2 * pi**2 * sigma_aprtr**2)
+    sigma_dircos = 1.0 / (2 * NP.pi * sigma_aprtr)
+    sigma_dircos = sigma_dircos.reshape(1,-1) # 1 x nchan
+    dircos = NP.sin(x)
+    pattern = NP.exp(-0.5 * (dircos/sigma_dircos)**2)
+    pattern[zero_ind,:] = 0.0   # Blank all values beyond the horizon
+
+    if power:
+        pattern = NP.abs(pattern)**2
+        
     return pattern
 
 ##########################################################################
@@ -813,7 +920,7 @@ def ground_plane_field_pattern(height, skypos, skycoords=None, wavelength=1.0,
                     if skypos.shape[1] == 3:
                         eps = 1.0e-10
                         if NP.any(NP.abs(NP.sqrt(NP.sum(skypos**2, axis=1)) - 1.0) > eps) or NP.any(skypos[:,2] < 0.0):
-                            print 'Warning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                            print('Warning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                             skypos[:,2] = 1.0 - NP.sqrt(NP.sum(skypos[:,:2]**2,axis=1))
                     else:
                         skypos = NP.hstack((skypos, 1.0 - NP.asarray(NP.sqrt(NP.sum(skypos[:,:2]**2,axis=1))).reshape(-1,1)))
@@ -1020,7 +1127,7 @@ def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None,
                     if skypos.shape[1] == 3:
                         eps = 1.0e-10
                         if NP.any(NP.abs(NP.sqrt(NP.sum(skypos**2, axis=1)) - 1.0) > eps) or NP.any(skypos[:,2] < 0.0):
-                            print 'Warning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                            print('Warning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                             skypos[:,2] = 1.0 - NP.sqrt(NP.sum(skypos[:,:2]**2,axis=1))
                     else:
                         skypos = NP.hstack((skypos, 1.0 - NP.asarray(NP.sqrt(NP.sum(skypos[:,:2]**2,axis=1))).reshape(-1,1)))
@@ -1068,7 +1175,7 @@ def dipole_field_pattern(length, skypos, dipole_coords=None, skycoords=None,
                         if dipole_orientation.shape[1] == 3:
                             eps = 1.0e-10
                             if NP.any(NP.abs(NP.sqrt(NP.sum(dipole_orientation**2, axis=1)) - 1.0) > eps) or NP.any(dipole_orientation[:,2] < 0.0):
-                                print 'Warning: dipole_orientation in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                                print('Warning: dipole_orientation in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                                 dipole_orientation[:,2] = 1.0 - NP.sqrt(NP.sum(dipole_orientation[:,:2]**2,axis=1))
                         else:
                             dipole_orientation = NP.hstack((dipole_orientation, 1.0 - NP.asarray(NP.sqrt(NP.sum(dipole_orientation[:,:2]**2,axis=1))).reshape(-1,1)))
@@ -1255,7 +1362,7 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
                     eps = 1.0e-10
                     if NP.any(NP.abs(NP.sum(skypos**2, axis=1) - 1.0) > eps) or NP.any(skypos[:,2] < 0.0):
                         if verbose:
-                            print '\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                            print('\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                         skypos[:,2] = NP.sqrt(1.0 - NP.sum(skypos[:2]**2, axis=1))
     else:
         raise ValueError('skycoords has not been set.')
@@ -1295,7 +1402,7 @@ def isotropic_radiators_array_field_pattern(nax1, nax2, sep1, sep2=None,
                 eps = 1.0e-10
                 if (NP.abs(NP.sum(pointing_center**2) - 1.0) > eps) or (pointing_center[2] < 0.0):
                     if verbose:
-                        print '\tWarning: pointing_center in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                        print('\tWarning: pointing_center in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                     pointing_center[2] = NP.sqrt(1.0 - NP.sum(pointing_center[:2]**2))
 
     # skypos_dircos_relative = NP.empty((skypos.shape[0],3))
@@ -1583,7 +1690,7 @@ def array_field_pattern(antpos, skypos, skycoords='altaz', pointing_info=None,
                     eps = 1.0e-10
                     if NP.any(NP.abs(NP.sum(skypos**2, axis=1) - 1.0) > eps) or NP.any(skypos[:,2] < 0.0):
                         if verbose:
-                            print '\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                            print('\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                         skypos[:,2] = NP.sqrt(1.0 - NP.sum(skypos[:2]**2, axis=1))
     else:
         raise ValueError('skycoords has not been set.')
@@ -1762,7 +1869,7 @@ def uniform_rectangular_aperture(sides, skypos, frequency, skyunits='altaz',
                     eps = 1.0e-10
                     if NP.any(NP.abs(NP.sum(skypos**2, axis=1) - 1.0) > eps) or NP.any(skypos[:,2] < 0.0):
                         if verbose:
-                            print '\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                            print('\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                         skypos[:,2] = NP.sqrt(1.0 - NP.sum(skypos[:2]**2, axis=1))
     else:
         raise ValueError('skycoords has not been set.')
@@ -1802,7 +1909,7 @@ def uniform_rectangular_aperture(sides, skypos, frequency, skyunits='altaz',
                 eps = 1.0e-10
                 if (NP.abs(NP.sum(pointing_center**2) - 1.0) > eps) or (pointing_center[2] < 0.0):
                     if verbose:
-                        print '\tWarning: pointing_center in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                        print('\tWarning: pointing_center in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                     pointing_center[2] = NP.sqrt(1.0 - NP.sum(pointing_center[:2]**2))
 
     if east2ax1 is not None:
