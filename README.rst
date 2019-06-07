@@ -44,6 +44,12 @@ or clone it into a directory and from inside that directory issue the command:
 Getting Package Data
 --------------------
 
+First try using the following (from anywhere on your computer, but inside your env)::
+
+    setup_prisim_data.py
+
+If this does not work, try a manual download, as follows:
+
 Find the ``data/`` directory under PRISim installation folder which is usually in
 
 ``/path/to/Anaconda/envs/YOURENV/lib/python-2.7/site-packages/prisim/``
@@ -82,7 +88,7 @@ mixed up.
 Basic Usage
 ===========
 
-RUN on terminal: 
+Run on terminal:
 
 ``mpirun -n nproc run_prisim.py -i parameterfile.yaml``
 
