@@ -10,36 +10,26 @@ Note that currently this package only supports Python 2.6+, and not Python 3.
 
 Non-Python Dependencies
 -----------------------
-The only non-python dependencies required are ``openmpi`` and ``xterm``. These can usually be installed via a distro
-package manager (for Arch Linux, the package names are exactly ``openmpi`` and ``xterm``).
+The only non-python dependencies are ``openmpi`` and ``xterm``.
+These are _not required_, but do provide extra functionality.
+These can usually be installed via a distro package manager (eg. for Arch Linux,
+the package names are exactly ``openmpi`` and ``xterm``).
+
 
 Using Anaconda
 --------------
-If using the Anaconda python distribution, many of the packages may be installed using ``conda``.
+If using the Anaconda python distribution, many of the packages may be installed using
+``conda``. While these dependencies will be installed automatically with the installation
+procedure below (i.e. with pip), usually conda users will want to install these with
+conda explicitly before installing ``prisim``.
 
-It is best to first create a new env:
+The conda-appropriate packages can be installed with
 
-``conda create -n YOURENV python=2``
+``conda install mpi4py progressbar psutil pyyaml h5py astropy matplotlib numpy scipy scikit-image``
 
-Activate this environment:
-
-``source activate YOURENV``
-
-Then install conda packages:
-
-``conda install mpi4py progressbar psutil pyyaml h5py``
-
-You also need ``AstroUtils``:
-
-``pip install git+https://github.com/nithyanandan/AstroUtils``
-
-which will install a list of dependencies.
-
-Now do
-
-``pip install aipy``
-
-if it is not installed already.
+NOTE: at this time, you *must* install ``scikit-image`` via conda, or else it will
+      try to install packages that are incompatible with python 2. Full python 3
+      support is coming soon.
 
 Finally, either install PRISim directly:
 
@@ -51,6 +41,12 @@ or clone it into a directory and from inside that directory issue the command:
 
 Getting Package Data
 --------------------
+
+First try using the following (from anywhere on your computer, but inside your env)::
+
+    setup_prisim_data.py
+
+If this does not work, try a manual download, as follows:
 
 Find the ``data/`` directory under PRISim installation folder which is usually in
 
@@ -90,7 +86,7 @@ mixed up.
 Basic Usage
 ===========
 
-RUN on terminal: 
+Run on terminal:
 
 ``mpirun -n nproc run_prisim.py -i parameterfile.yaml``
 

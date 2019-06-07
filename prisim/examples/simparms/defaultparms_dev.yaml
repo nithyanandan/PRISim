@@ -996,7 +996,7 @@ plots       : false
 
 diagnosis   :
 
-    resource_monitor: false
+    resource_monitor: true
                                 # If set to true, open a new xterm
                                 # to display CPU and RAM usage of
                                 # parallel processed. If set to
@@ -1010,7 +1010,7 @@ diagnosis   :
                                 # If set to null (default), this
                                 # will be set to 2 seconds
 
-    wait_after_run  : false
+    wait_after_run  : true
                                 # If true, keep python shell open
                                 # after completing the run using
                                 # set_trace() of python debugger.

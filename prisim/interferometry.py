@@ -5044,7 +5044,7 @@ class InterferometerArray(object):
                         contain the given input baseline labels
 
     getThreePointCombinations()
-                        Return all or only unique 3-point combinations of 
+                        Return all or class Inonly unique 3-point combinations of
                         baselines
 
     getClosurePhase()   Get closure phases of visibilities from triplets of 
