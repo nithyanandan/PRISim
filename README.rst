@@ -10,36 +10,28 @@ Note that currently this package only supports Python 2.6+, and not Python 3.
 
 Non-Python Dependencies
 -----------------------
-The only non-python dependencies required are ``openmpi`` and ``xterm``. These can usually be installed via a distro
-package manager (for Arch Linux, the package names are exactly ``openmpi`` and ``xterm``).
+The only non-python dependencies are ``openmpi`` and ``xterm``.
+These are _not required_, but do provide extra functionality.
+These can usually be installed via a distro package manager (eg. for Arch Linux,
+the package names are exactly ``openmpi`` and ``xterm``).
+
 
 Using Anaconda
 --------------
-If using the Anaconda python distribution, many of the packages may be installed using ``conda``.
+If using the Anaconda python distribution, many of the packages may be installed using
+``conda``. While these dependencies will be installed automatically with the installation
+procedure below (i.e. with pip), usually conda users will want to install these with
+conda explicitly before installing ``prisim``.
 
-It is best to first create a new env:
+The conda-appropriate packages can be installed with
 
-``conda create -n YOURENV python=2``
+``conda install mpi4py progressbar psutil pyyaml h5py astropy matplotlib numpy scipy``
 
-Activate this environment:
-
-``source activate YOURENV``
-
-Then install conda packages:
-
-``conda install mpi4py progressbar psutil pyyaml h5py``
-
-You also need ``AstroUtils``:
+Before installing, you'll also need to install ``AstroUtils``:
 
 ``pip install git+https://github.com/nithyanandan/AstroUtils``
 
 which will install a list of dependencies.
-
-Now do
-
-``pip install aipy``
-
-if it is not installed already.
 
 Finally, either install PRISim directly:
 
