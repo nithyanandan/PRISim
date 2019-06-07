@@ -55,7 +55,7 @@ setup(name='PRISim',
       scripts=glob.glob('scripts/*.py'),
       install_requires=[
           'astropy>=1.0, <3.0',
-          'astroutils>=0.1.0',
+          'astroutils @ git+git://github.com/nithyanandan/AstroUtils',
           'healpy>=1.5.3',
           'ipdb>=0.6.1',
           'matplotlib>=1.4.3, <3.0',

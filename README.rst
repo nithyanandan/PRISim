@@ -25,13 +25,11 @@ conda explicitly before installing ``prisim``.
 
 The conda-appropriate packages can be installed with
 
-``conda install mpi4py progressbar psutil pyyaml h5py astropy matplotlib numpy scipy``
+``conda install mpi4py progressbar psutil pyyaml h5py astropy matplotlib numpy scipy scikit-image``
 
-Before installing, you'll also need to install ``AstroUtils``:
-
-``pip install git+https://github.com/nithyanandan/AstroUtils``
-
-which will install a list of dependencies.
+NOTE: at this time, you *must* install ``scikit-image`` via conda, or else it will
+      try to install packages that are incompatible with python 2. Full python 3
+      support is coming soon.
 
 Finally, either install PRISim directly:
 
