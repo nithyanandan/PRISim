@@ -11,7 +11,7 @@ Note that currently this package only supports Python 2.6+, and not Python 3.
 Non-Python Dependencies
 -----------------------
 The only non-python dependencies are ``openmpi`` and ``xterm``.
-These are _not required_, but do provide extra functionality.
+These are *not required*, but do provide extra functionality.
 These can usually be installed via a distro package manager (eg. for Arch Linux,
 the package names are exactly ``openmpi`` and ``xterm``).
 
@@ -27,9 +27,9 @@ The conda-appropriate packages can be installed with
 
 ``conda install mpi4py progressbar psutil pyyaml h5py astropy matplotlib numpy scipy scikit-image``
 
-NOTE: at this time, you *must* install ``scikit-image`` via conda, or else it will
-      try to install packages that are incompatible with python 2. Full python 3
-      support is coming soon.
+    NOTE: at this time, you *must* install ``scikit-image`` via conda, or else it will
+    try to install packages that are incompatible with python 2. Full python 3
+    support is coming soon.
 
 Finally, either install PRISim directly:
 
