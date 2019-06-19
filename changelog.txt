@@ -1,3 +1,11 @@
+From f783389 (master):
+=====================
+
+In prisim/bispectrum_phase.py,
+
+(*) In function incoherent_cross_power_spectrum_average(), fix bug in
+estimating axes to average in case of subsample differences
+
 From aadeca3 (noise):
 ====================
 

@@ -1197,7 +1197,7 @@ def incoherent_cross_power_spectrum_average(xcpdps, excpdps=None, diagoffsets=No
                                     out_excpdps[smplng][dpool][stat] = []
                                     for ind in range(len(diagoffsets)):
                                         masked_diagwts = MA.array(diagwts, mask=masks[ind])
-                                        axes_to_avg = tuple([out_excpdps[smplng][dpool]['axesmap'][ax][0] for ax in diagoffsets[ind]])
+                                        axes_to_avg = tuple([out_excpdps[smplng][dpool]['axesmap'][ax][0] for ax in diagoffsets[ind] if ax!=2])
                                         out_excpdps[smplng][dpool][stat] += [MA.sum(arr * masked_diagwts, axis=axes_to_avg, keepdims=True) / MA.sum(masked_diagwts, axis=axes_to_avg, keepdims=True) * arr_units]
                                         if len(out_excpdps[smplng][dpool]['diagweights']) < len(diagoffsets):
                                             out_excpdps[smplng][dpool]['diagweights'] += [MA.sum(masked_diagwts, axis=axes_to_avg, keepdims=True)]
