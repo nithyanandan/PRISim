@@ -1448,6 +1448,8 @@ def incoherent_kbin_averaging(xcpdps, kbins=None, num_kbins=None, kbintype='log'
                                 for spw in range(kprll.shape[0]):
                                     counts = NP.copy(psinfo[smplng]['kbininfo']['counts'][spw])
                                     ri = NP.copy(psinfo[smplng]['kbininfo']['ri'][spw])
+                                    print('Processing datapool={0}, stat={1}, LST-Day-Triad combination={2:0d}, spw={3:0d}...'.format(dpool, stat, combi, spw))
+                                    progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} k-bins '.format(num_kbins), PGB.ETA()], maxval=num_kbins).start()
                                     for binnum in range(num_kbins):
                                         if counts[binnum] > 0:
                                             ind_kbin = ri[ri[binnum]:ri[binnum+1]]
@@ -1456,6 +1458,8 @@ def incoherent_kbin_averaging(xcpdps, kbins=None, num_kbins=None, kbintype='log'
                                             k_shape[-1] = -1
                                             tmp_Del2[spw,...,binnum] = NP.nanmean(NP.abs(kprll[spw,ind_kbin].reshape(tuple(k_shape))/U.Mpc)**3 * NP.take(xcpdps[smplng][dpool][stat][combi][spw], ind_kbin, axis=-1), axis=-1) / (2*NP.pi**2)
                                             tmp_kprll[spw,...,binnum] = NP.nansum(NP.abs(kprll[spw,ind_kbin].reshape(tuple(k_shape))/U.Mpc) * NP.abs(NP.take(xcpdps[smplng][dpool][stat][combi][spw], ind_kbin, axis=-1)), axis=-1) / NP.nansum(NP.abs(NP.take(xcpdps[smplng][dpool][stat][combi][spw], ind_kbin, axis=-1)), axis=-1)
+                                        progress.update(binnum+1)
+                                    progress.finish()
                                 psinfo[smplng][dpool][stat]['PS'] += [copy.deepcopy(tmp_dps)]
                                 psinfo[smplng][dpool][stat]['Del2'] += [copy.deepcopy(tmp_Del2)]
                                 psinfo[smplng]['kbininfo'][dpool][stat] += [copy.deepcopy(tmp_kprll)]
