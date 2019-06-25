@@ -1,3 +1,11 @@
+From 47b70df (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Remove commented lines in function
+incoherent_cross_power_spectrum_average()
+
 From dd0d710 (closure-adv):
 ==========================
 

@@ -1128,15 +1128,6 @@ def incoherent_cross_power_spectrum_average(xcpdps, excpdps=None, diagoffsets=No
                                 else:
                                     raise TypeError('Diagonal weights in input must be a dictionary or a numpy array')
 
-                                # diagwts = 1.0
-                                # arr += [excpdps[i][smplng][dpool][stat].si.value]
-                                # arr_units = excpdps[i][smplng][dpool][stat].si.unit
-                                # diagwts_shape = NP.ones(excpdps[i][smplng][dpool][stat].ndim, dtype=NP.int)
-                                # for ax in excpdps[i][smplng][dpool]['diagweights']:
-                                #     tmp_shape = NP.copy(diagwts_shape)
-                                #     tmp_shape[excpdps[i][smplng][dpool]['axesmap'][ax]] = excpdps[i][smplng][dpool]['diagweights'][ax].size
-                                #     diagwts = diagwts * excpdps[i][smplng][dpool]['diagweights'][ax].reshape(tuple(tmp_shape))
-
                                 diagweights += [diagwts]
                             diagweights = NP.asarray(diagweights)
                             arr = NP.asarray(arr)
