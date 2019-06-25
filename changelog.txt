@@ -1,3 +1,12 @@
+From dd0d710 (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) In function incoherent_cross_power_spectrum_average(), fix bug to
+handle when diagweights in the input dictionaries could either be a
+dictionary or a numpy array
+
 From 73f7a47 (closure-adv):
 ==========================
 

@@ -1083,15 +1083,20 @@ def incoherent_cross_power_spectrum_average(xcpdps, excpdps=None, diagoffsets=No
                             out_xcpdps[smplng][dpool][stat] = {}
                             arr = []
                             diagweights = []
-                            diagwts = 1.0
                             for i in range(len(xcpdps)):
                                 arr += [xcpdps[i][smplng][dpool][stat].si.value]
                                 arr_units = xcpdps[i][smplng][dpool][stat].si.unit
-                                diagwts_shape = NP.ones(xcpdps[i][smplng][dpool][stat].ndim, dtype=NP.int)
-                                for ax in xcpdps[i][smplng][dpool]['diagweights']:
-                                    tmp_shape = NP.copy(diagwts_shape)
-                                    tmp_shape[xcpdps[i][smplng][dpool]['axesmap'][ax]] = xcpdps[i][smplng][dpool]['diagweights'][ax].size
-                                    diagwts = diagwts * xcpdps[i][smplng][dpool]['diagweights'][ax].reshape(tuple(tmp_shape))
+                                if isinstance(xcpdps[i][smplng][dpool]['diagweights'], dict):
+                                    diagwts = 1.0
+                                    diagwts_shape = NP.ones(xcpdps[i][smplng][dpool][stat].ndim, dtype=NP.int)
+                                    for ax in xcpdps[i][smplng][dpool]['diagweights']:
+                                        tmp_shape = NP.copy(diagwts_shape)
+                                        tmp_shape[xcpdps[i][smplng][dpool]['axesmap'][ax]] = xcpdps[i][smplng][dpool]['diagweights'][ax].size
+                                        diagwts = diagwts * xcpdps[i][smplng][dpool]['diagweights'][ax].reshape(tuple(tmp_shape))
+                                elif isinstance(xcpdps[i][smplng][dpool]['diagweights'], NP.ndarray):
+                                    diagwts = NP.copy(xcpdps[i][smplng][dpool]['diagweights'])
+                                else:
+                                    raise TypeError('Diagonal weights in input must be a dictionary or a numpy array')
                                 diagweights += [diagwts]
                             diagweights = NP.asarray(diagweights)
                             arr = NP.asarray(arr)
@@ -1108,15 +1113,30 @@ def incoherent_cross_power_spectrum_average(xcpdps, excpdps=None, diagoffsets=No
                             out_excpdps[smplng][dpool][stat] = {}
                             arr = []
                             diagweights = []
-                            diagwts = 1.0
                             for i in range(len(excpdps)):
                                 arr += [excpdps[i][smplng][dpool][stat].si.value]
                                 arr_units = excpdps[i][smplng][dpool][stat].si.unit
-                                diagwts_shape = NP.ones(excpdps[i][smplng][dpool][stat].ndim, dtype=NP.int)
-                                for ax in excpdps[i][smplng][dpool]['diagweights']:
-                                    tmp_shape = NP.copy(diagwts_shape)
-                                    tmp_shape[excpdps[i][smplng][dpool]['axesmap'][ax]] = excpdps[i][smplng][dpool]['diagweights'][ax].size
-                                    diagwts = diagwts * excpdps[i][smplng][dpool]['diagweights'][ax].reshape(tuple(tmp_shape))
+                                if isinstance(excpdps[i][smplng][dpool]['diagweights'], dict):
+                                    diagwts = 1.0
+                                    diagwts_shape = NP.ones(excpdps[i][smplng][dpool][stat].ndim, dtype=NP.int)
+                                    for ax in excpdps[i][smplng][dpool]['diagweights']:
+                                        tmp_shape = NP.copy(diagwts_shape)
+                                        tmp_shape[excpdps[i][smplng][dpool]['axesmap'][ax]] = excpdps[i][smplng][dpool]['diagweights'][ax].size
+                                        diagwts = diagwts * excpdps[i][smplng][dpool]['diagweights'][ax].reshape(tuple(tmp_shape))
+                                elif isinstance(excpdps[i][smplng][dpool]['diagweights'], NP.ndarray):
+                                    diagwts = NP.copy(excpdps[i][smplng][dpool]['diagweights'])
+                                else:
+                                    raise TypeError('Diagonal weights in input must be a dictionary or a numpy array')
+
+                                # diagwts = 1.0
+                                # arr += [excpdps[i][smplng][dpool][stat].si.value]
+                                # arr_units = excpdps[i][smplng][dpool][stat].si.unit
+                                # diagwts_shape = NP.ones(excpdps[i][smplng][dpool][stat].ndim, dtype=NP.int)
+                                # for ax in excpdps[i][smplng][dpool]['diagweights']:
+                                #     tmp_shape = NP.copy(diagwts_shape)
+                                #     tmp_shape[excpdps[i][smplng][dpool]['axesmap'][ax]] = excpdps[i][smplng][dpool]['diagweights'][ax].size
+                                #     diagwts = diagwts * excpdps[i][smplng][dpool]['diagweights'][ax].reshape(tuple(tmp_shape))
+
                                 diagweights += [diagwts]
                             diagweights = NP.asarray(diagweights)
                             arr = NP.asarray(arr)
