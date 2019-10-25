@@ -1,3 +1,16 @@
+From a3b9a25 (closure-adv):
+==========================
+
+In scripts/write_PRISim_bispectrum_phase_to_npz.py,
+
+(*) Import prisim and set default path
+(*) Correct the script description and default path of input YAML file
+
+In prisim/examples/ioparms/model_bispectrum_phase_to_npz_parms.yaml,
+
+(*) Update input parameters with updated defaults and updated
+descriptions
+
 From 47b70df (closure-adv):
 ==========================
 
