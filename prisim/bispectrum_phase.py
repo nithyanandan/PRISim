@@ -1846,9 +1846,9 @@ class ClosurePhase(object):
                 lstbinsize = lstbinsize / 3.6e3 # in hours
                 tres = NP.diff(rawlst[:,0]).min() # in hours
                 textent = rawlst[:,0].max() - rawlst[:,0].min() + tres # in hours
+                eps = 1e-10
                 if lstbinsize > tres:
                     lstbinsize = NP.clip(lstbinsize, tres, textent)
-                    eps = 1e-10
                     lstbins = NP.arange(rawlst[:,0].min(), rawlst[:,0].max() + tres + eps, lstbinsize)
                     nlstbins = lstbins.size
                     lstbins = NP.concatenate((lstbins, [lstbins[-1]+lstbinsize+eps]))
@@ -1906,6 +1906,24 @@ class ClosurePhase(object):
                     self.cpinfo['processed']['prelim']['cphase']['median'] = MA.array(NP.angle(eicp_tmedian), mask=mask)
                     self.cpinfo['processed']['prelim']['cphase']['rms'] = MA.array(cp_trms, mask=mask)
                     self.cpinfo['processed']['prelim']['cphase']['mad'] = MA.array(cp_tmad, mask=mask)
+                else:
+                    # Perform no binning and keep the current LST resolution, data and weights
+
+                    warnings.warn('LST bin size found to be smaller than the LST resolution in the data. No LST binning/averaging will be performed.')
+                    lstbinsize = tres
+                    lstbins = NP.arange(rawlst[:,0].min(), rawlst[:,0].max() + lstbinsize + eps, lstbinsize)
+                    nlstbins = lstbins.size - 1
+                    if nlstbins > 1:
+                        lstbinintervals = lstbins[1:] - lstbins[:-1]
+                        lstbincenters = lstbins[:-1] + 0.5 * lstbinintervals
+                    else:
+                        lstbinintervals = NP.asarray(lstbinsize).reshape(-1)
+                        lstbincenters = lstbins[0] + 0.5 * lstbinintervals
+                    if 'prelim' not in self.cpinfo['processed']:
+                        self.cpinfo['processed']['prelim'] = {}
+                    self.cpinfo['processed']['prelim']['lstbins'] = lstbincenters
+                    self.cpinfo['processed']['prelim']['dlstbins'] = lstbinintervals
+
         if (rawlst.shape[0] <= 1) or (lstbinsize is None):
             nlstbins = rawlst.shape[0]
             lstbins = NP.mean(rawlst, axis=1)
@@ -2079,9 +2097,9 @@ class ClosurePhase(object):
                 lstbinsize = lstbinsize / 3.6e3 # in hours
                 tres = NP.diff(rawlst[:,0]).min() # in hours
                 textent = rawlst[:,0].max() - rawlst[:,0].min() + tres # in hours
+                eps = 1e-10
                 if lstbinsize > tres:
                     lstbinsize = NP.clip(lstbinsize, tres, textent)
-                    eps = 1e-10
                     lstbins = NP.arange(rawlst[:,0].min(), rawlst[:,0].max() + tres + eps, lstbinsize)
                     nlstbins = lstbins.size
                     lstbins = NP.concatenate((lstbins, [lstbins[-1]+lstbinsize+eps]))
@@ -2110,6 +2128,21 @@ class ClosurePhase(object):
                     wts_lstbins = MA.array(wts_lstbins, mask=mask)
                     eicp_tmean = MA.array(eicp_tmean, mask=mask)
                     eicp_tmedian = MA.array(eicp_tmedian, mask=mask)
+                else:
+                    # Perform no binning and keep the current LST resolution, data and weights
+
+                    warnings.warn('LST bin size found to be smaller than the LST resolution in the data. No LST binning/averaging will be performed.')
+                    lstbinsize = tres
+                    lstbins = NP.arange(rawlst[:,0].min(), rawlst[:,0].max() + lstbinsize + eps, lstbinsize)
+                    nlstbins = lstbins.size - 1
+                    if nlstbins > 1:
+                        lstbinintervals = lstbins[1:] - lstbins[:-1]
+                        lstbincenters = lstbins[:-1] + 0.5 * lstbinintervals
+                    else:
+                        lstbinintervals = NP.asarray(lstbinsize).reshape(-1)
+                        lstbincenters = lstbins[0] + 0.5 * lstbinintervals
+                    self.cpinfo['errinfo']['lstbins'] = lstbincenters
+                    self.cpinfo['errinfo']['dlstbins'] = lstbinintervals
         else:
             wts_lstbins = MA.copy(wts_daybins)
             mask = wts_lstbins.mask

@@ -1,3 +1,17 @@
+From bc5041b (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function smooth_in_tbins() of class ClosurePhase, handle
+the case when the specified LST bin size is smaller than the LST
+resolution in the data, namely, do no binning and pass the existing
+bin size, and other keys
+(*) In member function subsample_differencing() of class ClosurePhase, 
+handle the case when the specified LST bin size is smaller than the 
+LST resolution in the data, namely, do no binning and pass the 
+existing bin size, and other keys
+
 From a3b9a25 (closure-adv):
 ==========================
 
