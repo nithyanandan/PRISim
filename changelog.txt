@@ -1,3 +1,15 @@
+From bcad114 (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function smooth_in_tbins() of class ClosurePhase, update
+handling of LST bins and weights when specified LST bin size is
+smaller than the LST resolution in the data
+(*) In member function subsample_differencing() of class ClosurePhase,
+update handling of LST bins and weights when specified LST bin size is
+smaller than the LST resolution in the data
+
 From 683604f (closure-adv):
 ==========================
 
