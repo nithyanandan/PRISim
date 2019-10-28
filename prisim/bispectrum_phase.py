@@ -2103,46 +2103,39 @@ class ClosurePhase(object):
                     lstbins = NP.arange(rawlst[:,0].min(), rawlst[:,0].max() + tres + eps, lstbinsize)
                     nlstbins = lstbins.size
                     lstbins = NP.concatenate((lstbins, [lstbins[-1]+lstbinsize+eps]))
-                    if nlstbins > 1:
-                        lstbinintervals = lstbins[1:] - lstbins[:-1]
-                        lstbincenters = lstbins[:-1] + 0.5 * lstbinintervals
-                    else:
-                        lstbinintervals = NP.asarray(lstbinsize).reshape(-1)
-                        lstbincenters = lstbins[0] + 0.5 * lstbinintervals
-                    counts, lstbin_edges, lstbinnum, ri = OPS.binned_statistic(rawlst[:,0], statistic='count', bins=lstbins)
-                    counts = counts.astype(NP.int)
-                    self.cpinfo['errinfo']['lstbins'] = lstbincenters
-                    self.cpinfo['errinfo']['dlstbins'] = lstbinintervals
-                    outshape = (counts.size, wts_daybins.shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3])
-                    wts_lstbins = NP.zeros(outshape)
-                    eicp_tmean = NP.zeros(outshape, dtype=NP.complex128)
-                    eicp_tmedian = NP.zeros(outshape, dtype=NP.complex128)
-                    cp_trms = NP.zeros(outshape)
-                    cp_tmad = NP.zeros(outshape)
-                    for binnum in xrange(counts.size):
-                        ind_lstbin = ri[ri[binnum]:ri[binnum+1]]
-                        wts_lstbins[binnum,:,:,:] = NP.sum(wts_daybins[ind_lstbin,:,:,:].data, axis=0)
-                        eicp_tmean[binnum,:,:,:] = NP.exp(1j*NP.angle(MA.mean(NP.exp(1j*cp_dmean[ind_lstbin,:,:,:]), axis=0)))
-                        eicp_tmedian[binnum,:,:,:] = NP.exp(1j*NP.angle(MA.median(NP.cos(cp_dmedian[ind_lstbin,:,:,:]), axis=0) + 1j * MA.median(NP.sin(cp_dmedian[ind_lstbin,:,:,:]), axis=0)))
-                    mask = wts_lstbins <= 0.0
-                    wts_lstbins = MA.array(wts_lstbins, mask=mask)
-                    eicp_tmean = MA.array(eicp_tmean, mask=mask)
-                    eicp_tmedian = MA.array(eicp_tmedian, mask=mask)
                 else:
-                    # Perform no binning and keep the current LST resolution, data and weights
+                    # Perform no binning and keep the current LST resolution
 
                     warnings.warn('LST bin size found to be smaller than the LST resolution in the data. No LST binning/averaging will be performed.')
                     lstbinsize = tres
                     lstbins = NP.arange(rawlst[:,0].min(), rawlst[:,0].max() + lstbinsize + eps, lstbinsize)
                     nlstbins = lstbins.size - 1
-                    if nlstbins > 1:
-                        lstbinintervals = lstbins[1:] - lstbins[:-1]
-                        lstbincenters = lstbins[:-1] + 0.5 * lstbinintervals
-                    else:
-                        lstbinintervals = NP.asarray(lstbinsize).reshape(-1)
-                        lstbincenters = lstbins[0] + 0.5 * lstbinintervals
-                    self.cpinfo['errinfo']['lstbins'] = lstbincenters
-                    self.cpinfo['errinfo']['dlstbins'] = lstbinintervals
+
+                if nlstbins > 1:
+                    lstbinintervals = lstbins[1:] - lstbins[:-1]
+                    lstbincenters = lstbins[:-1] + 0.5 * lstbinintervals
+                else:
+                    lstbinintervals = NP.asarray(lstbinsize).reshape(-1)
+                    lstbincenters = lstbins[0] + 0.5 * lstbinintervals
+                counts, lstbin_edges, lstbinnum, ri = OPS.binned_statistic(rawlst[:,0], statistic='count', bins=lstbins)
+                counts = counts.astype(NP.int)
+                self.cpinfo['errinfo']['lstbins'] = lstbincenters
+                self.cpinfo['errinfo']['dlstbins'] = lstbinintervals
+                outshape = (counts.size, wts_daybins.shape[1], self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3])
+                wts_lstbins = NP.zeros(outshape)
+                eicp_tmean = NP.zeros(outshape, dtype=NP.complex128)
+                eicp_tmedian = NP.zeros(outshape, dtype=NP.complex128)
+                cp_trms = NP.zeros(outshape)
+                cp_tmad = NP.zeros(outshape)
+                for binnum in xrange(counts.size):
+                    ind_lstbin = ri[ri[binnum]:ri[binnum+1]]
+                    wts_lstbins[binnum,:,:,:] = NP.sum(wts_daybins[ind_lstbin,:,:,:].data, axis=0)
+                    eicp_tmean[binnum,:,:,:] = NP.exp(1j*NP.angle(MA.mean(NP.exp(1j*cp_dmean[ind_lstbin,:,:,:]), axis=0)))
+                    eicp_tmedian[binnum,:,:,:] = NP.exp(1j*NP.angle(MA.median(NP.cos(cp_dmedian[ind_lstbin,:,:,:]), axis=0) + 1j * MA.median(NP.sin(cp_dmedian[ind_lstbin,:,:,:]), axis=0)))
+                mask = wts_lstbins <= 0.0
+                wts_lstbins = MA.array(wts_lstbins, mask=mask)
+                eicp_tmean = MA.array(eicp_tmean, mask=mask)
+                eicp_tmedian = MA.array(eicp_tmedian, mask=mask)
         else:
             wts_lstbins = MA.copy(wts_daybins)
             mask = wts_lstbins.mask

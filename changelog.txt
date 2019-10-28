@@ -1,3 +1,13 @@
+From f11e09b (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) In member function subsample_differencing() of class ClosurePhase,
+handle the computing of eicp_diff when specified LST bin size is
+smaller than the LST resolution in the data, namely, do no binning
+and pass the existing bin size, and other keys
+
 From bc5041b (closure-adv):
 ==========================
 
