@@ -97,7 +97,14 @@ replicate   :
 
 diagnosis   :
 
-    wait_after_run  : true
+    wait_before_run : false
+                                # If true, open python shell
+                                # before completing the run using
+                                # set_trace() of python debugger.
+                                # If false, no access to python
+                                # shell is provided before the run.
+
+    wait_after_run  : false
                                 # If true, keep python shell open
                                 # after completing the run using
                                 # set_trace() of python debugger.

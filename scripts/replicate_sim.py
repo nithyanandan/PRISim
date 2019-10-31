@@ -2,7 +2,6 @@
 
 import yaml, argparse, copy, warnings
 import numpy as NP
-import h5py
 from pyuvdata import UVData
 from astroutils import geometry as GEOM
 import prisim
@@ -10,28 +9,14 @@ from prisim import interferometry as RI
 import ipdb as PDB
 
 prisim_path = prisim.__path__[0]+'/'
-if __name__ == '__main__':
 
-    ## Parse input arguments
-    
-    parser = argparse.ArgumentParser(description='Program to replicate simulated interferometer array data')
-    
-    input_group = parser.add_argument_group('Input parameters', 'Input specifications')
-    input_group.add_argument('-i', '--infile', dest='infile', default=prisim_path+'examples/simparms/replicatesim.yaml', type=file, required=False, help='File specifying input parameters for replicating PRISim output')
-    
-    args = vars(parser.parse_args())
-
-    with args['infile'] as parms_file:
-        parms = yaml.safe_load(parms_file)
-
+def replicate(parms):
     indir = parms['dirstruct']['indir']
     infile = parms['dirstruct']['infile']
     infmt = parms['dirstruct']['infmt']
     outdir = parms['dirstruct']['outdir']
     outfile = parms['dirstruct']['outfile']
     outfmt = parms['dirstruct']['outfmt']
-
-    wait_after_run = parms['diagnosis']['wait_after_run']
 
     if infmt.lower() not in ['hdf5', 'uvfits']:
         raise ValueError('Input simulation format must be "hdf5" or "uvfits"')
@@ -129,6 +114,37 @@ if __name__ == '__main__':
                 uvfits_ref_point = {'location': phase_center.reshape(1,-1), 'coords': 'radec'}
                 simvis.rotate_visibilities(uvfits_ref_point)
                 simvis.write_uvfits(outfilename, uvfits_parms={'ref_point': None, 'method': None, 'datapool': ['noisy']}, overwrite=True, verbose=True)
+    
+
+if __name__ == '__main__':
+
+    ## Parse input arguments
+    
+    parser = argparse.ArgumentParser(description='Program to replicate simulated interferometer array data')
+    
+    input_group = parser.add_argument_group('Input parameters', 'Input specifications')
+    input_group.add_argument('-i', '--infile', dest='infile', default=prisim_path+'examples/simparms/replicatesim.yaml', type=file, required=False, help='File specifying input parameters for replicating PRISim output')
+    
+    args = vars(parser.parse_args())
+
+    with args['infile'] as parms_file:
+        parms = yaml.safe_load(parms_file)
+
+    if 'wait_before_run' in parms['diagnosis']:
+        wait_before_run = parms['diagnosis']['wait_before_run']
+    else:
+        wait_before_run = False
+
+    if 'wait_after_run' in parms['diagnosis']:
+        wait_after_run = parms['diagnosis']['wait_after_run']
+    else:
+        wait_after_run = False
+
+    if wait_before_run:
+        PDB.set_trace()
+
+    # Perform replication
+    replicate(parms)    
 
     if wait_after_run:
         PDB.set_trace()

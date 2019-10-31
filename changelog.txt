@@ -1,3 +1,17 @@
+From 234d167 (master):
+=====================
+
+In scripts/replicatesim.py,
+
+(*) Remove unused import of h5py
+(*) Restructure __main__ block to call a function replicate() by
+passing the parameters
+(*) Insert an option to go into debug mode before calling replicate()
+
+In examples/simparms/replicatesim.yaml,
+
+(*) Add option to enter debug mode before calling replicate()
+
 From bcad114 (closure-adv):
 ==========================
 
