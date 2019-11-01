@@ -1,3 +1,17 @@
+From ba17ed5 (closure-adv):
+==========================
+
+(*) Add prisim/scriptUtils/write_PRISim_bispectrum_phase_to_npz_util.py
+to repo
+
+In prisim/scriptUtils/replicatesim_util.py,
+(*) Minor cosmetic changes
+
+In scripts/write_PRISim_bispectrum_phase_to_npz.py,
+
+(*) Move some imported modules and main code block to reside in
+prisim/scriptUtils/write_PRISim_bispectrum_phase_to_npz_util.py
+
 From a203161 (replicatesim):
 ===========================
 

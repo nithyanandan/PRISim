@@ -18,3 +18,4 @@
 /prisim/examples/simparms/noise_update_parms.yaml~
 /prisim/scriptUtils/__init__.py~
 /prisim/scriptUtils/replicatesim_util.py~
+/prisim/scriptUtils/write_PRISim_bispectrum_phase_to_npz_util.py~
