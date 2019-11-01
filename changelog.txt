@@ -1,3 +1,14 @@
+From a203161 (replicatesim):
+===========================
+
+(*) Add folder prisim/scriptUtils/ to repo
+(*) Add prisim/scriptUtils/replicatesim_util.py to repo
+
+In scripts/replicatesim.py,
+
+(*) Move some imported modules and function replicate() to reside in
+prisim/scriptUtils/replicatesim_util.py
+
 From 234d167 (master):
 =====================
 

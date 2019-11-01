@@ -16,3 +16,5 @@
 /prisim/interferometry.py.rej
 /prisim/examples/simparms/replicatesim.yaml~
 /prisim/examples/simparms/noise_update_parms.yaml~
+/prisim/scriptUtils/__init__.py~
+/prisim/scriptUtils/replicatesim_util.py~
