@@ -3891,6 +3891,9 @@ class DelayPowerSpectrum(object):
             beam_info = parms['beam']
             use_external_beam = beam_info['use_external']
             beam_chromaticity = beam_info['chromatic']
+            select_beam_freq = beam_info['select_freq']
+            if select_beam_freq is None:
+                select_beam_freq = self.f0
             theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
             theta_phi = NP.hstack((theta.reshape(-1,1), phi.reshape(-1,1)))
             if use_external_beam:
@@ -3903,9 +3906,6 @@ class DelayPowerSpectrum(object):
                     beam_file = prisim_path+'data/beams/' + beam_file
                 beam_pol = beam_info['pol']
                 beam_id = beam_info['identifier']
-                select_beam_freq = beam_info['select_freq']
-                if select_beam_freq is None:
-                    select_beam_freq = self.f0
                 pbeam_spec_interp_method = beam_info['spec_interp']
                 if beam_filefmt == 'fits':
                     extbeam = fits.getdata(beam_file, extname='BEAM_{0}'.format(beam_pol))
@@ -3955,7 +3955,7 @@ class DelayPowerSpectrum(object):
                 if beam_chromaticity:
                     beam = PB.primary_beam_generator(altaz, self.f, self.ds.ia.telescope, freq_scale='Hz', skyunits='altaz', east2ax1=0.0, pointing_info=None, pointing_center=None)
                 else:
-                    beam = PB.primary_beam_generator(altaz, select_beam_freq, self.ds.ia.telescope, skyunits='altaz', pointing_info=None, pointing_center=None, freq_scle='Hz', east2ax1=0.0)
+                    beam = PB.primary_beam_generator(altaz, select_beam_freq, self.ds.ia.telescope, skyunits='altaz', pointing_info=None, pointing_center=None, freq_scale='Hz', east2ax1=0.0)
                     beam = beam.reshape(-1,1) * NP.ones(self.f.size).reshape(1,-1)
         else:
             theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))

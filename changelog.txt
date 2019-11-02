@@ -1,3 +1,32 @@
+From c8b09de (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) In member function append-settings() of class ROI_parameters, there
+was no option to handle achromatic beams when the beams were to be
+determined analytically. Now it accepts beam chromaticity parameters in
+input roi_info and computes analystical beam at specified frequency and
+propagates it to all frequencies
+
+In scripts/run_prisim.py,
+
+(*) Beam chromaticity information in case of analytical beams was not
+being passed on to the ROI parameters in call to roi.append_settings()
+which is now passed
+(*) Minor changes to chunk completion time by process
+
+In prisim/delay_spectrum.py,
+
+(*) In member function beam3Dvol() of class DelayPowerSpectrum, update
+code block to determine achromatic analytical beams.
+
+In prisim/primary_beams.py,
+
+(*) In function primary_beam_generator(), ensure the input frequency
+is converted to a numpy array of non-zero length even if input as a
+scalar. Update function docstring accordingly
+
 From ba17ed5 (closure-adv):
 ==========================
 

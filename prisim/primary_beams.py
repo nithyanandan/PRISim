@@ -28,9 +28,9 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 N = 2 (if skyunits = altaz denoting Alt-Az coordinates), or N = 3
                 (if skyunits = dircos denoting direction cosine coordinates)
 
-    frequency   [list or numpy vector] frequencies at which the power pattern is 
-                to be estimated. Units can be GHz, MHz or kHz (see input
-                freq_scale)
+    frequency   [scalar, list or numpy vector] frequencies at which the power 
+                pattern is to be estimated. Units can be GHz, MHz or kHz (see 
+                input freq_scale)
 
     telescope   [dictionary] dictionary that specifies the type of element,
                 element size and orientation. It consists of the following keys
@@ -216,7 +216,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
     elif (freq_scale == 'khz') or (freq_scale == 'kHz'):
         frequency = frequency * 1.0e3
 
-    frequency = NP.asarray(frequency)
+    frequency = NP.asarray(frequency).reshape(-1)
 
     if (telescope is None) or (not isinstance(telescope, dict)):
         raise TypeError('telescope must be specified as a dictionary')

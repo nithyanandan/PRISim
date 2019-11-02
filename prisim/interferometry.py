@@ -4543,6 +4543,17 @@ class ROI_parameters(object):
                             raise ValueError('pointing_coords in dictionary pinfo must be "dircos", "altaz", "hadec" or "radec".')
                         self.pinfo[-1]['pointing_coords'] = 'altaz'
     
+                if 'pbeam_chromaticity' not in roi_info:
+                    roi_info['pbeam_chromaticity'] = False
+                if 'pbeam_reffreq' not in roi_info:
+                    roi_info['pbeam_reffreq'] = self.freq[self.freq.size//2]
+                beam_chromaticity = roi_info['pbeam_chromaticity']
+                if beam_chromaticity:
+                    freqs_to_compute = self.freq
+                else:
+                    nearest_freq_ind = NP.argmin(NP.abs(self.freq - roi_info['pbeam_reffreq']))
+                    freqs_to_compute = NP.asarray(roi_info['pbeam_reffreq']).reshape(-1)
+
                 ind = self.info['ind'][-1]
                 if ind.size > 0:
                     if 'id' in self.telescope:
@@ -4551,8 +4562,8 @@ class ROI_parameters(object):
                                 raise ImportError('MWA_Tools could not be imported which is required for power pattern computation.')
         
                             pbeam = NP.empty((ind.size, self.freq.size))
-                            for i in xrange(self.freq.size):
-                                pbx_MWA, pby_MWA = MWAPB.MWA_Tile_advanced(NP.radians(90.0-skypos_altaz[ind,0]).reshape(-1,1), NP.radians(skypos_altaz[ind,1]).reshape(-1,1), freq=self.freq[i], delays=self.pinfo[-1]['delays']/435e-12)
+                            for i in range(freqs_to_compute.size):
+                                pbx_MWA, pby_MWA = MWAPB.MWA_Tile_advanced(NP.radians(90.0-skypos_altaz[ind,0]).reshape(-1,1), NP.radians(skypos_altaz[ind,1]).reshape(-1,1), freq=freqs_to_compute[i], delays=self.pinfo[-1]['delays']/435e-12)
                                 if 'pol' in self.telescope:
                                     if (self.telescope['pol'] == 'X') or (self.telescope['pol'] == 'x'):
                                         pbeam[:,i] = pbx_MWA.ravel()
@@ -4564,11 +4575,11 @@ class ROI_parameters(object):
                                     self.telescope['pol'] = 'X'
                                     pbeam[:,i] = pbx_MWA.ravel()
                         else:
-                            pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
+                            pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], freqs_to_compute, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
                     else:
-                        pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
+                        pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], freqs_to_compute, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
         
-                    self.info['pbeam'] += [pbeam.astype(NP.float64)]
+                    self.info['pbeam'] += [pbeam.astype(NP.float64) * NP.ones(self.freq.size).reshape(1,-1)]
                 else:
                     self.info['pbeam'] += [NP.asarray([])]
 

@@ -168,11 +168,11 @@ if use_external_beam:
         raise ValueError('Invalid beam file format specified')
     beam_pol = beam_info['pol']
     beam_id = beam_info['identifier']
-    select_beam_freq = beam_info['select_freq']
-    if select_beam_freq is None:
-        select_beam_freq = freq
     pbeam_spec_interp_method = beam_info['spec_interp']
 beam_chromaticity = beam_info['chromatic']
+select_beam_freq = beam_info['select_freq']
+if select_beam_freq is None:
+    select_beam_freq = freq
 gainparms = parms['gains']
 # gaintable = None
 gaininfo = None
@@ -1772,6 +1772,8 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                         roiinfo['pbeam'] = 10**interp_logbeam
                     else:
                         roiinfo['pbeam'] = None
+                        roiinfo['pbeam_chromaticity'] = beam_chromaticity
+                        roiinfo['pbeam_reffreq'] = select_beam_freq
                     roiinfo['radius'] = roi_radius
                     # roiinfo_center_altaz = AltAz(alt=NP.asarray([90.0])*U.deg, az=NP.asarray([270.0])*U.deg, obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m))
                     roiinfo_center_hadec = GEOM.altaz2hadec(NP.asarray([90.0, 270.0]).reshape(1,-1), latitude, units='degrees').ravel() # Seems to be a hard-coding of ROI center to zenith, but that's only to determine the sources in the upper hemisphere
@@ -1833,7 +1835,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
             progress.finish()
 
             te0 = time.time()
-            print('Process {0:0d} took {1:.1f} minutes to complete frequency chunk # {2:0d} ({3:0d}/{4:0d})'.format(rank, (te0-ts0)/60, freq_chunk[i], i-cumm_freq_chunks[rank]+1, n_freq_chunk_per_rank[rank]))
+            print('Process {0:0d} took {1:.1f} minutes to complete frequency chunk # {2:0d} ({3:0d}/{4:0d})'.format(rank, (te0-ts0)/60.0, freq_chunk[i], i-cumm_freq_chunks[rank]+1, n_freq_chunk_per_rank[rank]))
             ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
             ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
 else: # MPI based on baseline multiplexing
@@ -1877,7 +1879,7 @@ else: # MPI based on baseline multiplexing
                 progress.finish()
 
                 te0 = time.time()
-                print('Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60, count))
+                print('Process {0:0d} took {1:.1f} minutes to complete baseline chunk # {2:0d}'.format(rank, (te0-ts0)/60.0, count))
                 ia.t_obs = t_obs
                 ia.delay_transform(oversampling_factor-1.0, freq_wts=window)
                 ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
@@ -1946,6 +1948,8 @@ else: # MPI based on baseline multiplexing
                         roiinfo['pbeam'] = 10**interp_logbeam
                     else:
                         roiinfo['pbeam'] = None
+                        roiinfo['pbeam_chromaticity'] = beam_chromaticity
+                        roiinfo['pbeam_reffreq'] = select_beam_freq
                     roiinfo['radius'] = roi_radius
                     # roiinfo_center_altaz = AltAz(alt=NP.asarray([90.0])*U.deg, az=NP.asarray([270.0])*U.deg, obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m))
                     roiinfo_center_hadec = GEOM.altaz2hadec(NP.asarray([90.0, 270.0]).reshape(1,-1), latitude, units='degrees').ravel() # Seems to be a hard-coding of ROI center to zenith, but that's only to determine the sources in the upper hemisphere
