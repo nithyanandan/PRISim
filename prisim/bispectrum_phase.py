@@ -584,7 +584,8 @@ def save_CPhase_cross_power_spectrum(xcpdps, outfile):
                         power spectrum
 
     outfile     [string] Full path to the external HDF5 file where the cross-
-                power spectrum information provided in xcpdps will be saved    ----------------------------------------------------------------------------
+                power spectrum information provided in xcpdps will be saved    
+    ----------------------------------------------------------------------------
     """
 
     if not isinstance(xcpdps, dict):
@@ -609,16 +610,22 @@ def save_CPhase_cross_power_spectrum(xcpdps, outfile):
                         dpoolgrp = smplgrp.create_group(dpool)
                         keys = ['diagoffsets', 'diagweights', 'axesmap', 'nsamples_incoh', 'nsamples_coh']
                         for key in keys:
-                            if isinstance(xcpdps[smplng][dpool][key], dict):
-                                subgrp = dpoolgrp.create_group(key)
-                                for subkey in xcpdps[smplng][dpool][key]:
-                                    dset = subgrp.create_dataset(str(subkey), data=xcpdps[smplng][dpool][key][subkey])
-                            else:
-                                dset = dpoolgrp.create_dataset(key, data=xcpdps[smplng][dpool][key])
+                            if key in xcpdps[smplng][dpool]:
+                                if isinstance(xcpdps[smplng][dpool][key], dict):
+                                    subgrp = dpoolgrp.create_group(key)
+                                    for subkey in xcpdps[smplng][dpool][key]:
+                                        dset = subgrp.create_dataset(str(subkey), data=xcpdps[smplng][dpool][key][subkey])
+                                else:
+                                    dset = dpoolgrp.create_dataset(key, data=xcpdps[smplng][dpool][key])
                         for stat in ['mean', 'median']:
                             if stat in xcpdps[smplng][dpool]:
-                                dset = dpoolgrp.create_dataset(stat, data=xcpdps[smplng][dpool][stat].si.value)
-                                dset.attrs['units'] = str(xcpdps[smplng][dpool][stat].si.unit)
+                                if isinstance(xcpdps[smplng][dpool][stat], list):
+                                    for ii in range(len(xcpdps[smplng][dpool][stat])):
+                                        dset = dpoolgrp.create_dataset(stat+'/diagcomb_{0}'.format(ii), data=xcpdps[smplng][dpool][stat][ii].si.value)
+                                        dset.attrs['units'] = str(xcpdps[smplng][dpool][stat][ii].si.unit)
+                                else:
+                                    dset = dpoolgrp.create_dataset(stat, data=xcpdps[smplng][dpool][stat].si.value)
+                                    dset.attrs['units'] = str(xcpdps[smplng][dpool][stat].si.unit)
 
 ################################################################################
 
@@ -772,18 +779,26 @@ def read_CPhase_cross_power_spectrum(infile):
                         dpoolgrp = smplgrp[dpool]
                         keys = ['diagoffsets', 'diagweights', 'axesmap', 'nsamples_incoh', 'nsamples_coh']
                         for key in keys:  
-                            if isinstance(dpoolgrp[key], h5py.Group):
-                                xcpdps[smplng][dpool][key] = {}
-                                for subkey in dpoolgrp[key]:
-                                    xcpdps[smplng][dpool][key][int(subkey)] = dpoolgrp[key][subkey].value                                
-                            elif isinstance(dpoolgrp[key], h5py.Dataset):
-                                xcpdps[smplng][dpool][key] = dpoolgrp[key].value
-                            else:
-                                raise TypeError('Invalid h5py data type encountered')
+                            if key in dpoolgrp:
+                                if isinstance(dpoolgrp[key], h5py.Group):
+                                    xcpdps[smplng][dpool][key] = {}
+                                    for subkey in dpoolgrp[key]:
+                                        xcpdps[smplng][dpool][key][int(subkey)] = dpoolgrp[key][subkey].value                                
+                                elif isinstance(dpoolgrp[key], h5py.Dataset):
+                                    xcpdps[smplng][dpool][key] = dpoolgrp[key].value
+                                else:
+                                    raise TypeError('Invalid h5py data type encountered')
                         for stat in ['mean', 'median']:
                             if stat in dpoolgrp:
-                                valunits = dpoolgrp[stat].attrs['units']
-                                xcpdps[smplng][dpool][stat] = dpoolgrp[stat].value * U.Unit(valunits)
+                                if isinstance(dpoolgrp[stat], h5py.Dataset):
+                                    valunits = dpoolgrp[stat].attrs['units']
+                                    xcpdps[smplng][dpool][stat] = dpoolgrp[stat].value * U.Unit(valunits)
+                                elif isinstance(dpoolgrp[stat], h5py.Group):
+                                    xcpdps[smplng][dpool][stat] = []
+                                    for diagcomb_ind in range(len(dpoolgrp[stat].keys())):
+                                        if 'diagcomb_{0}'.format(diagcomb_ind) in dpoolgrp[stat]:
+                                            valunits = dpoolgrp[stat]['diagcomb_{0}'.format(diagcomb_ind)].attrs['units']
+                                            xcpdps[smplng][dpool][stat] += [dpoolgrp[stat]['diagcomb_{0}'.format(diagcomb_ind)].value * U.Unit(valunits)]
     return xcpdps  
 
 ################################################################################

@@ -1,3 +1,14 @@
+From acdf710 (closure-adv):
+==========================
+
+In prisim/bispectrum_phase.py,
+
+(*) Modify function save_CPhase_cross_power_spectrum() to save also the
+output of function incoherent_cross_power_spectrum_average()
+(*) Modify function read_CPhase_cross_power_spectrum() to also read the
+what is saved using function save_CPhase_cross_power_spectrum() that
+came as the output of function incoherent_cross_power_spectrum_average()
+
 From c8b09de (master):
 =====================
 
