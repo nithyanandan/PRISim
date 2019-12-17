@@ -1,3 +1,13 @@
+From bb083bc (closure-adv):
+==========================
+
+(*) Add folder prisim/examples/codes/ and its contents to repo
+
+In setup.py,
+
+(*) Include folder prisim/examples/codes/ and its contents during
+installation
+
 From acdf710 (closure-adv):
 ==========================
 

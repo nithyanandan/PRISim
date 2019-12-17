@@ -1,0 +1,1352 @@
+########## Directory Structure information ######### 
+
+dirStruct   :
+                                # Directory information
+
+    projectdir      : '/lustre/aoc/projects/hera/nthyagar/data/HERA/IDR2.1/ClosurePhase/Binned_Data_0100_0220/'
+                                # Project folder
+
+    datadir         : 'EQ28/YY/'
+                                # Data folder under the project folder
+
+    modeldir        : '/lustre/aoc/projects/hera/nthyagar/data/HERA/IDR2.1/ClosurePhase/models/bispectrum_phase/'
+
+    infiles         : ['lst_0100_0220_eq28yy.npz']
+                                # NPZ files containing closure data
+
+    model_npzfiles  : ['EQ28XX_GLEAM_all_RA_1.6_FOV_30_ephemeris_HERA61_noiseless.npz', 'EQ28XX_HI_21cmfast_FaintGalaxies_fiducial_GLEAM_all_RA_1.6_FOV_30_ephemeris_HERA61_noiseless.npz']
+                                # NPZ files of closure spectra of
+                                # models for overplotting. Accepted
+                                # values are null or list of NPZ files
+
+    hdf5_infile     : 'EQ28YY_LST_1.6hr.hdf5'
+                                # HDF5 file containing closure data
+                                # which was converted from the NPZ
+                                # file above
+
+    model_hdf5files : ['EQ28XX_GLEAM_all_RA_1.6_FOV_30_ephemeris_HERA61_noiseless.hdf5', 'EQ28XX_HI_21cmfast_FaintGalaxies_fiducial_GLEAM_all_RA_1.6_FOV_30_ephemeris_HERA61_noiseless.hdf5']
+
+                                # HDF5 files of closure spectra of
+                                # models for overplotting. Accepted
+                                # values are null or list of NPZ files
+
+    model_labels    : ['FG', 'FG+HI']
+                                # Model labels associated with each of
+                                # the inputs in model_hdf5files
+
+    visfile         : # '/lustre/aoc/projects/hera/nthyagar/data/HERA/IDR2.1/ClosurePhase/refvis'
+                      '/lustre/aoc/projects/hera/nthyagar/data/HERA/IDR2.1/ClosurePhase/models/visibilities/GLEAM_all_RA_1.6_FOV30_ephemeris/RA_1.6_transit_NFbeam_120x10.7sec_1024x97.7kHz/simdata/simvis'
+                                # Full path to HDF5 file containing 
+                                # visibilities that will be used to 
+                                # calibrate closure phase power
+                                # spectra. 
+
+    visfiletype     : 'prisim'
+                                # Visibility file type. Accepted
+                                # values are 'hdf5' and 'prisim'. If
+                                # set to 'prisim', visfile must be
+                                # an output of PRISim
+
+    figdir          : 'figures/'
+                                # Figures directory
+
+########## System parameters ##########
+
+telescope   :
+                                # Telescope parameters
+
+    latitude        : -30.7224
+                                # Latitude in degrees
+                                # -26.701 for MWA,
+                                # -30.7224 for HERA, PAPER
+                                # 34.079 for VLA,
+                                # 19.0965 for GMRT
+                                # -26.82472208 for SKA low
+                                # -25.887222 for HIRAX
+
+    longitude       : +21.4278
+                                # Longitude of observatory (in degrees)
+                                # Default (null) implies 0.0 degrees
+                                # corresponding to GMT.
+                                # -107.6184 for VLA, +116.670815 for 
+                                # MWA, +21.4278 for PAPER and HERA,
+                                # +74.0497 for GMRT,
+                                # +116.7644482 for SKA-Low
+                                # +27.684722 for HIRAX
+
+########## Processing parameters ##########
+
+preProcessing   :
+                                # Processing parameters
+
+    action          : true
+                                # If true, perform processing to
+                                # create processed NPZ files
+
+    append          : false
+                                # If set to true, append input files
+                                # along axis specified by appendaxis
+                                # below. If set to false (default),
+                                # process each file separately
+
+    appendaxis      : 'obsid'
+                                # Axis along which to append input
+                                # files. Will only apply if append
+                                # is set to true. Accepted values are
+                                # 'obsid', 'triad', 'freq', and 'time'
+
+    flagchans       : [511]
+                                # Channels to flag
+
+    flagants        : [50]
+                                # Antenna numbers to flag
+
+    daybinsize      : null
+                                # Averaging time (in days) across
+                                # multiple days before data is
+                                # processed. If set to null (default),
+                                # no smoothing across days is done in
+                                # pre-processing steps, which is
+                                # equivalent to leaving the native
+                                # day resolution in place. One and
+                                # only one of daybinsize or ndaybins
+                                # (see below) can be set. 
+
+    ndaybins        : 2
+                                # Number of bins after averaging in
+                                # days. One and only one of daybinsize 
+                                # (see above) or ndaybins can be set. 
+
+    lstbinsize      : 60.0
+                                # Averaging time (in seconds) before
+                                # data is processed. If set to null
+                                # (default), no time averaging is
+                                # done in pre-processing steps
+                                # (which is equivalent to leaving the
+                                # native time interval in data)
+
+    freq_resolution : 97656.25 
+                                # Frequency resolution (in Hz)
+
+    band_center     : 150000000.0
+                                # in Hz
+
+########## Delay Spectrum parameters ##########
+
+delaySpectrum   :
+
+    pad             : 1.0
+                                # Padding of spectrum before Fourier
+                                # Transform
+
+    applyflags      : false
+                                # If set to true (default), weights
+                                # from flagging will be applied to
+                                # the delay spectrum. If false, the
+                                # weights from flagging will be
+                                # ignored (all data regardless of
+                                # flags will be used)
+
+    subband         : 
+                                # Subband parameters
+                                
+        freq_center     : [126500000.0, 163000000.0]
+                                # subband center frequencies (in Hz)
+                                # as a list
+
+        bw_eff          : [10000000.0, 10000000.0]
+                                # effective bandwidths (in Hz) of
+                                # subbands. Specify as a list with
+                                # same number of elements as in
+                                # freq_center
+
+        shape           : 'bhw'
+                                # subband window shape to be applied
+                                # to each of the subband windows.
+                                # Accepted values are 'bhw'
+                                # (Blackman-Harris), 'bnw' (Blackman-
+                                # Nuttall) and 'rect' (rectangular)
+
+        fftpow          : 2.0
+                                # FFT of the window function will be
+                                # raised to this power. Default=1.0.
+                                # Value of 2 implies a window convolved
+                                # with itself to make a new window
+
+    bl              : [
+                       [29.2, 0.0, 0.0],
+                       [14.6, 25.287942, 0.0],
+                       [-14.6, 25.287942, 0.0],
+                      ]
+                                # Reference Baseline vectors (in m)
+                                # that form the triad corresponding
+                                # to infiles
+
+    bltol           : 0.1
+                                # Baseline lookup tolerance (in m).
+                                # Baseline vectors in blref will be
+                                # looked up against those in visfile
+                                # to within this tolerance.
+
+########## Figure/Plot parameters ##########
+
+plot        :
+
+    '1'         :
+                                # Plot closure phase spectra and
+                                # flags/weights for given obsid
+                                # index and maybe antenna
+                                # triplet with mean, median and
+                                # deviation info
+        action      : false
+
+    1a          :
+                                # Plot flags and weights for given
+                                # triad as a time-frequency plot
+
+        action      : false
+
+        triad       : null
+                                # Triad to plot for
+
+    1b          :
+                                # Plot flags and weights including
+                                # subband frequency weights for given
+                                # triad as a time-frequency plot
+
+        action      : false
+
+        triad       : [0,23,25]
+                                # Triad to plot for
+
+    1c          :
+                                # Plot flags and weights for all
+                                # triads as a time-frequency plot
+
+        action      : false
+
+    1d          :
+                                # Plot closure phase spectra from 
+                                # the specified data file for
+                                # given triplet(s), and specific
+                                # averaging interval(s)
+
+        action      : false
+
+        datastage   : 'prelim'
+                                # Which data to plot. Accepted values
+                                # are 'native' (default) before
+                                # smoothing in time bins, or 'prelim'
+                                # (after smoothing in time)
+
+        statistic   : 'median'
+                                # Statistic to plot for closure phase.
+                                # Accepted values are 'mean' and
+                                # 'median' (default). Applies only
+                                # if datastage is set to 'prelim'
+                                
+        selection   :
+                                # Selections on triads and times
+
+            triads      : null
+                          # [
+                           # [  0,   1,   2],
+                           # [ 11,  12,  13],
+                           # [ 12,  13,  14],
+                           # [ 23,  24,  25],
+                           # [ 24,  25,  26],
+                           # [ 25,  26,  27],
+                           # [ 36,  37,  38],
+                           # [ 37,  38,  39],
+                           # [ 38,  39,  40],
+                           # [ 39,  40,  41],
+                           # [ 50,  51,  52],
+                           # [ 51,  52,  53],
+                           # [ 52,  53,  54],
+                           # [ 53,  54,  55],
+                           # [ 65,  66,  67],
+                           # [ 66,  67,  68],
+                           # [ 67,  68,  69],
+                           # [ 68,  69,  70],
+                           # [ 69,  70,  71],
+                           # [ 82,  83,  84],
+                           # [ 83,  84,  85],
+                           # [ 84,  85,  86],
+                           # [ 85,  86,  87],
+                           # [ 86,  87,  88],
+                           # [120, 121, 122],
+                           # [121, 122, 123],
+                           # [122, 123, 124],
+                           # [141, 142, 143]
+                          # ]        
+                                # Triads to select and process for
+                                # plotting closure phase spectra.
+                                # If set to null (default), all
+                                # triads will be selected. Otherwise,
+                                # must be specified as a list of
+                                # 3-element lists
+
+            lstrange    : [1.5, 2.1]
+                          # [0]
+                                # LST range (in hours) to select and 
+                                # process in the data. If set to null
+                                # (default), all LST range in the
+                                # data will be selected for
+                                # processing
+
+            dayind      : 0
+                                # Day index to select and process in
+                                # the data. Default=0
+
+        sparseness  : 10.0
+                                # Factor by which data points will
+                                # be reduced in size. If set to 1.0
+                                # (default), all points in the
+                                # spectra will be plotted and
+                                # the resulting graphics file may be
+                                # large in size. Otherwise, it must
+                                # be set to factor > 1.0 for reduncing
+                                # the number density of points and the
+                                # resulting file size
+
+        applyflags  : false
+                                # If true (default), flagged data will
+                                # not be plotted. If false, flagged
+                                # will also be plotted 
+
+    1e          :
+                                # Plot median closure phase spectra 
+                                # from the specified data file for a
+                                # given day, triplet, and all
+                                # averaging intervals
+
+        action      : false
+
+        infile      : 'EQ14'
+                                # Must be one of the files loaded in
+                                # infiles parameter above
+
+        triplet     : [25, 26, 39] # EQ14
+                      # [55, 70, 71] # EQ14down
+                      # [25, 26, 39] # EQ14up
+                      # [65, 66, 82] # EQ14new
+                      # [25, 26, 39] # EQ14old
+                      # [25, 27, 54] # EQ28
+                      # [25, 26, 27] # EW14
+                      # [25, 67, 70] # EQ42
+                                # Triplet of antenna numbers and must
+                                # be one of the triads in the infile
+
+        obsind      : 0
+                                # Obsid index to plot
+
+    1f          :
+                                # Plot median closure phase spectra 
+                                # from the specified data file for a
+                                # given day, all triplets, and a
+                                # specified averaging interval
+
+        action      : false
+
+        infiles     : ['EW14', 'EQ14', 'EQ28']
+                                # Must be one of the files loaded in
+                                # infiles parameter above
+
+        obsind      : 0
+                                # Obsid index to plot
+        avgind      : 0
+                                # Index along time-averaged axis
+
+        labels      : ['EWs', 'EQ14', 'EQ29']
+                                # Labels corresponding to the infile
+                                # tags above. If set to null, the
+                                # infile names/tags will be used as
+                                # labels
+
+    1g          :
+                                # Plot difference of median closure
+                                # spectra between one set of triads
+                                # and another
+
+        action      : false
+                                # Difference will be computed as
+                                # infile1 - infile2
+
+        infile1     : 'EQ14new'
+                                # Must be one of the files loaded in
+                                # infiles parameter above
+
+        infile2     : 'EQ14old'
+                                # Must be one of the files loaded in
+                                # infiles parameter above
+
+        obsind      : 0
+                                # Obsid index to plot
+        avgind      : 0
+                                # Index along time-averaged axis
+
+    1h          :
+                                # Plot closure spectra deviations
+                                # from mean/median during the
+                                # averaging process and their RMS
+
+        action      : false
+
+        statistic   : 'rms'
+                                # Statistic to plot for closure phase.
+                                # Accepted values are 'mad' and
+                                # 'rms' (default). 
+                                
+        selection   :
+                                # Selections on triads and times
+
+            triads      : null
+                          # [
+                           # [  0,   1,   2],
+                           # [ 11,  12,  13],
+                           # [ 12,  13,  14],
+                           # [ 23,  24,  25],
+                           # [ 24,  25,  26],
+                           # [ 25,  26,  27],
+                           # [ 36,  37,  38],
+                           # [ 37,  38,  39],
+                           # [ 38,  39,  40],
+                           # [ 39,  40,  41],
+                           # [ 50,  51,  52],
+                           # [ 51,  52,  53],
+                           # [ 52,  53,  54],
+                           # [ 53,  54,  55],
+                           # [ 65,  66,  67],
+                           # [ 66,  67,  68],
+                           # [ 67,  68,  69],
+                           # [ 68,  69,  70],
+                           # [ 69,  70,  71],
+                           # [ 82,  83,  84],
+                           # [ 83,  84,  85],
+                           # [ 84,  85,  86],
+                           # [ 85,  86,  87],
+                           # [ 86,  87,  88],
+                           # [120, 121, 122],
+                           # [121, 122, 123],
+                           # [122, 123, 124],
+                           # [141, 142, 143]
+                          # ]        
+                                # Triads to select and process for
+                                # plotting closure phase spectra.
+                                # If set to null (default), all
+                                # triads will be selected. Otherwise,
+                                # must be specified as a list of
+                                # 3-element lists
+
+            lstrange    : [1.6, 2.0]
+                          # [0]
+                                # LST range (in hours) to select and 
+                                # process in the data. If set to null
+                                # (default), all LST range in the
+                                # data will be selected for
+                                # processing
+
+            dayind      : 0
+                                # Day index to select and process in
+                                # the data. Default=0
+
+        freq_bins   : [115000000.0, 120000000.0, 125000000.0, 130000000.0, 135000000.0]
+                      # [155000000.0, 160000000.0, 165000000.0, 170000000.0, 175000000.0]
+                                # Frequency bins to estimate the
+                                # statistic in. If set to null,
+                                # no frequency binning is performed
+                                # and the statistic is estimated in
+                                # all frequency channels 
+
+    '2'         :
+                                # Plot closure phase delay power
+                                # spectra
+
+        action      : true
+
+        PS_dir      : 'PS/'
+                                # Folder containing power spectrum
+                                # relative to the data directory
+
+        infile_pfx_a: 'xCPDPS_collapse_axes_13'
+                                # HDF5 File with this prefix will be
+                                # searched for in the PS_dir and
+                                # cross-power spectrum information
+                                # will be loaded for axes 1 (LST),
+                                # and 3 (triads) collapsed along
+                                # their diagonals. If set to null,
+                                # cross-power spectrum will be
+                                # computed based on the parameters
+                                # specified below.
+
+        outfile_pfx_a: 'xCPDPS_collapse_axes_13'
+                                # HDF5 file with this prefix will be 
+                                # saved under PS_dir for easier loading
+                                # afterwards for axes 1 (LST),
+                                # and 3 (triads) collapsed along
+                                # their diagonals. If set to null, 
+                                # this information will not be saved.
+
+        infile_pfx_b: 'xCPDPS_collapse_axes_123'
+                                # HDF5 File with this prefix will be
+                                # searched for in the PS_dir and
+                                # cross-power spectrum information
+                                # will be loaded for axes 1 (LST),
+                                # 2 (days), and 3 (triads) collapsed 
+                                # along their diagonals. If set to 
+                                # null, cross-power spectrum will be
+                                # computed based on the parameters
+                                # specified below.
+
+        outfile_pfx_b: 'xCPDPS_collapse_axes_123'
+                                # HDF5 file with this prefix will be 
+                                # saved under PS_dir for easier loading
+                                # afterwards for axes 1 (LST),
+                                # 2 (days), and 3 (triads) collapsed 
+                                # along their diagonals. If set to 
+                                # null, this information will not be
+                                # saved.
+
+        sampling    : 'resampled'
+                                # Sampling type from which delay power
+                                # spectrum will be plotted. Accepted
+                                # values are 'resampled' (default) and
+                                # 'oversampled'
+
+        statistic   : 'median'
+                                # Delay power spectra obtained from
+                                # this statistic of the closure phases
+                                # will be plotted. Accepted values are
+                                # 'mean' and 'median'. If set to null,
+                                # both will be plotted.
+
+        selection   :
+                                # Selections on triads and times
+
+            triads      : null
+                              # [
+                              #  [ 11,  12,  13],
+                              #  [ 12,  13,  14],
+                              #  [ 23,  24,  25],
+                              #  [ 24,  25,  26],
+                              #  [ 25,  26,  27],
+                              #  [ 36,  37,  38],
+                              #  [ 37,  38,  39],
+                              #  [ 38,  39,  40],
+                              #  [ 39,  40,  41],
+                              #  [ 51,  52,  53],
+                              #  [ 52,  53,  54],
+                              #  [ 53,  54,  55],
+                              #  [ 65,  66,  67],
+                              #  [ 69,  70,  71],
+                              #  [ 82,  83,  84],
+                              #  [ 83,  84,  85],
+                              #  [ 84,  85,  86],
+                              #  [ 85,  86,  87],
+                              #  [ 86,  87,  88],
+                              #  [ 98,  99, 100],
+                              #  [ 99, 100, 101],
+                              #  [100, 101, 102],
+                              #  [101, 102, 103],
+                              #  [118, 119, 120],
+                              #  [119, 120, 121],
+                              #  [120, 121, 122],
+                              #  [121, 122, 123],
+                              #  [122, 123, 124],
+                              #  [136, 137, 138],
+                              #  [137, 138, 139],
+                              #  [138, 139, 140],
+                              #  [139, 140, 141],
+                              #  [140, 141, 142],
+                              #  [141, 142, 143]
+                              # ]       
+    
+                              # [[0,1,2],
+                              #  [11,12,13],
+                              #  [23,24,25],
+                              #  [36,37,38]
+                              # ]
+                                # Triads to select and process for
+                                # delay power spectrum. If set to
+                                # null (default), all triads will be
+                                # selected. Otherwise, must be
+                                # specified as a list of 3-element
+                                # lists
+
+            lstrange    : [1.6, 2.0]
+                                # LST range (in hours) to select and 
+                                # process in the data. If set to null
+                                # (default), either indices specified
+                                # in 'lst' below will be used or if
+                                # not, all LST range in the data will
+                                # be selected for processing
+
+            lst         : # null
+                          [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52]
+                              # [14, 15, 16, 17]
+                                # LST indices to select and process
+                                # in the data. Will be used only if
+                                # lstrange is set to null. If set to 
+                                # null (default), all LST indices in 
+                                # the data will be selected for
+                                # processing
+
+            dlst_range  : [1.1]
+                                # LST offset (in minutes) to be used
+                                # cross-multiplication for incoherent
+                                # cross power spectrum. If set to null,
+                                # only offsets of values 0 and 1 (in
+                                # units of coherent LST averaging used
+                                # earlier) will be used. If a single
+                                # number is specified, all offsets up to
+                                # this number will be considered. Else,
+                                # a range of LST offsets (two elements)
+                                # must be specified
+
+            days        : null
+                                # Day indices to select and process
+                                # in the data. If set to null
+                                # (default), all Day indices in the
+                                # data will be selected for
+                                # processing
+
+        cohax       : null
+                                # Coherent axes over which closure
+                                # phases can be coherently averaged
+                                # Must be set to null (default = 2,3
+                                # for Days and triads axes)
+                                # or a list of axes made of (1 for
+                                # LST, 2 for days, 3 for triads).
+                                # There can be no intersecion with
+                                # incohax
+
+        incohax     : [1, 2, 3]
+                                # Incoherent axes over which closure
+                                # phases power spectra can be 
+                                # incoherently averaged. Must be set to 
+                                # null (default = 1 for LST axis) or a
+                                # list of axes made of (1 for
+                                # LST, 2 for days, 3 for triads)
+                                # There can be no intersecion with
+                                # cohax
+
+        collapseax_a: [1, 3]
+                                # The incoherent axes over which the
+                                # results must be collapsed. This must
+                                # be a subset of incohax
+
+        collapseax_b: [1, 2, 3]
+                                # The incoherent axes over which the
+                                # results must be collapsed. This must
+                                # be a subset of incohax
+
+        xlim        : null
+                                # X-axis limits (k_parallel) in units
+                                # of h/Mpc. If set to null, full range
+                                # will be plotted.
+
+        datapool    : ['whole']
+                                # Pool of data from which plots are to
+                                # be made. Accepted values are 'whole',
+                                # 'submodel', and 'residual'
+
+        units       : 'K'
+                                # Units of power spectrum to be in
+                                # squared 'K' (default) or squared 'Jy'
+
+        errtype     : ['ssdiff']
+                                # Type of error bar(s) to plot.
+                                # Accepted values are 'ssdiff'
+                                # (subsample difference) and 'psdiff'
+                                # (power spectrum difference from
+                                # different realizations)
+
+        nsigma      : 1.0
+                                # Number of sigma to plot
+
+        beaminfo    :
+                                # Beam information if units are set to
+                                # 'K'
+
+            beamfile    : 'NF_HERA_antenna_power_pattern_99-201_MHz_nside_128.uvbeam'
+                                # Location of the beam file. If filepath
+                                # type is 'custom', full path must be
+                                # specified. If filepath type is set to
+                                # 'default', only the file name is to be
+                                # specified. The absolute path will be
+                                # determined from PRISim installation.
+                                # If set to null, it will be assumed to
+                                # be an analytic beam and will be
+                                # determined based on the inputs in the
+                                # telescope parameter below
+
+            filepathtype: 'default'
+                                # File path type for the beam file.
+                                # Accepted values are 'default' and
+                                # 'custom'. In the latter case,
+                                # beamfile must contain the full path
+                                # to the beam
+
+            filefmt     : 'UVbeam'
+                                # Beam file format for external beam
+                                # file if 'beamfile' parameter is set.
+                                # Accepted values are 'HDF5', 'FITS',
+                                # and 'UVBeam' (pyuvdata UVBeam object)
+
+            telescope   :
+                                # Telescope information. Will be used
+                                # if 'beamfile' parameter is set to
+                                # null.
+
+                id          : 'hera'
+                                # Telescope ID. If set, preset values
+                                # will be automatically determined and
+                                # used in calculation of the beam. If
+                                # custom values are to be used, comment
+                                # out this 'id' parameter completely
+                                # Accepts 'mwa', 'vla', 'gmrt',
+                                # 'hera', 'mwa_dipole', 'custom',
+                                # 'paper', 'mwa_tools', 'hirax'
+
+                shape       : 'dish'
+                                # Shape of the antenna element
+                                # Accepted values are 'dish', 'dipole',
+                                # 'gaussian', and 'delta' or null 
+                                # (defaults to 'delta')
+                
+                size        : 14.0
+                                # Size of antenna element (in m)
+                                # diameter for dish, FWHM for
+                                # gaussian, linear size for
+                                # dipole
+                    
+                orientation : [90.0, 270.0]
+                                # Orientation of antenna element
+                                # Applicable in case of dipoles
+                                # Coordinate system as specified in
+                                # key 'ocoords'. Must contain two
+                                # elements for Alt and Az if 'ocoords'
+                                # is set to 'altaz' or l and m if
+                                # 'ocoords' is set to 'dircos'
+                                # [Alt, Az] in degrees (altaz) or
+                                # [l,m] (dircos)
+                    
+                ocoords     : 'altaz'
+                                # Coordinate system describing the
+                                # orientation of antenna element.
+                                # Accepted values are 'altaz', 'dircos'
+                    
+                phased_array: false
+                                # If true, the antenna is a phased
+                                # array of antenna elements and
+                                # phased array parameters specified
+                                # below are used.
+                                # Default = false
+                    
+                ground_plane: null
+                                # Ground plane height (in m). Default
+                                # (null) means no ground plane
+
+            nside       : 128
+                                # NSIDE parameter for generating the
+                                # power pattern
+
+            pol         : 'Y'
+                                # Beam polarization. Accepted values
+                                # are 'X' and 'Y'
+
+            chromatic   : true
+                                # if false, the beam is the same at
+                                # all frequencies and the beam at
+                                # reference frequency will be used for
+                                # all frequencies. if true, beam
+                                # scales with frequency
+
+            select_freq : 150000000.0
+                                # Frequency (Hz) to use for beam in 
+                                # case of achromatic usage of the beam
+                                # If set to null (default), it defaults
+                                # to using value defined in freq
+
+            spec_interp : 'cubic'
+                                # method to interpolate external beam
+                                # along spectral (frequency) direction.
+                                # allowed values are 'fft' (default),
+                                # 'linear', 'bilinear' or 'cubic'.
+                                # Applies only if chromatic is set to
+                                # True
+
+        modelinfo   :
+                                # Model information to be plotted
+
+            PS_dir      : ['/lustre/aoc/projects/hera/nthyagar/data/HERA/IDR2.1/ClosurePhase/models/bispectrum_phase/PS/',
+                           '/lustre/aoc/projects/hera/nthyagar/data/HERA/IDR2.1/ClosurePhase/models/bispectrum_phase/PS/'
+                          ]
+                                # List of input folders containing
+                                # model cross-power spectra, one for
+                                # each model. Input and output files
+                                # specified by infile_pfx and
+                                # outfile_pfx will be found in this
+                                # folder. 
+
+            infile_pfx_a: ['xCPDPS_collapse_axes_13',
+                           'xCPDPS_collapse_axes_13'
+                          ]
+                                # List of infile prefixes for 
+                                # cross-power spectrum of models
+                                # for axes 1 (LST), and 3 (triads)
+                                # collapsed along their diagonals. If 
+                                # set to null, it will be determined 
+                                # based on the model parameters 
+                                # specified below. Otherwise, it will 
+                                # be read in from the specified files. 
+
+            outfile_pfx_a: ['xCPDPS_collapse_axes_13',
+                            'xCPDPS_collapse_axes_13'
+                           ]
+                                # List of outfile prefixes for 
+                                # cross-power spectrum of models.
+                                # for axes 1 (LST), and 3 (triads)
+                                # collapsed along their diagonals. If 
+                                # set to null, the model cross-power
+                                # spectra will not be saved. Otherwise,
+                                # they will be saved under the respective
+                                # PS_dir items
+
+            infile_pfx_b: ['xCPDPS_collapse_axes_123',
+                           'xCPDPS_collapse_axes_123'
+                          ]
+                                # List of infile prefixes for 
+                                # cross-power spectrum of models
+                                # for axes 1 (LST), 2 (days), and 
+                                # 3 (triads) collapsed along their 
+                                # diagonals. If set to null, it 
+                                # will be determined based on the 
+                                # model parameters specified below. 
+                                # Otherwise, it will be read in
+                                # from the specified files. 
+
+            outfile_pfx_b: ['xCPDPS_collapse_axes_123',
+                            'xCPDPS_collapse_axes_123'
+                           ]
+                                # List of outfile prefixes for 
+                                # cross-power spectrum of models.
+                                # for axes 1 (LST), 2 (days), and 3 
+                                # (triads) collapsed along their 
+                                # diagonals. If set to null, the 
+                                # model cross-power spectra will not 
+                                # be saved. Otherwise, they will be 
+                                # saved under the respective PS_dir
+                                # items
+
+            mdl_ndaybins: [2, 2]
+                                # Number of bins after averaging in
+                                # days in the models. Must be a list
+                                # with each element a scalar integer
+                                # corresponds to a model specified
+                                # in model_hdf5files
+
+            mdl_day     : [
+                           [
+                            [0, 0],
+                            [0, 0]
+                           ],
+                          ]
+                                # These tuple indices will be searched for 
+                                # as a day index in day x day matrix in
+                                # cross-power spectra of models. Must be
+                                # a list of lists, where each sublist
+                                # corresponds to a model specified in
+                                # model_hdf5files.
+
+            mdl_cohax   : [null, null]
+                                # Coherent axes over which closure
+                                # phases for models can be coherently
+                                # averaged. Must be a list where each
+                                # element corresponds to a model
+                                # specified in model_hdf5files. Each
+                                # of these elements can be null
+                                # (default = 2,3 for Days and triads
+                                # axes) or a sublist made of (1 for
+                                # LST, 2 for days, 3 for triads).
+                                # There can be no intersecion with
+                                # mdl_incohax
+
+            mdl_incohax : [
+                           [1, 2, 3],
+                           [1, 2, 3]
+                          ]
+                                # Incoherent axes over which closure
+                                # phases power spectra for models can be 
+                                # incoherently averaged. Must be a list
+                                # of lists where each sublist corresponds
+                                # to a model specified in model_hdf5files.
+                                # Each sublist must be set to 
+                                # null (default = 1 for LST axis) or a
+                                # list of axes made of (1 for
+                                # LST, 2 for days, 3 for triads)
+                                # There can be no intersecion with
+                                # cohax
+
+            mdl_collapax_a: [
+                             [1, 3],
+                             [1, 3]
+                            ]
+                                # The incoherent axes over which the
+                                # results for models must be collapsed. 
+                                # This must be a list of lists where
+                                # each sublist corresponds to one mode
+                                # specified in model_hdf5files. Each
+                                # of these ublists must be a subset of
+                                # the corresponding sublist in the
+                                # input mdl_incohax
+
+            mdl_collapax_b: [
+                             [1, 2, 3],
+                             [1, 2, 3]
+                            ]
+                                # The incoherent axes over which the
+                                # results for models must be collapsed. 
+                                # This must be a list of lists where
+                                # each sublist corresponds to one mode
+                                # specified in model_hdf5files. Each
+                                # of these ublists must be a subset of
+                                # the corresponding sublist in the
+                                # input mdl_incohax
+
+        subselection:
+                                # Relevant selection to be _plotted_
+                                # If multiple points are selected, the
+                                # power spectrum over these points will
+                                # be averaged before plotting
+
+            spw         : [0, 1]
+                                # Spectral window index. Must be a 
+                                # list of spectral window indices. if 
+                                # set to null, all spectral windows
+                                # are plotted
+
+            lstdiag     : [0, 1]
+                                # This index will be searched for in
+                                # the LST diagonal offsets as a LST index
+                                # difference. If not found, the index will
+                                # be used directly. 0 => average 
+                                # cross-power of LST0xLST0, LST1xLST1, 
+                                # 1 => average cross-power of LST1xLST2,
+                                # LST2xLST3, etc.
+
+            day         : [
+                           [0, 1]
+                          ]
+                                # These tuple indices will be searched for 
+                                # as a day index in day x day matrix
+
+            triaddiag   : [0]
+                                # This index will be searched for in
+                                # the triad diagonal offsets as a triad 
+                                # index difference. It must be a list
+                                # and contain only one element
+        
+
+    '2a'        :
+                                # Plot power spectra including
+                                # individual models specified in
+                                # model_hdf5files
+
+        action      : false
+
+
+    '2b'        :
+                                # Same as 2a but y-axis contains both
+                                # negative and positive values while
+                                # still employing logarithmic scale
+                                # mostly, and linear scale for small
+                                # values around zero.
+
+        action      : false
+
+    '2c'        :
+                                # Plot PS after incoherent averaging
+                                # over redundant triads, LST diff
+                                # range, and/or other polarization.
+
+        action      : true
+
+        incohax_a   : [
+                       [1, 3],
+                       [1, 3],
+                       [1, 3],
+                       [1, 3]
+                      ]
+                                # Axes over which incoherent averaging
+                                # is to be performed. Specified as a
+                                # of lists, with each list specifying
+                                # the axes of that combination of
+                                # averaging. The diagoffsets below
+                                # specifies for each combination
+                                # which of the diagonal offsets get
+                                # averaged along the specified axes.
+                                # 1=LST, 2=Days, 3=Triads
+
+        diagoffsets_a : [
+                         [[0], [0]],
+                         [[0], [0,1,2,3,4,5,6,7,8,9,
+                                10,11,12,13,14,15,16,17,18,19,
+                                20,21,22,23,24,25,26,27,28,29,
+                                30]],
+                         [[0], [1,2,3,4,5,6,7,8,9,10,
+                                11,12,13,14,15,16,17,18,19,20,
+                                21,22,23,24,25,26,27,28,29,30]],
+                         [[0], [1,2,3,4,5,6,7,8,9,10,
+                                11,12,13,14,15,16,17,18,19,20,
+                                21,22,23,24,25,26,27,28,29,30]]
+                        ]
+                                # Diagonal offsets to be averaged
+                                # along each of the axes specified in
+                                # incohax. It is also specified as a
+                                # list of lists. For each inner list 
+                                # in incohax, and for each element in
+                                # that inner list, a list of diagonal
+                                # offsets is specified here. 
+
+        incohax_b   : [
+                       [1, 2, 3],
+                       [1, 2, 3],
+                       [1, 2, 3],
+                       [1, 2, 3]
+                      ]
+                                # Axes over which incoherent averaging
+                                # is to be performed. Specified as a
+                                # of lists, with each list specifying
+                                # the axes of that combination of
+                                # averaging. The diagoffsets below
+                                # specifies for each combination
+                                # which of the diagonal offsets get
+                                # averaged along the specified axes.
+                                # 1=LST, 2=Days, 3=Triads
+
+        diagoffsets_b : [
+                         [[0], [1], [0]],
+                         [[0], [1], [0,1,2,3,4,5,6,7,8,9,
+                                10,11,12,13,14,15,16,17,18,19,
+                                20,21,22,23,24,25,26,27,28,29,
+                                30]],
+                         [[0], [1], [1,2,3,4,5,6,7,8,9,
+                                10,11,12,13,14,15,16,17,18,19,
+                                20,21,22,23,24,25,26,27,28,29,
+                                30]],
+                         [[0], [-1,0,1], [1,2,3,4,5,6,7,8,9,10,
+                                11,12,13,14,15,16,17,18,19,20,
+                                21,22,23,24,25,26,27,28,29,30]]
+                        ]
+                                # Diagonal offsets to be averaged
+                                # along each of the axes specified in
+                                # incohax. It is also specified as a
+                                # list of lists. For each inner list 
+                                # in incohax, and for each element in
+                                # that inner list, a list of diagonal
+                                # offsets is specified here. 
+
+        kprll_min   : 0.85
+                                # Only values outside of
+                                # |k_prll| >= kprll_min will be used
+                                # in determing a single RMS across the
+                                # k_prll bins. This is not the same
+                                # as determining error bar in each
+                                # k_prll bin. If set to None, values
+                                # in all kprll bins will be used
+
+    '2c_err'    :
+                                # Analysis of the error bars of the
+                                # current data set in comparison to
+                                # another reference data set.
+
+        action      : true
+
+        current_lbl : 'Data'
+                                # label for current data set
+
+        other_label : 'Model'
+                                # label for other data set that the
+                                # current data set will be compared to
+
+        other_pserr_file : '/lustre/aoc/projects/hera/nthyagar/data/HERA/IDR2.1/ClosurePhase/models/bispectrum_phase/PS/xCPDPS_collapse_axes_123_EQ28XX_GLEAM_all_RA_1.6_FOV_30_ephemeris_HERA61_noisy_errinfo_incoh_diag_avg.hdf5'
+                                # Error PS file corresponding to the
+                                # other_label to compare the current
+                                # data set to
+
+    '2d'        :
+                                # Plot PS after incoherent averaging
+                                # over k-bins, in standard PS and
+                                # Delta^2 units
+
+        action      : true
+
+        kbin_min    : null
+                                # Minimum value of k to be binned
+                                # (in h/Mpc)
+
+        kbin_max    : null
+                                # Maximum value of k to be binned
+                                # (in h/Mpc)
+
+        num_kbins   : null
+                                # Number of k-bins
+
+        kbintype    : 'linear'
+                                # Binning interval. Accepted values
+                                # are 'linear' and 'log'
+
+    '2e'        :
+                                # Plot power spectra over individual
+                                # triads
+
+        action      : false
+
+        subselection:
+                                # Relevant selection to be plotted
+                                # If multiple points are selected, the
+                                # power spectrum over these points will
+                                # be averaged before plotting
+
+            spw         : [0, 1]
+                                # Spectral window index. Must be a 
+                                # list of spectral window indices. if 
+                                # set to null, all spectral windows
+                                # are plotted
+
+            lstdiag     : [0, 1]
+                                # This index will be searched for in
+                                # the LST diagonal offsets as a LST index
+                                # difference. If not found, the index will
+                                # be used directly. 0 => average 
+                                # cross-power of LST0xLST0, LST1xLST1, 
+                                # 1 => average cross-power of LST1xLST2,
+                                # LST2xLST3, etc.
+
+            day         : [
+                           [0, 1]
+                          ]
+                                # These tuple indices will be searched for 
+                                # as a day index in day x day matrix
+
+            triaddiag   : [0]
+                                # This index will be searched for in
+                                # the triad diagonal offsets as a triad 
+                                # index difference. 
+
+    '2f'        :
+                                # Plot ratio of peak at zero delay to
+                                # that due to cable delay as a function
+                                # of triad position
+
+        action      : false
+
+        antloc_file : '/data4/HERA_Simulations/simulations/hera_layouts/antenna_positions_350.dat'
+
+        selection   :
+                                # Selections on triads and times
+
+            triads      : null
+                              # [
+                              #  [ 11,  12,  13],
+                              #  [ 12,  13,  14],
+                              #  [ 23,  24,  25],
+                              #  [ 24,  25,  26],
+                              #  [ 25,  26,  27],
+                              #  [ 36,  37,  38],
+                              #  [ 37,  38,  39],
+                              #  [ 38,  39,  40],
+                              #  [ 39,  40,  41],
+                              #  [ 51,  52,  53],
+                              #  [ 52,  53,  54],
+                              #  [ 53,  54,  55],
+                              #  [ 65,  66,  67],
+                              #  [ 69,  70,  71],
+                              #  [ 82,  83,  84],
+                              #  [ 83,  84,  85],
+                              #  [ 84,  85,  86],
+                              #  [ 85,  86,  87],
+                              #  [ 86,  87,  88],
+                              #  [ 98,  99, 100],
+                              #  [ 99, 100, 101],
+                              #  [100, 101, 102],
+                              #  [101, 102, 103],
+                              #  [118, 119, 120],
+                              #  [119, 120, 121],
+                              #  [120, 121, 122],
+                              #  [121, 122, 123],
+                              #  [122, 123, 124],
+                              #  [136, 137, 138],
+                              #  [137, 138, 139],
+                              #  [138, 139, 140],
+                              #  [139, 140, 141],
+                              #  [140, 141, 142],
+                              #  [141, 142, 143]
+                              # ]       
+    
+                              # [[0,1,2],
+                              #  [11,12,13],
+                              #  [23,24,25],
+                              #  [36,37,38]
+                              # ]
+                                # Triads to select and process for
+                                # delay power spectrum. If set to
+                                # null (default), all triads will be
+                                # selected. Otherwise, must be
+                                # specified as a list of 3-element
+                                # lists
+
+            lst         : # null
+                          [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52]
+                              # [14, 15, 16, 17]
+                                # LST indices to select and process
+                                # in the data. If set to null
+                                # (default), all LST indices in the
+                                # data will be selected for
+                                # processing
+
+            dlst_range  : [1.1]
+                                # LST offset (in minutes) to be used
+                                # cross-multiplication for incoherent
+                                # cross power spectrum. If set to null,
+                                # only offsets of values 0 and 1 (in
+                                # units of coherent LST averaging used
+                                # earlier) will be used. If a single
+                                # number is specified, all offsets up to
+                                # this number will be considered. Else,
+                                # a range of LST offsets (two elements)
+                                # must be specified
+
+            days        : null
+                                # Day indices to select and process
+                                # in the data. If set to null
+                                # (default), all Day indices in the
+                                # data will be selected for
+                                # processing
+
+        cohax       : null
+                                # Coherent axes over which closure
+                                # phases can be coherently averaged
+                                # Must be set to null (default = 2,3
+                                # for Days and triads axes)
+                                # or a list of axes made of (1 for
+                                # LST, 2 for days, 3 for triads).
+                                # There can be no intersecion with
+                                # incohax
+
+        incohax     : [1, 2, 3]
+                                # Incoherent axes over which closure
+                                # phases power spectra can be 
+                                # incoherently averaged. Must be set to 
+                                # null (default = 1 for LST axis) or a
+                                # list of axes made of (1 for
+                                # LST, 2 for days, 3 for triads)
+                                # There can be no intersecion with
+                                # cohax
+
+        collapseax  : [1]
+                                # The incoherent axes over which the
+                                # results must be collapsed. This must
+                                # be a subset of incohax
+
+        statistic   : 'median'
+                                # Delay power spectra obtained from
+                                # this statistic of the closure phases
+                                # will be plotted. Accepted values are
+                                # 'mean' and 'median'. If set to null,
+                                # both will be plotted.
+
+        datapool    : 'whole'
+                                # Pool of data from which plots are to
+                                # be made. Accepted values are 'whole',
+                                # 'submodel', and 'residual'
+
+        subselection:
+                                # Relevant selection to be plotted
+                                # If multiple points are selected, the
+                                # power spectrum over these points will
+                                # be averaged before plotting
+
+            spw         : null
+                                # Spectral window index. Must be a 
+                                # list of spectral window indices. if 
+                                # set to null, all spectral windows
+                                # are plotted
+
+            lstdiag     : [0, 1]
+                                # This index will be searched for in
+                                # the LST diagonal offsets as a LST index
+                                # difference. If not found, the index will
+                                # be used directly. 0 => average 
+                                # cross-power of LST0xLST0, LST1xLST1, 
+                                # 1 => average cross-power of LST1xLST2,
+                                # LST2xLST3, etc.
+
+            day         : [
+                           [0, 0],
+                           [0, 1]
+                          ]
+                                # These tuple indices will be searched for 
+                                # as a day index in day x day matrix
+
+    '3'         :
+                                # Plot delay power spectrum from the
+                                # visibilities
+
+        action      : true
+
+        21cm_PS_dir : '/lustre/aoc/users/nthyagar/data/EoR_models/21cmFAST/Andrei_Mesinger/Faint_galaxies_fiducial_1024/PS/21cm_PS/'
+
+        sim_rootdir : '/lustre/aoc/projects/hera/nthyagar/data/HERA/IDR2.1/ClosurePhase/models/visibilities/'
+                                # Folder that contains model visibilities
+
+        visdirs     : ['GLEAM_all_RA_1.6_FOV30_ephemeris/RA_1.6_transit_NFbeam_120x10.7sec_1024x97.7kHz/simdata/', 'HI_21cmfast_FaintGalaxies_fiducial/14.0arcmin_v2/Fornax_transit_NFbeam_120x10.7sec_1024x97.7kHz/simdata/'] #, 'HI_21cmfast_FaintGalaxies_fiducial_Fornax_GLEAM_all_FOV_30_ephemeris_HERA61/14.0_arcmin_v2/Fornax_transit_NFbeam_120x10.7sec_1024x97.7kHz/simdata/']
+
+        visfile_prfx: 'all-simvis'
+
+        simlabels   : ['FG', 'HI'] #, 'FG+HI']
+
+        sampling    : 'resampled'
+                                # Sampling type from which delay power
+                                # spectrum will be plotted. Accepted
+                                # values are 'resampled' (default) and
+                                # 'oversampled'
+
+    3a          :
+                                # Plot Fourier transform squared
+                                # along time axis
+
+        action      : true
+
+        bl          : [
+                       [14.6, 0.0, 0.0],
+                       [29.2, 0.0, 0.0],
+                      ]
+                                # Baseline vectors whose delay
+                                # power spectrum will be plotted
+
+        bltol       : 0.2
+                                # Baseline vector difference tolerance
+                                # (in m)
+
+        spw         : null
+                                # Spectral window index. Must be a 
+                                # list of spectral window indices. if 
+                                # set to null, all spectral windows
+                                # are plotted
+
+        lst         : null
+                                # Nearest LST (in hours) to select
+                                # delay power spectrum for. If set
+                                # to null, the middle LST will be
+                                # chosen. Or it could be a scalar
+                                # or a list of LSTs.
+
+    3b          :
+                                # Plot correlation of closure phases
+                                # along time axis (inverse FT of the
+                                # power in Fourier domain plotted
+                                # above)
+
+        action      : false
