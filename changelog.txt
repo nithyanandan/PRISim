@@ -1,3 +1,11 @@
+From a2d544f (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) In member function observe() of class InterferometerArray, pass
+the right shape of inputs in calls to altaz2hadec() 
+
 From bb083bc (closure-adv):
 ==========================
 

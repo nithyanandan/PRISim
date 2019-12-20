@@ -6050,7 +6050,7 @@ class InterferometerArray(object):
                 else:
                     raise ValueError('LST must be provided. Sky coordinates are in RA-Dec format while pointing center is in HA-Dec format.')
             elif self.pointing_coords == 'altaz':
-                pointing_lonlat = GEOM.altaz2hadec(self.pointing_center[-1,:], self.latitude, units='degrees')
+                pointing_lonlat = GEOM.altaz2hadec(self.pointing_center[[-1],:], self.latitude, units='degrees').squeeze() # Should now be of shape (2,)
                 pointing_lon = lst - pointing_lonlat[0]
                 pointing_lat = pointing_lonlat[1]
         elif self.skycoords == 'hadec':
@@ -6061,7 +6061,7 @@ class InterferometerArray(object):
                 else:
                     raise ValueError('LST must be provided. Sky coordinates are in RA-Dec format while pointing center is in HA-Dec format.')
             elif self.pointing_coords == 'altaz':
-                pointing_lonlat = lst - GEOM.altaz2hadec(self.pointing_center[-1,:], self.latitude, units='degrees')
+                pointing_lonlat = lst - GEOM.altaz2hadec(self.pointing_center[[-1],:], self.latitude, units='degrees').squeeze()
                 pointing_lon = pointing_lonlat[0]
                 pointing_lat = pointing_lonlat[1]
         else:
@@ -6075,7 +6075,7 @@ class InterferometerArray(object):
             elif self.pointing_coords == 'hadec':
                 pointing_lonlat = GEOM.hadec2altaz(self.pointing_center,
                                                    self.latitude,
-                                                   units='degrees')
+                                                   units='degrees').squeeze()
                 pointing_lon = pointing_lonlat[0]
                 pointing_lat = pointing_lonlat[1]
 
