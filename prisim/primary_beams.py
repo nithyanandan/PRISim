@@ -505,6 +505,11 @@ def VLA_primary_beam_PBCOR(skypos, frequency, skyunits='degrees'):
     pb = 1.0 + parms_ref[idx,0]*x/1e3 + parms_ref[idx,1]*(x**2)/1e7 + \
          parms_ref[idx,2]*(x**3)/1e10
 
+    eps = 0.01
+
+    if NP.any(pb >= 1+eps):
+        raise ValueError('Primary beam exceeds unity by a significant amount. Check the validity of the Primary beam equation for the angles specified. Consider using a narrower field of view radius and frequency range over which the equations are valid.')
+
     return pb
 
 ##########################################################################
@@ -784,6 +789,11 @@ def GMRT_primary_beam(skypos, frequency, skyunits='degrees'):
 
     pb = 1.0 + parms_ref[idx,0]*x/1e3 + parms_ref[idx,1]*(x**2)/1e7 + \
          parms_ref[idx,2]*(x**3)/1e10 + parms_ref[idx,3]*(x**4)/1e13
+
+    eps = 0.01
+
+    if NP.any(pb >= 1+eps):
+        raise ValueError('Primary beam exceeds unity by a significant amount. Check the validity of the Primary beam equation for the angles specified. Consider using a narrower field of view radius and frequency range over which the equations are valid.')
 
     return pb
 

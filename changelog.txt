@@ -1,3 +1,12 @@
+From 8061bbd (master):
+=====================
+
+In prisim/primary_beams.py,
+
+(*) In functions VLA_primary_beam() and GMRT_primary_beam(), check if
+the returned primary beam exceeds unity and raise ValueError if it
+does due to the invalidity of the polynomial equations.
+
 From a2d544f (master):
 =====================
 
