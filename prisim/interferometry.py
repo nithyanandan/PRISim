@@ -2154,7 +2154,7 @@ def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
                             (-26.701 degrees) will be assumed.
               'id'          [string] If set, will ignore the other keys and use
                             telescope details for known telescopes. Accepted
-                            values are 'mwa', 'vla', 'gmrt', and 'hera',
+                            values are 'mwa', 'vla', 'gmrt', 'ugmrt', 'hera',
                             'paper', 'hirax' and 'chime'
               'shape'       [string] Shape of antenna element. Accepted values
                             are 'dipole', 'delta', and 'dish'. Will be ignored
@@ -3857,8 +3857,8 @@ class ROI_parameters(object):
                 orientation. It consists of the following keys and information:
                 'id'          [string] If set, will ignore the other keys and use
                               telescope details for known telescopes. Accepted
-                              values are 'mwa', 'vla', 'gmrt', 'hera', 'paper',
-                              'hirax', 'chime' and 'mwa_tools'. If using
+                              values are 'mwa', 'vla', 'gmrt', 'ugmrt', 'hera', 
+                              'paper', 'hirax', 'chime' and 'mwa_tools'. If using
                               'mwa_tools', the MWA_Tools and mwapb modules must
                               be installed and imported.
                 'shape'       [string] Shape of antenna element. Accepted values
@@ -4257,8 +4257,8 @@ class ROI_parameters(object):
                 orientation. It consists of the following keys and information:
                 'id'          [string] If set, will ignore the other keys and
                               use telescope details for known telescopes.
-                              Accepted values are 'mwa', 'vla', 'gmrt', 'hera',
-                              'paper', 'hirax', 'chime' and 'mwa_tools'. If
+                              Accepted values are 'mwa', 'vla', 'gmrt', 'ugmrt', 
+                              'hera', 'paper', 'hirax', 'chime' and 'mwa_tools'. If
                               using 'mwa_tools', the MWA_Tools and mwapb modules
                               must be installed and imported.
                 'shape'       [string] Shape of antenna element. Accepted values
@@ -4851,8 +4851,8 @@ class InterferometerArray(object):
                 and values:
                 'id'          [string] If set, will ignore the other keys and use
                               telescope details for known telescopes. Accepted
-                              values are 'mwa', 'vla', 'gmrt', 'hera', 'paper',
-                              'hirax', 'chime'and other custom values.
+                              values are 'mwa', 'vla', 'gmrt', 'ugmrt', 'hera', 
+                              'paper', 'hirax', 'chime'and other custom values.
                               Default = 'mwa'
                 'shape'       [string] Shape of antenna element. Accepted values
                               are 'dipole', 'delta', and 'dish'. Will be ignored

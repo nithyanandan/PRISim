@@ -49,9 +49,10 @@ telescope:
     label_prefix    : ''
 
     id              : 'custom'
-                                # Accepts 'mwa', 'vla', 'gmrt',
-                                # 'hera', 'mwa_dipole', 'custom',
-                                # 'paper', 'mwa_tools', 'hirax'
+                                # Accepts 'mwa', 'vla', 'gmrt', 
+                                # 'ugmrt', 'hera', 'mwa_dipole', 
+                                # 'custom', 'paper', 'mwa_tools',
+                                # 'hirax'
 
     latitude        : -30.7224
                                 # Latitude in degrees

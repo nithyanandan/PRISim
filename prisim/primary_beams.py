@@ -37,8 +37,8 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
                 and values:
                 'id'          [string] If set, will ignore the other keys and use
                               telescope details for known telescopes. Accepted 
-                              values are 'mwa', 'vla', 'gmrt', 'hera', 'paper', 
-                              'hirax', and 'chime' 
+                              values are 'mwa', 'vla', 'gmrt', 'ugmrt', 'hera', 
+                              'paper', 'hirax', and 'chime' 
                 'shape'       [string] Shape of antenna element. Accepted values
                               are 'dipole', 'delta', 'dish', 'gaussian', 'rect' 
                               and 'square'. Will be ignored if key 'id' is set. 
@@ -222,7 +222,7 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
         raise TypeError('telescope must be specified as a dictionary')
 
     if 'id' in telescope:
-        if (telescope['id'] == 'vla') or (telescope['id'] == 'gmrt'):
+        if (telescope['id'] == 'vla') or ('gmrt' in telescope['id']):
             if skyunits == 'altaz':
                 angles = 90.0 - skypos[:,0]
             elif skyunits == 'dircos':
@@ -234,8 +234,8 @@ def primary_beam_generator(skypos, frequency, telescope, freq_scale='GHz',
     
             if telescope['id'] == 'vla':
                 pb = VLA_primary_beam_PBCOR(angles, frequency/1e9, 'degrees')
-            elif telescope['id'] == 'gmrt':
-                pb = GMRT_primary_beam(angles, frequency/1e9, 'degrees')
+            elif 'gmrt' in telescope['id']:
+                pb = GMRT_primary_beam(angles, frequency/1e9, 'degrees', instrument=telescope['id'])
         elif (telescope['id'] == 'hera') or (telescope['id'] == 'hirax'):
             if telescope['id'] == 'hera':
                 dish_dia = 14.0
@@ -731,7 +731,7 @@ def gaussian_beam(diameter, skypos, frequency, skyunits='altaz',
 
 ##########################################################################
 
-def GMRT_primary_beam(skypos, frequency, skyunits='degrees'):
+def GMRT_primary_beam(skypos, frequency, skyunits='degrees', instrument='gmrt'):
 
     """
     -----------------------------------------------------------------------------
@@ -755,6 +755,9 @@ def GMRT_primary_beam(skypos, frequency, skyunits='degrees'):
                 Default = 'degrees'. If 'dircos', the direction cosines are 
                 aligned with the local East, North, and Up
 
+    instrument  [string] string specifying if the instrument is the new GMRT
+                ('ugmrt') or the old GMRT ('gmrt'). Default='gmrt'.
+
     Output:
 
     [Numpy array] Power pattern at the specified sky positions. 
@@ -769,10 +772,15 @@ def GMRT_primary_beam(skypos, frequency, skyunits='degrees'):
     frequency = NP.asarray(frequency).ravel()
 
     freq_ref = NP.asarray([0.235, 0.325, 0.610, 1.420]).reshape(-1,1)
-    parms_ref = NP.asarray([[-3.366  , 46.159 , -29.963 ,  7.529  ], 
-                            [-3.397  , 47.192 , -30.931 ,  7.803  ], 
-                            [-3.486  , 47.749 , -35.203 , 10.399  ], 
-                            [-2.27961, 21.4611,  -9.7929,  1.80153]])
+    parms_ref = {}
+    parms_ref['gmrt'] = NP.asarray([[-3.366  , 46.159 , -29.963 ,  7.529  ], 
+                                    [-3.397  , 47.192 , -30.931 ,  7.803  ], 
+                                    [-3.486  , 47.749 , -35.203 , 10.399  ], 
+                                    [-2.27961, 21.4611,  -9.7929,  1.80153]])
+    parms_ref['ugmrt'] = NP.asarray([[NP.nan  , NP.nan , NP.nan ,  NP.nan  ], 
+                                     [-2.939  , 33.312 , -16.659 ,  3.006  ], 
+                                     [-3.190  , 38.642 , -20.471 ,  3.964  ], 
+                                     [-2.608  , 27.357 , -13.091 ,  2.365  ]])
     
     idx = NP.argmin(NP.abs(freq_ref - frequency[0])) # Index of closest value
 
@@ -787,8 +795,10 @@ def GMRT_primary_beam(skypos, frequency, skyunits='degrees'):
     else:
         raise ValueError('skyunits must be "degrees", "altaz" or "dircos" in GMRT_primary_beam().')
 
-    pb = 1.0 + parms_ref[idx,0]*x/1e3 + parms_ref[idx,1]*(x**2)/1e7 + \
-         parms_ref[idx,2]*(x**3)/1e10 + parms_ref[idx,3]*(x**4)/1e13
+    pb = 1.0 + parms_ref[instrument][idx,0]*x/1e3 + parms_ref[instrument][idx,1]*(x**2)/1e7 + parms_ref[instrument][idx,2]*(x**3)/1e10 + parms_ref[instrument][idx,3]*(x**4)/1e13
+
+    if NP.any(NP.isnan(pb)):
+        raise ValueError('Primary beam values were found to be NaN in some case(s). Check if the polynomial equations are valid for the frequencies specified.')
 
     eps = 0.01
 

@@ -343,7 +343,7 @@ except OSError as exception:
     else:
         raise
 
-if telescope_id.lower() not in ['mwa', 'vla', 'gmrt', 'hera', 'mwa_dipole', 'custom', 'paper', 'mwa_tools', 'hirax', 'chime']:
+if telescope_id.lower() not in ['mwa', 'vla', 'gmrt', 'ugmrt', 'hera', 'mwa_dipole', 'custom', 'paper', 'mwa_tools', 'hirax', 'chime']:
     raise ValueError('Invalid telescope specified')
 
 if element_shape is None:
@@ -401,7 +401,7 @@ elif telescope_id.lower() == 'paper':
 elif telescope_id.lower() == 'vla':
     element_size = 25.0
     element_shape = 'dish'
-elif telescope_id.lower() == 'gmrt':
+elif 'gmrt' in telescope_id.lower():
     element_size = 45.0
     element_shape = 'dish'
 elif telescope_id.lower() == 'hera':
@@ -510,7 +510,7 @@ else:
     beam_usage_str = beam_usage_str + '_chromatic'
 
 telescope = {}
-if telescope_id.lower() in ['mwa', 'vla', 'gmrt', 'hera', 'paper', 'mwa_dipole', 'mwa_tools', 'hirax', 'chime']:
+if telescope_id.lower() in ['mwa', 'vla', 'gmrt', 'ugmrt', 'hera', 'paper', 'mwa_dipole', 'mwa_tools', 'hirax', 'chime']:
     telescope['id'] = telescope_id.lower()
 telescope['shape'] = element_shape
 telescope['size'] = element_size

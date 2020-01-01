@@ -1,3 +1,33 @@
+From 7daa921 (gmrt):
+===================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add support for 'ugmrt' as a telescope id 
+
+In prisim/examples/simparms/defaultparms_dev.yaml,
+
+(*) Add support for 'ugmrt' as a telescope id
+
+In scripts/run_prisim.py,
+
+(*) Add support for 'ugmrt' as a telescope id
+
+In prisim/interferometry.py,
+
+(*) Update docstrings to indicate support for 'ugmrt' as a telescope id
+
+In prisim/primary_beams.py,
+
+(*) In function primary_beam_generator(), add support for 'ugmrt' as a
+telescope id
+(*) In function GMRT_primary_beam(), add input keyword instrument that
+can support 'gmrt' (default) or 'ugmrt' and provide corresponding
+polynomial coefficients for the primary beam. Update function docstring
+accordingly
+(*) In function GMRT_primary_beam(), check for NaN values and raise a
+ValueError if NaN values found
+
 From 8061bbd (master):
 =====================
 
