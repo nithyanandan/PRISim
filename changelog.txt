@@ -1,3 +1,10 @@
+From 6418179 (master):
+=====================
+
+In scripts/run_prisim.py,
+
+(*) Add support for processing NVSS catalog as sky model
+
 From 7daa921 (gmrt):
 ===================
 

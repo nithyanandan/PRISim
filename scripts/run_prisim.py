@@ -1426,6 +1426,58 @@ elif use_SUMSS:
 
     skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
+elif use_NVSS:
+    freq_NVSS = 1.4 # in GHz
+    hdulist = fits.open(NVSS_file)
+    ra_deg_NVSS = hdulist[1].data['RA(2000)']
+    dec_deg_NVSS = hdulist[1].data['DEC(2000)']
+    nvss_fpeak = hdulist[1].data['PEAK INT']
+    nvss_majax = hdulist[1].data['MAJOR AX']
+    nvss_minax = hdulist[1].data['MINOR AX']
+    hdulist.close()
+
+    if spindex_seed is None:
+        spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
+    else:
+        NP.random.seed(2*spindex_seed)
+        spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
+
+    if fluxcut_max is None:
+        select_source_ind = nvss_fpeak >= fluxcut_min * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS
+    else:
+        select_source_ind = NP.logical_and(nvss_fpeak >= fluxcut_min * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS, nvss_fpeak <= fluxcut_max * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS)
+    if NP.sum(select_source_ind) == 0:
+        raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
+    # select_source_ind = nvss_fpeak >= 10.0 * (freq_NVSS*1e9/freq)**(spindex_NVSS)
+    PS_ind = NP.sqrt(nvss_majax**2-(0.75/60.0)**2) < 14.0/3.6e3
+    count_valid = NP.sum(NP.logical_and(select_source_ind, PS_ind))
+    if count_valid > 0:
+        nvss_fpeak = nvss_fpeak[NP.logical_and(select_source_ind, PS_ind)]
+        freq_catalog = freq_NVSS*1e9 + NP.zeros(count_valid)
+        catlabel = NP.repeat('NVSS',count_valid)
+        ra_deg = ra_deg_NVSS[NP.logical_and(select_source_ind, PS_ind)]
+        dec_deg = dec_deg_NVSS[NP.logical_and(select_source_ind, PS_ind)]
+        spindex = spindex_NVSS[NP.logical_and(select_source_ind, PS_ind)]
+        majax = nvss_majax[NP.logical_and(select_source_ind, PS_ind)]
+        minax = nvss_minax[NP.logical_and(select_source_ind, PS_ind)]
+        fluxes = nvss_fpeak
+    else:
+        raise IndexError('No sources in the catalog found satisfying flux threshold and point source criteria')
+
+    spec_type = 'func'
+    spec_parms = {}
+    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+    spec_parms['power-law-index'] = spindex
+    spec_parms['freq-ref'] = freq_catalog 
+    spec_parms['flux-scale'] = fluxes
+    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+    spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+    flux_unit = 'Jy'
+
+    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+
+    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+
 elif use_MSS:
     pass
 elif use_GLEAM:
