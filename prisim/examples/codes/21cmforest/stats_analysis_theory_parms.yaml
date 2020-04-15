@@ -1,0 +1,907 @@
+########## Directory Structure information #########
+
+dirstruct   :
+                                # Directory information
+
+    projectdir      : '/lustre/aoc/users/nthyagar/projects/21cmforest/'
+                                # Primary project folder for storing 
+                                # outputs
+    
+    figdir          : 'figures/'    
+                                # Folder for saving figures, and is 
+                                # relative to the projectdir
+
+########## Simulation parameters ##########
+
+sim         :
+                                # EoR Simulation/model information
+
+    source      : '21cmfast'
+                                # Source of simulation
+
+    cosmo       :
+                                # Cosmological parameters
+
+        name    : 'custom'
+                                # Name of cosmology. If set to
+                                # 'custom' it will use the
+                                # parameters below. Otherwise
+                                # the name should be a meaningful
+                                # descriptor which can be used
+                                # to load preset cosmology parameters
+                                # from astropy.cosmology (e.g. WMAP9,
+                                # etc.) in which case the following
+                                # parameters will be ignored
+
+        h       : 0.678
+                                # Hubble factor
+
+        Tcmb0   : 2.7255
+                                # CMB temperature (in K) at z=0
+
+        Om0     : 0.308
+                                # Matter density
+
+        Ode0    : null
+                                # Dark energy density. If set to
+                                # null, it is 1-Om0, otherwise it
+                                # must be specified
+
+        Ob0     : 0.02226
+                                # Baryon density. The actual baryon
+                                # density is this number divided by
+                                # h**2
+
+        w0      : -1
+                                # Dark energy equation of state
+                                # parameter. Default=-1
+
+        Y_He    : 0.245
+                                # Helium mass fraction
+
+        sigma8  : 0.815
+                                # Linear rms mass fluctuation on
+                                # 8 h/Mpc scales at z=0
+
+    units_in    :
+                                # Units for quantities in simulation
+
+        boxdim      : 'Mpc'
+                                # Units of the box dimensions such as
+                                # cell size and total size. Accepted
+                                # values are distance units (e.g. 'm',
+                                # 'km', 'Mpc', etc.)
+
+        boxval      : 'mK'
+                                # Units for the values filling the
+                                # simulated cube. Usually units of
+                                # temperature ('mK' or 'K')
+
+########## Output parameters ##########
+
+output      :
+                                # Output parameters
+
+    nzbins          : 1
+                                # Number of redshift bins to split
+                                # the output into
+
+    rest_frequency  : 1420405751.77
+                                # Rest frequency (in Hz). Default is
+                                # for HI spin flip transition
+
+########## Processing parameters ##########
+
+actions     :
+                                # Processing parameters
+
+    process_raw_LC  :
+                                # Parameters for converting raw
+                                # lightcones and combine them
+                                # into a consolidated lightcone
+                                # in HDF5 format
+
+        act             : false
+                                # Perform conversion from raw
+                                # lightcone to spherical angles
+
+        cube_source     : '21cmfast'
+                                # Source of the input cube. Currently,
+                                # only accepts '21cmfast'
+                           
+        qtys            : ['delta_T', 'x_H', 'density', 'T_s']
+                                # Quantities that will be processed 
+                                # for in the light cone cubes. 
+                                # Accepted values are 'delta_T' 
+                                # (brightness temperature fluctuations),
+                                # 'x_H' (neutral fraction), 'density'
+                                # (overdensities), and 'T_s' (spin 
+                                # temperature).
+
+        input           :
+                                # Input parameters
+
+            qtyinfo         : 
+                                # Various information about the 
+                                # different quantities
+                                
+                delta_T     :   
+                                # Information on brightness temperature
+                                # fluctuations
+                                
+                    indir           : '/lustre/aoc/users/nthyagar/data/EoR_models/21cmFAST/Andrei_Mesinger/Bright_galaxies_fiducial_1024/lightcone/'
+                                # Folder containing cosmological
+                                # lightcone boxes
+                                                               
+                    infile_prefix   : 'delta_T_v3_no_halos_'
+                                # prefix for selecting infiles. If
+                                # set to null (default), no prefix
+                                # is assumed
+                                 
+                    infile_suffix   : 'lighttravel'
+                                # suffix for selecting infiles. If
+                                # set to null (default), no prefix
+                                # is assumed
+                                 
+                    parseinfo   :
+                                # Information for parsing input files
+
+                        delimiter       : '_'
+                                # Delimiter for parameters in the
+                                # filename
+
+                        zstart_pos      : 5
+                                # 0-indexed position in the delimited
+                                # filename where starting redshift 
+                                # parameter can be found
+
+                        zend_pos        : 6
+                                # 0-indexed position in the delimited
+                                # filename where ending redshift 
+                                # parameter can be found
+
+                        zstart_identifier: 'zstart'
+                                # This string is present in the
+                                # delimited filename either before
+                                # or after (see zstart_identifier_pos) the
+                                # starting redshift value. If no such
+                                # identifier string present, set to
+                                # null (default)
+
+                        zend_identifier : 'zend'
+                                # This string is present in the
+                                # delimited filename either before
+                                # or after (see zend_identifier_pos) the
+                                # ending redshift value. If no such
+                                # identifier string present, set to
+                                # null (default)
+
+                        zstart_identifier_pos: 'before'
+                                # If set to 'before' the zstart_identifier
+                                # string appears before the starting redshift
+                                # value in the delimited string from
+                                # filename. If set to 'after' it lies
+                                # after. It is only applicable if
+                                # zstart_identifier is not null
+
+                        zend_identifier_pos: 'before'
+                                # If set to 'before' the zend_identifier
+                                # string appears before the ending redshift
+                                # value in the delimited string from
+                                # filename. If set to 'after' it lies
+                                # after. It is only applicable if
+                                # zend_identifier is not null
+                                
+                    units       : 'mK'
+                                # Units of the quantity
+
+                x_H         :    
+                                # Information on brightness temperature
+                                # fluctuations
+
+                    indir           : '/lustre/aoc/users/nthyagar/data/EoR_models/21cmFAST/Andrei_Mesinger/Bright_galaxies_fiducial_1024/lightcone/'
+                                # Folder containing cosmological
+                                # lightcone boxes
+
+                    infile_prefix   : 'xH_nohalos_'
+                                # prefix for selecting infiles. If
+                                # set to null (default), no prefix
+                                # is assumed
+                                 
+                    infile_suffix   : 'lighttravel'
+                                # suffix for selecting infiles. If
+                                # set to null (default), no prefix
+                                # is assumed
+                                 
+                    parseinfo   :
+                                # Information for parsing input files
+
+                        delimiter       : '_'
+                                # Delimiter for parameters in the
+                                # filename
+
+                        zstart_pos      : 2
+                                # 0-indexed position in the delimited
+                                # filename where starting redshift 
+                                # parameter can be found
+
+                        zend_pos        : 3
+                                # 0-indexed position in the delimited
+                                # filename where ending redshift 
+                                # parameter can be found
+
+                        zstart_identifier: 'zstart'
+                                # This string is present in the
+                                # delimited filename either before
+                                # or after (see zstart_identifier_pos) the
+                                # starting redshift value. If no such
+                                # identifier string present, set to
+                                # null (default)
+
+                        zend_identifier : 'zend'
+                                # This string is present in the
+                                # delimited filename either before
+                                # or after (see zend_identifier_pos) the
+                                # ending redshift value. If no such
+                                # identifier string present, set to
+                                # null (default)
+
+                        zstart_identifier_pos: 'before'
+                                # If set to 'before' the zstart_identifier
+                                # string appears before the starting redshift
+                                # value in the delimited string from
+                                # filename. If set to 'after' it lies
+                                # after. It is only applicable if
+                                # zstart_identifier is not null
+
+                        zend_identifier_pos: 'before'
+                                # If set to 'before' the zend_identifier
+                                # string appears before the ending redshift
+                                # value in the delimited string from
+                                # filename. If set to 'after' it lies
+                                # after. It is only applicable if
+                                # zend_identifier is not null
+
+                    units       : ''
+                                # Units of the quantity
+
+                density     :    
+                                # Information on brightness temperature
+                                # fluctuations
+
+                    indir           : '/lustre/aoc/users/nthyagar/data/EoR_models/21cmFAST/Andrei_Mesinger/Bright_galaxies_fiducial_1024/lightcone/'
+                                # Folder containing cosmological
+                                # lightcone boxes
+
+                    infile_prefix   : 'updated_smoothed_deltax_'
+                                # prefix for selecting infiles. If
+                                # set to null (default), no prefix
+                                # is assumed
+                                 
+                    infile_suffix   : 'lighttravel'
+                                # suffix for selecting infiles. If
+                                # set to null (default), no prefix
+                                # is assumed
+                                 
+                    parseinfo   :
+                                # Information for parsing input files
+
+                        delimiter       : '_'
+                                # Delimiter for parameters in the
+                                # filename
+
+                        zstart_pos      : 3
+                                # 0-indexed position in the delimited
+                                # filename where starting redshift 
+                                # parameter can be found
+
+                        zend_pos        : 4
+                                # 0-indexed position in the delimited
+                                # filename where ending redshift 
+                                # parameter can be found
+
+                        zstart_identifier: 'zstart'
+                                # This string is present in the
+                                # delimited filename either before
+                                # or after (see zstart_identifier_pos) the
+                                # starting redshift value. If no such
+                                # identifier string present, set to
+                                # null (default)
+
+                        zend_identifier : 'zend'
+                                # This string is present in the
+                                # delimited filename either before
+                                # or after (see zend_identifier_pos) the
+                                # ending redshift value. If no such
+                                # identifier string present, set to
+                                # null (default)
+
+                        zstart_identifier_pos: 'before'
+                                # If set to 'before' the zstart_identifier
+                                # string appears before the starting redshift
+                                # value in the delimited string from
+                                # filename. If set to 'after' it lies
+                                # after. It is only applicable if
+                                # zstart_identifier is not null
+
+                        zend_identifier_pos: 'before'
+                                # If set to 'before' the zend_identifier
+                                # string appears before the ending redshift
+                                # value in the delimited string from
+                                # filename. If set to 'after' it lies
+                                # after. It is only applicable if
+                                # zend_identifier is not null
+
+                    units       : ''
+                                # Units of the quantity
+
+                T_s         :    
+                                # Information on brightness temperature
+                                # fluctuations
+
+                    indir           : '/lustre/aoc/users/nthyagar/data/EoR_models/21cmFAST/Andrei_Mesinger/Bright_galaxies_fiducial_1024/lightcone/'
+                                # Folder containing cosmological
+                                # lightcone boxes
+
+                    infile_prefix   : 'Ts_'
+                                # prefix for selecting infiles. If
+                                # set to null (default), no prefix
+                                # is assumed
+                                 
+                    infile_suffix   : 'lighttravel'
+                                # suffix for selecting infiles. If
+                                # set to null (default), no prefix
+                                # is assumed
+                                 
+                    parseinfo   :
+                                # Information for parsing input files
+
+                        delimiter       : '_'
+                                # Delimiter for parameters in the
+                                # filename
+
+                        zstart_pos      : 1
+                                # 0-indexed position in the delimited
+                                # filename where starting redshift 
+                                # parameter can be found
+
+                        zend_pos        : 2
+                                # 0-indexed position in the delimited
+                                # filename where ending redshift 
+                                # parameter can be found
+
+                        zstart_identifier: 'zstart'
+                                # This string is present in the
+                                # delimited filename either before
+                                # or after (see zstart_identifier_pos) the
+                                # starting redshift value. If no such
+                                # identifier string present, set to
+                                # null (default)
+
+                        zend_identifier : 'zend'
+                                # This string is present in the
+                                # delimited filename either before
+                                # or after (see zend_identifier_pos) the
+                                # ending redshift value. If no such
+                                # identifier string present, set to
+                                # null (default)
+
+                        zstart_identifier_pos: 'before'
+                                # If set to 'before' the zstart_identifier
+                                # string appears before the starting redshift
+                                # value in the delimited string from
+                                # filename. If set to 'after' it lies
+                                # after. It is only applicable if
+                                # zstart_identifier is not null
+
+                        zend_identifier_pos: 'before'
+                                # If set to 'before' the zend_identifier
+                                # string appears before the ending redshift
+                                # value in the delimited string from
+                                # filename. If set to 'after' it lies
+                                # after. It is only applicable if
+                                # zend_identifier is not null
+
+                    units       : 'K'
+                                # Units of the quantity
+
+        output          :
+                                # Output folder/file structure
+
+            outdir          : '/lustre/aoc/users/nthyagar/data/EoR_models/21cmFAST/Andrei_Mesinger/Bright_galaxies_fiducial_1024/lightcone/combined/'
+                                # Output folder to put the
+                                # consolidated light cone cube(s),
+                                # one for each quantity in the 
+                                # input qtys 
+
+            outfile_prefix  : null
+                                # Identification string to be
+                                # prefixed to the output file
+                                # which will be saved in HDF5
+                                # format. If the prefix is null,
+                                # the HDF5 file saved
+                                # will have this prefix appended
+                                # before '_light_cone.hdf5',
+                                # otherwise it will just be named
+                                # 'light_cone.hdf5'. The
+                                # extension '.hdf5' will be
+                                # automatically specified and should
+                                # not be specified
+
+    process_LC_HDF5 :
+                                # Perform operations on the
+                                # consolidated light cone cube(s) 
+                                # stored in the HDF5 file(s)
+
+        act             : false
+                                # Act on the consolidated light cone
+                                # cube(s)
+
+        models          : ['Faint_galaxies_fiducial_1024', 'Bright_galaxies_fiducial_1024', 'Faint_galaxies_coldIGM']
+                                # Model names to process
+
+        modeldir        : '/lustre/aoc/users/nthyagar/data/EoR_models/21cmFAST/Andrei_Mesinger/'
+                                # Folder containing EoR lightcone
+                                # models
+
+        combined_dir    : 'lightcone/combined/'
+                                # Folder containing the consolidated
+                                # lightcone cubes
+
+        cubefile        : 'light_cone.hdf5'
+
+        tabledir        : 'tables/'
+
+########## Figure/Plot parameters ###########    
+
+plot        :
+
+    '1'         :
+                                # Process the lightcone cubes for
+                                # different tasks
+
+        action      : false
+
+        models      : ['Faint_galaxies_fiducial_1024', 'Bright_galaxies_fiducial_1024', 'Faint_galaxies_coldIGM']
+                                # Model names to process
+
+                                # Calculate the brightness temperature
+                                # of a background radio source
+
+        flux_obs    : [0.01, 0.1]
+                                # Observed specific intensity (in mJy/beam) at
+                                # observed frequency freq_obs
+
+        z_qso       : [10.0, 13.0, 21.0]
+                                # Redshifts at which quasars are to be
+                                # placed
+
+        z_pspec     : [8.25, 11.5, 18.0]
+                                # Redshifts at which LSO power 
+                                # spectrum is to be estimated given 
+                                # background quasars are placed at 
+                                # z_qso. z_pspec < z_qso
+
+        frac_bw     : 0.0667
+                                # Fractional bandwidth dnu/nu (or dz/z) 
+                                # to be used for spectral window 
+                                # function before computing LOS power
+                                # spectrum
+
+        beam_majax  : [25.0]
+                                # Beam major axis (in arcsec) at 
+                                # freq_obs. One for each value of 
+                                # flux_obs. If only one input specified,
+                                # it will be used for all values of
+                                # flux_obs
+
+        freq_obs    : 150000000.0
+                                # Observed frequency (in Hz) at
+                                # which the flux flux_obs is
+                                # observed
+
+        spindex     : -0.7
+                                # Spectral index that will be used
+                                # in radio K-correction
+
+        rest_freq   : 1420405751.77
+                                # Rest frame frequency of spectral
+                                # line (in Hz)
+
+        nrand       : 10000
+                                # Number of random pixels to choose
+                                # on the sky to construct the LOS
+                                # power spectrum along by averaging
+                                # across these pixels. This would be
+                                # the multi-direction averaged 
+                                # "theoretical" power spectrum
+
+        seed        : 100
+                                # Random number generator seed
+
+        subband     :
+                                # FFT parameters
+
+            shape       : 'bhw'
+                                # Window function along the line of
+                                # sight direction. Accepted values
+                                # are 'bhw', 'bnw', 'rect'
+
+            fftpow      : 2.0
+                                # FFT of the window function will be
+                                # raised to this power. Default=1.0.
+                                # Value of 2 implies a window convolved
+                                # with itself to make a new window
+             
+            pad         : 1.0
+                                # padding fraction relative to the
+                                # number of frequency channels for
+                                # closure phases. Value must be a 
+                                # non-negative scalar. For e.g., a
+                                # pad of 1.0 pads the LOS axis with
+                                # zeros of the same width as the
+                                # number of channels. After the FFT
+                                # the transformed quantity will be
+                                # downsampled by a factor of 1+pad.
+                                # Default=None sets to padding
+                                # factor to 1.0
+
+        Tsys        : 500.0
+                                # System temperature (in K)
+
+        n_antennas  : 30
+                                # Number of antennas used in imaging
+
+        t_int       : 60.0
+                                # Total time (in seconds) on source.
+                                # It will be assumed to be split in
+                                # two halves to remove noise bias in
+                                # power spectrum
+
+        snr_min     : 10.0
+                                # Minimum detection threshold in
+                                # k-bins of power spectrum
+
+        data_loss   : 0.0
+                                # Data loss factor to be accounted
+                                # for while computing sample variance
+                                # and noise power
+
+    '1a'        :
+                                # Plot background radiation temperatures
+                                # both from the quasar and the CMB
+                                
+        action      : false
+
+    '1b'        :
+                                # Plot modification factors to brightness
+                                # temperature fluctuations
+        action      : false
+
+    '2'         :
+                                # Based on re-estimating the brightness 
+                                # temperature fluctuations from T_spin 
+                                # cubes instead of mean T_spin
+                                
+        action      : false
+
+        models      : # ['Faint_galaxies_fiducial_1024', 'Bright_galaxies_fiducial_1024', 'Faint_galaxies_coldIGM']
+                      ['Bright_galaxies_fiducial_1024', 'Faint_galaxies_fiducial_1024']
+                                # Model names to process
+
+        indir_pfx   : '/lustre/aoc/users/nthyagar/data/EoR_models/21cmFAST/Andrei_Mesinger/'
+                                # Prefix of folder containing cosmological
+                                # lightcone boxes. Actual folder will be
+                                # after appending the model string to this
+                                # prefix
+                                
+        indir_sfx   : '/lightcone/combined/'
+                                # Suffix of folder that needs to be appended
+                                # to determine the folder containing the 
+                                # lightcones
+        
+        qtys        : ['delta_T', 'T_s']
+                                # Quantities that will be processed 
+                                # for in the light cone cubes. 
+                                # Accepted values are 'delta_T' 
+                                # (brightness temperature fluctuations),
+                                # 'x_H' (neutral fraction), 'density'
+                                # (overdensities), and 'T_s' (spin 
+                                # temperature).
+
+        flux_obs    : [0.01, 0.1]
+                                # Observed specific intensity (in mJy/beam) at
+                                # observed frequency freq_obs
+
+        z_qso       : [10.0, 13.0, 21.0]
+                                # Redshifts at which quasars are to be
+                                # placed
+
+        z_pspec     : [8.25, 11.5, 18.0]
+                                # Redshifts at which LSO power 
+                                # spectrum is to be estimated given 
+                                # background quasars are placed at 
+                                # z_qso. z_pspec < z_qso
+
+        frac_bw     : 0.0667
+                                # Fractional bandwidth dnu/nu (or dz/z) 
+                                # to be used for spectral window 
+                                # function before computing LOS power
+                                # spectrum
+
+        beam_majax  : [25.0]
+                                # Beam major axis (in arcsec) at 
+                                # freq_obs. One for each value of 
+                                # flux_obs. If only one input specified,
+                                # it will be used for all values of
+                                # flux_obs
+                                
+        fov_fwhm    : 180.0 
+                                # Field of view (in deg) to determine the
+                                # FG wedge boundaries
+
+        freq_obs    : 150000000.0
+                                # Observed frequency (in Hz) at
+                                # which the flux flux_obs is
+                                # observed
+
+        spindex     : -0.7
+                                # Spectral index that will be used
+                                # in radio K-correction
+
+        rest_freq   : 1420405751.77
+                                # Rest frame frequency of spectral
+                                # line (in Hz)
+
+        nrand       : 10000
+                                # Number of random pixels to choose
+                                # on the sky to construct the LOS
+                                # power spectrum along by averaging
+                                # across these pixels. This would be
+                                # the multi-direction averaged 
+                                # "theoretical" power spectrum
+
+        seed        : 100
+                                # Random number generator seed
+
+        subband     :
+                                # FFT parameters
+
+            shape       : 'bhw'
+                                # Window function along the line of
+                                # sight direction. Accepted values
+                                # are 'bhw', 'bnw', 'rect'
+
+            fftpow      : 1.0
+                                # FFT of the window function will be
+                                # raised to this power. Default=1.0.
+                                # Value of 2 implies a window convolved
+                                # with itself to make a new window
+             
+            pad         : 1.0
+                                # padding fraction relative to the
+                                # number of frequency channels for
+                                # closure phases. Value must be a 
+                                # non-negative scalar. For e.g., a
+                                # pad of 1.0 pads the LOS axis with
+                                # zeros of the same width as the
+                                # number of channels. After the FFT
+                                # the transformed quantity will be
+                                # downsampled by a factor of 1+pad.
+                                # Default=None sets to padding
+                                # factor to 1.0
+
+        Tsys        : 500.0
+                                # System temperature (in K)
+
+        n_antennas  : 30
+                                # Number of antennas used in imaging
+
+        t_int       : 60.0
+                                # Total time (in seconds) on source.
+                                # It will be assumed to be split in
+                                # two halves to remove noise bias in
+                                # power spectrum
+
+        snr_min     : 10.0
+                                # Minimum detection threshold in
+                                # k-bins of power spectrum
+
+        data_loss   : 0.0
+                                # Data loss factor to be accounted
+                                # for while computing sample variance
+                                # and noise power
+
+    '2a'        :
+                                # Plot temperature contrast and 
+                                # modification factors
+                                
+        action      : false
+        
+    '2b'        :
+                                # Plot temperature spectra and pdf
+                                # before and after modification of
+                                # the background radiation
+                                
+        action      : false
+
+    '2c'        :
+                                # Plot Mean PS and the sample variance
+                                # expected with thermal noise power as
+                                # reference
+                                
+        action      : false
+
+    '3'         :
+                                # Based on re-estimating the brightness 
+                                # temperature fluctuations using "from 
+                                # scratch" estimates of optical depth, etc.
+                                
+        action      : true
+
+        models      : # ['Faint_galaxies_fiducial_1024', 'Bright_galaxies_fiducial_1024', 'Faint_galaxies_coldIGM']
+                      ['Bright_galaxies_fiducial_1024', 'Faint_galaxies_fiducial_1024']
+                                # Model names to process
+
+        indir_pfx   : '/lustre/aoc/users/nthyagar/data/EoR_models/21cmFAST/Andrei_Mesinger/'
+                                # Prefix of folder containing cosmological
+                                # lightcone boxes. Actual folder will be
+                                # after appending the model string to this
+                                # prefix
+                                
+        indir_sfx   : '/lightcone/combined/'
+                                # Suffix of folder that needs to be appended
+                                # to determine the folder containing the 
+                                # lightcones
+        
+        qtys        : ['delta_T', 'x_H', 'density', 'T_s']
+                                # Quantities that will be processed 
+                                # for in the light cone cubes. 
+                                # Accepted values are 'delta_T' 
+                                # (brightness temperature fluctuations),
+                                # 'x_H' (neutral fraction), 'density'
+                                # (overdensities), and 'T_s' (spin 
+                                # temperature).
+
+        fov_fwhm    : 5.0 
+                                # Field of view (in deg) to determine the
+                                # FG wedge boundaries
+
+        beam_majax  : [10.0, 10.0, 10.0]
+                                # Beam major axis (in arcsec) at 
+                                # freq_obs. One for each value of 
+                                # flux_obs. If only one input specified,
+                                # it will be used for all values of
+                                # flux_obs
+                                
+        flux_obs    : [1.0, 10.0, 100.0]
+                                # Observed specific intensity (in mJy/beam) at
+                                # observed frequency freq_obs
+
+        z_qso       : [10.0, 12.0, 18.0]
+                                # Redshifts at which quasars are to be
+                                # placed
+
+        z_pspec     : [8.0, 9.5, 11.0]
+                                # Redshifts at which LoS power 
+                                # spectrum is to be estimated given 
+                                # background quasars are placed at 
+                                # z_qso. z_pspec < z_qso
+
+        frac_bw     : 0.0667
+                                # Fractional bandwidth dnu/nu (or dz/z) 
+                                # to be used for spectral window 
+                                # function before computing LOS power
+                                # spectrum
+
+        freq_obs    : 150000000.0
+                                # Observed frequency (in Hz) at
+                                # which the flux flux_obs is
+                                # observed
+
+        spindex     : -1.05
+                                # Spectral index that will be used
+                                # in radio K-correction
+
+        rest_freq   : 1420405751.77
+                                # Rest frame frequency of spectral
+                                # line (in Hz)
+
+        nrand       : 10000
+                                # Number of random pixels to choose
+                                # on the sky to construct the LOS
+                                # power spectrum along by averaging
+                                # across these pixels. This would be
+                                # the multi-direction averaged 
+                                # "theoretical" power spectrum
+
+        seed        : 100
+                                # Random number generator seed
+
+        subband     :
+                                # FFT parameters
+
+            shape       : 'bhw'
+                                # Window function along the line of
+                                # sight direction. Accepted values
+                                # are 'bhw', 'bnw', 'rect'
+
+            fftpow      : 1.0
+                                # FFT of the window function will be
+                                # raised to this power. Default=1.0.
+                                # Value of 2 implies a window convolved
+                                # with itself to make a new window
+             
+            pad         : 1.0
+                                # padding fraction relative to the
+                                # number of frequency channels for
+                                # closure phases. Value must be a 
+                                # non-negative scalar. For e.g., a
+                                # pad of 1.0 pads the LOS axis with
+                                # zeros of the same width as the
+                                # number of channels. After the FFT
+                                # the transformed quantity will be
+                                # downsampled by a factor of 1+pad.
+                                # Default=None sets to padding
+                                # factor to 1.0
+
+        Tsys0       : 384.0
+                                # System temperature (in K)
+                                
+        Tsys_spindex: -2.55
+                                # Spectral index of Tsys
+                                
+        Tsys_reffreq: 150000000
+                                # Reference frequency (in Hz) for Tsys
+
+        n_antennas  : 30
+                                # Number of antennas used in imaging
+                                
+        n_qso_ref   : 100
+                                # A reference number for the number of 
+                                # quasars
+
+        A_over_T_ref: 800.0
+                                # Fiducial Sensitivity=A/T (m^2/K) of the 
+                                # full array. 800 for SKA1-low, 70 for 
+                                # uGMRT, 210 for EGMRT, 90 for LOFAR, 
+                                # 5000 for SKA2-low
+                                
+        A_over_T_uGMRT: 70.0
+                                # uGMRT Sensitivity=A/T (m^2/K) of the 
+                                # full array. 
+
+        A_over_T_EGMRT: 210.0
+                                # EGMRT Sensitivity=A/T (m^2/K) of the 
+                                # full array, ~3 times that of uGMRT 
+
+        A_over_T_lofar: 90.0
+                                # LOFAR Sensitivity=A/T (m^2/K) of the 
+                                # full array. 
+
+        A_over_T_SKA1: 800.0
+                                # SKA1-low Sensitivity=A/T (m^2/K) of 
+                                # the full array. 
+                                
+        A_over_T_SKA2: 4000.0
+                                # SKA2-low Sensitivity=A/T (m^2/K) of 
+                                # the full array. 
+                                
+        t_int       : 36000.0
+                                # Total time (in seconds) on source.
+                                # It will be assumed to be split in
+                                # two halves to remove noise bias in
+                                # power spectrum
+
+        snr_min     : 5.0
+                                # Minimum detection threshold in
+                                # k-bins of power spectrum
+
+        efficiency  : 1.0
+                                # Overall efficiency factor
+                                
+        data_loss   : 0.0
+                                # Data loss factor to be accounted
+                                # for while computing sample variance
+                                # and noise power
+
