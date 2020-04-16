@@ -1,20 +1,20 @@
 from __future__ import division
 import numpy as NP
 import scipy.constants as FCNST
-from scipy import interpolate
+from scipy import interpolate, ndimage
 import datetime as DT
 import progressbar as PGB
-import os
+import os, ast
 import copy
-import astropy 
-from astropy.io import fits
-from astropy.coordinates import SkyCoord
+import astropy
+from astropy.io import fits, ascii
+from astropy.coordinates import Galactic, SkyCoord, ICRS, FK5, AltAz, EarthLocation
 from astropy import units
 from astropy.time import Time
 import warnings
 import h5py
 from distutils.version import LooseVersion
-import psutil 
+import psutil
 from astroutils import geometry as GEOM
 from astroutils import gridding_modules as GRD
 from astroutils import constants as CNST
@@ -22,10 +22,13 @@ from astroutils import DSP_modules as DSP
 from astroutils import catalog as SM
 from astroutils import lookup_operations as LKP
 from astroutils import nonmathops as NMO
+import prisim
 import baseline_delay_horizon as DLY
 import primary_beams as PB
 try:
-    from uvdata import UVData
+    import pyuvdata
+    from pyuvdata import UVData
+    from pyuvdata import utils as UVUtils
 except ImportError:
     uvdata_module_found = False
 else:
@@ -37,19 +40,21 @@ except ImportError:
 else:
     mwa_tools_found = True
 
+prisim_path = prisim.__path__[0]+'/'    
+
 ################################################################################
 
 def _astropy_columns(cols, tabtype='BinTableHDU'):
-    
+
     """
     ----------------------------------------------------------------------------
     !!! FOR INTERNAL USE ONLY !!!
-    This internal routine checks for Astropy version and produces the FITS 
+    This internal routine checks for Astropy version and produces the FITS
     columns based on the version
 
     Inputs:
 
-    cols    [list of Astropy FITS columns] These are a list of Astropy FITS 
+    cols    [list of Astropy FITS columns] These are a list of Astropy FITS
             columns
 
     tabtype [string] specifies table type - 'BinTableHDU' (default) for binary
@@ -57,7 +62,7 @@ def _astropy_columns(cols, tabtype='BinTableHDU'):
 
     Outputs:
 
-    columns [Astropy FITS column data] 
+    columns [Astropy FITS column data]
     ----------------------------------------------------------------------------
     """
 
@@ -76,7 +81,251 @@ def _astropy_columns(cols, tabtype='BinTableHDU'):
         columns = fits.ColDefs(cols, tbtype=tabtype)
     elif LooseVersion(astropy.__version__)>=LooseVersion('0.4.2'):
         columns = fits.ColDefs(cols, ascii=use_ascii)
-    return columns    
+    return columns
+
+################################################################################
+
+def thermalNoiseRMS(A_eff, df, dt, Tsys, nbl=1, nchan=1, ntimes=1,
+                    flux_unit='Jy', eff_Q=1.0):
+
+    """
+    -------------------------------------------------------------------------
+    Generates thermal noise RMS from instrument parameters for a complex-
+    valued visibility measurement by an interferometer. 
+
+    [Based on equations 9-12 through 9-15 or section 5 in chapter 9 on 
+    Sensitivity in SIRA II wherein the equations are for real and imaginary 
+    parts separately.]
+
+    A_eff       [scalar or numpy array] Effective area of the interferometer.
+                Has to be in units of m^2. If only a scalar value
+                provided, it will be assumed to be identical for all the
+                interferometers. Otherwise, it must be of shape broadcastable 
+                to (nbl,nchan,ntimes). So accpeted shapes can be (1,1,1), 
+                (1,1,ntimes), (1,nchan,1), (nbl,1,1), (1,nchan,ntimes), 
+                (nbl,nchan,1), (nbl,1,ntimes), or (nbl,nchan,ntimes). Must
+                be specified. No defaults.
+
+    df          [scalar] Frequency resolution (in Hz). Must be specified. No
+                defaults.
+
+    dt          [scalar] Time resolution (in seconds). Must be specified. No
+                defaults.
+
+    Tsys        [scalar or numpy array] System temperature (in K).
+                If only a scalar value provided, it will be assumed to be 
+                identical for all the interferometers. Otherwise, it must be of 
+                shape broadcastable to (nbl,nchan,ntimes). So accpeted shapes 
+                can be (1,1,1), (1,1,ntimes), (1,nchan,1), (nbl,1,1), 
+                (1,nchan,ntimes), (nbl,nchan,1), (nbl,1,ntimes), or 
+                (nbl,nchan,ntimes). Must be specified. No defaults.
+
+    nbl         [integer] Number of baseline vectors. Default=1
+
+    nchan       [integer] Number of frequency channels. Default=1
+
+    ntimes      [integer] Number of time stamps. Default=1
+
+    flux_unit   [string] Units of thermal noise RMS to be returned. Accepted
+                values are 'K' or 'Jy' (default)
+
+    eff_Q       [scalar or numpy array] Efficiency of the interferometer(s).
+                Has to be between 0 and 1. If only a scalar value
+                provided, it will be assumed to be identical for all the
+                interferometers. Otherwise, it must be of shape broadcastable 
+                to (nbl,nchan,ntimes). So accpeted shapes can be (1,1,1), 
+                (1,1,ntimes), (1,nchan,1), (nbl,1,1), (1,nchan,ntimes), 
+                (nbl,nchan,1), (nbl,1,ntimes), or (nbl,nchan,ntimes). 
+                Default=1.0
+
+    Output:
+
+    Numpy array of thermal noise RMS (in units of K or Jy depending on 
+    flux_unit) of shape (nbl, nchan, ntimes) expected on a complex-valued
+    visibility measurement from an interferometer. 1/sqrt(2) of this goes 
+    each into the real and imaginary parts.
+
+    [Based on equations 9-12 through 9-15 or section 5 in chapter 9 on 
+    Sensitivity in SIRA II wherein the equations are for real and imaginary 
+    parts separately.]
+    -------------------------------------------------------------------------
+    """
+
+    try:
+        A_eff, df, dt, Tsys
+    except NameError:
+        raise NameError('Inputs A_eff, df, dt, and Tsys must be specified')
+
+    if not isinstance(df, (int,float)):
+        raise TypeError('Input channel resolution must be a scalar')
+    else:
+        df = float(df)
+
+    if not isinstance(dt, (int,float)):
+        raise TypeError('Input time resolution must be a scalar')
+    else:
+        dt = float(dt)
+
+    if not isinstance(nbl, int):
+        raise TypeError('Input nbl must be an integer')
+    else:
+        if nbl <= 0:
+            raise ValueError('Input nbl must be positive')
+
+    if not isinstance(nchan, int):
+        raise TypeError('Input nchan must be an integer')
+    else:
+        if nchan <= 0:
+            raise ValueError('Input nchan must be positive')
+
+    if not isinstance(ntimes, int):
+        raise TypeError('Input ntimes must be an integer')
+    else:
+        if ntimes <= 0:
+            raise ValueError('Input ntimes must be positive')
+
+    if not isinstance(Tsys, (int,float,list,NP.ndarray)):
+        raise TypeError('Input Tsys must be a scalar, float, list or numpy array')
+    if isinstance(Tsys, (int,float)):
+        Tsys = NP.asarray(Tsys, dtype=NP.float).reshape(1,1,1)
+    else:
+        Tsys = NP.asarray(Tsys, dtype=NP.float)
+    if NP.any(Tsys < 0.0):
+        raise ValueError('Value(s) in Tsys cannot be negative')
+    if (Tsys.shape != (1,1,1)) and (Tsys.shape != (1,nchan,1)) and (Tsys.shape != (1,1,ntimes)) and (Tsys.shape != (nbl,1,1)) and (Tsys.shape != (nbl,nchan,1)) and (Tsys.shape != (nbl,1,ntimes)) and (Tsys.shape != (1,nchan,ntimes)) and (Tsys.shape != (nbl,nchan,ntimes)):
+        raise IndexError('System temperature specified has incompatible dimensions')
+        
+    if not isinstance(A_eff, (int,float,list,NP.ndarray)):
+        raise TypeError('Input A_eff must be a scalar, float, list or numpy array')
+    if isinstance(A_eff, (int,float)):
+        A_eff = NP.asarray(A_eff, dtype=NP.float).reshape(1,1,1)
+    else:
+        A_eff = NP.asarray(A_eff, dtype=NP.float)
+    if NP.any(A_eff < 0.0):
+        raise ValueError('Value(s) in A_eff cannot be negative')
+    if (A_eff.shape != (1,1,1)) and (A_eff.shape != (1,nchan,1)) and (A_eff.shape != (1,1,ntimes)) and (A_eff.shape != (nbl,1,1)) and (A_eff.shape != (nbl,nchan,1)) and (A_eff.shape != (nbl,1,ntimes)) and (A_eff.shape != (1,nchan,ntimes)) and (A_eff.shape != (nbl,nchan,ntimes)):
+        raise IndexError('Effective area specified has incompatible dimensions')
+        
+    if not isinstance(eff_Q, (int,float,list,NP.ndarray)):
+        raise TypeError('Input eff_Q must be a scalar, float, list or numpy array')
+    if isinstance(eff_Q, (int,float)):
+        eff_Q = NP.asarray(eff_Q, dtype=NP.float).reshape(1,1,1)
+    else:
+        eff_Q = NP.asarray(eff_Q, dtype=NP.float)
+    if NP.any(eff_Q < 0.0):
+        raise ValueError('Value(s) in eff_Q cannot be negative')
+    if (eff_Q.shape != (1,1,1)) and (eff_Q.shape != (1,nchan,1)) and (eff_Q.shape != (1,1,ntimes)) and (eff_Q.shape != (nbl,1,1)) and (eff_Q.shape != (nbl,nchan,1)) and (eff_Q.shape != (nbl,1,ntimes)) and (eff_Q.shape != (1,nchan,ntimes)) and (eff_Q.shape != (nbl,nchan,ntimes)):
+        raise IndexError('Effective area specified has incompatible dimensions')
+
+    if not isinstance(flux_unit, str):
+        raise TypeError('Input flux_unit must be a string')
+    else:
+        if flux_unit.lower() not in ['k', 'jy']:
+            raise ValueError('Input flux_unit must be set to K or Jy')
+
+    if flux_unit.lower() == 'k':
+        rms = Tsys/eff_Q/NP.sqrt(dt*df)
+    else:
+        rms = 2.0 * FCNST.k / NP.sqrt(dt*df) * (Tsys/A_eff/eff_Q) / CNST.Jy
+
+    return rms
+
+################################################################################
+
+def generateNoise(noiseRMS=None, A_eff=None, df=None, dt=None, Tsys=None, nbl=1,
+                  nchan=1, ntimes=1, flux_unit='Jy', eff_Q=None):
+
+    """
+    -------------------------------------------------------------------------
+    Generates thermal noise from instrument parameters for a complex-valued
+    visibility measurement from an interferometer.
+
+    [Based on equations 9-12 through 9-15 or section 5 in chapter 9 on 
+    Sensitivity in SIRA II wherein the equations are for real and imaginary 
+    parts separately.]
+
+    noiseRMS    [NoneType or scalar or numpy array] If set to None (default), 
+                the rest of the parameters are used in determining the RMS of 
+                thermal noise. If specified as scalar, all other parameters
+                will be ignored in estimating noiseRMS and this value will be
+                used instead. If specified as a numpy array, it must be of
+                shape broadcastable to (nbl,nchan,ntimes). So accpeted shapes 
+                can be (1,1,1), (1,1,ntimes), (1,nchan,1), (nbl,1,1), 
+                (1,nchan,ntimes), (nbl,nchan,1), (nbl,1,ntimes), or 
+                (nbl,nchan,ntimes). It is assumed to be an RMS comprising of
+                both real and imaginary parts. Therefore, 1/sqrt(2) of this
+                goes into each of the real and imaginary parts.
+
+    A_eff       [scalar or numpy array] Effective area of the interferometer.
+                Has to be in units of m^2. If only a scalar value
+                provided, it will be assumed to be identical for all the
+                interferometers. Otherwise, it must be of shape broadcastable 
+                to (nbl,nchan,ntimes). So accpeted shapes can be (1,1,1), 
+                (1,1,ntimes), (1,nchan,1), (nbl,1,1), (1,nchan,ntimes), 
+                (nbl,nchan,1), (nbl,1,ntimes), or (nbl,nchan,ntimes). Will
+                apply only if noiseRMS is set to None
+
+    df          [scalar] Frequency resolution (in Hz). Will apply only if 
+                noiseRMS is set to None
+
+    dt          [scalar] Time resolution (in seconds). Will apply only if 
+                noiseRMS is set to None
+
+    Tsys        [scalar or numpy array] System temperature (in K).
+                If only a scalar value provided, it will be assumed to be 
+                identical for all the interferometers. Otherwise, it must be of 
+                shape broadcastable to (nbl,nchan,ntimes). So accpeted shapes 
+                can be (1,1,1), (1,1,ntimes), (1,nchan,1), (nbl,1,1), 
+                (1,nchan,ntimes), (nbl,nchan,1), (nbl,1,ntimes), or 
+                (nbl,nchan,ntimes). Will apply only if noiseRMS is set to None
+
+    nbl         [integer] Number of baseline vectors. Default=1
+
+    nchan       [integer] Number of frequency channels. Default=1
+
+    ntimes      [integer] Number of time stamps. Default=1
+
+    flux_unit   [string] Units of thermal noise RMS to be returned. Accepted
+                values are 'K' or 'Jy' (default). Will only apply if noiseRMS
+                is set to None. Otherwise the flux_unit will be ignored and 
+                the returned value will be in same units as noiseRMS
+
+    eff_Q       [scalar or numpy array] Efficiency of the interferometer(s).
+                Has to be between 0 and 1. If only a scalar value
+                provided, it will be assumed to be identical for all the
+                interferometers. Otherwise, it must be of shape broadcastable 
+                to (nbl,nchan,ntimes). So accpeted shapes can be (1,1,1), 
+                (1,1,ntimes), (1,nchan,1), (nbl,1,1), (1,nchan,ntimes), 
+                (nbl,nchan,1), (nbl,1,ntimes), or (nbl,nchan,ntimes). 
+                Default=1.0. Will apply only if noiseRMS is set to None
+
+    Output:
+
+    Numpy array of thermal noise (units of noiseRMS if specified or in units 
+    of K or Jy depending on flux_unit) of shape (nbl, nchan, ntimes) for a 
+    complex-valued visibility measurement from an interferometer.
+
+    [Based on equations 9-12 through 9-15 or section 5 in chapter 9 on 
+    Sensitivity in SIRA II wherein the equations are for real and imaginary 
+    parts separately.]
+    -------------------------------------------------------------------------
+    """
+
+    if noiseRMS is None:
+        noiseRMS = thermalNoiseRMS(A_eff, df, dt, Tsys, nbl=nbl, nchan=nchan, ntimes=ntimes, flux_unit=flux_unit, eff_Q=eff_Q)
+    else:
+        if not isinstance(noiseRMS, (int,float,list,NP.ndarray)):
+            raise TypeError('Input noiseRMS must be a scalar, float, list or numpy array')
+        if isinstance(noiseRMS, (int,float)):
+            noiseRMS = NP.asarray(noiseRMS, dtype=NP.float).reshape(1,1,1)
+        else:
+            noiseRMS = NP.asarray(noiseRMS, dtype=NP.float)
+        if NP.any(noiseRMS < 0.0):
+            raise ValueError('Value(s) in noiseRMS cannot be negative')
+        if (noiseRMS.shape != (1,1,1)) and (noiseRMS.shape != (1,nchan,1)) and (noiseRMS.shape != (1,1,ntimes)) and (noiseRMS.shape != (nbl,1,1)) and (noiseRMS.shape != (nbl,nchan,1)) and (noiseRMS.shape != (nbl,1,ntimes)) and (noiseRMS.shape != (1,nchan,ntimes)) and (noiseRMS.shape != (nbl,nchan,ntimes)):
+            raise IndexError('Noise RMS specified has incompatible dimensions')
+
+    return noiseRMS / NP.sqrt(2.0) * (NP.random.randn(nbl,nchan,ntimes) + 1j * NP.random.randn(nbl,nchan,ntimes)) # sqrt(2.0) is to split equal uncertainty into real and imaginary parts
 
 ################################################################################
 
@@ -89,25 +338,25 @@ def read_gaintable(gainsfile, axes_order=None):
     Input:
 
     gainsfile   [string] Filename including the full path that contains the
-                instrument gains. It must be in HDF5 format. It must contain 
+                instrument gains. It must be in HDF5 format. It must contain
                 the following structure:
-                'antenna-based'     [dictionary] Contains antenna-based 
+                'antenna-based'     [dictionary] Contains antenna-based
                                     instrument gain information. It has the
                                     following keys and values:
                                     'ordering'  [list or numpy array] Three
-                                                element list of strings 
+                                                element list of strings
                                                 indicating the ordering of
-                                                axes - 'time', 'label', 
+                                                axes - 'time', 'label',
                                                 and 'frequency'. Must be
                                                 specified (no defaults)
-                                    'gains'     [scalar or numpy array] 
-                                                Complex antenna-based 
-                                                instrument gains. Must be 
+                                    'gains'     [scalar or numpy array]
+                                                Complex antenna-based
+                                                instrument gains. Must be
                                                 of shape (nax1, nax2, nax3)
                                                 where ax1, ax2 and ax3 are
-                                                specified by the axes 
+                                                specified by the axes
                                                 ordering under key 'ordering'.
-                                                If there is no variations in 
+                                                If there is no variations in
                                                 gains along an axis, then the
                                                 corresponding nax may be set
                                                 to 1 and the gains will be
@@ -116,52 +365,52 @@ def read_gaintable(gainsfile, axes_order=None):
                                                 For example, shapes (nax1,1,1),
                                                 (1,1,1), (1,nax2,nax3) are
                                                 acceptable. If specified as a
-                                                scalar, it will be replicated 
-                                                along all three axes, namely, 
+                                                scalar, it will be replicated
+                                                along all three axes, namely,
                                                 'label', 'frequency' and 'time'
-                                    'label'     [None or list or numpy array] 
+                                    'label'     [None or list or numpy array]
                                                 List of antenna labels that
                                                 correspond to the nax along
                                                 the 'label' axis. If the
                                                 nax=1 along the 'label' axis,
                                                 this may be set to None, else
                                                 it must be specified and must
-                                                match the nax. 
-                                    'frequency' [None or list or numpy array] 
+                                                match the nax.
+                                    'frequency' [None or list or numpy array]
                                                 Frequency channels that
                                                 correspond to the nax along
                                                 the 'frequency' axis. If the
-                                                nax=1 along the 'frequency' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
-                                                must match the nax. 
-                                    'time'      [None or list or numpy array] 
+                                                nax=1 along the 'frequency'
+                                                axis, this may be set to None,
+                                                else it must be specified and
+                                                must match the nax.
+                                    'time'      [None or list or numpy array]
                                                 Observation times that
                                                 correspond to the nax along
                                                 the 'time' axis. If the
-                                                nax=1 along the 'time' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
+                                                nax=1 along the 'time'
+                                                axis, this may be set to None,
+                                                else it must be specified and
                                                 must match the nax. It must be
-                                                a float and can be in seconds, 
+                                                a float and can be in seconds,
                                                 hours, days, etc.
-                'baseline-based'    [dictionary] Contains baseline-based 
+                'baseline-based'    [dictionary] Contains baseline-based
                                     instrument gain information. It has the
                                     following keys and values:
                                     'ordering'  [list or numpy array] Three
-                                                element list of strings 
+                                                element list of strings
                                                 indicating the ordering of
-                                                axes - 'time', 'label', 
+                                                axes - 'time', 'label',
                                                 and 'frequency'. Must be
                                                 specified (no defaults)
-                                    'gains'     [scalar or numpy array] 
-                                                Complex baseline-based 
-                                                instrument gains. Must be 
+                                    'gains'     [scalar or numpy array]
+                                                Complex baseline-based
+                                                instrument gains. Must be
                                                 of shape (nax1, nax2, nax3)
                                                 where ax1, ax2 and ax3 are
-                                                specified by the axes 
+                                                specified by the axes
                                                 ordering under key 'ordering'.
-                                                If there is no variations in 
+                                                If there is no variations in
                                                 gains along an axis, then the
                                                 corresponding nax may be set
                                                 to 1 and the gains will be
@@ -170,62 +419,62 @@ def read_gaintable(gainsfile, axes_order=None):
                                                 For example, shapes (nax1,1,1),
                                                 (1,1,1), (1,nax2,nax3) are
                                                 acceptable. If specified as a
-                                                scalar, it will be replicated 
-                                                along all three axes, namely, 
+                                                scalar, it will be replicated
+                                                along all three axes, namely,
                                                 'label', 'frequency' and 'time'
-                                    'label'     [None or list or numpy array] 
+                                    'label'     [None or list or numpy array]
                                                 List of baseline labels that
                                                 correspond to the nax along
                                                 the 'label' axis. If the
                                                 nax=1 along the 'label' axis
                                                 this may be set to None, else
                                                 it must be specified and must
-                                                match the nax. 
-                                    'frequency' [None or list or numpy array] 
+                                                match the nax.
+                                    'frequency' [None or list or numpy array]
                                                 Frequency channels that
                                                 correspond to the nax along
                                                 the 'frequency' axis. If the
-                                                nax=1 along the 'frequency' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
-                                                must match the nax. 
-                                    'time'      [None or list or numpy array] 
+                                                nax=1 along the 'frequency'
+                                                axis, this may be set to None,
+                                                else it must be specified and
+                                                must match the nax.
+                                    'time'      [None or list or numpy array]
                                                 Observation times that
                                                 correspond to the nax along
                                                 the 'time' axis. If the
-                                                nax=1 along the 'time' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
+                                                nax=1 along the 'time'
+                                                axis, this may be set to None,
+                                                else it must be specified and
                                                 must match the nax. It must be
-                                                a float and can be in seconds, 
+                                                a float and can be in seconds,
                                                 hours, days, etc.
 
-    axes_order  [None or list or numpy array] The gaintable which is read is 
-                stored in this axes ordering. If set to None, it will store in 
+    axes_order  [None or list or numpy array] The gaintable which is read is
+                stored in this axes ordering. If set to None, it will store in
                 this order ['label', 'frequency', 'time']
 
     Output:
 
     gaintable   [None or dictionary] If set to None, all antenna- and baseline-
                 based gains must be set to unity. If returned as dictionary, it
-                contains the loaded gains. It contains the following keys and 
+                contains the loaded gains. It contains the following keys and
                 values:
-                'antenna-based'     [None or dictionary] Contains antenna-based 
-                                    instrument gain information. If set to None, 
-                                    all antenna-based gains are set to unity. 
+                'antenna-based'     [None or dictionary] Contains antenna-based
+                                    instrument gain information. If set to None,
+                                    all antenna-based gains are set to unity.
                                     If returned as dictionary, it has the
                                     following keys and values:
                                     'ordering'  [list or numpy array] Three
-                                                element list of strings 
+                                                element list of strings
                                                 indicating the ordering of
-                                                axes - 'time', 'label', 
+                                                axes - 'time', 'label',
                                                 and 'frequency' as specified
                                                 in input axes_order
-                                    'gains'     [scalar or numpy array] 
-                                                Complex antenna-based 
-                                                instrument gains. Must be 
+                                    'gains'     [scalar or numpy array]
+                                                Complex antenna-based
+                                                instrument gains. Must be
                                                 of shape (nant, nchan, nts)
-                                                If there is no variations in 
+                                                If there is no variations in
                                                 gains along an axis, then the
                                                 corresponding nax may be set
                                                 to 1 and the gains will be
@@ -234,50 +483,50 @@ def read_gaintable(gainsfile, axes_order=None):
                                                 For example, shapes (nant,1,1),
                                                 (1,1,1), (1,nchan,nts) are
                                                 acceptable. If specified as a
-                                                scalar, it will be replicated 
-                                                along all three axes, namely, 
+                                                scalar, it will be replicated
+                                                along all three axes, namely,
                                                 'label', 'frequency' and 'time'
-                                    'label'     [None or list or numpy array] 
+                                    'label'     [None or list or numpy array]
                                                 List of antenna labels that
                                                 correspond to nant along
                                                 the 'label' axis. If nant=1,
                                                 this may be set to None, else
                                                 it will be specified and will
-                                                match the nant. 
-                                    'frequency' [None or list or numpy array] 
+                                                match the nant.
+                                    'frequency' [None or list or numpy array]
                                                 Frequency channels that
                                                 correspond to the nax along
                                                 the 'frequency' axis. If the
-                                                nchan=1 along the 'frequency' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
-                                                must match the nchan. 
-                                    'time'      [None or list or numpy array] 
+                                                nchan=1 along the 'frequency'
+                                                axis, this may be set to None,
+                                                else it must be specified and
+                                                must match the nchan.
+                                    'time'      [None or list or numpy array]
                                                 Observation times that
                                                 correspond to the nax along
                                                 the 'time' axis. If the
-                                                ntimes=1 along the 'time' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
+                                                ntimes=1 along the 'time'
+                                                axis, this may be set to None,
+                                                else it must be specified and
                                                 must match the ntimes. It will
                                                 be a float and in same units as
                                                 given in input
-                'baseline-based'    [None or dictionary] Contains baseline-based 
-                                    instrument gain information. If set to None, 
-                                    all baseline-based gains are set to unity. 
+                'baseline-based'    [None or dictionary] Contains baseline-based
+                                    instrument gain information. If set to None,
+                                    all baseline-based gains are set to unity.
                                     If returned as dictionary, it has the
                                     following keys and values:
                                     'ordering'  [list or numpy array] Three
-                                                element list of strings 
+                                                element list of strings
                                                 indicating the ordering of
-                                                axes - 'time', 'label', 
+                                                axes - 'time', 'label',
                                                 and 'frequency' as specified
-                                                in input axes_order 
-                                    'gains'     [scalar or numpy array] 
-                                                Complex baseline-based 
-                                                instrument gains. Must be 
+                                                in input axes_order
+                                    'gains'     [scalar or numpy array]
+                                                Complex baseline-based
+                                                instrument gains. Must be
                                                 of shape (nbl, nchan, nts)
-                                                If there is no variations in 
+                                                If there is no variations in
                                                 gains along an axis, then the
                                                 corresponding nax may be set
                                                 to 1 and the gains will be
@@ -286,31 +535,31 @@ def read_gaintable(gainsfile, axes_order=None):
                                                 For example, shapes (nbl,1,1),
                                                 (1,1,1), (1,nchan,nts) are
                                                 acceptable. If specified as a
-                                                scalar, it will be replicated 
-                                                along all three axes, namely, 
+                                                scalar, it will be replicated
+                                                along all three axes, namely,
                                                 'label', 'frequency' and 'time'
-                                    'label'     [None or list or numpy array] 
+                                    'label'     [None or list or numpy array]
                                                 List of baseline labels that
                                                 correspond to nbl along the
                                                 'label' axis. If nbl=1 along
-                                                the 'label' axis this may be 
-                                                set to None, else it will be 
-                                                specified and will match nbl. 
-                                    'frequency' [None or list or numpy array] 
+                                                the 'label' axis this may be
+                                                set to None, else it will be
+                                                specified and will match nbl.
+                                    'frequency' [None or list or numpy array]
                                                 Frequency channels that
                                                 correspond to the nax along
                                                 the 'frequency' axis. If the
-                                                nchan=1 along the 'frequency' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
-                                                must match the nchan. 
-                                    'time'      [None or list or numpy array] 
+                                                nchan=1 along the 'frequency'
+                                                axis, this may be set to None,
+                                                else it must be specified and
+                                                must match the nchan.
+                                    'time'      [None or list or numpy array]
                                                 Observation times that
                                                 correspond to the nax along
                                                 the 'time' axis. If the
-                                                ntimes=1 along the 'time' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
+                                                ntimes=1 along the 'time'
+                                                axis, this may be set to None,
+                                                else it must be specified and
                                                 must match the ntimes. It will
                                                 be a float and in same units as
                                                 given in input
@@ -377,7 +626,7 @@ def read_gaintable(gainsfile, axes_order=None):
         gaintable = None
     if not gaintable:
         gaintable = None
-    
+
     return gaintable
 
 ################################################################################
@@ -387,30 +636,30 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None,
 
     """
     ---------------------------------------------------------------------------
-    Extract complex instrument gains for given baselines from the gain table. 
+    Extract complex instrument gains for given baselines from the gain table.
 
     Inputs:
 
     gaintable   [None or dictionary] If set to None, all antenna- and baseline-
                 based gains must be set to unity. If returned as dictionary, it
-                contains the loaded gains. It contains the following keys and 
+                contains the loaded gains. It contains the following keys and
                 values:
-                'antenna-based'     [None or dictionary] Contains antenna-based 
-                                    instrument gain information. If set to None, 
-                                    all antenna-based gains are set to unity. 
+                'antenna-based'     [None or dictionary] Contains antenna-based
+                                    instrument gain information. If set to None,
+                                    all antenna-based gains are set to unity.
                                     If returned as dictionary, it has the
                                     following keys and values:
                                     'ordering'  [list or numpy array] Three
-                                                element list of strings 
+                                                element list of strings
                                                 indicating the ordering of
-                                                axes - 'time', 'label', 
+                                                axes - 'time', 'label',
                                                 and 'frequency'. Must be
                                                 specified (no defaults)
-                                    'gains'     [scalar or numpy array] 
-                                                Complex antenna-based 
-                                                instrument gains. Must be 
+                                    'gains'     [scalar or numpy array]
+                                                Complex antenna-based
+                                                instrument gains. Must be
                                                 of shape (nant, nchan, nts)
-                                                If there is no variations in 
+                                                If there is no variations in
                                                 gains along an axis, then the
                                                 corresponding nax may be set
                                                 to 1 and the gains will be
@@ -419,51 +668,51 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None,
                                                 For example, shapes (nant,1,1),
                                                 (1,1,1), (1,nchan,nts) are
                                                 acceptable. If specified as a
-                                                scalar, it will be replicated 
-                                                along all three axes, namely, 
-                                                'label', 'frequency' and 
+                                                scalar, it will be replicated
+                                                along all three axes, namely,
+                                                'label', 'frequency' and
                                                 'time'.
-                                    'label'     [None or list or numpy array] 
+                                    'label'     [None or list or numpy array]
                                                 List or antenna labels that
                                                 correspond to nant along
                                                 the 'label' axis. If nant=1,
                                                 this may be set to None, else
                                                 it will be specified and will
-                                                match the nant. 
-                                    'frequency' [None or list or numpy array] 
+                                                match the nant.
+                                    'frequency' [None or list or numpy array]
                                                 Frequency channels that
                                                 correspond to the nax along
                                                 the 'frequency' axis. If the
-                                                nchan=1 along the 'frequency' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
-                                                must match the nchan 
-                                    'time'      [None or list or numpy array] 
+                                                nchan=1 along the 'frequency'
+                                                axis, this may be set to None,
+                                                else it must be specified and
+                                                must match the nchan
+                                    'time'      [None or list or numpy array]
                                                 Observation times that
                                                 correspond to the nax along
                                                 the 'time' axis. If the
-                                                ntimes=1 along the 'time' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
-                                                must match the ntimes. It must 
-                                                be a float and can be in 
+                                                ntimes=1 along the 'time'
+                                                axis, this may be set to None,
+                                                else it must be specified and
+                                                must match the ntimes. It must
+                                                be a float and can be in
                                                 seconds, hours, days, etc.
-                'baseline-based'    [None or dictionary] Contains baseline-based 
-                                    instrument gain information. If set to None, 
-                                    all baseline-based gains are set to unity. 
+                'baseline-based'    [None or dictionary] Contains baseline-based
+                                    instrument gain information. If set to None,
+                                    all baseline-based gains are set to unity.
                                     If returned as dictionary, it has the
                                     following keys and values:
                                     'ordering'  [list or numpy array] Three
-                                                element list of strings 
+                                                element list of strings
                                                 indicating the ordering of
-                                                axes - 'time', 'label', 
+                                                axes - 'time', 'label',
                                                 and 'frequency'. Must be
                                                 specified (no defaults)
-                                    'gains'     [scalar or numpy array] 
-                                                Complex baseline-based 
-                                                instrument gains. Must be 
+                                    'gains'     [scalar or numpy array]
+                                                Complex baseline-based
+                                                instrument gains. Must be
                                                 of shape (nbl, nchan, nts)
-                                                If there is no variations in 
+                                                If there is no variations in
                                                 gains along an axis, then the
                                                 corresponding nax may be set
                                                 to 1 and the gains will be
@@ -472,61 +721,61 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None,
                                                 For example, shapes (nant,1,1),
                                                 (1,1,1), (1,nchan,nts) are
                                                 acceptable. If specified as a
-                                                scalar, it will be replicated 
-                                                along all three axes, namely, 
-                                                'label', 'frequency' and 
+                                                scalar, it will be replicated
+                                                along all three axes, namely,
+                                                'label', 'frequency' and
                                                 'time'.
-                                    'label'     [None or list or numpy array] 
+                                    'label'     [None or list or numpy array]
                                                 List or baseline labels that
                                                 correspond to nbl along
-                                                the 'label' axis. If nbl=1 
+                                                the 'label' axis. If nbl=1
                                                 along the 'label' axis
                                                 this may be set to None, else
                                                 it will be specified and will
-                                                match nbl. 
-                                    'frequency' [None or list or numpy array] 
+                                                match nbl.
+                                    'frequency' [None or list or numpy array]
                                                 Frequency channels that
                                                 correspond to the nax along
                                                 the 'frequency' axis. If the
-                                                nchan=1 along the 'frequency' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
-                                                must match the nchan 
-                                    'time'      [None or list or numpy array] 
+                                                nchan=1 along the 'frequency'
+                                                axis, this may be set to None,
+                                                else it must be specified and
+                                                must match the nchan
+                                    'time'      [None or list or numpy array]
                                                 Observation times that
                                                 correspond to the nax along
                                                 the 'time' axis. If the
-                                                ntimes=1 along the 'time' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
-                                                must match the ntimes. It must 
-                                                be a float and can be in 
+                                                ntimes=1 along the 'time'
+                                                axis, this may be set to None,
+                                                else it must be specified and
+                                                must match the ntimes. It must
+                                                be a float and can be in
                                                 seconds, hours, days, etc.
 
-    bl_labels   [Numpy structured array tuples] Labels of antennas in the pair 
-                used to produce the baseline vector under fields 'A2' and 'A1' 
-                for second and first antenna respectively. The baseline vector 
-                is obtained by position of antennas under 'A2' minus position 
+    bl_labels   [Numpy structured array tuples] Labels of antennas in the pair
+                used to produce the baseline vector under fields 'A2' and 'A1'
+                for second and first antenna respectively. The baseline vector
+                is obtained by position of antennas under 'A2' minus position
                 of antennas under 'A1'
 
-    freq_index  [None, int, list or numpy array] Index (scalar) or indices 
-                (list or numpy array) along the frequency axis at which gains 
-                are to be extracted. If set to None, gains at all frequencies 
-                in the gain table will be extracted. 
+    freq_index  [None, int, list or numpy array] Index (scalar) or indices
+                (list or numpy array) along the frequency axis at which gains
+                are to be extracted. If set to None, gains at all frequencies
+                in the gain table will be extracted.
 
-    time_index  [None, int, list or numpy array] Index (scalar) or indices 
-                (list or numpy array) along the time axis at which gains 
-                are to be extracted. If set to None, gains at all timesin the 
-                gain table will be extracted. 
+    time_index  [None, int, list or numpy array] Index (scalar) or indices
+                (list or numpy array) along the time axis at which gains
+                are to be extracted. If set to None, gains at all timesin the
+                gain table will be extracted.
 
-    axes_order  [None or list or numpy array] Axes ordering for extracted 
-                gains. It must contain the three elements 'label', 
-                'frequency', and 'time'. If set to None, it will be returned 
-                in the same order as in the input gaintable. 
+    axes_order  [None or list or numpy array] Axes ordering for extracted
+                gains. It must contain the three elements 'label',
+                'frequency', and 'time'. If set to None, it will be returned
+                in the same order as in the input gaintable.
 
-    Outputs: 
+    Outputs:
 
-    [numpy array] Complex gains of shape nbl x nchan x nts for the specified 
+    [numpy array] Complex gains of shape nbl x nchan x nts for the specified
     baselines, frequencies and times.
     ---------------------------------------------------------------------------
     """
@@ -550,7 +799,7 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None,
                     gains = NP.copy(gaintable[gainkey]['gains'])
                 else:
                     gains = NP.transpose(NP.copy(gaintable[gainkey]['gains']), axes=temp_transpose_order)
-                
+
                 if freq_index is None:
                     freq_index = NP.arange(gains.shape[1])
                 elif isinstance(freq_index, (int,list,NP.ndarray)):
@@ -563,7 +812,7 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None,
                     time_index = NP.asarray(time_index).ravel()
                 if NP.any(time_index >= gains.shape[2]):
                     raise IndexError('Input time_index cannot exceed the time dimensions in the gain table')
-    
+
                 if gains.shape[0] == 1:
                     blgains = blgains * gains[:,freq_index,time_index].reshape(1,freq_index.size,time_index.size)
                 else:
@@ -604,31 +853,31 @@ def extract_gains(gaintable, bl_labels, freq_index=None, time_index=None,
 
 ################################################################################
 
-def hexagon_generator(spacing, n_total=None, n_side=None, orientation=None, 
+def hexagon_generator(spacing, n_total=None, n_side=None, orientation=None,
                       center=None):
-    
+
     """
     ------------------------------------------------------------------------
-    Generate a grid of baseline locations filling a regular hexagon. 
+    Generate a grid of baseline locations filling a regular hexagon.
     Primarily intended for HERA experiment.
 
     Inputs:
-    
+
     spacing      [scalar] positive scalar specifying the spacing between
                  antennas. Must be specified, no default.
 
     n_total      [scalar] positive integer specifying the total number of
                  antennas to be placed in the hexagonal array. This value
                  will be checked if it valid for a regular hexagon. If
-                 n_total is specified, n_side must not be specified. 
+                 n_total is specified, n_side must not be specified.
                  Default = None.
 
     n_side       [scalar] positive integer specifying the number of antennas
                  on the side of the hexagonal array. If n_side is specified,
                  n_total should not be specified. Default = None
 
-    orientation  [scalar] counter-clockwise angle (in degrees) by which the 
-                 principal axis of the hexagonal array is to be rotated. 
+    orientation  [scalar] counter-clockwise angle (in degrees) by which the
+                 principal axis of the hexagonal array is to be rotated.
                  Default = None (means 0 degrees)
 
     center       [2-element list or numpy array] specifies the center of the
@@ -646,7 +895,7 @@ def hexagon_generator(spacing, n_total=None, n_side=None, orientation=None,
     id           [numpy array of string] unique antenna identifier. Numbers
                  from 0 to n_antennas-1 in string format.
 
-    Notes: 
+    Notes:
 
     If n_side is the number of antennas on the side of the hexagon, then
     n_total = 3*n_side**2 - 3*n_side + 1
@@ -663,7 +912,7 @@ def hexagon_generator(spacing, n_total=None, n_side=None, orientation=None,
 
     if spacing <= 0:
         raise ValueError('spacing must be positive')
-        
+
     if orientation is not None:
         if not isinstance(orientation, (int,float)):
             raise TypeError('orientation must be a scalar')
@@ -728,7 +977,7 @@ def hexagon_generator(spacing, n_total=None, n_side=None, orientation=None,
     xy = xy - NP.mean(xy, axis=0, keepdims=True)    # Shift the center to origin
     if orientation is not None:   # Perform any rotation
         angle = NP.radians(orientation)
-        rot_matrix = NP.asarray([[NP.cos(angle), -NP.sin(angle)], 
+        rot_matrix = NP.asarray([[NP.cos(angle), -NP.sin(angle)],
                                  [NP.sin(angle), NP.cos(angle)]])
         xy = NP.dot(xy, rot_matrix.T)
 
@@ -744,20 +993,20 @@ def rectangle_generator(spacing, n_side, orientation=None, center=None):
 
     """
     ------------------------------------------------------------------------
-    Generate a grid of baseline locations filling a rectangular array. 
+    Generate a grid of baseline locations filling a rectangular array.
     Primarily intended for HIRAX, CHIME and PAPER experiments
 
     Inputs:
-    
-    spacing      [2-element list or numpy array] positive integers specifying 
-    		 the spacing between antennas. Must be specified, no default.
 
-    n_side       [2-element list or numpy array] positive integers specifying 
-    		 the number of antennas on each side of the rectangular array. 
-    		 Atleast one value should be specified, no default.
+    spacing      [2-element list or numpy array] positive integers specifying
+                 the spacing between antennas. Must be specified, no default.
 
-    orientation  [scalar] counter-clockwise angle (in degrees) by which the 
-                 principal axis of the rectangular array is to be rotated. 
+    n_side       [2-element list or numpy array] positive integers specifying
+                 the number of antennas on each side of the rectangular array.
+                 Atleast one value should be specified, no default.
+
+    orientation  [scalar] counter-clockwise angle (in degrees) by which the
+                 principal axis of the rectangular array is to be rotated.
                  Default = None (means 0 degrees)
 
     center       [2-element list or numpy array] specifies the center of the
@@ -775,7 +1024,7 @@ def rectangle_generator(spacing, n_side, orientation=None, center=None):
     id           [numpy array of string] unique antenna identifier. Numbers
                  from 0 to n_antennas-1 in string format.
 
-    Notes: 
+    Notes:
 
     ------------------------------------------------------------------------
     """
@@ -815,37 +1064,37 @@ def rectangle_generator(spacing, n_side, orientation=None, center=None):
             n_side = NP.resize(n_side,(1,2))
         if NP.all(NP.less_equal(n_side,NP.zeros((1,2)))):
             raise ValueError('n_side must be positive')
-	
-	n_total = NP.prod(n_side, dtype=NP.uint8)
-	xn,yn = NP.hsplit(n_side,2)
-	xn = NP.asscalar(xn)
-	yn = NP.asscalar(yn)
 
-	xs,ys = NP.hsplit(spacing,2)
-	xs = NP.asscalar(xs)
-	ys = NP.asscalar(ys)
+        n_total = NP.prod(n_side, dtype=NP.uint8)
+        xn,yn = NP.hsplit(n_side,2)
+        xn = NP.asscalar(xn)
+        yn = NP.asscalar(yn)
 
-	n_total = xn*yn
+        xs,ys = NP.hsplit(spacing,2)
+        xs = NP.asscalar(xs)
+        ys = NP.asscalar(ys)
 
-	x = NP.linspace(0, xn-1, xn)
-	x = x - NP.mean(x)
-	x = x*xs
+        n_total = xn*yn
 
-	y = NP.linspace(0, yn-1, yn)
-	y = y - NP.mean(y)
-	y = y*ys
+        x = NP.linspace(0, xn-1, xn)
+        x = x - NP.mean(x)
+        x = x*xs
 
-	xv, yv = NP.meshgrid(x,y)
+        y = NP.linspace(0, yn-1, yn)
+        y = y - NP.mean(y)
+        y = y*ys
 
-	xy = NP.hstack((xv.reshape(-1,1),yv.reshape(-1,1)))
+        xv, yv = NP.meshgrid(x,y)
+
+        xy = NP.hstack((xv.reshape(-1,1),yv.reshape(-1,1)))
 
     if len(xy) != n_total:
         raise ValueError('Sizes of x- and y-locations do not agree with n_total')
 
     if orientation is not None:   # Perform any rotation
- 	angle = NP.radians(orientation)
- 	rot_matrix = NP.asarray([[NP.cos(angle), -NP.sin(angle)], [NP.sin(angle), NP.cos(angle)]])
- 	xy = NP.dot(xy, rot_matrix.T)
+        angle = NP.radians(orientation)
+        rot_matrix = NP.asarray([[NP.cos(angle), -NP.sin(angle)], [NP.sin(angle), NP.cos(angle)]])
+        xy = NP.dot(xy, rot_matrix.T)
 
     if center is not None:   # Shift the center
         xy += center
@@ -866,21 +1115,21 @@ def circular_antenna_array(antsize, minR, maxR=None):
     antsize   [scalar] Antenna size. Critical to determining number of antenna
               elements that can be placed on a circle. No default.
 
-    minR      [scalar] Minimum radius of the circular ring. Must be in same 
+    minR      [scalar] Minimum radius of the circular ring. Must be in same
               units as antsize. No default. Must be greater than 0.5*antsize.
 
-    maxR      [scalar] Maximum radius of circular ring. Must be >= minR. 
+    maxR      [scalar] Maximum radius of circular ring. Must be >= minR.
               Default=None means maxR is set equal to minR.
 
     Outputs:
 
-    xy        [2-column numpy array] Antenna locations in the same units as 
+    xy        [2-column numpy array] Antenna locations in the same units as
               antsize returned as a 2-column numpy array where the number of
-              rows equals the number of antenna locations generated and x, 
+              rows equals the number of antenna locations generated and x,
               and y locations make the two columns.
     ---------------------------------------------------------------------------
     """
-    
+
     try:
         antsize, minR
     except NameError:
@@ -904,7 +1153,7 @@ def circular_antenna_array(antsize, minR, maxR=None):
 
     if maxR is None:
         maxR = minR
-        
+
     if not isinstance(maxR, (int, float)):
         raise TypeError('maxR must be a scalar')
     elif maxR < minR:
@@ -912,7 +1161,7 @@ def circular_antenna_array(antsize, minR, maxR=None):
 
     if maxR - minR < antsize:
         radii = minR + NP.zeros(1)
-    else:    
+    else:
         radii = minR + antsize * NP.arange((maxR-minR)/antsize)
     nants = 2 * NP.pi * radii / antsize
     nants = nants.astype(NP.int)
@@ -940,7 +1189,7 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
 
     Inputs:
 
-    antenna_locations: List of tuples containing antenna coordinates, 
+    antenna_locations: List of tuples containing antenna coordinates,
                        or list of instances of class Point containing
                        antenna coordinates, or Numpy array (Nx3) array
                        with each row specifying an antenna location.
@@ -960,30 +1209,30 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
     auto:              [Default=False] If True, compute zero spacings of
                        antennas with themselves.
 
-    conjugate:         [Default=False] If True, compute conjugate 
+    conjugate:         [Default=False] If True, compute conjugate
                        baselines.
 
     Output:
 
-    baseline_locations: Baseline locations in the same data type as 
-                        antenna locations (list of tuples, list of 
+    baseline_locations: Baseline locations in the same data type as
+                        antenna locations (list of tuples, list of
                         instances of class Point or Numpy array of size
-                        Nb x 3 with each row specifying one baseline 
+                        Nb x 3 with each row specifying one baseline
                         vector)
 
-    antpair_labels      [Numpy structured array tuples] Labels of 
-                        antennas in the pair used to produce the 
-                        baseline vector under fields 'A2' and 'A1' for 
-                        second and first antenna respectively. The 
-                        baseline vector is obtained by position of 
-                        antennas under 'A2' minus position of antennas 
+    antpair_labels      [Numpy structured array tuples] Labels of
+                        antennas in the pair used to produce the
+                        baseline vector under fields 'A2' and 'A1' for
+                        second and first antenna respectively. The
+                        baseline vector is obtained by position of
+                        antennas under 'A2' minus position of antennas
                         under 'A1'
 
-    antpair_ids         [Numpy structured array tuples] IDs of antennas 
+    antpair_ids         [Numpy structured array tuples] IDs of antennas
                         in the pair used to produce the baseline vector
-                        under fields 'A2' and 'A1' for second and first 
-                        antenna respectively. The baseline vector is 
-                        obtained by position of antennas under 'A2' 
+                        under fields 'A2' and 'A1' for second and first
+                        antenna respectively. The baseline vector is
+                        obtained by position of antennas under 'A2'
                         minus position of antennas under 'A1'
     -------------------------------------------------------------------
     """
@@ -991,7 +1240,7 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
     try:
         antenna_locations
     except NameError:
-        print 'No antenna locations supplied. Returning from baseline_generator()'
+        warnings.warn('No antenna locations supplied. Returning from baseline_generator()')
         return None
 
     inp_type = 'tbd'
@@ -1005,19 +1254,19 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
                 antenna_locations = [(tuple(loc) if len(loc) == 3 else (tuple([loc[0],0.0,0.0]) if len(loc) == 1 else (tuple([loc[0],loc[1],0.0]) if len(loc) == 2 else (tuple([loc[0],loc[1],loc[2]]))))) for loc in antenna_locations if len(loc) != 0] # Remove empty tuples and validate the data range and data type for antenna locations. Force it to have three components for every antenna location.
         elif isinstance(antenna_locations, GEOM.Point):
             if not auto:
-                print 'No non-zero spacings found since auto=False.'
+                warnings.warn('No non-zero spacings found since auto=False.')
                 return None
             else:
                 return GEOM.Point()
         elif isinstance(antenna_locations, tuple):
             if not auto:
-                print 'No non-zero spacings found since auto=False.'
+                warnings.warn('No non-zero spacings found since auto=False.')
                 return None
             else:
                 return (0.0,0.0,0.0)
         else:
             if not auto:
-                print 'No non-zero spacings found since auto=False.'
+                warnings.warn('No non-zero spacings found since auto=False.')
                 return None
             else:
                 return (0.0,0.0,0.0)
@@ -1025,7 +1274,7 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
         inp_type = 'npa' # A numpy array
         if antenna_locations.shape[0] == 1:
             if not auto:
-                print 'No non-zero spacings found since auto=False.'
+                warnings.warn('No non-zero spacings found since auto=False.')
                 return None
             else:
                 return NP.zeros(1,3)
@@ -1061,7 +1310,7 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
             ant_id = ant_id.tolist()
     else:
         ant_id = range(num_ants)
-        
+
     if inp_type == 'loo':
         if auto:
             baseline_locations = [antenna_locations[j]-antenna_locations[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
@@ -1069,7 +1318,7 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
             antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
             antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
         else:
-            baseline_locations = [antenna_locations[j]-antenna_locations[i] for i in range(0,num_ants) for j in range(0,num_ants) if j > i]                
+            baseline_locations = [antenna_locations[j]-antenna_locations[i] for i in range(0,num_ants) for j in range(0,num_ants) if j > i]
             # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
             antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
             antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
@@ -1101,12 +1350,12 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
             antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
             antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
         else:
-            baseline_locations = [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]  
+            baseline_locations = [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
             # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
             antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
             antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
         if conjugate:
-            baseline_locations += [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]         
+            baseline_locations += [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
             # antpair_labels += [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
             antpair_labels += [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
             antpair_ids += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
@@ -1128,27 +1377,33 @@ def uniq_baselines(baseline_locations, redundant=None):
     baseline locations.
 
     Inputs:
-    
-    baseline_locations [2- or 3-column numpy array] Each row of the array 
-                       specifies a baseline vector from which the required 
+
+    baseline_locations [2- or 3-column numpy array] Each row of the array
+                       specifies a baseline vector from which the required
                        set of baselines have to be identified
 
-    redundant          [None or boolean] If set to None (default), all the 
+    redundant          [None or boolean] If set to None (default), all the
                        unique baselines including redundant and non-redundant
                        baselines are returned. If set to True, only redundant
                        baselines that occur more than once are returned. If set
-                       to False, only non-redundant baselines that occur 
+                       to False, only non-redundant baselines that occur
                        exactly once are returned.
 
     Output:
 
-    3-element tuple with the selected baselines, their indices in the input,
-    and their count. The first element of this tuple is a 3-column numpy array 
+    4-element tuple with the selected baselines, their unique indices in the 
+    input, their count and the indices of all occurences of each unique 
+    baseline. The first element of this tuple is a 3-column numpy array 
     which is a subset of baseline_locations containing the requested type of 
-    baselines. The second element of the tuple contains the count of these 
-    selected baselines. In case of redundant and unique baselines, the order 
-    of repeated baselines does not matter and any one of those baselines could 
-    be returned without preserving the order.
+    baselines. The second element of the tuple contains the selected indices 
+    of the input array from which the first element in the tuple is determined
+    relative to the input array. The third element of the tuple contains the 
+    count of these selected baselines. In case of redundant and unique 
+    baselines, the order of repeated baselines does not matter and any one of 
+    those baselines could be returned without preserving the order. The fourth
+    element in the tuple contains a list of lists where each element in the
+    top level list corresponds to a unique baseline and consists of indices
+    of all occurrences of input baselines redundant with this unique baseline 
     ---------------------------------------------------------------------------
     """
 
@@ -1156,7 +1411,7 @@ def uniq_baselines(baseline_locations, redundant=None):
         baseline_locations
     except NameError:
         raise NameError('baseline_locations not provided')
-        
+
     if not isinstance(baseline_locations, NP.ndarray):
         raise TypeError('baseline_locations must be a numpy array')
 
@@ -1177,7 +1432,7 @@ def uniq_baselines(baseline_locations, redundant=None):
     bll = NP.sqrt(NP.sum(baseline_locations**2, axis=1))
     blza = NP.degrees(NP.arccos(baseline_locations[:,2] / bll))
 
-    blstr = ['{0[0]:.2f}_{0[1]:.3f}_{0[2]:.3f}'.format(lo) for lo in zip(bll,blza,blo)]
+    blstr = ['{0[0]:.2f}_{0[1]:.3f}_{0[2]:.3f}'.format(lo) for lo in zip(bll,3.6e3*blza,3.6e3*blo)]
 
     uniq_blstr, ind, invind = NP.unique(blstr, return_index=True, return_inverse=True)  ## if numpy.__version__ < 1.9.0
 
@@ -1201,7 +1456,680 @@ def uniq_baselines(baseline_locations, redundant=None):
             retind = ind[NP.asarray(redn_ind)]
             counts = NP.asarray(counts)
             
-    return (baseline_locations[retind,:], retind, counts)
+    allinds_where_found = NMO.find_all_occurrences_list1_in_list2(invind[retind], invind)
+    return (baseline_locations[retind,:], retind, counts, allinds_where_found)
+
+#################################################################################
+
+def getBaselineInfo(inpdict):
+
+    """
+    ---------------------------------------------------------------------------
+    Generate full baseline info from a given layout and return information 
+    about redundancy and the mapping between unique and redundant baselines
+
+    Input:
+
+    inpdict [dictionary] It contains the following keys and values:
+            'array'     [dictionary] It contains the following keys and values:
+                        'redundant' [boolean] If this key is present, it says
+                                    whether the array could be redundant (true)
+                                    or not (false). If key is absent, this 
+                                    value is assumed to be true. When it is set
+                                    to true, it basically checks for redundancy
+                                    otherwise not. It is not meant to say if 
+                                    the array is actually redundant or not but
+                                    only used for redundancy check to happen or
+                                    not
+                        'layout'    [string] Preset array layouts mutually 
+                                    exclusive to antenna file. Only one of 
+                                    these must be specified. Accepted 
+                                    values are 'MWA-128T', 'HERA-7', 'HERA-19', 
+                                    'HERA-37', 'HERA-61', 'HERA-91', 
+                                    'HERA-127', 'HERA-169', 'HERA-217', 
+                                    'HERA-271', 'HERA-331', 'PAPER-64', 
+                                    'PAPER-112', 'HIRAX-1024', 'CHIME', 'CIRC', 
+                                    or None (if layout file is specified). 
+                        'file'      [string] File containing antenna locations
+                                    parsed according to info in parser (see 
+                                    below). If preset layout is specified, this
+                                    must be set to None.
+                        'filepathtype'
+                                    [string] Accepted values are 'default' (if
+                                    layout file can be found in prisim path, 
+                                    namely, prisim/data/array_layouts folder)
+                                    and 'custom'. If set to 'default', only 
+                                    filename should be specified in file and it
+                                    will be searched in the default 
+                                    array_layouts folder
+                                    prisim/data/array_layouts. 
+                                    If set to 'custom' then the full path
+                                    to the file must be specified.
+                        'parser'    [dictionary] Will be used for parsing the 
+                                    file if file is specified for array layout.
+                                    It contains the following keys and values:
+                                    'comment'   [string] Character used to 
+                                                denote commented lines to be
+                                                ignored. Default=None ('#')
+                                    'delimiter' [string] Delimiter string. 
+                                                Accepted values are whitespace 
+                                                (default or None), ',' and '|'
+                                    'data_strart'
+                                                [integer] Line index for the 
+                                                start of data not counting 
+                                                comment or blank lines. A line 
+                                                with only whitespace is 
+                                                considered blank. It is 
+                                                required. No defaults. 
+                                                Indexing starts from 0
+                                    'data_end'  [integer] Line index for the end 
+                                                of data not counting comment or 
+                                                blank lines. This value can be 
+                                                negative to count from the end. 
+                                                Default is None (all the way to 
+                                                end of file). Indexing starts 
+                                                from 0.
+                                    'header_start'
+                                                [integer] Line index for the 
+                                                header line not counting comment 
+                                                or blank lines. A line with only 
+                                                whitespace is considered blank. 
+                                                Must be provided. No defaults
+                                    'label'     [string] String in the header 
+                                                containing antenna labels. If 
+                                                set to None (default), antenna 
+                                                labels will be automatically 
+                                                assigned. e.g. of some accepted 
+                                                values are None, 'label', 'id', 
+                                                'antid', etc. This must be found 
+                                                in the header
+                                    'east'      [string] String specifying East 
+                                                coordinates in the header and 
+                                                data. Must be provided. No 
+                                                defaults.
+                                    'north'     [string] String specifying North
+                                                coordinates in the header and 
+                                                data. Must be provided. No 
+                                                defaults.
+                                    'up'        [string] String specifying 
+                                                elevation coordinates in the 
+                                                header and data. Must be 
+                                                provided. No defaults.
+                        'minR'      [string] Minimum radius of circular ring.
+                                    Applies only when layout = 'CIRC'
+
+                        'maxR'      [string] Maximum radius of circular ring.
+                                    Applies only when layout = 'CIRC'
+                        'rms_tgtplane'
+                                    [float] Perturbation of antenna positions
+                                    (in m) in tangent plane. Default=0.0
+                        'rms_elevation'
+                                    [float] Perturbation of antenna positions
+                                    (in m) in perpendicular to tangent plane.
+                                    Default=0.0
+                        'seed'      [integer] Random number seed for antenna
+                                    position perturbations. Default=None means 
+                                    no fixed seed
+            'baseline'  [dictionary] Parameters specifying baseline
+                        selection criteria. It consists of the following keys
+                        and values:
+                        'min'       [float] Minimum baseline in distance
+                                    units (m). Default=None (0.0)
+                        'max'       [float] Maximum baseline in distance
+                                    units (m). Default=None (max baseline)
+                        'direction' [string] Baseline vector directions to
+                                    select. Default=None (all directions).
+                                    Other accepted values are 'E' (east)
+                                    'SE' (south-east), 'NE' (north-east),
+                                    and 'N' (north). Multiple values from
+                                    this accepted list can be specified
+                                    as a list of strings. e.g., ['N', 'E'], 
+                                    ['NE', 'SE', 'E'], ['SE', 'E', 'NE', 'N'] 
+                                    which is equivalent to None, etc.
+            'skyparm'   [dictionary] Sky model specification. It contains the
+                        following keys and values:
+                        'model'     [string] Sky model. Accepted values
+                                    are 'csm' (NVSS+SUMSS point sources), 
+                                    'dsm' (diffuse emission), 'asm' (both
+                                    point sources and diffuse emission),
+                                    'sumss' (SUMSS catalog), nvss (NVSS
+                                    catalog), 'mss' (Molonglo Sky Survey), 
+                                    'gleam' (GLEAM catalog), 'custom' 
+                                    (user-defined catalog), 'usm' (uniform 
+                                    sky model), 'mwacs' (MWACS catalog), 
+                                    'HI_monopole' (global EoR), HI_cube (HI 
+                                    cube from external simulations), and 
+                                    'HI_fluctuations' (HI fluctuations with 
+                                    the global mean signal removed). If set
+                                    'HI_monopole' or 'monopole' the orientation
+                                    of the baseline vector does not matter 
+                                    and only unique baseline lengths will be 
+                                    selected if value under 'redundant' key is
+                                    set to True. 
+
+    Output:
+
+    Dictionary containing the following keys and values. 
+    'bl'    [numpy array] Baseline vectors (unique ones or all depending on
+            value in key 'redundant'). It is of shape nbl x 3 and will 
+            consist of unique baselines if value under key 'redundant' was
+            set to True. Otherwise, redundancy will not be checked and all
+            baselines will be returned.
+    'label' [numpy recarray] A unique label of each of the baselines. 
+            Shape is nbl where each element is a recarray under fields 'A1'
+            (first antenna label) and 'A2' (second antenna label)
+    'id'    [numpy recarray] A unique identifier of each of the baselines. 
+            Shape is nbl where each element is a recarray under fields 'A1'
+            (first antenna id) and 'A2' (second antenna id)
+    'redundancy' 
+            [boolean] If the array was originally found to be made of unique 
+            baselines (False) or redundant baselines were found (True). Even
+            if set to False, the baselines may still be redundant because
+            redundancy may never have been checked if value under key
+            'redundant' was set to False
+    'groups'
+            [dictionary] Contains the grouping of unique baselines and the
+            redundant baselines as numpy recarray under each unique baseline 
+            category/flavor. It contains as keys the labels (tuple of A1, A2) 
+            of unique baselines and the value under each of these keys is a 
+            list of baseline labels that are redundant under that category
+    'reversemap'
+            [dictionary] Contains the baseline category for each baseline. 
+            The keys are baseline labels as tuple and the value under each 
+            key is the label of the unique baseline category that it falls 
+            under. 
+    'layout_info'
+            [dictionary] Contains the antenna layout information with the 
+            following keys and values:
+            'positions' [numpy array] Antenna locations with shape nant x 3
+            'labels'    [numpy array of strings] Antenna labels of size nant
+            'ids'       [numpy array of strings] Antenna IDs of size nant
+            'coords'    [string] Coordinate system in which antenna locations
+                        are specified. Currently only returns 'ENU' for East-
+                        North-Up coordinate system
+    ---------------------------------------------------------------------------
+    """
+
+    try:
+        inpdict
+    except NameError:
+        raise NameError('Input inpdict must be specified')
+
+    if not isinstance(inpdict, dict):
+        raise TypeError('Input inpdict must be a dictionary')
+
+    if 'array' in inpdict:
+        if 'redundant' in inpdict['array']:
+            array_is_redundant = inpdict['array']['redundant']
+        else:
+            array_is_redundant = True
+    else:
+        raise KeyError('Key "array" not found in input inpdict')
+
+    sky_str = inpdict['skyparm']['model']
+    use_HI_monopole = False
+    if sky_str == 'HI_monopole':
+        use_HI_monopole = True
+    antenna_file = inpdict['array']['file']
+    array_layout = inpdict['array']['layout']
+    minR = inpdict['array']['minR']
+    maxR = inpdict['array']['maxR']
+    antpos_rms_tgtplane = inpdict['array']['rms_tgtplane']
+    antpos_rms_elevation = inpdict['array']['rms_elevation']
+    antpos_rms_seed = inpdict['array']['seed']
+    if antpos_rms_seed is None:
+        antpos_rms_seed = NP.random.randint(1, high=100000)
+    elif isinstance(antpos_rms_seed, (int,float)):
+        antpos_rms_seed = int(NP.abs(antpos_rms_seed))
+    else:
+        raise ValueError('Random number seed must be a positive integer')
+    minbl = inpdict['baseline']['min']
+    maxbl = inpdict['baseline']['max']
+    bldirection = inpdict['baseline']['direction']
+
+    if (antenna_file is None) and (array_layout is None):
+        raise ValueError('One of antenna array file or layout must be specified')
+    if (antenna_file is not None) and (array_layout is not None):
+        raise ValueError('Only one of antenna array file or layout must be specified')
+    
+    if antenna_file is not None:
+        if not isinstance(antenna_file, str):
+            raise TypeError('Filename containing antenna array elements must be a string')
+        if inpdict['array']['filepathtype'] == 'default':
+            antenna_file = prisim_path+'data/array_layouts/'+antenna_file
+        
+        antfile_parser = inpdict['array']['parser']
+        if 'comment' in antfile_parser:
+            comment = antfile_parser['comment']
+            if comment is None:
+                comment = '#'
+            elif not isinstance(comment, str):
+                raise TypeError('Comment expression must be a string')
+        else:
+            comment = '#'
+        if 'delimiter' in antfile_parser:
+            delimiter = antfile_parser['delimiter']
+            if delimiter is not None:
+                if not isinstance(delimiter, str):
+                    raise TypeError('Delimiter expression must be a string')
+            else:
+                delimiter = ' '
+        else:
+            delimiter = ' '
+    
+        if 'data_start' in antfile_parser:
+            data_start = antfile_parser['data_start']
+            if not isinstance(data_start, int):
+                raise TypeError('data_start parameter must be an integer')
+        else:
+            raise KeyError('data_start parameter not provided')
+        if 'data_end' in antfile_parser:
+            data_end = antfile_parser['data_end']
+            if data_end is not None:
+                if not isinstance(data_end, int):
+                    raise TypeError('data_end parameter must be an integer')
+        else:
+            data_end = None
+        if 'header_start' in antfile_parser:
+            header_start = antfile_parser['header_start']
+            if not isinstance(header_start, int):
+                raise TypeError('header_start parameter must be an integer')
+        else:
+            raise KeyError('header_start parameter not provided')
+    
+        if 'label' not in antfile_parser:
+            antfile_parser['label'] = None
+        elif antfile_parser['label'] is not None:
+            antfile_parser['label'] = str(antfile_parser['label'])
+    
+        if 'east' not in antfile_parser:
+            raise KeyError('Keyword for "east" coordinates not provided')
+        else:
+            if not isinstance(antfile_parser['east'], str):
+                raise TypeError('Keyword for "east" coordinates must be a string')
+        if 'north' not in antfile_parser:
+            raise KeyError('Keyword for "north" coordinates not provided')
+        else:
+            if not isinstance(antfile_parser['north'], str):
+                raise TypeError('Keyword for "north" coordinates must be a string')
+        if 'up' not in antfile_parser:
+            raise KeyError('Keyword for "up" coordinates not provided')
+        else:
+            if not isinstance(antfile_parser['up'], str):
+                raise TypeError('Keyword for "up" coordinates must be a string')
+    
+        try:
+            ant_info = ascii.read(antenna_file, comment=comment, delimiter=delimiter, header_start=header_start, data_start=data_start, data_end=data_end, guess=False)
+        except IOError:
+            raise IOError('Could not open file containing antenna locations.')
+    
+        if (antfile_parser['east'] not in ant_info.colnames) or (antfile_parser['north'] not in ant_info.colnames) or (antfile_parser['up'] not in ant_info.colnames):
+            raise KeyError('One of east, north, up coordinates incompatible with the table in antenna_file')
+    
+        if antfile_parser['label'] is not None:
+            ant_label = ant_info[antfile_parser['label']].data.astype('str')
+        else:
+            ant_label = NP.arange(len(ant_info)).astype('str')
+    
+        east = ant_info[antfile_parser['east']].data
+        north = ant_info[antfile_parser['north']].data
+        elev = ant_info[antfile_parser['up']].data
+    
+        if (east.dtype != NP.float) or (north.dtype != NP.float) or (elev.dtype != NP.float):
+            raise TypeError('Antenna locations must be of floating point type')
+    
+        ant_locs = NP.hstack((east.reshape(-1,1), north.reshape(-1,1), elev.reshape(-1,1)))
+    else:
+        if array_layout not in ['MWA-128T', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331', 'PAPER-64', 'PAPER-112', 'HIRAX-1024', 'CHIME', 'CIRC']:
+            raise ValueError('Invalid array layout specified')
+    
+        if array_layout == 'MWA-128T':
+            ant_info = NP.loadtxt(prisim_path+'data/array_layouts/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', skiprows=6, comments='#', usecols=(0,1,2,3))
+            ant_label = ant_info[:,0].astype(int).astype(str)
+            ant_locs = ant_info[:,1:]
+        elif array_layout == 'HERA-7':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=7)
+        elif array_layout == 'HERA-19':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=19)
+        elif array_layout == 'HERA-37':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=37)
+        elif array_layout == 'HERA-61':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=61)
+        elif array_layout == 'HERA-91':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=91)
+        elif array_layout == 'HERA-127':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=127)
+        elif array_layout == 'HERA-169':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=169)
+        elif array_layout == 'HERA-217':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=217)
+        elif array_layout == 'HERA-271':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=271)
+        elif array_layout == 'HERA-331':
+            ant_locs, ant_label = hexagon_generator(14.6, n_total=331)
+        elif array_layout == 'PAPER-64':
+            ant_locs, ant_label = rectangle_generator([30.0, 4.0], [8, 8])
+        elif array_layout == 'PAPER-112':
+            ant_locs, ant_label = rectangle_generator([15.0, 4.0], [16, 7])
+        elif array_layout == 'HIRAX-1024':
+            ant_locs, ant_label = rectangle_generator(7.0, n_side=32)
+        elif array_layout == 'CIRC':
+            ant_locs, ant_label = circular_antenna_array(element_size, minR, maxR=maxR)
+        ant_label = NP.asarray(ant_label)
+    if ant_locs.shape[1] == 2:
+        ant_locs = NP.hstack((ant_locs, NP.zeros(ant_label.size).reshape(-1,1)))
+    antpos_rstate = NP.random.RandomState(antpos_rms_seed)
+    deast = antpos_rms_tgtplane/NP.sqrt(2.0) * antpos_rstate.randn(ant_label.size)
+    dnorth = antpos_rms_tgtplane/NP.sqrt(2.0) * antpos_rstate.randn(ant_label.size)
+    dup = antpos_rms_elevation * antpos_rstate.randn(ant_label.size)
+    denu = NP.hstack((deast.reshape(-1,1), dnorth.reshape(-1,1), dup.reshape(-1,1)))
+    ant_locs = ant_locs + denu
+    ant_locs_orig = NP.copy(ant_locs)
+    ant_label_orig = NP.copy(ant_label)
+    ant_id = NP.arange(ant_label.size, dtype=int)
+    ant_id_orig = NP.copy(ant_id)
+    layout_info = {'positions': ant_locs_orig, 'labels': ant_label_orig, 'ids': ant_id_orig, 'coords': 'ENU'}
+
+    bl_orig, bl_label_orig, bl_id_orig = baseline_generator(ant_locs_orig, ant_label=ant_label_orig, ant_id=ant_id_orig, auto=False, conjugate=False)
+    
+    blo = NP.angle(bl_orig[:,0] + 1j * bl_orig[:,1], deg=True)
+    neg_blo_ind = (blo < -67.5) | (blo > 112.5)
+    bl_orig[neg_blo_ind,:] = -1.0 * bl_orig[neg_blo_ind,:]
+    blo = NP.angle(bl_orig[:,0] + 1j * bl_orig[:,1], deg=True)
+    maxlen = max(max(len(albl[0]), len(albl[1])) for albl in bl_label_orig)
+    bl_label_orig = [tuple(reversed(bl_label_orig[i])) if neg_blo_ind[i] else bl_label_orig[i] for i in xrange(bl_label_orig.size)]
+    bl_label_orig = NP.asarray(bl_label_orig, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
+    bl_id_orig = [tuple(reversed(bl_id_orig[i])) if neg_blo_ind[i] else bl_id_orig[i] for i in xrange(bl_id_orig.size)]
+    bl_id_orig = NP.asarray(bl_id_orig, dtype=[('A2', int), ('A1', int)])
+    bl_length_orig = NP.sqrt(NP.sum(bl_orig**2, axis=1))
+    sortind_orig = NP.argsort(bl_length_orig, kind='mergesort')
+    bl_orig = bl_orig[sortind_orig,:]
+    blo = blo[sortind_orig]
+    bl_label_orig = bl_label_orig[sortind_orig]
+    bl_id_orig = bl_id_orig[sortind_orig]
+    bl_length_orig = bl_length_orig[sortind_orig]
+    
+    bl = NP.copy(bl_orig)
+    bl_label = NP.copy(bl_label_orig)
+    bl_id = NP.copy(bl_id_orig)
+    bl_orientation = NP.copy(blo)
+
+    if array_is_redundant:
+        bl, select_bl_ind, bl_count, allinds = uniq_baselines(bl)
+    else:
+        select_bl_ind = NP.arange(bl.shape[0])
+        bl_count = NP.ones(bl.shape[0], dtype=int)
+        allinds = select_bl_ind.reshape(-1,1).tolist()
+    bl_label = bl_label[select_bl_ind]
+    bl_id = bl_id[select_bl_ind]
+    bl_orientation = bl_orientation[select_bl_ind]
+    if NP.any(bl_count > 1):
+        redundancy = True
+    else:
+        redundancy = False
+
+    bl_length = NP.sqrt(NP.sum(bl**2, axis=1))
+    sortind = NP.argsort(bl_length, kind='mergesort')
+    bl = bl[sortind,:]
+    bl_label = bl_label[sortind]
+    bl_id = bl_id[sortind]
+    bl_length = bl_length[sortind]
+    bl_orientation = bl_orientation[sortind]
+
+    bl_count = bl_count[sortind]
+    select_bl_ind = select_bl_ind[sortind]
+    allinds = [allinds[i] for i in sortind]
+    
+    if minbl is None:
+        minbl = 0.0
+    elif not isinstance(minbl, (int,float)):
+        raise TypeError('Minimum baseline length must be a scalar')
+    elif minbl < 0.0:
+        minbl = 0.0
+    
+    if maxbl is None:
+        maxbl = bl_length.max()
+    elif not isinstance(maxbl, (int,float)):
+        raise TypeError('Maximum baseline length must be a scalar')
+    elif maxbl < minbl:
+        maxbl = bl_length.max()
+    
+    min_blo = -67.5
+    max_blo = 112.5
+    subselect_bl_ind = NP.zeros(bl_length.size, dtype=NP.bool)
+    
+    if bldirection is not None:
+        if isinstance(bldirection, str):
+            if bldirection not in ['SE', 'E', 'NE', 'N']:
+                raise ValueError('Invalid baseline direction criterion specified')
+            else:
+                bldirection = [bldirection]
+        if isinstance(bldirection, list):
+            for direction in bldirection:
+                if direction in ['SE', 'E', 'NE', 'N']:
+                    if direction == 'SE':
+                        oind = (bl_orientation >= -67.5) & (bl_orientation < -22.5)
+                        subselect_bl_ind[oind] = True
+                    elif direction == 'E':
+                        oind = (bl_orientation >= -22.5) & (bl_orientation < 22.5)
+                        subselect_bl_ind[oind] = True
+                    elif direction == 'NE':
+                        oind = (bl_orientation >= 22.5) & (bl_orientation < 67.5)
+                        subselect_bl_ind[oind] = True
+                    else:
+                        oind = (bl_orientation >= 67.5) & (bl_orientation < 112.5)
+                        subselect_bl_ind[oind] = True
+        else:
+            raise TypeError('Baseline direction criterion must specified as string or list of strings')
+    else:
+        subselect_bl_ind = NP.ones(bl_length.size, dtype=NP.bool)
+    
+    subselect_bl_ind = subselect_bl_ind & (bl_length >= minbl) & (bl_length <= maxbl)
+    bl_label = bl_label[subselect_bl_ind]
+    bl_id = bl_id[subselect_bl_ind]
+    bl = bl[subselect_bl_ind,:]
+    bl_length = bl_length[subselect_bl_ind]
+    bl_orientation = bl_orientation[subselect_bl_ind]
+
+    bl_count = bl_count[subselect_bl_ind]
+    select_bl_ind = select_bl_ind[subselect_bl_ind]
+    allinds = [allinds[i] for i in range(subselect_bl_ind.size) if subselect_bl_ind[i]]
+    
+    if use_HI_monopole:
+        bllstr = map(str, bl_length)
+        uniq_bllstr, ind_uniq_bll = NP.unique(bllstr, return_index=True)
+        count_uniq_bll = [bllstr.count(ubll) for ubll in uniq_bllstr]
+        count_uniq_bll = NP.asarray(count_uniq_bll)
+    
+        bl = bl[ind_uniq_bll,:]
+        bl_label = bl_label[ind_uniq_bll]
+        bl_id = bl_id[ind_uniq_bll]
+        bl_orientation = bl_orientation[ind_uniq_bll]
+        bl_length = bl_length[ind_uniq_bll]
+
+        bl_count = bl_count[ind_uniq_bll]
+        select_bl_ind = select_bl_ind[ind_uniq_bll]
+        allinds = [allinds[i] for i in ind_uniq_bll]
+    
+        sortind = NP.argsort(bl_length, kind='mergesort')
+        bl = bl[sortind,:]
+        bl_label = bl_label[sortind]
+        bl_id = bl_id[sortind]
+        bl_length = bl_length[sortind]
+        bl_orientation = bl_orientation[sortind]
+        count_uniq_bll = count_uniq_bll[sortind]
+
+        bl_count = bl_count[sortind]
+        select_bl_ind = select_bl_ind[sortind]
+        allinds = [allinds[i] for i in sortind]
+    
+    blgroups = {}
+    blgroups_reversemap = {}
+    for labelind, label in enumerate(bl_label_orig[select_bl_ind]):
+        if bl_count[labelind] > 0:
+            blgroups[tuple(label)] = bl_label_orig[NP.asarray(allinds[labelind])]
+            for lbl in bl_label_orig[NP.asarray(allinds[labelind])]:
+                # blgroups_reversemap[tuple(lbl)] = tuple(label)
+                blgroups_reversemap[tuple(lbl)] = NP.asarray([label], dtype=bl_label.dtype)
+    
+    if array_is_redundant:
+        if bl_label_orig.size == bl_label.size:
+            warnings.warn('No redundant baselines found. Proceeding...')
+
+    outdict = {'bl': bl, 'id': bl_id, 'label': bl_label, 'groups': blgroups, 'reversemap': blgroups_reversemap, 'redundancy': redundancy, 'layout_info': layout_info}
+    return outdict
+
+#################################################################################
+
+def getBaselineGroupKeys(inp_labels, blgroups_reversemap):
+
+    """
+    ---------------------------------------------------------------------------
+    Find redundant baseline group keys of groups that contain the input
+    baseline labels
+
+    Inputs:
+
+    inp_labels
+            [list] List where each element in the list is a two-element tuple 
+            that corresponds to a baseline / antenna pair label. 
+            e.g. [('1', '2'), ('3', '0'), ('2', '2'), ...] 
+
+    blgroups_reversemap
+            [dictionary] Contains the baseline category for each baseline. 
+            The keys are baseline labels as tuple and the value under each 
+            key is the label of the unique baseline category that it falls 
+            under. That label could be a two-element Numpy RecArray or a tuple. 
+            Each element in this two-element tuple must be an antenna label 
+            specified as a string. e.g. {('9','8'): ('2','3'), 
+            ('12','11'): ('2','3'), ('1','4'): ('6','7'),...} or {('9','8'): 
+            array[('2','3')], ('12','11'): array[('2','3')], 
+            ('1','4'): array[('6','7')],...}
+
+    Output:
+
+    Tuple containing two values. The first value is a list of all baseline
+    group keys corresponding to the input keys. If any input keys were not
+    found in blgroups_reversemap, those corresponding position in this list
+    will be filled with None to indicate the label was not found. The second
+    value in the tuple indicates if the ordering of the input label had to be
+    flipped in order to find the baseline group key. Positions where an input
+    label was found as is will contain False, but if it had to be flipped will
+    contain True. If the input label was not found, it will be filled with 
+    None. 
+
+    Example:
+
+    blkeys, flipped = getBaselineGroupKeys(inp_labels, blgroups_reversemap) 
+    blkeys --> [('2','3'), ('11','16'), None, ('5','1'),...]
+    flipped --> [False, True, None, False],...)
+    ---------------------------------------------------------------------------
+    """
+
+    try:
+        inp_labels, blgroups_reversemap
+    except NameError:
+        raise NameError('Inputs inp_label and blgroups_reversemap must be provided')
+
+    if not isinstance(blgroups_reversemap, dict):
+        raise TypeError('Input blgroups_reversemap must be a dictionary')
+
+    if not isinstance(inp_labels, list):
+        inp_labels = [inp_labels]
+        
+    blgrpkeys = []
+    flip_order = []
+    for lbl in inp_labels:
+        if lbl in blgroups_reversemap.keys():
+            if isinstance(blgroups_reversemap[lbl], NP.ndarray):
+                blgrpkeys += [tuple(blgroups_reversemap[lbl][0])]
+            elif isinstance(blgroups_reversemap[lbl], tuple):
+                blgrpkeys += [blgroups_reversemap[lbl]]
+            else:
+                raise TypeError('Invalid type found in blgroups_reversemap')
+            flip_order += [False]
+        elif lbl[::-1] in blgroups_reversemap.keys():
+            if isinstance(blgroups_reversemap[lbl[::-1]], NP.ndarray):
+                blgrpkeys += [tuple(blgroups_reversemap[lbl[::-1]][0])]
+            elif isinstance(blgroups_reversemap[lbl[::-1]], tuple):
+                blgrpkeys += [blgroups_reversemap[lbl[::-1]]]
+            else:
+                raise TypeError('Invalid type found in blgroups_reversemap')
+            flip_order += [True]
+        else:
+            blgrpkeys += [None]
+            flip_order += [None]
+
+    return (blgrpkeys, flip_order)
+
+#################################################################################
+
+def getBaselinesInGroups(inp_labels, blgroups_reversemap, blgroups):
+
+    """
+    ---------------------------------------------------------------------------
+    Find all redundant baseline labels in groups that contain the given input
+    baseline labels
+
+    Inputs:
+
+    inp_labels
+            [list] List where each element in the list is a two-element tuple 
+            that corresponds to a baseline / antenna pair label. 
+            e.g. [('1', '2'), ('3', '0'), ('2', '2'), ...] 
+
+    blgroups_reversemap
+            [dictionary] Contains the baseline category for each baseline. 
+            The keys are baseline labels as tuple and the value under each 
+            key is the label of the unique baseline category that it falls 
+            under. That label could be a two-element Numpy RecArray or a tuple. 
+            Each element in this two-element tuple must be an antenna label 
+            specified as a string. e.g. {('9','8'): ('2','3'), 
+            ('12','11'): ('2','3'), ('1','4'): ('6','7'),...} or {('9','8'): 
+            array[('2','3')], ('12','11'): array[('2','3')], 
+            ('1','4'): array[('6','7')],...}
+
+    blgroups
+            [dictionary] Contains the grouping of unique baselines and the
+            redundant baselines as numpy recarray under each unique baseline 
+            category/flavor. It contains as keys the labels (tuple of A1, A2) 
+            of unique baselines and the value under each of these keys is a 
+            list of baseline labels that are redundant under that category
+
+    Output:
+
+    Tuple with two elements where the first element is a list of numpy 
+    RecArrays where each RecArray corresponds to the entry in inp_label and is 
+    an array of two-element records corresponding to the baseline labels in 
+    that redundant group. If the input baseline is not found, the corresponding 
+    element in the list is None to indicate the baseline label was not found. 
+    The second value in the tuple indicates if the ordering of the input label 
+    had to be flipped in order to find the baseline group key. Positions where 
+    an input label was found as is will contain False, but if it had to be 
+    flipped will contain True. If the input label was not found, it will 
+    contain a None entry.
+
+    Example:
+
+    list_blgrps, flipped = getBaselineGroupKeys(inplabels, bl_revmap, blgrps) 
+    list_blgrps --> [array([('2','3'), ('11','16')]), None, 
+                     array([('5','1')]), ...], 
+    flipped --> [False, True, None, ...])
+    ---------------------------------------------------------------------------
+    """
+
+    if not isinstance(blgroups, dict):
+        raise TypeError('Input blgroups must be a dictionary')
+
+    blkeys, flip_order = getBaselineGroupKeys(inp_labels, blgroups_reversemap)
+    blgrps = []
+    for blkey in blkeys:
+        if blkey is not None:
+            blgrps += [blgroups[blkey]]
+        else:
+            blgrps += [None]
+
+    return (blgrps, flip_order)
 
 #################################################################################
 
@@ -1222,54 +2150,54 @@ def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
               element size and orientation. It consists of the following keys
               and values:
               'latitude'    [float] latitude of the telescope site (in degrees).
-                            If this key is not present, the latitude of MWA 
+                            If this key is not present, the latitude of MWA
                             (-26.701 degrees) will be assumed.
               'id'          [string] If set, will ignore the other keys and use
-                            telescope details for known telescopes. Accepted 
-                            values are 'mwa', 'vla', 'gmrt', and 'hera', 
+                            telescope details for known telescopes. Accepted
+                            values are 'mwa', 'vla', 'gmrt', 'ugmrt', 'hera',
                             'paper', 'hirax' and 'chime'
               'shape'       [string] Shape of antenna element. Accepted values
-                            are 'dipole', 'delta', and 'dish'. Will be ignored 
+                            are 'dipole', 'delta', and 'dish'. Will be ignored
                             if key 'id' is set. 'delta' denotes a delta
                             function for the antenna element which has an
                             isotropic radiation pattern. 'delta' is the default
                             when keys 'id' and 'shape' are not set.
-              'size'        [scalar] Diameter of the telescope dish (in meters) 
-                            if the key 'shape' is set to 'dish' or length of 
-                            the dipole if key 'shape' is set to 'dipole'. Will 
-                            be ignored if key 'shape' is set to 'delta'. Will 
-                            be ignored if key 'id' is set and a preset value 
+              'size'        [scalar] Diameter of the telescope dish (in meters)
+                            if the key 'shape' is set to 'dish' or length of
+                            the dipole if key 'shape' is set to 'dipole'. Will
+                            be ignored if key 'shape' is set to 'delta'. Will
+                            be ignored if key 'id' is set and a preset value
                             used for the diameter or dipole.
-              'orientation' [list or numpy array] If key 'shape' is set to 
-                            dipole, it refers to the orientation of the dipole 
-                            element unit vector whose magnitude is specified by 
-                            length. If key 'shape' is set to 'dish', it refers 
+              'orientation' [list or numpy array] If key 'shape' is set to
+                            dipole, it refers to the orientation of the dipole
+                            element unit vector whose magnitude is specified by
+                            length. If key 'shape' is set to 'dish', it refers
                             to the position on the sky to which the dish is
                             pointed. For a dipole, this unit vector must be
-                            provided in the local ENU coordinate system aligned 
+                            provided in the local ENU coordinate system aligned
                             with the direction cosines coordinate system or in
                             the Alt-Az coordinate system. This will be
                             used only when key 'shape' is set to 'dipole'.
-                            This could be a 2-element vector (transverse 
-                            direction cosines) where the third (line-of-sight) 
+                            This could be a 2-element vector (transverse
+                            direction cosines) where the third (line-of-sight)
                             component is determined, or a 3-element vector
                             specifying all three direction cosines or a two-
-                            element coordinate in Alt-Az system. If not provided 
+                            element coordinate in Alt-Az system. If not provided
                             it defaults to an eastward pointing dipole. If key
-                            'shape' is set to 'dish', the orientation refers 
+                            'shape' is set to 'dish', the orientation refers
                             to the pointing center of the dish on the sky. It
                             can be provided in Alt-Az system as a two-element
                             vector or in the direction cosine coordinate
                             system as a two- or three-element vector. If not
-                            set in the case of a dish element, it defaults to 
+                            set in the case of a dish element, it defaults to
                             zenith. This is not to be confused with the key
-                            'pointing_center' in dictionary 'pointing_info' 
+                            'pointing_center' in dictionary 'pointing_info'
                             which refers to the beamformed pointing center of
-                            the array. The coordinate system is specified by 
+                            the array. The coordinate system is specified by
                             the key 'ocoords'
-              'ocoords'     [scalar string] specifies the coordinate system 
+              'ocoords'     [scalar string] specifies the coordinate system
                             for key 'orientation'. Accepted values are 'altaz'
-                            and 'dircos'. 
+                            and 'dircos'.
               'element_locs'
                             [2- or 3-column array] Element locations that
                             constitute the tile. Each row specifies
@@ -1277,29 +2205,29 @@ def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
                             locations must be specified in local ENU
                             coordinate system. First column specifies along
                             local east, second along local north and the
-                            third along local up. If only two columns are 
-                            specified, the third column is assumed to be 
+                            third along local up. If only two columns are
+                            specified, the third column is assumed to be
                             zeros. If 'elements_locs' is not provided, it
                             assumed to be a one-element system and not a
-                            phased array as far as determination of primary 
+                            phased array as far as determination of primary
                             beam is concerned.
-              'groundplane' [scalar] height of telescope element above the 
+              'groundplane' [scalar] height of telescope element above the
                             ground plane (in meteres). Default = None will
                             denote no ground plane effects.
               'ground_modify'
                             [dictionary] contains specifications to modify
                             the analytically computed ground plane pattern. If
                             absent, the ground plane computed will not be
-                            modified. If set, it may contain the following 
+                            modified. If set, it may contain the following
                             keys:
-                            'scale' [scalar] positive value to scale the 
-                                    modifying factor with. If not set, the 
+                            'scale' [scalar] positive value to scale the
+                                    modifying factor with. If not set, the
                                     scale factor to the modification is unity.
-                            'max'   [scalar] positive value to clip the 
-                                    modified and scaled values to. If not set, 
+                            'max'   [scalar] positive value to clip the
+                                    modified and scaled values to. If not set,
                                     there is no upper limit
 
-    pointing_info 
+    pointing_info
               [dictionary] Contains information about the pointing. It carries
               the following keys and values:
 
@@ -1307,28 +2235,28 @@ def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
 
               'pointing_coords'
                        [string scalar] Coordinate system in which the
-                       pointing_center is specified. Accepted values are 
+                       pointing_center is specified. Accepted values are
                        'radec', 'hadec', 'altaz' or 'dircos'. Must be specified
                        if pointing_center is specified
 
               'pointing_center'
-                       [numpy array] coordinates of pointing center (in the 
-                       coordinate system specified under key 'pointing_coords'). 
+                       [numpy array] coordinates of pointing center (in the
+                       coordinate system specified under key 'pointing_coords').
                        Mx2 array when value under key 'pointing_coords' is set
                        to 'radec', 'hadec' or 'altaz', or Mx3 array when the
                        value in 'pointing_coords' is set to 'dircos'. Number of
-                       rows M should be equal to number of pointings and LST. 
+                       rows M should be equal to number of pointings and LST.
                        If only one row (M=1) is provided the same pointing
                        center in the given coordinate system will apply to all
                        pointings.
 
-    freq_scale 
-              [string scalar] Units of frequency. Accepted values are 'Hz', 
+    freq_scale
+              [string scalar] Units of frequency. Accepted values are 'Hz',
               'kHz', 'MHz' or 'GHz'. If None provided, default is set to 'GHz'
 
     Output:
 
-    2-dimensional numpy array containing the antenna power. The rows denote 
+    2-dimensional numpy array containing the antenna power. The rows denote
     the different pointings and columns denote the frequency spectrum obtained
     from the frequencies specified in the sky model.
 
@@ -1353,7 +2281,7 @@ def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
 
     if not isinstance(pointing_info, dict):
         raise TypeError('Input parameter pointing_info must be a dictionary')
-    
+
     if 'latitude' in telescope_info:
         latitude = telescope_info['latitude']
     else:
@@ -1390,7 +2318,7 @@ def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
             raise ValueError('Value under key "pointing_center" in input parameter pointing_info must be a 2-column array for RA-Dec, HA-Dec and Alt-Az coordinate systems')
 
         n_pointings = pointing_center.shape[0]
-        
+
         if (n_pointings != n_lst) and (n_pointings != 1):
             raise ValueError('Number of pointing centers and number of LST must match')
         if n_pointings < n_lst:
@@ -1410,9 +2338,9 @@ def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
     if skymodel.coords == 'radec':
         lst_temp = NP.hstack((lst.reshape(-1,1),NP.zeros(n_snaps).reshape(-1,1)))  # Prepare fake LST for numpy broadcasting
         lst_temp = lst_temp.T
-        lst_temp = lst_temp[NP.newaxis,:,:]  
+        lst_temp = lst_temp[NP.newaxis,:,:]
         sky_hadec = lst_temp - skymodel.location[:,:,NP.newaxis]  # Reverses sign of declination
-        sky_hadec[:,1,:] *= -1   # Correct for the reversal of sign in the declination 
+        sky_hadec[:,1,:] *= -1   # Correct for the reversal of sign in the declination
         sky_hadec = NP.concatenate(NP.split(sky_hadec, n_snaps, axis=2), axis=0)
         sky_hadec = NP.squeeze(sky_hadec, axis=2)
         sky_altaz = GEOM.hadec2altaz(sky_hadec, latitude, units='degrees')
@@ -1433,7 +2361,7 @@ def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
         pinfo['pointing_coords'] = 'altaz'
         # if 'element_locs' in telescope_info:
         #     pinfo['element_locs'] = telescope_info['element_locs']
-        
+
         upper_hemisphere_ind = sky_altaz[i][:,0] >= 0.0
         upper_skymodel = skymodel.subset(indices=NP.where(upper_hemisphere_ind)[0])
         pb = PB.primary_beam_generator(sky_altaz[i][upper_hemisphere_ind,:], skymodel.frequency, telescope_info, freq_scale=freq_scale, skyunits='altaz', pointing_info=pinfo)
@@ -1445,7 +2373,7 @@ def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
     progress.finish()
 
     return NP.asarray(retval)
-        
+
 #################################################################################
 
 class GainInfo(object):
@@ -1456,168 +2384,168 @@ class GainInfo(object):
 
     Attributes:
 
-    gaintable   [None or dictionary] If set to None, all antenna- and 
-                baseline-based gains will be set to unity. If returned as 
-                dictionary, it contains the loaded gains. It contains the 
+    gaintable   [None or dictionary] If set to None, all antenna- and
+                baseline-based gains will be set to unity. If returned as
+                dictionary, it contains the loaded gains. It contains the
                 following keys and values:
                 'antenna-based'     [None or dictionary] Contains antenna-
-                                    based instrument gain information. If 
-                                    set to None, all antenna-based gains are 
-                                    set to unity. If returned as dictionary, 
+                                    based instrument gain information. If
+                                    set to None, all antenna-based gains are
+                                    set to unity. If returned as dictionary,
                                     it has the following keys and values:
                                     'ordering'  [list or numpy array] Three
-                                                element list of strings 
+                                                element list of strings
                                                 indicating the ordering of
-                                                axes - 'time', 'label', 
+                                                axes - 'time', 'label',
                                                 and 'frequency' as specified
                                                 in input axes_order
-                                    'gains'     [scalar or numpy array] 
-                                                Complex antenna-based 
-                                                instrument gains. Must be 
+                                    'gains'     [scalar or numpy array]
+                                                Complex antenna-based
+                                                instrument gains. Must be
                                                 of shape (nant, nchan, nts)
-                                                If there is no variations in 
-                                                gains along an axis, then 
-                                                the corresponding nax may be 
-                                                set to 1 and the gains will 
-                                                be replicated along that 
-                                                axis using numpy array 
-                                                broadcasting. For example, 
-                                                shapes (nant,1,1), (1,1,1), 
-                                                (1,nchan,nts) are 
-                                                acceptable. If specified as 
-                                                a scalar, it will be 
-                                                replicated along all three 
-                                                axes, namely, 'label', 
+                                                If there is no variations in
+                                                gains along an axis, then
+                                                the corresponding nax may be
+                                                set to 1 and the gains will
+                                                be replicated along that
+                                                axis using numpy array
+                                                broadcasting. For example,
+                                                shapes (nant,1,1), (1,1,1),
+                                                (1,nchan,nts) are
+                                                acceptable. If specified as
+                                                a scalar, it will be
+                                                replicated along all three
+                                                axes, namely, 'label',
                                                 'frequency' and 'time'.
-                                    'label'     [None or list or numpy 
-                                                array] List or antenna 
-                                                labels that correspond to 
-                                                nant along the 'label' axis. 
-                                                If nant=1, this may be set 
-                                                to None, else it will be 
-                                                specified and will match the 
-                                                nant. 
-                                    'frequency' [None or list or numpy array] 
+                                    'label'     [None or list or numpy
+                                                array] List or antenna
+                                                labels that correspond to
+                                                nant along the 'label' axis.
+                                                If nant=1, this may be set
+                                                to None, else it will be
+                                                specified and will match the
+                                                nant.
+                                    'frequency' [None or list or numpy array]
                                                 Frequency channels that
                                                 correspond to the nax along
                                                 the 'frequency' axis. If the
-                                                nchan=1 along the 'frequency' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
-                                                must match the nchan 
-                                    'time'      [None or list or numpy array] 
+                                                nchan=1 along the 'frequency'
+                                                axis, this may be set to None,
+                                                else it must be specified and
+                                                must match the nchan
+                                    'time'      [None or list or numpy array]
                                                 Observation times that
                                                 correspond to the nax along
                                                 the 'time' axis. If the
-                                                ntimes=1 along the 'time' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
-                                                must match the ntimes. It must 
-                                                be a float and can be in 
+                                                ntimes=1 along the 'time'
+                                                axis, this may be set to None,
+                                                else it must be specified and
+                                                must match the ntimes. It must
+                                                be a float and can be in
                                                 seconds, hours, days, etc.
                 'baseline-based'    [None or dictionary] Contains baseline-
-                                    based instrument gain information. If 
-                                    set to None, all baseline-based gains 
-                                    are set to unity. If returned as 
-                                    dictionary, it has the following keys 
+                                    based instrument gain information. If
+                                    set to None, all baseline-based gains
+                                    are set to unity. If returned as
+                                    dictionary, it has the following keys
                                     and values:
                                     'ordering'  [list or numpy array] Three
-                                                element list of strings 
+                                                element list of strings
                                                 indicating the ordering of
-                                                axes - 'time', 'label', 
-                                                and 'frequency' as 
-                                                specified in input 
-                                                axes_order 
-                                    'gains'     [scalar or numpy array] 
-                                                Complex baseline-based 
-                                                instrument gains. Must be 
+                                                axes - 'time', 'label',
+                                                and 'frequency' as
+                                                specified in input
+                                                axes_order
+                                    'gains'     [scalar or numpy array]
+                                                Complex baseline-based
+                                                instrument gains. Must be
                                                 of shape (nbl, nchan, nts)
-                                                If there is no variations in 
-                                                gains along an axis, then 
-                                                the corresponding nax may be 
-                                                set to 1 and the gains will 
-                                                be replicated along that 
-                                                axis using numpy array 
-                                                broadcasting. For example, 
-                                                shapes (nant,1,1), (1,1,1), 
-                                                (1,nchan,nts) are 
-                                                acceptable. If specified as 
-                                                a scalar, it will be 
-                                                replicated along all three 
-                                                axes, namely, 'label', 
+                                                If there is no variations in
+                                                gains along an axis, then
+                                                the corresponding nax may be
+                                                set to 1 and the gains will
+                                                be replicated along that
+                                                axis using numpy array
+                                                broadcasting. For example,
+                                                shapes (nant,1,1), (1,1,1),
+                                                (1,nchan,nts) are
+                                                acceptable. If specified as
+                                                a scalar, it will be
+                                                replicated along all three
+                                                axes, namely, 'label',
                                                 'frequency' and 'time'.
-                                    'label'     [None or list or numpy 
-                                                array] List or baseline 
-                                                labels that correspond to 
-                                                nbl along the 'label' axis. 
-                                                If nbl=1 along the 'label' 
-                                                axis this may be set to 
-                                                None, else it will be 
-                                                specified and will match nbl 
-                                    'frequency' [None or list or numpy array] 
+                                    'label'     [None or list or numpy
+                                                array] List or baseline
+                                                labels that correspond to
+                                                nbl along the 'label' axis.
+                                                If nbl=1 along the 'label'
+                                                axis this may be set to
+                                                None, else it will be
+                                                specified and will match nbl
+                                    'frequency' [None or list or numpy array]
                                                 Frequency channels that
                                                 correspond to the nax along
                                                 the 'frequency' axis. If the
-                                                nchan=1 along the 'frequency' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
-                                                must match the nchan 
-                                    'time'      [None or list or numpy array] 
+                                                nchan=1 along the 'frequency'
+                                                axis, this may be set to None,
+                                                else it must be specified and
+                                                must match the nchan
+                                    'time'      [None or list or numpy array]
                                                 Observation times that
                                                 correspond to the nax along
                                                 the 'time' axis. If the
-                                                ntimes=1 along the 'time' 
-                                                axis, this may be set to None, 
-                                                else it must be specified and 
-                                                must match the ntimes. It must 
-                                                be a float and can be in 
+                                                ntimes=1 along the 'time'
+                                                axis, this may be set to None,
+                                                else it must be specified and
+                                                must match the ntimes. It must
+                                                be a float and can be in
                                                 seconds, hours, days, etc.
 
-    interpfuncs [dictionary] Determined in member function interpolator(). 
-                Contains interpolation information under two keys, namely, 
-                'antenna-based' and 'baseline-based'. Under each of these keys 
+    interpfuncs [dictionary] Determined in member function interpolator().
+                Contains interpolation information under two keys, namely,
+                'antenna-based' and 'baseline-based'. Under each of these keys
                 is another dictionary with the following keys and values:
                 'dims'      [numpy array of strings] Contains the axes labels
-                            of the interpolated axes for antenna or baseline 
-                            labels. It could contain a single element ['time'], 
+                            of the interpolated axes for antenna or baseline
+                            labels. It could contain a single element ['time'],
                             of ['frequency'] indicating 1D splines along that
                             axis or contain two elements 'time' and 'frequency'
                             indicating 2D splines. 1D splines will have been
                             obtained with scipy.interpolate.interp1d while
                             2D splines obtained with scipy.interpolate.interp2d
                 'interp'    [numpy recArray] Holds the interpolation functions
-                            (instances of scipy.interpolate.interp1d or 
+                            (instances of scipy.interpolate.interp1d or
                             scipy.interpolate.interp2d depending on the value
                             under 'dims' key) for each antenna or baseline
-                            label. It is of size nbl. Each entry in this 
-                            numpy recArray has two fields, 'real' for 
+                            label. It is of size nbl. Each entry in this
+                            numpy recArray has two fields, 'real' for
                             interpolation of real part and 'imag' for the
-                            imaginary part. If it is a one element recarray, 
+                            imaginary part. If it is a one element recarray,
                             then it applies to all antennas and baselines
-                Member function interpolate_gains() uses this attribute to 
+                Member function interpolate_gains() uses this attribute to
                 return interpolated gains
-                         
-    splinefuncs [dictionary] Determined in member function splinator(). 
-                Contains spline information under two keys, namely, 
-                'antenna-based' and 'baseline-based'. Under each of these keys 
+
+    splinefuncs [dictionary] Determined in member function splinator().
+                Contains spline information under two keys, namely,
+                'antenna-based' and 'baseline-based'. Under each of these keys
                 is another dictionary with the following keys and values:
                 'dims'      [numpy array of strings] Contains the axes labels
-                            of the interpolated axes for antenna or baseline 
-                            labels. It could contain a single element ['time'], 
+                            of the interpolated axes for antenna or baseline
+                            labels. It could contain a single element ['time'],
                             of ['frequency'] indicating 1D splines along that
                             axis or contain two elements 'time' and 'frequency'
                             indicating 2D splines. 1D splines will have been
-                            obtained with scipy.interpolate.UnivariateSpline 
-                            while 2D splines obtained with 
+                            obtained with scipy.interpolate.UnivariateSpline
+                            while 2D splines obtained with
                             scipy.interpolate.RectBivariateSpline
                 'interp'    [numpy recArray] Holds the spline functions
-                            (instances of scipy.interpolate.UnivariateSpline or 
-                            scipy.interpolate.RectBivariateSpline depending on 
-                            the value under 'dims' key) for each antenna or 
-                            baseline label. It is of size nbl. Each entry in 
-                            this numpy recArray has two fields, 'real' for 
+                            (instances of scipy.interpolate.UnivariateSpline or
+                            scipy.interpolate.RectBivariateSpline depending on
+                            the value under 'dims' key) for each antenna or
+                            baseline label. It is of size nbl. Each entry in
+                            this numpy recArray has two fields, 'real' for
                             interpolation of real part and 'imag' for the
-                            imaginary part. If it is a one element recarray, 
+                            imaginary part. If it is a one element recarray,
                             then it applies to all antennas and baselines.
                 Member function spline_gains() uses this attribute to return
                 spline-interpolated gains
@@ -1627,36 +2555,36 @@ class GainInfo(object):
     __init__()  Initialize an instance of class GainInfo from a file
 
     read_gaintable()
-                Read gain table from file in HDF5 format and return and/or 
+                Read gain table from file in HDF5 format and return and/or
                 store as attribute
 
     eval_gains()
-                Extract complex instrument gains for given baselines from the 
-                gain table 
+                Extract complex instrument gains for given baselines from the
+                gain table
 
     interpolator()
-                Sets up interpolation functions and stores them in the 
+                Sets up interpolation functions and stores them in the
                 attribute interpfuncs. Better alternative is to use splinator()
 
-    splinator() Sets up spline functions and stores them in the attribute 
+    splinator() Sets up spline functions and stores them in the attribute
                 splinefuncs. Better alternative to interpolator()
 
     interpolate_gains()
-                Interpolate at the specified baselines for the given 
-                frequencies and times using attribute interpfuncs. Better 
+                Interpolate at the specified baselines for the given
+                frequencies and times using attribute interpfuncs. Better
                 alternative is to use spline_gains()
 
     spline_gains()
-                Evaluate spline at the specified baselines for the given 
-                frequencies and times using attribute splinefuncs. Better 
+                Evaluate spline at the specified baselines for the given
+                frequencies and times using attribute splinefuncs. Better
                 alternative to interpolate_gains()
 
     nearest_gains()
-                Extract complex instrument gains for given baselines from the 
+                Extract complex instrument gains for given baselines from the
                 gain table determined by nearest neighbor logic
 
     write_gaintable()
-                Write gain table with specified axes ordering to external file 
+                Write gain table with specified axes ordering to external file
                 in HDF5 format
     -----------------------------------------------------------------------------
     """
@@ -1667,7 +2595,7 @@ class GainInfo(object):
         ------------------------------------------------------------------------
         Initialize an instance of class GainInfo from a file
 
-        Attributes initialized are: 
+        Attributes initialized are:
         gaintable, interpfuncs, splinefuncs
 
         Read docstring of class GainInfo for details on these attributes
@@ -1675,132 +2603,132 @@ class GainInfo(object):
         Keyword Inputs:
 
         gainsfile   [string] Filename including the full path that contains the
-                    instrument gains. It must be in HDF5 format. It must contain 
+                    instrument gains. It must be in HDF5 format. It must contain
                     the following structure:
-                    'antenna-based'     [dictionary] Contains antenna-based 
+                    'antenna-based'     [dictionary] Contains antenna-based
                                         instrument gain information. It has the
                                         following keys and values:
                                         'ordering'  [list or numpy array] Three
-                                                    element list of strings 
+                                                    element list of strings
                                                     indicating the ordering of
-                                                    axes - 'time', 'label', 
+                                                    axes - 'time', 'label',
                                                     and 'frequency'. Must be
                                                     specified (no defaults)
-                                        'gains'     [scalar or numpy array] 
-                                                    Complex antenna-based 
-                                                    instrument gains. Must be 
+                                        'gains'     [scalar or numpy array]
+                                                    Complex antenna-based
+                                                    instrument gains. Must be
                                                     of shape (nax1, nax2, nax3)
                                                     where ax1, ax2 and ax3 are
-                                                    specified by the axes 
-                                                    ordering under key 
-                                                    'ordering'. If there is no 
-                                                    variations in gains along an 
-                                                    axis, then the corresponding 
-                                                    nax may be set to 1 and the 
-                                                    gains will be replicated 
-                                                    along that axis using numpy 
-                                                    array broadcasting. For 
-                                                    example, shapes (nax1,1,1), 
+                                                    specified by the axes
+                                                    ordering under key
+                                                    'ordering'. If there is no
+                                                    variations in gains along an
+                                                    axis, then the corresponding
+                                                    nax may be set to 1 and the
+                                                    gains will be replicated
+                                                    along that axis using numpy
+                                                    array broadcasting. For
+                                                    example, shapes (nax1,1,1),
                                                     (1,1,1), (1,nax2,nax3) are
-                                                    acceptable. If specified as 
-                                                    a scalar, it will be 
-                                                    replicated along all three 
-                                                    axes, namely, 'label', 
+                                                    acceptable. If specified as
+                                                    a scalar, it will be
+                                                    replicated along all three
+                                                    axes, namely, 'label',
                                                     'frequency' and 'time'.
-                                        'label'     [None or list or numpy array] 
+                                        'label'     [None or list or numpy array]
                                                     List or antenna labels that
                                                     correspond to the nax along
                                                     the 'label' axis. If the
                                                     nax=1 along the 'label' axis,
                                                     this may be set to None, else
                                                     it must be specified and must
-                                                    match the nax. 
-                                        'frequency' [None or list or numpy 
-                                                    array] Frequency channels 
-                                                    that correspond to the 
-                                                    nax along the 'frequency' 
-                                                    axis. If the nax=1 along the 
-                                                    'frequency' axis, this may 
-                                                    be set to None, else it must 
-                                                    be specified and must match 
-                                                    the nax. 
-                                        'time'      [None or list or numpy 
-                                                    array] Observation times 
-                                                    that correspond to the nax 
-                                                    along the 'time' axis. If 
-                                                    the nax=1 along the 'time' 
-                                                    axis, this may be set to 
-                                                    None, else it must be 
-                                                    specified and must match the 
-                                                    nax. It must be a float and 
-                                                    can be in seconds, hours, 
+                                                    match the nax.
+                                        'frequency' [None or list or numpy
+                                                    array] Frequency channels
+                                                    that correspond to the
+                                                    nax along the 'frequency'
+                                                    axis. If the nax=1 along the
+                                                    'frequency' axis, this may
+                                                    be set to None, else it must
+                                                    be specified and must match
+                                                    the nax.
+                                        'time'      [None or list or numpy
+                                                    array] Observation times
+                                                    that correspond to the nax
+                                                    along the 'time' axis. If
+                                                    the nax=1 along the 'time'
+                                                    axis, this may be set to
+                                                    None, else it must be
+                                                    specified and must match the
+                                                    nax. It must be a float and
+                                                    can be in seconds, hours,
                                                     days, etc.
-                    'baseline-based'    [dictionary] Contains baseline-based 
+                    'baseline-based'    [dictionary] Contains baseline-based
                                         instrument gain information. It has the
                                         following keys and values:
                                         'ordering'  [list or numpy array] Three
-                                                    element list of strings 
+                                                    element list of strings
                                                     indicating the ordering of
-                                                    axes - 'time', 'label', 
+                                                    axes - 'time', 'label',
                                                     and 'frequency'. Must be
                                                     specified (no defaults)
-                                        'gains'     [scalar or numpy array] 
-                                                    Complex baseline-based 
-                                                    instrument gains. Must be 
+                                        'gains'     [scalar or numpy array]
+                                                    Complex baseline-based
+                                                    instrument gains. Must be
                                                     of shape (nax1, nax2, nax3)
                                                     where ax1, ax2 and ax3 are
-                                                    specified by the axes 
-                                                    ordering under key 
-                                                    'ordering'. If there is no 
-                                                    variations in gains along an 
-                                                    axis, then the corresponding 
-                                                    nax may be set to 1 and the 
-                                                    gains will be replicated 
-                                                    along that axis using numpy 
-                                                    array broadcasting. For 
-                                                    example, shapes (nax1,1,1), 
-                                                    (1,1,1), (1,nax2,nax3) are 
-                                                    acceptable. If specified as 
-                                                    a scalar, it will be 
-                                                    replicated along all three 
-                                                    axes, namely, 'label', 
+                                                    specified by the axes
+                                                    ordering under key
+                                                    'ordering'. If there is no
+                                                    variations in gains along an
+                                                    axis, then the corresponding
+                                                    nax may be set to 1 and the
+                                                    gains will be replicated
+                                                    along that axis using numpy
+                                                    array broadcasting. For
+                                                    example, shapes (nax1,1,1),
+                                                    (1,1,1), (1,nax2,nax3) are
+                                                    acceptable. If specified as
+                                                    a scalar, it will be
+                                                    replicated along all three
+                                                    axes, namely, 'label',
                                                     'frequency' and 'time'.
-                                        'label'     [None or list or numpy 
-                                                    array] List of baseline 
-                                                    labels that correspond to 
-                                                    the nax along the 'label' 
-                                                    axis. If the nax=1 along the 
-                                                    'label' axis this may be set 
-                                                    to None, else it must be 
-                                                    specified and must match the 
-                                                    nax. 
-                                        'frequency' [None or list or numpy 
-                                                    array] Frequency channels 
-                                                    that correspond to the 
-                                                    nax along the 'frequency' 
-                                                    axis. If the nax=1 along the 
-                                                    'frequency' axis, this may 
-                                                    be set to None, else it must 
-                                                    be specified and must match 
-                                                    the nax. 
-                                        'time'      [None or list or numpy 
-                                                    array] Observation times 
-                                                    that correspond to the nax 
-                                                    along the 'time' axis. If 
-                                                    the nax=1 along the 'time' 
-                                                    axis, this may be set to 
-                                                    None, else it must be 
-                                                    specified and must match the 
-                                                    nax. It must be a float and 
-                                                    can be in seconds, hours, 
+                                        'label'     [None or list or numpy
+                                                    array] List of baseline
+                                                    labels that correspond to
+                                                    the nax along the 'label'
+                                                    axis. If the nax=1 along the
+                                                    'label' axis this may be set
+                                                    to None, else it must be
+                                                    specified and must match the
+                                                    nax.
+                                        'frequency' [None or list or numpy
+                                                    array] Frequency channels
+                                                    that correspond to the
+                                                    nax along the 'frequency'
+                                                    axis. If the nax=1 along the
+                                                    'frequency' axis, this may
+                                                    be set to None, else it must
+                                                    be specified and must match
+                                                    the nax.
+                                        'time'      [None or list or numpy
+                                                    array] Observation times
+                                                    that correspond to the nax
+                                                    along the 'time' axis. If
+                                                    the nax=1 along the 'time'
+                                                    axis, this may be set to
+                                                    None, else it must be
+                                                    specified and must match the
+                                                    nax. It must be a float and
+                                                    can be in seconds, hours,
                                                     days, etc.
-    
-        axes_order  [None or list or numpy array] The gaintable which is read is 
-                    stored in this axes ordering. If set to None, it will store 
+
+        axes_order  [None or list or numpy array] The gaintable which is read is
+                    stored in this axes ordering. If set to None, it will store
                     in this order ['label', 'frequency', 'time']
         ------------------------------------------------------------------------
         """
-    
+
         self.gaintable = None
         self.interpfuncs = {key: None for key in ['antenna-based', 'baseline-based']}
         self.splinefuncs = {key: None for key in ['antenna-based', 'baseline-based']}
@@ -1815,262 +2743,262 @@ class GainInfo(object):
 
         """
         ------------------------------------------------------------------------
-        Read gain table from file in HDF5 format and return and/or store as 
+        Read gain table from file in HDF5 format and return and/or store as
         attribute
-    
+
         Input:
-    
+
         gainsfile   [string] Filename including the full path that contains the
-                    instrument gains. It must be in HDF5 format. It must contain 
+                    instrument gains. It must be in HDF5 format. It must contain
                     the following structure:
-                    'antenna-based'     [dictionary] Contains antenna-based 
+                    'antenna-based'     [dictionary] Contains antenna-based
                                         instrument gain information. It has the
                                         following keys and values:
                                         'ordering'  [list or numpy array] Three
-                                                    element list of strings 
+                                                    element list of strings
                                                     indicating the ordering of
-                                                    axes - 'time', 'label', 
+                                                    axes - 'time', 'label',
                                                     and 'frequency'. Must be
                                                     specified (no defaults)
-                                        'gains'     [scalar or numpy array] 
-                                                    Complex antenna-based 
-                                                    instrument gains. Must be 
+                                        'gains'     [scalar or numpy array]
+                                                    Complex antenna-based
+                                                    instrument gains. Must be
                                                     of shape (nax1, nax2, nax3)
                                                     where ax1, ax2 and ax3 are
-                                                    specified by the axes 
-                                                    ordering under key 
-                                                    'ordering'. If there is no 
-                                                    variations in gains along an 
-                                                    axis, then the corresponding 
-                                                    nax may be set to 1 and the 
-                                                    gains will be replicated 
-                                                    along that axis using numpy 
-                                                    array broadcasting. For 
-                                                    example, shapes (nax1,1,1), 
+                                                    specified by the axes
+                                                    ordering under key
+                                                    'ordering'. If there is no
+                                                    variations in gains along an
+                                                    axis, then the corresponding
+                                                    nax may be set to 1 and the
+                                                    gains will be replicated
+                                                    along that axis using numpy
+                                                    array broadcasting. For
+                                                    example, shapes (nax1,1,1),
                                                     (1,1,1), (1,nax2,nax3) are
-                                                    acceptable. If specified as 
-                                                    a scalar, it will be 
-                                                    replicated along all three 
-                                                    axes, namely, 'label', 
+                                                    acceptable. If specified as
+                                                    a scalar, it will be
+                                                    replicated along all three
+                                                    axes, namely, 'label',
                                                     'frequency' and 'time'.
-                                        'label'     [None or list or numpy 
-                                                    array] List or antenna 
-                                                    labels that correspond to 
-                                                    the nax along the 'label' 
-                                                    axis. If the nax=1 along the 
-                                                    'label' axis, this may be 
-                                                    set to None, else it must be 
-                                                    specified and must match the 
-                                                    nax. 
-                                        'frequency' [None or list or numpy 
-                                                    array] Frequency channels 
-                                                    that correspond to the nax 
-                                                    along the 'frequency' axis. 
-                                                    If the nax=1 along the 
-                                                    'frequency' axis, this may 
-                                                    be set to None, else it must 
-                                                    be specified and must match 
-                                                    the nax. 
-                                        'time'      [None or list or numpy 
-                                                    array] Observation times 
-                                                    that correspond to the nax 
-                                                    along the 'time' axis. If 
-                                                    the nax=1 along the 'time' 
-                                                    axis, this may be set to 
-                                                    None, else it must be 
-                                                    specified and must match the 
-                                                    nax. It must be a float and 
-                                                    can be in seconds, hours, 
+                                        'label'     [None or list or numpy
+                                                    array] List or antenna
+                                                    labels that correspond to
+                                                    the nax along the 'label'
+                                                    axis. If the nax=1 along the
+                                                    'label' axis, this may be
+                                                    set to None, else it must be
+                                                    specified and must match the
+                                                    nax.
+                                        'frequency' [None or list or numpy
+                                                    array] Frequency channels
+                                                    that correspond to the nax
+                                                    along the 'frequency' axis.
+                                                    If the nax=1 along the
+                                                    'frequency' axis, this may
+                                                    be set to None, else it must
+                                                    be specified and must match
+                                                    the nax.
+                                        'time'      [None or list or numpy
+                                                    array] Observation times
+                                                    that correspond to the nax
+                                                    along the 'time' axis. If
+                                                    the nax=1 along the 'time'
+                                                    axis, this may be set to
+                                                    None, else it must be
+                                                    specified and must match the
+                                                    nax. It must be a float and
+                                                    can be in seconds, hours,
                                                     days, etc.
-                    'baseline-based'    [dictionary] Contains baseline-based 
+                    'baseline-based'    [dictionary] Contains baseline-based
                                         instrument gain information. It has the
                                         following keys and values:
                                         'ordering'  [list or numpy array] Three
-                                                    element list of strings 
+                                                    element list of strings
                                                     indicating the ordering of
-                                                    axes - 'time', 'label', 
+                                                    axes - 'time', 'label',
                                                     and 'frequency'. Must be
                                                     specified (no defaults)
-                                        'gains'     [scalar or numpy array] 
-                                                    Complex baseline-based 
-                                                    instrument gains. Must be 
+                                        'gains'     [scalar or numpy array]
+                                                    Complex baseline-based
+                                                    instrument gains. Must be
                                                     of shape (nax1, nax2, nax3)
                                                     where ax1, ax2 and ax3 are
-                                                    specified by the axes 
-                                                    ordering under key 
-                                                    'ordering'. If there is no 
-                                                    variations in gains along an 
-                                                    axis, then the corresponding 
-                                                    nax may be set to 1 and the 
-                                                    gains will be replicated 
-                                                    along that axis using numpy 
-                                                    array broadcasting. For 
-                                                    example, shapes (nax1,1,1), 
-                                                    (1,1,1), (1,nax2,nax3) are 
-                                                    acceptable. If specified as 
-                                                    a scalar, it will be 
-                                                    replicated along all three 
-                                                    axes, namely, 'label', 
+                                                    specified by the axes
+                                                    ordering under key
+                                                    'ordering'. If there is no
+                                                    variations in gains along an
+                                                    axis, then the corresponding
+                                                    nax may be set to 1 and the
+                                                    gains will be replicated
+                                                    along that axis using numpy
+                                                    array broadcasting. For
+                                                    example, shapes (nax1,1,1),
+                                                    (1,1,1), (1,nax2,nax3) are
+                                                    acceptable. If specified as
+                                                    a scalar, it will be
+                                                    replicated along all three
+                                                    axes, namely, 'label',
                                                     'frequency' and 'time'.
-                                        'label'     [None or list or numpy 
-                                                    array] List of baseline 
-                                                    labels that correspond to 
-                                                    the nax along the 'label' 
-                                                    axis. If the nax=1 along the 
-                                                    'label' axis this may be set 
-                                                    to None, else it must be 
-                                                    specified and must match the 
-                                                    nax. 
-                                        'frequency' [None or list or numpy 
-                                                    array] Frequency channels 
-                                                    that correspond to the nax 
-                                                    along the 'frequency' axis. 
-                                                    If the nax=1 along the 
-                                                    'frequency' axis, this may 
-                                                    be set to None, else it must 
-                                                    be specified and must match 
-                                                    the nax. 
-                                        'time'      [None or list or numpy 
-                                                    array] Observation times 
-                                                    that correspond to the nax 
-                                                    along the 'time' axis. If 
-                                                    the nax=1 along the 'time' 
-                                                    axis, this may be set to 
-                                                    None, else it must be 
-                                                    specified and must match the 
-                                                    nax. It must be a float and 
-                                                    can be in seconds, hours, 
+                                        'label'     [None or list or numpy
+                                                    array] List of baseline
+                                                    labels that correspond to
+                                                    the nax along the 'label'
+                                                    axis. If the nax=1 along the
+                                                    'label' axis this may be set
+                                                    to None, else it must be
+                                                    specified and must match the
+                                                    nax.
+                                        'frequency' [None or list or numpy
+                                                    array] Frequency channels
+                                                    that correspond to the nax
+                                                    along the 'frequency' axis.
+                                                    If the nax=1 along the
+                                                    'frequency' axis, this may
+                                                    be set to None, else it must
+                                                    be specified and must match
+                                                    the nax.
+                                        'time'      [None or list or numpy
+                                                    array] Observation times
+                                                    that correspond to the nax
+                                                    along the 'time' axis. If
+                                                    the nax=1 along the 'time'
+                                                    axis, this may be set to
+                                                    None, else it must be
+                                                    specified and must match the
+                                                    nax. It must be a float and
+                                                    can be in seconds, hours,
                                                     days, etc.
-    
-        axes_order  [None or list or numpy array] The gaintable which is read is 
-                    stored in this axes ordering. If set to None, it will store 
+
+        axes_order  [None or list or numpy array] The gaintable which is read is
+                    stored in this axes ordering. If set to None, it will store
                     in this order ['label', 'frequency', 'time']
 
-        action      [string] If set to 'store' (default), the gain table will 
-                    be stored as attribute in addition to being returned. If set 
+        action      [string] If set to 'store' (default), the gain table will
+                    be stored as attribute in addition to being returned. If set
                     to 'return' the gain table will be returned.
-    
+
         Output:
-    
-        gaintable   [None or dictionary] If set to None, all antenna- and 
-                    baseline-based gains will be set to unity. If returned as 
-                    dictionary, it contains the loaded gains. It contains the 
+
+        gaintable   [None or dictionary] If set to None, all antenna- and
+                    baseline-based gains will be set to unity. If returned as
+                    dictionary, it contains the loaded gains. It contains the
                     following keys and values:
                     'antenna-based'     [None or dictionary] Contains antenna-
-                                        based instrument gain information. If 
-                                        set to None, all antenna-based gains are 
-                                        set to unity. If returned as dictionary, 
+                                        based instrument gain information. If
+                                        set to None, all antenna-based gains are
+                                        set to unity. If returned as dictionary,
                                         it has the following keys and values:
                                         'ordering'  [list or numpy array] Three
-                                                    element list of strings 
+                                                    element list of strings
                                                     indicating the ordering of
-                                                    axes - 'time', 'label', 
+                                                    axes - 'time', 'label',
                                                     and 'frequency' as specified
                                                     in input axes_order
-                                        'gains'     [scalar or numpy array] 
-                                                    Complex antenna-based 
-                                                    instrument gains. Must be 
+                                        'gains'     [scalar or numpy array]
+                                                    Complex antenna-based
+                                                    instrument gains. Must be
                                                     of shape (nant, nchan, nts)
-                                                    If there is no variations in 
-                                                    gains along an axis, then 
-                                                    the corresponding nax may be 
-                                                    set to 1 and the gains will 
-                                                    be replicated along that 
-                                                    axis using numpy array 
-                                                    broadcasting. For example, 
-                                                    shapes (nant,1,1), (1,1,1), 
-                                                    (1,nchan,nts) are 
-                                                    acceptable. If specified as 
-                                                    a scalar, it will be 
-                                                    replicated along all three 
-                                                    axes, namely, 'label', 
+                                                    If there is no variations in
+                                                    gains along an axis, then
+                                                    the corresponding nax may be
+                                                    set to 1 and the gains will
+                                                    be replicated along that
+                                                    axis using numpy array
+                                                    broadcasting. For example,
+                                                    shapes (nant,1,1), (1,1,1),
+                                                    (1,nchan,nts) are
+                                                    acceptable. If specified as
+                                                    a scalar, it will be
+                                                    replicated along all three
+                                                    axes, namely, 'label',
                                                     'frequency' and 'time'.
-                                        'label'     [None or list or numpy 
-                                                    array] List or antenna 
-                                                    labels that correspond to 
-                                                    nant along the 'label' axis. 
-                                                    If nant=1, this may be set 
-                                                    to None, else it will be 
-                                                    specified and will match the 
-                                                    nant. 
-                                        'frequency' [None or list or numpy 
-                                                    array] Frequency channels 
-                                                    that correspond to the nax 
-                                                    along the 'frequency' axis. 
-                                                    If the nchan=1 along the 
-                                                    'frequency' axis, this may 
-                                                    be set to None, else it must 
-                                                    be specified and must match 
-                                                    the nchan. 
-                                        'time'      [None or list or numpy 
-                                                    array] Observation times 
-                                                    that correspond to the nax 
-                                                    along the 'time' axis. If 
-                                                    the ntimes=1 along the 
-                                                    'time' axis, this may be set 
-                                                    to None, else it must be 
-                                                    specified and must match the 
-                                                    ntimes. It will be a float 
-                                                    and in same units as given 
+                                        'label'     [None or list or numpy
+                                                    array] List or antenna
+                                                    labels that correspond to
+                                                    nant along the 'label' axis.
+                                                    If nant=1, this may be set
+                                                    to None, else it will be
+                                                    specified and will match the
+                                                    nant.
+                                        'frequency' [None or list or numpy
+                                                    array] Frequency channels
+                                                    that correspond to the nax
+                                                    along the 'frequency' axis.
+                                                    If the nchan=1 along the
+                                                    'frequency' axis, this may
+                                                    be set to None, else it must
+                                                    be specified and must match
+                                                    the nchan.
+                                        'time'      [None or list or numpy
+                                                    array] Observation times
+                                                    that correspond to the nax
+                                                    along the 'time' axis. If
+                                                    the ntimes=1 along the
+                                                    'time' axis, this may be set
+                                                    to None, else it must be
+                                                    specified and must match the
+                                                    ntimes. It will be a float
+                                                    and in same units as given
                                                     in input
                     'baseline-based'    [None or dictionary] Contains baseline-
-                                        based instrument gain information. If 
-                                        set to None, all baseline-based gains 
-                                        are set to unity. If returned as 
-                                        dictionary, it has the following keys 
+                                        based instrument gain information. If
+                                        set to None, all baseline-based gains
+                                        are set to unity. If returned as
+                                        dictionary, it has the following keys
                                         and values:
                                         'ordering'  [list or numpy array] Three
-                                                    element list of strings 
+                                                    element list of strings
                                                     indicating the ordering of
-                                                    axes - 'time', 'label', 
-                                                    and 'frequency' as 
-                                                    specified in input 
-                                                    axes_order 
-                                        'gains'     [scalar or numpy array] 
-                                                    Complex baseline-based 
-                                                    instrument gains. Must be 
+                                                    axes - 'time', 'label',
+                                                    and 'frequency' as
+                                                    specified in input
+                                                    axes_order
+                                        'gains'     [scalar or numpy array]
+                                                    Complex baseline-based
+                                                    instrument gains. Must be
                                                     of shape (nbl, nchan, nts)
-                                                    If there is no variations in 
-                                                    gains along an axis, then 
-                                                    the corresponding nax may be 
-                                                    set to 1 and the gains will 
-                                                    be replicated along that 
-                                                    axis using numpy array 
-                                                    broadcasting. For example, 
-                                                    shapes (nant,1,1), (1,1,1), 
-                                                    (1,nchan,nts) are 
-                                                    acceptable. If specified as 
-                                                    a scalar, it will be 
-                                                    replicated along all three 
-                                                    axes, namely, 'label', 
+                                                    If there is no variations in
+                                                    gains along an axis, then
+                                                    the corresponding nax may be
+                                                    set to 1 and the gains will
+                                                    be replicated along that
+                                                    axis using numpy array
+                                                    broadcasting. For example,
+                                                    shapes (nant,1,1), (1,1,1),
+                                                    (1,nchan,nts) are
+                                                    acceptable. If specified as
+                                                    a scalar, it will be
+                                                    replicated along all three
+                                                    axes, namely, 'label',
                                                     'frequency' and 'time'.
-                                        'label'     [None or list or numpy 
-                                                    array] List or baseline 
-                                                    labels that correspond to 
-                                                    nbl along the 'label' axis. 
-                                                    If nbl=1 along the 'label' 
-                                                    axis this may be set to 
-                                                    None, else it will be 
-                                                    specified and will match nbl 
-                                        'frequency' [None or list or numpy 
-                                                    array] Frequency channels 
-                                                    that correspond to the nax 
-                                                    along the 'frequency' axis. 
-                                                    If the nchan=1 along the 
-                                                    'frequency' axis, this may 
-                                                    be set to None, else it must 
-                                                    be specified and must match 
-                                                    the nchan. 
-                                        'time'      [None or list or numpy 
-                                                    array] Observation times 
-                                                    that correspond to the nax 
-                                                    along the 'time' axis. If 
-                                                    the ntimes=1 along the 
-                                                    'time' axis, this may be set 
-                                                    to None, else it must be 
-                                                    specified and must match the 
-                                                    ntimes. It will be a float 
-                                                    and in same units as given 
+                                        'label'     [None or list or numpy
+                                                    array] List or baseline
+                                                    labels that correspond to
+                                                    nbl along the 'label' axis.
+                                                    If nbl=1 along the 'label'
+                                                    axis this may be set to
+                                                    None, else it will be
+                                                    specified and will match nbl
+                                        'frequency' [None or list or numpy
+                                                    array] Frequency channels
+                                                    that correspond to the nax
+                                                    along the 'frequency' axis.
+                                                    If the nchan=1 along the
+                                                    'frequency' axis, this may
+                                                    be set to None, else it must
+                                                    be specified and must match
+                                                    the nchan.
+                                        'time'      [None or list or numpy
+                                                    array] Observation times
+                                                    that correspond to the nax
+                                                    along the 'time' axis. If
+                                                    the ntimes=1 along the
+                                                    'time' axis, this may be set
+                                                    to None, else it must be
+                                                    specified and must match the
+                                                    ntimes. It will be a float
+                                                    and in same units as given
                                                     in input
         ------------------------------------------------------------------------
         """
@@ -2094,9 +3022,9 @@ class GainInfo(object):
         ------------------------------------------------------------------------
         Sets up interpolation functions and stores them in the attribute
         interpfuncs. Better alternative is to use splinator()
-        
+
         Inputs:
-        
+
         kind    [string] Type of interpolation. Accepted values are
                 'linear' (default), 'cubic' or 'quintic'. See documentation
                 of scipy.interpolate.interp1d and scipy.interpolate.interp2d
@@ -2140,7 +3068,7 @@ class GainInfo(object):
                                         interpf_imag = interpolate.interp2d(self.gaintable[gainkey]['time'], self.gaintable[gainkey]['frequency'], gains[labelind,:,:].imag, kind=kind, bounds_error=True)
                                     interpf += [(copy.copy(interpf_real), copy.copy(interpf_imag))]
                                 self.interpfuncs[gainkey] = {'interp': NP.asarray(interpf, dtype=[('real', NP.object), ('imag', NP.object)]), 'dims': dims}
-                                        
+
     ############################################################################
 
     def splinator(self, smoothness=None):
@@ -2149,14 +3077,14 @@ class GainInfo(object):
         -----------------------------------------------------------------------
         Sets up spline functions and stores them in the attribute splinefuncs.
         Better alternative to interpolator()
-        
+
         Inputs:
-        
+
         smoothness  [integer or float] Smoothness of spline interpolation. Must
-                    be positive. If set to None (default), it will set equal to 
+                    be positive. If set to None (default), it will set equal to
                     the number of samples using which the spline functions are
-                    estimated. Read documentation of 
-                    scipy.interpolate.UnivariateSpline and 
+                    estimated. Read documentation of
+                    scipy.interpolate.UnivariateSpline and
                     scipy.interpolate.RectBivariateSpline for more details
         -----------------------------------------------------------------------
         """
@@ -2202,9 +3130,9 @@ class GainInfo(object):
                                         interpf_imag = interpolate.RectBivariateSpline(self.gaintable[gainkey]['time'], self.gaintable[gainkey]['frequency'], gains[labelind,:,:].imag.T, bbox=[self.gaintable[gainkey]['time'].min(), self.gaintable[gainkey]['time'].max(), self.gaintable[gainkey]['frequency'].min(), self.gaintable[gainkey]['frequency'].max()], s=smoothness)
                                     interpf += [(copy.copy(interpf_real), copy.copy(interpf_imag))]
                                 self.splinefuncs[gainkey] = {'interp': NP.asarray(interpf, dtype=[('real', NP.object), ('imag', NP.object)]), 'dims': dims}
-                                        
+
     #############################################################################
-    
+
     def interpolate_gains(self, bl_labels, freqs=None, times=None,
                           axes_order=None):
 
@@ -2213,40 +3141,40 @@ class GainInfo(object):
         Interpolate at the specified baselines for the given frequencies and
         times using attribute interpfuncs. Better alternative is to use
         spline_gains()
-        
+
         Inputs:
-        
-        bl_labels   [Numpy structured array tuples] Labels of antennas in the 
-                    pair used to produce the baseline vector under fields 'A2' 
-                    and 'A1' for second and first antenna respectively. The 
-                    baseline vector is obtained by position of antennas under 
-                    'A2' minus position of antennas under 'A1'. The array is of 
+
+        bl_labels   [Numpy structured array tuples] Labels of antennas in the
+                    pair used to produce the baseline vector under fields 'A2'
+                    and 'A1' for second and first antenna respectively. The
+                    baseline vector is obtained by position of antennas under
+                    'A2' minus position of antennas under 'A1'. The array is of
                     size nbl
-        
-        freqs       [None or numpy array] Array of frequencies at which the 
-                    gains are to be interpolated using the attribute 
-                    interpfuncs. If set to None (default), all frequencies in 
-                    the gaintable are assumed. The specified frequencies must 
-                    always lie within the range which was used in creating the 
-                    interpolation functions, otherwise an exception will be 
+
+        freqs       [None or numpy array] Array of frequencies at which the
+                    gains are to be interpolated using the attribute
+                    interpfuncs. If set to None (default), all frequencies in
+                    the gaintable are assumed. The specified frequencies must
+                    always lie within the range which was used in creating the
+                    interpolation functions, otherwise an exception will be
                     raised. The array is of size nchan
-        
+
         times       [None or numpy array] Array of times at which the gains
-                    are to be interpolated using the attribute interpfuncs. If 
+                    are to be interpolated using the attribute interpfuncs. If
                     set to None (default), all times in the gaintable are
                     assumed. The specified times must always lie within the
-                    range which was used in creating the interpolation 
-                    functions, otherwise an exception will be raised. The 
+                    range which was used in creating the interpolation
+                    functions, otherwise an exception will be raised. The
                     array is of size nts
-        
-        axes_order  [None or list or numpy array] Axes ordering for extracted 
-                    gains. It must contain the three elements 'label', 
-                    'frequency', and 'time'. If set to None, it will be 
+
+        axes_order  [None or list or numpy array] Axes ordering for extracted
+                    gains. It must contain the three elements 'label',
+                    'frequency', and 'time'. If set to None, it will be
                     returned in the same order as in the input gaintable.
-        
+
         Outputs:
-        
-        [numpy array] Complex gains of shape nbl x nchan x nts for the 
+
+        [numpy array] Complex gains of shape nbl x nchan x nts for the
         specified baselines, frequencies and times.
         ------------------------------------------------------------------------
         """
@@ -2338,7 +3266,7 @@ class GainInfo(object):
                             inp_freqs = freqs[ib_freq_index]
                             ntimes = ib_time_index.size
                             nchan = ib_freq_index.size
-                                
+
                         if key == 'antenna-based':
                             ind1 = NMO.find_list_in_list(labels, a1_labels)
                             ind2 = NMO.find_list_in_list(labels, a2_labels)
@@ -2363,7 +3291,7 @@ class GainInfo(object):
                                     else:
                                         g1_conj = NP.concatenate((g1_conj, (self.interpfuncs[key]['interp']['real'][ind1[i]](inp_times,inp_freqs) - 1j * self.interpfuncs[key]['interp']['imag'][ind1[i]](inp_times,inp_freqs)).reshape(1,nchan,ntimes)), axis=0)
                                         g2 = NP.concatenate((g2, (self.interpfuncs[key]['interp']['real'][ind2[i]](inp_times,inp_freqs) + 1j * self.interpfuncs[key]['interp']['imag'][ind2[i]](inp_times,inp_freqs)).reshape(1,nchan,ntimes)), axis=0)
-                                    
+
                             blgains = blgains * g1_conj * g2 * NP.ones((1,nchan,ntimes), dtype=NP.complex)
                         else:
                             g12 = None
@@ -2415,50 +3343,50 @@ class GainInfo(object):
         blgains = NP.transpose(blgains, axes=transpose_order)
 
         return blgains
-                                        
+
     #############################################################################
-    
+
     def spline_gains(self, bl_labels, freqs=None, times=None, axes_order=None):
 
         """
         ------------------------------------------------------------------------
         Evaluate spline at the specified baselines for the given frequencies and
-        times using attribute splinefuncs. Better alternative to 
+        times using attribute splinefuncs. Better alternative to
         interpolate_gains()
-        
+
         Inputs:
-        
-        bl_labels   [Numpy structured array tuples] Labels of antennas in the 
-                    pair used to produce the baseline vector under fields 'A2' 
-                    and 'A1' for second and first antenna respectively. The 
-                    baseline vector is obtained by position of antennas under 
-                    'A2' minus position of antennas under 'A1'. The array is of 
+
+        bl_labels   [Numpy structured array tuples] Labels of antennas in the
+                    pair used to produce the baseline vector under fields 'A2'
+                    and 'A1' for second and first antenna respectively. The
+                    baseline vector is obtained by position of antennas under
+                    'A2' minus position of antennas under 'A1'. The array is of
                     size nbl
-        
-        freqs       [None or numpy array] Array of frequencies at which the 
-                    gains are to be interpolated using the attribute 
-                    splinefuncs. If set to None (default), all frequencies in 
-                    the gaintable are assumed. The specified frequencies must 
-                    always lie within the range which was used in creating the 
-                    interpolation functions, otherwise an exception will be 
+
+        freqs       [None or numpy array] Array of frequencies at which the
+                    gains are to be interpolated using the attribute
+                    splinefuncs. If set to None (default), all frequencies in
+                    the gaintable are assumed. The specified frequencies must
+                    always lie within the range which was used in creating the
+                    interpolation functions, otherwise an exception will be
                     raised. The array is of size nchan
-        
+
         times       [None or numpy array] Array of times at which the gains
-                    are to be interpolated using the attribute splinefuncs. If 
+                    are to be interpolated using the attribute splinefuncs. If
                     set to None (default), all times in the gaintable are
                     assumed. The specified times must always lie within the
-                    range which was used in creating the interpolation 
-                    functions, otherwise an exception will be raised. The array 
+                    range which was used in creating the interpolation
+                    functions, otherwise an exception will be raised. The array
                     is of size nts
-        
-        axes_order  [None or list or numpy array] Axes ordering for extracted 
-                    gains. It must contain the three elements 'label', 
-                    'frequency', and 'time'. If set to None, it will be 
+
+        axes_order  [None or list or numpy array] Axes ordering for extracted
+                    gains. It must contain the three elements 'label',
+                    'frequency', and 'time'. If set to None, it will be
                     returned in the same order as in the input gaintable.
-        
+
         Outputs:
-        
-        [numpy array] Complex gains of shape nbl x nchan x nts for the specified 
+
+        [numpy array] Complex gains of shape nbl x nchan x nts for the specified
         baselines, frequencies and times.
         ---------------------------------------------------------------------------
         """
@@ -2551,7 +3479,7 @@ class GainInfo(object):
                             inp_freqs = freqs[ib_freq_index]
                             ntimes = ib_time_index.size
                             nchan = ib_freq_index.size
-                                
+
                         tgrid, fgrid = NP.meshgrid(inp_times, inp_freqs)
                         tvec = tgrid.ravel()
                         fvec = fgrid.ravel()
@@ -2580,7 +3508,7 @@ class GainInfo(object):
                                     else:
                                         g1_conj = NP.concatenate((g1_conj, (self.splinefuncs[key]['interp']['real'][ind1[i]].ev(tvec,fvec) - 1j * self.splinefuncs[key]['interp']['imag'][ind1[i]].ev(tvec,fvec)).reshape(1,nchan,ntimes)), axis=0)
                                         g2 = NP.concatenate((g2, (self.splinefuncs[key]['interp']['real'][ind2[i]].ev(tvec,fvec) + 1j * self.splinefuncs[key]['interp']['imag'][ind2[i]].ev(tvec,fvec)).reshape(1,nchan,ntimes)), axis=0)
-                                    
+
                             blgains = blgains * g1_conj * g2 * NP.ones((1,nchan,ntimes), dtype=NP.complex)
                         else:
                             g12 = None
@@ -2632,48 +3560,48 @@ class GainInfo(object):
         blgains = NP.transpose(blgains, axes=transpose_order)
 
         return blgains
-                                        
+
     #############################################################################
-    
+
     def nearest_gains(self, bl_labels, freqs=None, times=None, axes_order=None):
 
         """
         ------------------------------------------------------------------------
         Extract complex instrument gains for given baselines from the gain table
         determined by nearest neighbor logic
-    
+
         Inputs:
-    
-        bl_labels   [Numpy structured array tuples] Labels of antennas in the 
-                    pair used to produce the baseline vector under fields 'A2' 
-                    and 'A1' for second and first antenna respectively. The 
-                    baseline vector is obtained by position of antennas under 
+
+        bl_labels   [Numpy structured array tuples] Labels of antennas in the
+                    pair used to produce the baseline vector under fields 'A2'
+                    and 'A1' for second and first antenna respectively. The
+                    baseline vector is obtained by position of antennas under
                     'A2' minus position of antennas under 'A1'
-    
-        freqs       [None or numpy array] Array of frequencies at which the 
-                    gains are to be interpolated using the attribute 
-                    splinefuncs. If set to None (default), all frequencies in 
-                    the gaintable are assumed. The specified frequencies must 
-                    always lie within the range which was used in creating the 
-                    interpolation functions, otherwise an exception will be 
+
+        freqs       [None or numpy array] Array of frequencies at which the
+                    gains are to be interpolated using the attribute
+                    splinefuncs. If set to None (default), all frequencies in
+                    the gaintable are assumed. The specified frequencies must
+                    always lie within the range which was used in creating the
+                    interpolation functions, otherwise an exception will be
                     raised. The array is of size nchan
-        
+
         times       [None or numpy array] Array of times at which the gains
-                    are to be interpolated using the attribute splinefuncs. If 
+                    are to be interpolated using the attribute splinefuncs. If
                     set to None (default), all times in the gaintable are
                     assumed. The specified times must always lie within the
-                    range which was used in creating the interpolation 
-                    functions, otherwise an exception will be raised. The array 
+                    range which was used in creating the interpolation
+                    functions, otherwise an exception will be raised. The array
                     is of size nts
-        
-        axes_order  [None or list or numpy array] Axes ordering for extracted 
-                    gains. It must contain the three elements 'label', 
-                    'frequency', and 'time'. If set to None, it will be 
-                    returned in the same order as in the input gaintable. 
-    
-        Outputs: 
-    
-        [numpy array] Complex gains of shape nbl x nchan x nts for the specified 
+
+        axes_order  [None or list or numpy array] Axes ordering for extracted
+                    gains. It must contain the three elements 'label',
+                    'frequency', and 'time'. If set to None, it will be
+                    returned in the same order as in the input gaintable.
+
+        Outputs:
+
+        [numpy array] Complex gains of shape nbl x nchan x nts for the specified
         baselines, frequencies and times.
         ------------------------------------------------------------------------
         """
@@ -2696,11 +3624,11 @@ class GainInfo(object):
                         gains = NP.copy(self.gaintable[gainkey]['gains'])
                     else:
                         gains = NP.transpose(NP.copy(self.gaintable[gainkey]['gains']), axes=temp_transpose_order)
-    
+
                     freqs_to_search = copy.copy(freqs)
                     if freqs_to_search is None:
                         freqs_to_search = copy.copy(self.gaintable[gainkey]['frequency'])
-                        
+
                     if freqs_to_search is not None:
                         if self.gaintable[gainkey]['frequency'] is not None:
                             inpind, refind_freqs, distNN= LKP.find_1NN(self.gaintable[gainkey]['frequency'].reshape(-1,1), freqs_to_search.reshape(-1,1), remove_oob=True)
@@ -2708,11 +3636,11 @@ class GainInfo(object):
                             refind_freqs = None
                     if refind_freqs is None:
                         refind_freqs = NP.arange(gains.shape[1])
-    
+
                     times_to_search = copy.copy(times)
                     if times_to_search is None:
                         times_to_search = copy.copy(self.gaintable[gainkey]['time'])
-                        
+
                     if times_to_search is not None:
                         if self.gaintable[gainkey]['time'] is not None:
                             inpind, refind_times, distNN = LKP.find_1NN(self.gaintable[gainkey]['time'].reshape(-1,1), times_to_search.reshape(-1,1), remove_oob=True)
@@ -2720,7 +3648,7 @@ class GainInfo(object):
                             refind_times = None
                     if refind_times is None:
                         refind_times = NP.arange(gains.shape[2])
-    
+
                     if gains.shape[0] == 1:
                         blgains = blgains * gains[:,refind_freqs,refind_times].reshape(1,refind_freqs.size,refind_times.size)
                     else:
@@ -2753,10 +3681,10 @@ class GainInfo(object):
                         for orderkey in ['label', 'frequency', 'time']:
                             if orderkey not in axes_order:
                                 raise ValueError('axes_order does not contain key "{0}"'.format(orderkey))
-    
+
                     transpose_order = NMO.find_list_in_list(inp_order, axes_order)
                     blgains = NP.transpose(blgains, axes=transpose_order)
-    
+
         return blgains
 
     #############################################################################
@@ -2766,34 +3694,34 @@ class GainInfo(object):
 
         """
         ------------------------------------------------------------------------
-        Extract complex instrument gains for given baselines from the gain table 
-    
+        Extract complex instrument gains for given baselines from the gain table
+
         Inputs:
-    
-        bl_labels   [Numpy structured array tuples] Labels of antennas in the 
-                    pair used to produce the baseline vector under fields 'A2' 
-                    and 'A1' for second and first antenna respectively. The 
-                    baseline vector is obtained by position of antennas under 
+
+        bl_labels   [Numpy structured array tuples] Labels of antennas in the
+                    pair used to produce the baseline vector under fields 'A2'
+                    and 'A1' for second and first antenna respectively. The
+                    baseline vector is obtained by position of antennas under
                     'A2' minus position of antennas under 'A1'
-    
-        freq_index  [None, int, list or numpy array] Index (scalar) or indices 
-                    (list or numpy array) along the frequency axis at which 
-                    gains are to be extracted. If set to None, gains at all 
-                    frequencies in the gain table will be extracted. 
-    
-        time_index  [None, int, list or numpy array] Index (scalar) or indices 
-                    (list or numpy array) along the time axis at which gains 
-                    are to be extracted. If set to None, gains at all timesin 
-                    the gain table will be extracted. 
-    
-        axes_order  [None or list or numpy array] Axes ordering for extracted 
-                    gains. It must contain the three elements 'label', 
-                    'frequency', and 'time'. If set to None, it will be 
-                    returned in the same order as in the input gaintable. 
-    
-        Outputs: 
-    
-        [numpy array] Complex gains of shape nbl x nchan x nts for the specified 
+
+        freq_index  [None, int, list or numpy array] Index (scalar) or indices
+                    (list or numpy array) along the frequency axis at which
+                    gains are to be extracted. If set to None, gains at all
+                    frequencies in the gain table will be extracted.
+
+        time_index  [None, int, list or numpy array] Index (scalar) or indices
+                    (list or numpy array) along the time axis at which gains
+                    are to be extracted. If set to None, gains at all timesin
+                    the gain table will be extracted.
+
+        axes_order  [None or list or numpy array] Axes ordering for extracted
+                    gains. It must contain the three elements 'label',
+                    'frequency', and 'time'. If set to None, it will be
+                    returned in the same order as in the input gaintable.
+
+        Outputs:
+
+        [numpy array] Complex gains of shape nbl x nchan x nts for the specified
         baselines, frequencies and times.
         ------------------------------------------------------------------------
         """
@@ -2808,7 +3736,7 @@ class GainInfo(object):
 
         """
         ------------------------------------------------------------------------
-        Write gain table with specified axes ordering to external file in HDF5 
+        Write gain table with specified axes ordering to external file in HDF5
         format
 
         Inputs:
@@ -2816,19 +3744,19 @@ class GainInfo(object):
         outfile     [string] Filename including full path into which the gain
                     table will be written
 
-        axes_order  [None or list or numpy array] The axes ordering of gain 
-                    table that will be written to external file specified in 
+        axes_order  [None or list or numpy array] The axes ordering of gain
+                    table that will be written to external file specified in
                     outfile. If set to None, it will store in the same order
                     as in the attribute gaintable
-        
-        compress    [boolean] Specifies if the gain table is written in 
+
+        compress    [boolean] Specifies if the gain table is written in
                     compressed format. The compression format and compression
                     parameters are specified in compress_fmt and compress_opts
                     respectively
 
-        compress_fmt 
+        compress_fmt
                     [string] Accepted values are 'gzip' (default) or 'lzf'. See
-                    h5py module documentation for comparison of these 
+                    h5py module documentation for comparison of these
                     compression formats
 
         compress_opts
@@ -2837,7 +3765,7 @@ class GainInfo(object):
                     maximum compression
         ------------------------------------------------------------------------
         """
-        
+
         try:
             outfile
         except NameError:
@@ -2878,7 +3806,7 @@ class GainInfo(object):
                         gains = NP.copy(self.gaintable[gainkey]['gains'])
                     else:
                         gains = NP.transpose(NP.copy(self.gaintable[gainkey]['gains']), axes=transpose_order)
-                    
+
                     grp = fileobj.create_group(gainkey)
                     for subkey in self.gaintable[gainkey]:
                         if subkey == 'gains':
@@ -2928,53 +3856,53 @@ class ROI_parameters(object):
                 determined. It specifies the type of element, element size and
                 orientation. It consists of the following keys and information:
                 'id'          [string] If set, will ignore the other keys and use
-                              telescope details for known telescopes. Accepted 
-                              values are 'mwa', 'vla', 'gmrt', 'hera', 'paper', 
-                              'hirax', 'chime' and 'mwa_tools'. If using 
-                              'mwa_tools', the MWA_Tools and mwapb modules must 
-                              be installed and imported.  
+                              telescope details for known telescopes. Accepted
+                              values are 'mwa', 'vla', 'gmrt', 'ugmrt', 'hera', 
+                              'paper', 'hirax', 'chime' and 'mwa_tools'. If using
+                              'mwa_tools', the MWA_Tools and mwapb modules must
+                              be installed and imported.
                 'shape'       [string] Shape of antenna element. Accepted values
-                              are 'dipole', 'delta', and 'dish'. Will be ignored 
+                              are 'dipole', 'delta', and 'dish'. Will be ignored
                               if key 'id' is set. 'delta' denotes a delta
                               function for the antenna element which has an
                               isotropic radiation pattern. 'delta' is the default
                               when keys 'id' and 'shape' are not set.
-                'size'        [scalar] Diameter of the telescope dish (in meters) 
-                              if the key 'shape' is set to 'dish' or length of 
-                              the dipole if key 'shape' is set to 'dipole'. Will 
-                              be ignored if key 'shape' is set to 'delta'. Will 
-                              be ignored if key 'id' is set and a preset value 
+                'size'        [scalar] Diameter of the telescope dish (in meters)
+                              if the key 'shape' is set to 'dish' or length of
+                              the dipole if key 'shape' is set to 'dipole'. Will
+                              be ignored if key 'shape' is set to 'delta'. Will
+                              be ignored if key 'id' is set and a preset value
                               used for the diameter or dipole.
-                'orientation' [list or numpy array] If key 'shape' is set to 
-                              dipole, it refers to the orientation of the dipole 
-                              element unit vector whose magnitude is specified by 
-                              length. If key 'shape' is set to 'dish', it refers 
+                'orientation' [list or numpy array] If key 'shape' is set to
+                              dipole, it refers to the orientation of the dipole
+                              element unit vector whose magnitude is specified by
+                              length. If key 'shape' is set to 'dish', it refers
                               to the position on the sky to which the dish is
                               pointed. For a dipole, this unit vector must be
-                              provided in the local ENU coordinate system aligned 
+                              provided in the local ENU coordinate system aligned
                               with the direction cosines coordinate system or in
                               the Alt-Az coordinate system. This will be
                               used only when key 'shape' is set to 'dipole'.
-                              This could be a 2-element vector (transverse 
-                              direction cosines) where the third (line-of-sight) 
+                              This could be a 2-element vector (transverse
+                              direction cosines) where the third (line-of-sight)
                               component is determined, or a 3-element vector
                               specifying all three direction cosines or a two-
-                              element coordinate in Alt-Az system. If not provided 
+                              element coordinate in Alt-Az system. If not provided
                               it defaults to an eastward pointing dipole. If key
-                              'shape' is set to 'dish', the orientation refers 
+                              'shape' is set to 'dish', the orientation refers
                               to the pointing center of the dish on the sky. It
                               can be provided in Alt-Az system as a two-element
                               vector or in the direction cosine coordinate
                               system as a two- or three-element vector. If not
-                              set in the case of a dish element, it defaults to 
+                              set in the case of a dish element, it defaults to
                               zenith. This is not to be confused with the key
-                              'pointing_center' in dictionary 'pointing_info' 
+                              'pointing_center' in dictionary 'pointing_info'
                               which refers to the beamformed pointing center of
-                              the array. The coordinate system is specified by 
+                              the array. The coordinate system is specified by
                               the key 'ocoords'
-                'ocoords'     [scalar string] specifies the coordinate system 
+                'ocoords'     [scalar string] specifies the coordinate system
                               for key 'orientation'. Accepted values are 'altaz'
-                              and 'dircos'. 
+                              and 'dircos'.
                 'element_locs'
                               [2- or 3-column array] Element locations that
                               constitute the tile. Each row specifies
@@ -2982,26 +3910,26 @@ class ROI_parameters(object):
                               locations must be specified in local ENU
                               coordinate system. First column specifies along
                               local east, second along local north and the
-                              third along local up. If only two columns are 
-                              specified, the third column is assumed to be 
+                              third along local up. If only two columns are
+                              specified, the third column is assumed to be
                               zeros. If 'elements_locs' is not provided, it
                               assumed to be a one-element system and not a
-                              phased array as far as determination of primary 
+                              phased array as far as determination of primary
                               beam is concerned.
-                'groundplane' [scalar] height of telescope element above the 
+                'groundplane' [scalar] height of telescope element above the
                               ground plane (in meteres). Default = None will
                               denote no ground plane effects.
                 'ground_modify'
                               [dictionary] contains specifications to modify
                               the analytically computed ground plane pattern. If
                               absent, the ground plane computed will not be
-                              modified. If set, it may contain the following 
+                              modified. If set, it may contain the following
                               keys:
-                              'scale' [scalar] positive value to scale the 
-                                      modifying factor with. If not set, the 
+                              'scale' [scalar] positive value to scale the
+                                      modifying factor with. If not set, the
                                       scale factor to the modification is unity.
-                              'max'   [scalar] positive value to clip the 
-                                      modified and scaled values to. If not set, 
+                              'max'   [scalar] positive value to clip the
+                                      modified and scaled values to. If not set,
                                       there is no upper limit
                 'latitude'    [scalar] specifies latitude of the telescope site
                               (in degrees). Default = None (advisable to specify
@@ -3011,7 +3939,7 @@ class ROI_parameters(object):
                 'altitude'    [scalar] Specifies altitude of the telescope site
                               (in m) above the surface of the Earth. Default=0m
                 'pol'         [string] specifies polarization when using
-                              MWA_Tools for primary beam computation. Value of 
+                              MWA_Tools for primary beam computation. Value of
                               key 'id' in attribute dictionary telescope must be
                               set to 'mwa_tools'. 'X' or 'x' denotes
                               X-polarization. Y-polarization is specified by 'Y'
@@ -3023,43 +3951,43 @@ class ROI_parameters(object):
                 It consists of the following keys and information:
                 'radius'  [list of scalars] list of angular radii (in degrees),
                           one entry for each snapshot observation which defines
-                          the region of interest. 
+                          the region of interest.
                 'center'  [list of numpy vectors] list of centers of regions of
                           interest. For each snapshot, there is one element in
                           the list each of which is a center of corresponding
                           region of interest. Each numpy vector could be made of
-                          two elements (Alt-Az) or three elements (direction 
+                          two elements (Alt-Az) or three elements (direction
                           cosines).
                 'ind'     [list of numpy vectors] list of vectors of indices
                           that define the region of interest as a subset of the
                           sky model. Each element of the list is a numpy vector
                           of indices indexing into the sky model corresponding
-                          to each snapshot. 
+                          to each snapshot.
                 'pbeam'   [list of numpy arrays] list of array of primary beam
                           values in the region of interest. The size of each
                           element in the list corresponding to each snapshot is
-                          n_roi x nchan where n_roi is the number of pixels in 
-                          region of interest. 
-    
+                          n_roi x nchan where n_roi is the number of pixels in
+                          region of interest.
+
     pinfo       [list of dictionaries] Each dictionary element in the list
                 corresponds to a specific snapshot. It contains information
-                relating to the pointing center. The pointing center can be 
-                specified either via element delay compensation or by directly 
-                specifying the pointing center in a certain coordinate system. 
-                Default = None (pointing centered at zenith). Each dictionary 
+                relating to the pointing center. The pointing center can be
+                specified either via element delay compensation or by directly
+                specifying the pointing center in a certain coordinate system.
+                Default = None (pointing centered at zenith). Each dictionary
                 element may consist of the following keys and information:
-                'gains'           [numpy array] Complex element gains. Must be of 
-                                  size equal to the number of elements as 
-                                  specified by the number of rows in 
-                                  'element_locs'. If set to None (default), all 
-                                  element gains are assumed to be unity. 
-                'delays'          [numpy array] Delays (in seconds) to be applied 
-                                  to the tile elements. Size should be equal to 
+                'gains'           [numpy array] Complex element gains. Must be of
+                                  size equal to the number of elements as
+                                  specified by the number of rows in
+                                  'element_locs'. If set to None (default), all
+                                  element gains are assumed to be unity.
+                'delays'          [numpy array] Delays (in seconds) to be applied
+                                  to the tile elements. Size should be equal to
                                   number of tile elements (number of rows in
                                   antpos). Default = None will set all element
-                                  delays to zero phasing them to zenith. 
-                'pointing_center' [numpy array] This will apply in the absence of 
-                                  key 'delays'. This can be specified as a row 
+                                  delays to zero phasing them to zenith.
+                'pointing_center' [numpy array] This will apply in the absence of
+                                  key 'delays'. This can be specified as a row
                                   vector. Should have two-columns if using Alt-Az
                                   coordinates, or two or three columns if using
                                   direction cosines. There is no default. The
@@ -3067,20 +3995,20 @@ class ROI_parameters(object):
                                   'pointing_coords' if 'pointing_center' is to be
                                   used.
                 'pointing_coords' [string scalar] Coordinate system in which the
-                                  pointing_center is specified. Accepted values 
+                                  pointing_center is specified. Accepted values
                                   are 'altaz' or 'dircos'. Must be provided if
                                   'pointing_center' is to be used. No default.
                 'delayerr'        [int, float] RMS jitter in delays used in the
-                                  beamformer. Random jitters are drawn from a 
+                                  beamformer. Random jitters are drawn from a
                                   normal distribution with this rms. Must be
                                   a non-negative scalar. If not provided, it
-                                  defaults to 0 (no jitter). 
-    
+                                  defaults to 0 (no jitter).
+
     Member functions:
 
-    __init__()  Initializes an instance of class ROI_parameters using default 
+    __init__()  Initializes an instance of class ROI_parameters using default
                 values or using a specified initialization file
-    
+
     append_settings()
                 Determines and appends ROI (regions of interest) parameter
                 information for each snapshot observation using the input
@@ -3108,7 +4036,7 @@ class ROI_parameters(object):
         Keyword input(s):
 
         init_file    [string] Location of the initialization file from which an
-                     instance of class ROI_parameters will be created. File 
+                     instance of class ROI_parameters will be created. File
                      format must be compatible with the one saved to disk by
                      member function save()
         -------------------------------------------------------------------------
@@ -3121,7 +4049,7 @@ class ROI_parameters(object):
                 hdulist = fits.open(init_file)
             except IOError:
                 argument_init = True
-                print '\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...'
+                warnings.warn('\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...')
             if not argument_init:
                 n_obs = hdulist[0].header['n_obs']
                 extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,len(hdulist))]
@@ -3149,7 +4077,7 @@ class ROI_parameters(object):
                     self.telescope['altitude'] = hdulist[0].header['altitude']
                 else:
                     self.telescope['altitude'] = 0.0
-                    
+
                 try:
                     self.telescope['shape'] = hdulist[0].header['element_shape']
                 except KeyError:
@@ -3164,7 +4092,7 @@ class ROI_parameters(object):
                     self.telescope['ocoords'] = hdulist[0].header['element_ocoords']
                 except KeyError:
                     raise KeyError('Antenna element orientation coordinate system not found in the init_file header')
-                    
+
                 if 'ANTENNA ELEMENT ORIENTATION' in extnames:
                     self.telescope['orientation'] = hdulist['ANTENNA ELEMENT ORIENTATION'].data.reshape(1,-1)
                 else:
@@ -3213,7 +4141,7 @@ class ROI_parameters(object):
                                 self.pinfo[-1]['delayerr'] = None
                             else:
                                 self.pinfo[-1]['delayerr'] = delayerr
-    
+
                 len_pinfo = len(self.pinfo)
                 if len_pinfo > 0:
                     if len_pinfo != n_obs:
@@ -3257,8 +4185,9 @@ class ROI_parameters(object):
 
     #############################################################################
 
-    def append_settings(self, skymodel, freq, pinfo=None, lst=None,
-                        roi_info=None, telescope=None, freq_scale='GHz'):
+    def append_settings(self, skymodel, freq, pinfo=None, lst=None, 
+                        time_jd=None, roi_info=None, telescope=None,
+                        freq_scale='GHz'):
 
         """
         ------------------------------------------------------------------------
@@ -3269,102 +4198,112 @@ class ROI_parameters(object):
 
         Inputs:
 
-        skymodel [instance of class SkyModel] The common sky model for all the
-                 observing instances from which the ROI is determined based on
-                 a subset corresponding to each snapshot observation.
+        skymodel 
+                [instance of class SkyModel] The common sky model for all the
+                observing instances from which the ROI is determined based on
+                a subset corresponding to each snapshot observation. If set 
+                to None, the corresponding entries are all set to empty values
 
-        freq     [numpy vector] Frequency channels (with units specified by the
-                 attribute freq_scale)
+        freq    [numpy vector] Frequency channels (with units specified by the
+                attribute freq_scale)
 
-        pinfo    [list of dictionaries] Each dictionary element in the list
-                 corresponds to a specific snapshot. It contains information
-                 relating to the pointing center. The pointing center can be 
-                 specified either via element delay compensation or by directly 
-                 specifying the pointing center in a certain coordinate system. 
-                 Default = None (pointing centered at zenith). Each dictionary 
-                 element may consist of the following keys and information:
-                 'gains'           [numpy array] Complex element gains. Must be 
-                                   of size equal to the number of elements as 
-                                   specified by the number of rows in 
-                                   'element_locs'. If set to None (default), all 
-                                   element gains are assumed to be unity. 
-                 'delays'          [numpy array] Delays (in seconds) to be 
-                                   applied to the tile elements. Size should be 
-                                   equal to number of tile elements (number of 
-                                   rows in antpos). Default = None will set all 
-                                   element delays to zero phasing them to zenith 
-                 'pointing_center' [numpy array] This will apply in the absence 
-                                   of key 'delays'. This can be specified as a 
-                                   row vector. Should have two-columns if using 
-                                   Alt-Az coordinates, or two or three columns 
-                                   if using direction cosines. There is no 
-                                   default. The coordinate system must be 
-                                   specified in 'pointing_coords' if 
-                                   'pointing_center' is to be used.
-                 'pointing_coords' [string scalar] Coordinate system in which 
-                                   the pointing_center is specified. Accepted 
-                                   values are 'altaz' or 'dircos'. Must be 
-                                   provided if 'pointing_center' is to be used. 
-                                   No default.
-                 'delayerr'        [int, float] RMS jitter in delays used in 
-                                   the beamformer. Random jitters are drawn 
-                                   from a normal distribution with this rms. 
-                                   Must be a non-negative scalar. If not 
-                                   provided, it defaults to 0 (no jitter). 
-  
-    telescope   [dictionary] Contains information about the telescope parameters
+        pinfo   [list of dictionaries] Each dictionary element in the list
+                corresponds to a specific snapshot. It contains information
+                relating to the pointing center. The pointing center can be
+                specified either via element delay compensation or by directly
+                specifying the pointing center in a certain coordinate system.
+                Default = None (pointing centered at zenith). Each dictionary
+                element may consist of the following keys and information:
+                'gains'           [numpy array] Complex element gains. Must be
+                                  of size equal to the number of elements as
+                                  specified by the number of rows in
+                                  'element_locs'. If set to None (default), all
+                                  element gains are assumed to be unity.
+                'delays'          [numpy array] Delays (in seconds) to be
+                                  applied to the tile elements. Size should be
+                                  equal to number of tile elements (number of
+                                  rows in antpos). Default = None will set all
+                                  element delays to zero phasing them to zenith
+                'pointing_center' [numpy array] This will apply in the absence
+                                  of key 'delays'. This can be specified as a
+                                  row vector. Should have two-columns if using
+                                  Alt-Az coordinates, or two or three columns
+                                  if using direction cosines. There is no
+                                  default. The coordinate system must be
+                                  specified in 'pointing_coords' if
+                                  'pointing_center' is to be used.
+                'pointing_coords' [string scalar] Coordinate system in which
+                                  the pointing_center is specified. Accepted
+                                  values are 'altaz' or 'dircos'. Must be
+                                  provided if 'pointing_center' is to be used.
+                                  No default.
+                'delayerr'        [int, float] RMS jitter in delays used in
+                                  the beamformer. Random jitters are drawn
+                                  from a normal distribution with this rms.
+                                  Must be a non-negative scalar. If not
+                                  provided, it defaults to 0 (no jitter).
+
+        lst     [scalar] LST in degrees. Will be used in determination of sky
+                coordinates inside ROI if not provided. Default=None. 
+
+        time_jd [scalar] Time of the snapshot in JD. Will be used in 
+                determination of sky coordinates inside ROI if not provided. 
+                Default=None. 
+
+        telescope   
+                [dictionary] Contains information about the telescope parameters
                 using which the primary beams in the regions of interest are
                 determined. It specifies the type of element, element size and
                 orientation. It consists of the following keys and information:
-                'id'          [string] If set, will ignore the other keys and 
-                              use telescope details for known telescopes. 
-                              Accepted values are 'mwa', 'vla', 'gmrt', 'hera', 
-                              'paper', 'hirax', 'chime' and 'mwa_tools'. If 
-                              using 'mwa_tools', the MWA_Tools and mwapb modules 
-                              must be installed and imported.  
+                'id'          [string] If set, will ignore the other keys and
+                              use telescope details for known telescopes.
+                              Accepted values are 'mwa', 'vla', 'gmrt', 'ugmrt', 
+                              'hera', 'paper', 'hirax', 'chime' and 'mwa_tools'. If
+                              using 'mwa_tools', the MWA_Tools and mwapb modules
+                              must be installed and imported.
                 'shape'       [string] Shape of antenna element. Accepted values
-                              are 'dipole', 'delta', and 'dish'. Will be ignored 
+                              are 'dipole', 'delta', and 'dish'. Will be ignored
                               if key 'id' is set. 'delta' denotes a delta
                               function for the antenna element which has an
-                              isotropic radiation pattern. 'delta' is the 
+                              isotropic radiation pattern. 'delta' is the
                               default when keys 'id' and 'shape' are not set.
-                'size'        [scalar] Diameter of the telescope dish (in 
-                              meters) if the key 'shape' is set to 'dish' or 
-                              length of the dipole if key 'shape' is set to 
-                              'dipole'. Will be ignored if key 'shape' is set to 
-                              'delta'. Will be ignored if key 'id' is set and a 
+                'size'        [scalar] Diameter of the telescope dish (in
+                              meters) if the key 'shape' is set to 'dish' or
+                              length of the dipole if key 'shape' is set to
+                              'dipole'. Will be ignored if key 'shape' is set to
+                              'delta'. Will be ignored if key 'id' is set and a
                               preset value used for the diameter or dipole.
-                'orientation' [list or numpy array] If key 'shape' is set to 
-                              dipole, it refers to the orientation of the dipole 
-                              element unit vector whose magnitude is specified 
-                              by length. If key 'shape' is set to 'dish', it 
-                              refers to the position on the sky to which the 
-                              dish is pointed. For a dipole, this unit vector 
-                              must be provided in the local ENU coordinate 
-                              system aligned with the direction cosines 
-                              coordinate system or in the Alt-Az coordinate 
-                              system. This will be used only when key 'shape' 
-                              is set to 'dipole'. This could be a 2-element 
-                              vector (transverse direction cosines) where the 
-                              third (line-of-sight) component is determined, 
-                              or a 3-element vector specifying all three 
-                              direction cosines or a two-element coordinate in 
-                              Alt-Az system. If not provided it defaults to an 
+                'orientation' [list or numpy array] If key 'shape' is set to
+                              dipole, it refers to the orientation of the dipole
+                              element unit vector whose magnitude is specified
+                              by length. If key 'shape' is set to 'dish', it
+                              refers to the position on the sky to which the
+                              dish is pointed. For a dipole, this unit vector
+                              must be provided in the local ENU coordinate
+                              system aligned with the direction cosines
+                              coordinate system or in the Alt-Az coordinate
+                              system. This will be used only when key 'shape'
+                              is set to 'dipole'. This could be a 2-element
+                              vector (transverse direction cosines) where the
+                              third (line-of-sight) component is determined,
+                              or a 3-element vector specifying all three
+                              direction cosines or a two-element coordinate in
+                              Alt-Az system. If not provided it defaults to an
                               eastward pointing dipole. If key
-                              'shape' is set to 'dish', the orientation refers 
+                              'shape' is set to 'dish', the orientation refers
                               to the pointing center of the dish on the sky. It
                               can be provided in Alt-Az system as a two-element
                               vector or in the direction cosine coordinate
                               system as a two- or three-element vector. If not
-                              set in the case of a dish element, it defaults to 
+                              set in the case of a dish element, it defaults to
                               zenith. This is not to be confused with the key
-                              'pointing_center' in dictionary 'pointing_info' 
+                              'pointing_center' in dictionary 'pointing_info'
                               which refers to the beamformed pointing center of
-                              the array. The coordinate system is specified by 
+                              the array. The coordinate system is specified by
                               the key 'ocoords'
-                'ocoords'     [scalar string] specifies the coordinate system 
+                'ocoords'     [scalar string] specifies the coordinate system
                               for key 'orientation'. Accepted values are 'altaz'
-                              and 'dircos'. 
+                              and 'dircos'.
                 'element_locs'
                               [2- or 3-column array] Element locations that
                               constitute the tile. Each row specifies
@@ -3372,41 +4311,41 @@ class ROI_parameters(object):
                               locations must be specified in local ENU
                               coordinate system. First column specifies along
                               local east, second along local north and the
-                              third along local up. If only two columns are 
-                              specified, the third column is assumed to be 
+                              third along local up. If only two columns are
+                              specified, the third column is assumed to be
                               zeros. If 'elements_locs' is not provided, it
                               assumed to be a one-element system and not a
-                              phased array as far as determination of primary 
+                              phased array as far as determination of primary
                               beam is concerned.
-                'groundplane' [scalar] height of telescope element above the 
+                'groundplane' [scalar] height of telescope element above the
                               ground plane (in meteres). Default = None will
                               denote no ground plane effects.
                 'ground_modify'
                               [dictionary] contains specifications to modify
                               the analytically computed ground plane pattern. If
                               absent, the ground plane computed will not be
-                              modified. If set, it may contain the following 
+                              modified. If set, it may contain the following
                               keys:
-                              'scale' [scalar] positive value to scale the 
-                                      modifying factor with. If not set, the 
+                              'scale' [scalar] positive value to scale the
+                                      modifying factor with. If not set, the
                                       scale factor to the modification is unity.
-                              'max'   [scalar] positive value to clip the 
-                                      modified and scaled values to. If not set, 
+                              'max'   [scalar] positive value to clip the
+                                      modified and scaled values to. If not set,
                                       there is no upper limit
                 'latitude'    [scalar] specifies latitude of the telescope site
-                              (in degrees). Default = None, otherwise should 
-                              equal the value specified during initialization 
+                              (in degrees). Default = None, otherwise should
+                              equal the value specified during initialization
                               of the instance
                 'longitude'   [scalar] specifies longitude of the telescope site
-                              (in degrees). Default = None, otherwise should 
-                              equal the value specified during initialization 
+                              (in degrees). Default = None, otherwise should
+                              equal the value specified during initialization
                               of the instance
                 'altitude'    [scalar] specifies altitude of the telescope site
-                              (in m). Default = None, otherwise should 
-                              equal the value specified during initialization 
+                              (in m). Default = None, otherwise should
+                              equal the value specified during initialization
                               of the instance
                 'pol'         [string] specifies polarization when using
-                              MWA_Tools for primary beam computation. Value of 
+                              MWA_Tools for primary beam computation. Value of
                               key 'id' in attribute dictionary telescope must be
                               set to 'mwa_tools'. 'X' or 'x' denotes
                               X-polarization. Y-polarization is specified by 'Y'
@@ -3422,28 +4361,24 @@ class ROI_parameters(object):
         except NameError:
             raise NameError('skymodel, freq, and pinfo must be specified.')
 
-        if not isinstance(skymodel, SM.SkyModel):
-            raise TypeError('skymodel should be an instance of class SkyModel.')
-        elif skymodel is not None:
-            self.skymodel = skymodel
-
-        if freq is None:
-            raise ValueError('freq must be specified using a numpy array')
-        elif not isinstance(freq, NP.ndarray):
-            raise TypeError('freq must be specified using a numpy array')
-        self.freq = freq.ravel()
-
-        if (freq_scale is None) or (freq_scale == 'Hz') or (freq_scale == 'hz'):
-            self.freq = NP.asarray(freq)
-        elif freq_scale == 'GHz' or freq_scale == 'ghz':
-            self.freq = NP.asarray(freq) * 1.0e9
-        elif freq_scale == 'MHz' or freq_scale == 'mhz':
-            self.freq = NP.asarray(freq) * 1.0e6
-        elif freq_scale == 'kHz' or freq_scale == 'khz':
-            self.freq = NP.asarray(freq) * 1.0e3
-        else:
-            raise ValueError('Frequency units must be "GHz", "MHz", "kHz" or "Hz". If not set, it defaults to "Hz"')
-        self.freq_scale = 'Hz'
+        if self.freq is None:
+            if freq is None:
+                raise ValueError('freq must be specified using a numpy array')
+            elif not isinstance(freq, NP.ndarray):
+                raise TypeError('freq must be specified using a numpy array')
+            self.freq = freq.ravel()
+    
+            if (freq_scale is None) or (freq_scale == 'Hz') or (freq_scale == 'hz'):
+                self.freq = NP.asarray(freq)
+            elif freq_scale == 'GHz' or freq_scale == 'ghz':
+                self.freq = NP.asarray(freq) * 1.0e9
+            elif freq_scale == 'MHz' or freq_scale == 'mhz':
+                self.freq = NP.asarray(freq) * 1.0e6
+            elif freq_scale == 'kHz' or freq_scale == 'khz':
+                self.freq = NP.asarray(freq) * 1.0e3
+            else:
+                raise ValueError('Frequency units must be "GHz", "MHz", "kHz" or "Hz". If not set, it defaults to "Hz"')
+            self.freq_scale = 'Hz'
 
         if self.telescope is None:
             if isinstance(telescope, dict):
@@ -3451,150 +4386,202 @@ class ROI_parameters(object):
             else:
                 raise TypeError('Input telescope must be a dictionary.')
 
-        if roi_info is None:
-            raise ValueError('roi_info dictionary must be set.')
-
-        pbeam_input = False
-        if 'ind' in roi_info:
-            if roi_info['ind'] is not None:
-                self.info['ind'] += [roi_info['ind']]
-                if 'pbeam' in roi_info:
-                    if roi_info['pbeam'] is not None:
-                        try:
-                            pb = roi_info['pbeam'].reshape(-1,self.freq.size)
-                        except ValueError:
-                            raise ValueError('Number of columns of primary beam in key "pbeam" of dictionary roi_info must be equal to number of frequency channels.')
-
-                        if NP.asarray(roi_info['ind']).size == pb.shape[0]:
-                            self.info['pbeam'] += [roi_info['pbeam'].astype(NP.float32)]
-                        else:
-                            raise ValueError('Number of elements in values in key "ind" and number of rows of values in key "pbeam" must be identical.')
-                        pbeam_input = True
-
-                if not pbeam_input: # Will require sky positions in Alt-Az coordinates
-                    if skymodel.coords == 'radec':
-                        if self.telescope['latitude'] is None:
-                            raise ValueError('Latitude of the observatory must be provided.')                        
-                        if lst is None:
-                            raise ValueError('LST must be provided.')
-                        skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')                        
-                    elif skymodel.coords == 'hadec':
-                        if self.telescope['latitude'] is None:
-                            raise ValueError('Latitude of the observatory must be provided.')
-                        skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
-
-                    elif skymodel.coords == 'dircos':
-                        skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
-                    elif skymodel.coords == 'altaz':
-                        skypos_altaz = skymodel.location
-                    else:
-                        raise KeyError('skycoords invalid or unspecified in skymodel')
-            if 'radius' in roi_info:
-                self.info['radius'] += [roi_info['radius']]
-            if 'center' in roi_info:
-                self.info['center'] += [roi_info['center']]
+        if skymodel is None:
+            self.info['pbeam'] += [NP.asarray([])]
+            self.info['ind'] += [NP.asarray([])]
+            self.pinfo += [None]
+        elif not isinstance(skymodel, SM.SkyModel):
+            raise TypeError('skymodel should be an instance of class SkyModel.')
         else:
-            if roi_info['radius'] is None:
-                roi_info['radius'] = 90.0
-            else:
-                roi_info['radius'] = max(0.0, min(roi_info['radius'], 90.0))
-            self.info['radius'] += [roi_info['radius']]
-
-            if roi_info['center'] is None:
-                self.info['center'] += [NP.asarray([90.0, 270.0]).reshape(1,-1)]
-            else:
-                roi_info['center'] = NP.asarray(roi_info['center']).reshape(1,-1)
-                if roi_info['center_coords'] == 'dircos':
-                    self.info['center'] += [GEOM.dircos2altaz(roi_info['center'], units='degrees')]
-                elif roi_info['center_coords'] == 'altaz':
-                    self.info['center'] += [roi_info['center']]
-                elif roi_info['center_coords'] == 'hadec':
-                    self.info['center'] += [GEOM.hadec2altaz(roi_info['center'], self.telescope['latitude'], units='degrees')]
-                elif roi_info['center_coords'] == 'radec':
-                    if lst is None:
-                        raise KeyError('LST not provided for coordinate conversion')
-                    hadec = NP.asarray([lst-roi_info['center'][0,0], roi_info['center'][0,1]]).reshape(1,-1)
-                    self.info['center'] += [GEOM.hadec2altaz(hadec, self.telescope['latitude'], units='degrees')]                    
-                elif roi_info['center_coords'] == 'dircos':
-                    self.info['center'] += [GEOM.dircos2altaz(roi_info['center'], units='degrees')]
-                else:
-                    raise ValueError('Invalid coordinate system specified for center')
-
-            if skymodel.coords == 'radec':
-                if self.telescope['latitude'] is None:
-                    raise ValueError('Latitude of the observatory must be provided.')
-
-                if lst is None:
-                    raise ValueError('LST must be provided.')
-                skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')                
-            elif skymodel.coords == 'hadec':
-                if self.telescope['latitude'] is None:
-                    raise ValueError('Latitude of the observatory must be provided.')
-                skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
-            elif skymodel.coords == 'dircos':
-                skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
-            elif skymodel.coords == 'altaz':
-                skypos_altaz = skymodel.location
-            else:
-                raise KeyError('skycoords invalid or unspecified in skymodel')
+            self.skymodel = skymodel
             
-            dtheta = GEOM.sphdist(self.info['center'][-1][0,1], self.info['center'][-1][0,0], 270.0, 90.0)
-            if dtheta > 1e-2: # ROI center is not zenith
-                m1, m2, d12 = GEOM.spherematch(self.info['center'][-1][0,0], self.info['center'][-1][0,1], skypos_altaz[:,0], skypos_altaz[:,1], roi_info['radius'], maxmatches=0)
+            if self.freq is None:
+                if freq is None:
+                    raise ValueError('freq must be specified using a numpy array')
+                elif not isinstance(freq, NP.ndarray):
+                    raise TypeError('freq must be specified using a numpy array')
+                self.freq = freq.ravel()
+                
+                if (freq_scale is None) or (freq_scale == 'Hz') or (freq_scale == 'hz'):
+                    self.freq = NP.asarray(freq)
+                elif freq_scale == 'GHz' or freq_scale == 'ghz':
+                    self.freq = NP.asarray(freq) * 1.0e9
+                elif freq_scale == 'MHz' or freq_scale == 'mhz':
+                    self.freq = NP.asarray(freq) * 1.0e6
+                elif freq_scale == 'kHz' or freq_scale == 'khz':
+                    self.freq = NP.asarray(freq) * 1.0e3
+                else:
+                    raise ValueError('Frequency units must be "GHz", "MHz", "kHz" or "Hz". If not set, it defaults to "Hz"')
+                self.freq_scale = 'Hz'
+   
+            if roi_info is None:
+                raise ValueError('roi_info dictionary must be set.')
+    
+            pbeam_input = False
+            if 'ind' in roi_info:
+                if roi_info['ind'] is not None:
+                    self.info['ind'] += [roi_info['ind']]
+                    if roi_info['ind'].size > 0:
+                        if 'pbeam' in roi_info:
+                            if roi_info['pbeam'] is not None:
+                                try:
+                                    pb = roi_info['pbeam'].reshape(-1,self.freq.size)
+                                except ValueError:
+                                    raise ValueError('Number of columns of primary beam in key "pbeam" of dictionary roi_info must be equal to number of frequency channels.')
+        
+                                if NP.asarray(roi_info['ind']).size == pb.shape[0]:
+                                    self.info['pbeam'] += [roi_info['pbeam'].astype(NP.float32)]
+                                else:
+                                    raise ValueError('Number of elements in values in key "ind" and number of rows of values in key "pbeam" must be identical.')
+                                pbeam_input = True
+        
+                        if not pbeam_input: # Will require sky positions in Alt-Az coordinates
+                            if skymodel.coords == 'radec':
+                                skycoords = SkyCoord(ra=skymodel.location[:,0]*units.deg, dec=skymodel.location[:,1]*units.deg, frame='fk5', equinox=Time(skymodel.epoch, format='jyear_str', scale='utc'))
+                                if self.telescope['latitude'] is None:
+                                    raise ValueError('Latitude of the observatory must be provided.')
+                                if lst is None:
+                                    raise ValueError('LST must be provided.')
+                                if time_jd is None:
+                                    raise ValueError('Time in JD must be provided')
+                                skycoords_altaz = skycoords.transform_to(AltAz(obstime=Time(time_jd, format='jd', scale='utc'), location=EarthLocation(lon=self.telescope['longitude']*units.deg, lat=self.telescope['latitude']*units.deg, height=self.telescope['altitude']*units.m)))
+                                skypos_altaz = NP.hstack((skycoords_altaz.alt.deg.reshape(-1,1), skycoords_altaz.az.deg.reshape(-1,1)))
+                                # skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees') # Need to accurately take ephemeris into account
+                            elif skymodel.coords == 'hadec':
+                                if self.telescope['latitude'] is None:
+                                    raise ValueError('Latitude of the observatory must be provided.')
+                                skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
+        
+                            elif skymodel.coords == 'dircos':
+                                skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
+                            elif skymodel.coords == 'altaz':
+                                skypos_altaz = skymodel.location
+                            else:
+                                raise KeyError('skycoords invalid or unspecified in skymodel')
+                if 'radius' in roi_info:
+                    self.info['radius'] += [roi_info['radius']]
+                if 'center' in roi_info:
+                    self.info['center'] += [roi_info['center']]
             else:
-                m2, = NP.where(skypos_altaz[:,0] >= 90.0-roi_info['radius']) # select sources whose altitude (angle above horizon) is 90-radius
-            self.info['ind'] += [m2]
-
-        if self.info['center_coords'] is None:
-            if 'center_coords' in roi_info:
-                if (roi_info['center_coords'] == 'altaz') or (roi_info['center_coords'] == 'dircos') or (roi_info['center_coords'] == 'hadec') or (roi_info['center_coords'] == 'radec'):
-                    self.info['center_coords'] = roi_info['center_coords']
-
-        if not pbeam_input:
-            if pinfo is None:
-                raise ValueError('Pointing info dictionary pinfo must be specified.')
-            self.pinfo += [pinfo]
-
-            if 'pointing_coords' in pinfo: # Convert pointing coordinate to Alt-Az
-                if (pinfo['pointing_coords'] != 'dircos') and (pinfo['pointing_coords'] != 'altaz'):
+                if roi_info['radius'] is None:
+                    roi_info['radius'] = 90.0
+                else:
+                    roi_info['radius'] = max(0.0, min(roi_info['radius'], 90.0))
+                self.info['radius'] += [roi_info['radius']]
+    
+                if roi_info['center'] is None:
+                    self.info['center'] += [NP.asarray([90.0, 270.0]).reshape(1,-1)]
+                else:
+                    roi_info['center'] = NP.asarray(roi_info['center']).reshape(1,-1)
+                    if roi_info['center_coords'] == 'dircos':
+                        self.info['center'] += [GEOM.dircos2altaz(roi_info['center'], units='degrees')]
+                    elif roi_info['center_coords'] == 'altaz':
+                        self.info['center'] += [roi_info['center']]
+                    elif roi_info['center_coords'] == 'hadec':
+                        self.info['center'] += [GEOM.hadec2altaz(roi_info['center'], self.telescope['latitude'], units='degrees')]
+                    elif roi_info['center_coords'] == 'radec':
+                        if lst is None:
+                            raise KeyError('LST not provided for coordinate conversion')
+                        hadec = NP.asarray([lst-roi_info['center'][0,0], roi_info['center'][0,1]]).reshape(1,-1)
+                        self.info['center'] += [GEOM.hadec2altaz(hadec, self.telescope['latitude'], units='degrees')]
+                    elif roi_info['center_coords'] == 'dircos':
+                        self.info['center'] += [GEOM.dircos2altaz(roi_info['center'], units='degrees')]
+                    else:
+                        raise ValueError('Invalid coordinate system specified for center')
+    
+                if skymodel.coords == 'radec':
                     if self.telescope['latitude'] is None:
                         raise ValueError('Latitude of the observatory must be provided.')
-                    if pinfo['pointing_coords'] == 'radec':
-                        if lst is None:
-                            raise ValueError('LST must be provided.')
-                        self.pinfo[-1]['pointing_center'] = NP.asarray([lst-pinfo['pointing_center'][0,0], pinfo['pointing_center'][0,1]]).reshape(1,-1)
-                        self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(self.pinfo[-1]['pointing_center'], self.telescope['latitude'], units='degrees')
-                    elif pinfo[-1]['pointing_coords'] == 'hadec':
-                        self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(pinfo[-1]['pointing_center'], self.telescope['latitude'], units='degrees')
-                    else:
-                        raise ValueError('pointing_coords in dictionary pinfo must be "dircos", "altaz", "hadec" or "radec".')
-                    self.pinfo[-1]['pointing_coords'] = 'altaz'
-
-            ind = self.info['ind'][-1]
-            if 'id' in self.telescope:
-                if self.telescope['id'] == 'mwa_tools':
-                    if not mwa_tools_found:
-                        raise ImportError('MWA_Tools could not be imported which is required for power pattern computation.')
-    
-                    pbeam = NP.empty((ind.size, self.freq.size))
-                    for i in xrange(self.freq.size):
-                        pbx_MWA, pby_MWA = MWAPB.MWA_Tile_advanced(NP.radians(90.0-skypos_altaz[ind,0]).reshape(-1,1), NP.radians(skypos_altaz[ind,1]).reshape(-1,1), freq=self.freq[i], delays=self.pinfo[-1]['delays']/435e-12)
-                        if 'pol' in self.telescope:
-                            if (self.telescope['pol'] == 'X') or (self.telescope['pol'] == 'x'):
-                                pbeam[:,i] = pbx_MWA.ravel()
-                            elif (self.telescope['pol'] == 'Y') or (self.telescope['pol'] == 'y'):
-                                pbeam[:,i] = pby_MWA.ravel()
-                            else:
-                                raise ValueError('Key "pol" in attribute dictionary telescope is invalid.')
-                        else:
-                            self.telescope['pol'] = 'X'
-                            pbeam[:,i] = pbx_MWA.ravel()
+                    if lst is None:
+                        raise ValueError('LST must be provided.')
+                    if time_jd is None:
+                        raise ValueError('Time in JD must be provided')
+                    skycoords = SkyCoord(ra=skymodel.location[:,0]*units.deg, dec=skymodel.location[:,1]*units.deg, frame='fk5', equinox=Time(skymodel.epoch, format='jyear_str', scale='utc'))
+                    skycoords_altaz = skycoords.transform_to(AltAz(obstime=Time(time_jd, format='jd', scale='utc'), location=EarthLocation(lon=self.telescope['longitude']*units.deg, lat=self.telescope['latitude']*units.deg, height=self.telescope['altitude']*units.m)))
+                    skypos_altaz = NP.hstack((skycoords_altaz.alt.deg.reshape(-1,1), skycoords_altaz.az.deg.reshape(-1,1)))
+                    # skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.telescope['latitude'], units='degrees')
+                elif skymodel.coords == 'hadec':
+                    if self.telescope['latitude'] is None:
+                        raise ValueError('Latitude of the observatory must be provided.')
+                    skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.telescope['latitude'], units='degrees')
+                elif skymodel.coords == 'dircos':
+                    skypos_altaz = GEOM.dircos2altaz(skymodel.location, units='degrees')
+                elif skymodel.coords == 'altaz':
+                    skypos_altaz = skymodel.location
                 else:
-                    pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
-            else:
-                pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], self.freq, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
+                    raise KeyError('skycoords invalid or unspecified in skymodel')
+    
+                dtheta = GEOM.sphdist(self.info['center'][-1][0,1], self.info['center'][-1][0,0], 270.0, 90.0)
+                if dtheta > 1e-2: # ROI center is not zenith
+                    m1, m2, d12 = GEOM.spherematch(self.info['center'][-1][0,0], self.info['center'][-1][0,1], skypos_altaz[:,0], skypos_altaz[:,1], roi_info['radius'], maxmatches=0)
+                else:
+                    m2, = NP.where(skypos_altaz[:,0] >= 90.0-roi_info['radius']) # select sources whose altitude (angle above horizon) is 90-radius
+                self.info['ind'] += [m2]
+    
+            if self.info['center_coords'] is None:
+                if 'center_coords' in roi_info:
+                    if (roi_info['center_coords'] == 'altaz') or (roi_info['center_coords'] == 'dircos') or (roi_info['center_coords'] == 'hadec') or (roi_info['center_coords'] == 'radec'):
+                        self.info['center_coords'] = roi_info['center_coords']
+    
+            if not pbeam_input:
+                if pinfo is None:
+                    raise ValueError('Pointing info dictionary pinfo must be specified.')
+                self.pinfo += [pinfo]
+    
+                if 'pointing_coords' in pinfo: # Convert pointing coordinate to Alt-Az
+                    if (pinfo['pointing_coords'] != 'dircos') and (pinfo['pointing_coords'] != 'altaz'):
+                        if self.telescope['latitude'] is None:
+                            raise ValueError('Latitude of the observatory must be provided.')
+                        if pinfo['pointing_coords'] == 'radec':
+                            if lst is None:
+                                raise ValueError('LST must be provided.')
+                            self.pinfo[-1]['pointing_center'] = NP.asarray([lst-pinfo['pointing_center'][0,0], pinfo['pointing_center'][0,1]]).reshape(1,-1)
+                            self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(self.pinfo[-1]['pointing_center'], self.telescope['latitude'], units='degrees')
+                        elif pinfo[-1]['pointing_coords'] == 'hadec':
+                            self.pinfo[-1]['pointing_center'] = GEOM.hadec2altaz(pinfo[-1]['pointing_center'], self.telescope['latitude'], units='degrees')
+                        else:
+                            raise ValueError('pointing_coords in dictionary pinfo must be "dircos", "altaz", "hadec" or "radec".')
+                        self.pinfo[-1]['pointing_coords'] = 'altaz'
+    
+                if 'pbeam_chromaticity' not in roi_info:
+                    roi_info['pbeam_chromaticity'] = False
+                if 'pbeam_reffreq' not in roi_info:
+                    roi_info['pbeam_reffreq'] = self.freq[self.freq.size//2]
+                beam_chromaticity = roi_info['pbeam_chromaticity']
+                if beam_chromaticity:
+                    freqs_to_compute = self.freq
+                else:
+                    nearest_freq_ind = NP.argmin(NP.abs(self.freq - roi_info['pbeam_reffreq']))
+                    freqs_to_compute = NP.asarray(roi_info['pbeam_reffreq']).reshape(-1)
 
-            self.info['pbeam'] += [pbeam.astype(NP.float32)]
+                ind = self.info['ind'][-1]
+                if ind.size > 0:
+                    if 'id' in self.telescope:
+                        if self.telescope['id'] == 'mwa_tools':
+                            if not mwa_tools_found:
+                                raise ImportError('MWA_Tools could not be imported which is required for power pattern computation.')
+        
+                            pbeam = NP.empty((ind.size, self.freq.size))
+                            for i in range(freqs_to_compute.size):
+                                pbx_MWA, pby_MWA = MWAPB.MWA_Tile_advanced(NP.radians(90.0-skypos_altaz[ind,0]).reshape(-1,1), NP.radians(skypos_altaz[ind,1]).reshape(-1,1), freq=freqs_to_compute[i], delays=self.pinfo[-1]['delays']/435e-12)
+                                if 'pol' in self.telescope:
+                                    if (self.telescope['pol'] == 'X') or (self.telescope['pol'] == 'x'):
+                                        pbeam[:,i] = pbx_MWA.ravel()
+                                    elif (self.telescope['pol'] == 'Y') or (self.telescope['pol'] == 'y'):
+                                        pbeam[:,i] = pby_MWA.ravel()
+                                    else:
+                                        raise ValueError('Key "pol" in attribute dictionary telescope is invalid.')
+                                else:
+                                    self.telescope['pol'] = 'X'
+                                    pbeam[:,i] = pbx_MWA.ravel()
+                        else:
+                            pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], freqs_to_compute, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
+                    else:
+                        pbeam = PB.primary_beam_generator(skypos_altaz[ind,:], freqs_to_compute, self.telescope, freq_scale=self.freq_scale, skyunits='altaz', pointing_info=self.pinfo[-1])
+        
+                    self.info['pbeam'] += [pbeam.astype(NP.float64) * NP.ones(self.freq.size).reshape(1,-1)]
+                else:
+                    self.info['pbeam'] += [NP.asarray([])]
 
     #############################################################################
 
@@ -3612,14 +4599,14 @@ class ROI_parameters(object):
 
         Keyword Input(s):
 
-        tabtype      [string] indicates table type for one of the extensions in 
-                     the FITS file. Allowed values are 'BinTableHDU' and 
+        tabtype      [string] indicates table type for one of the extensions in
+                     the FITS file. Allowed values are 'BinTableHDU' and
                      'TableHDU' for binary ascii tables respectively. Default is
                      'BinTableHDU'.
-                     
-        overwrite    [boolean] True indicates overwrite even if a file already 
+
+        overwrite    [boolean] True indicates overwrite even if a file already
                      exists. Default = False (does not overwrite)
-                     
+
         verbose      [boolean] If True (default), prints diagnostic and progress
                      messages. If False, suppress printing such messages.
         ----------------------------------------------------------------------------
@@ -3630,10 +4617,10 @@ class ROI_parameters(object):
         except NameError:
             raise NameError('No filename provided. Aborting ROI_parameters.save()...')
 
-        filename = infile + '.fits' 
+        filename = infile + '.fits'
 
         if verbose:
-            print '\nSaving information about regions of interest...'
+            print('\nSaving information about regions of interest...')
 
         hdulist = []
 
@@ -3660,45 +4647,47 @@ class ROI_parameters(object):
 
         hdulist += [fits.ImageHDU(self.telescope['orientation'], name='Antenna element orientation')]
         if verbose:
-            print '\tCreated an extension for antenna element orientation.'
+            print('\tCreated an extension for antenna element orientation.')
 
         if 'element_locs' in self.telescope:
             hdulist += [fits.ImageHDU(self.telescope['element_locs'], name='Antenna element locations')]
-        
+
         hdulist += [fits.ImageHDU(self.freq, name='FREQ')]
         if verbose:
-            print '\t\tCreated an extension HDU of {0:0d} frequency channels'.format(self.freq.size)
+            print('\t\tCreated an extension HDU of {0:0d} frequency channels'.format(self.freq.size))
 
         for i in range(len(self.info['ind'])):
-            hdulist += [fits.ImageHDU(self.info['ind'][i], name='IND_{0:0d}'.format(i))]
-            hdulist += [fits.ImageHDU(self.info['pbeam'][i], name='PB_{0:0d}'.format(i))]
+            if self.info['ind'][i].size > 0:
+                hdulist += [fits.ImageHDU(self.info['ind'][i], name='IND_{0:0d}'.format(i))]
+                hdulist += [fits.ImageHDU(self.info['pbeam'][i], name='PB_{0:0d}'.format(i))]
             if self.pinfo: # if self.pinfo is not empty
-                if 'delays' in self.pinfo[i]:
-                    hdulist += [fits.ImageHDU(self.pinfo[i]['delays'], name='DELAYS_{0:0d}'.format(i))]
-                    if 'delayerr' in self.pinfo[i]:
-                        if self.pinfo[i]['delayerr'] is not None:
-                            hdulist[-1].header['delayerr'] = (self.pinfo[i]['delayerr'], 'Jitter in delays [s]')
+                if self.pinfo[i] is not None: # if the specific i-th entry in self.pinfo is not empty
+                    if 'delays' in self.pinfo[i]:
+                        hdulist += [fits.ImageHDU(self.pinfo[i]['delays'], name='DELAYS_{0:0d}'.format(i))]
+                        if 'delayerr' in self.pinfo[i]:
+                            if self.pinfo[i]['delayerr'] is not None:
+                                hdulist[-1].header['delayerr'] = (self.pinfo[i]['delayerr'], 'Jitter in delays [s]')
+                            else:
+                                hdulist[-1].header['delayerr'] = (0.0, 'Jitter in delays [s]')
+                    
+                    if 'pointing_center' in self.pinfo[i]:
+                        hdulist += [fits.ImageHDU(self.pinfo[i]['pointing_center'], name='POINTING_CENTER_{0:0d}'.format(i))]
+                        if 'pointing_coords' in self.pinfo[i]:
+                            hdulist[-1].header['pointing_coords'] = (self.pinfo[i]['pointing_coords'], 'Pointing coordinate system')
                         else:
-                            hdulist[-1].header['delayerr'] = (0.0, 'Jitter in delays [s]')
-    
-                if 'pointing_center' in self.pinfo[i]:
-                    hdulist += [fits.ImageHDU(self.pinfo[i]['pointing_center'], name='POINTING_CENTER_{0:0d}'.format(i))]
-                    if 'pointing_coords' in self.pinfo[i]:
-                        hdulist[-1].header['pointing_coords'] = (self.pinfo[i]['pointing_coords'], 'Pointing coordinate system')
-                    else:
-                        raise KeyError('Key "pointing_coords" not found in attribute pinfo.')
-                
-        if verbose:
-            print '\t\tCreated HDU extensions for {0:0d} observations containing ROI indices and primary beams'.format(len(self.info['ind']))
+                            raise KeyError('Key "pointing_coords" not found in attribute pinfo.')
 
         if verbose:
-            print '\tNow writing FITS file to disk...'
+            print('\t\tCreated HDU extensions for {0:0d} observations containing ROI indices and primary beams'.format(len(self.info['ind'])))
+
+        if verbose:
+            print('\tNow writing FITS file to disk...')
 
         hdu = fits.HDUList(hdulist)
-        hdu.writeto(filename, clobber=overwrite)
+        hdu.writeto(filename, overwrite=overwrite)
 
         if verbose:
-            print '\tRegions of interest information written successfully to FITS file on disk:\n\t\t{0}\n'.format(filename)
+            print('\tRegions of interest information written successfully to FITS file on disk:\n\t\t{0}\n'.format(filename))
 
 #################################################################################
 
@@ -3706,7 +4695,7 @@ class InterferometerArray(object):
 
     """
     ----------------------------------------------------------------------------
-    Class to manage information on a multi-element interferometer array. 
+    Class to manage information on a multi-element interferometer array.
 
     Attributes:
 
@@ -3718,20 +4707,20 @@ class InterferometerArray(object):
 
     baselines:  [M x 3 Numpy array] The baseline vectors associated with the
                 M interferometers in SI units. The coordinate system of these
-                vectors is specified by another attribute baseline_coords. 
+                vectors is specified by another attribute baseline_coords.
 
     baseline_coords
-                [string] Coordinate system for the baseline vectors. Default is 
-                'localenu'. Other accepted values are 'equatorial' 
+                [string] Coordinate system for the baseline vectors. Default is
+                'localenu'. Other accepted values are 'equatorial'
 
     baseline_lengths
                 [M-element numpy array] Lengths of the baseline in SI units
 
     projected_baselines
-                [M x 3 x n_snaps Numpy array] The projected baseline vectors 
-                associated with the M interferometers and number of snapshots in 
-                SI units. The coordinate system of these vectors is specified by 
-                either pointing_center, phase_center or as specified in input to 
+                [M x 3 x n_snaps Numpy array] The projected baseline vectors
+                associated with the M interferometers and number of snapshots in
+                SI units. The coordinate system of these vectors is specified by
+                either pointing_center, phase_center or as specified in input to
                 member function project_baselines().
 
     bp          [numpy array] Bandpass weights of size n_baselines x nchan x
@@ -3740,30 +4729,30 @@ class InterferometerArray(object):
                 n_baselines is the number of baselines
 
     bp_wts      [numpy array] Additional weighting to be applied to the bandpass
-                shapes during the application of the member function 
-                delay_transform(). Same size as attribute bp. 
+                shapes during the application of the member function
+                delay_transform(). Same size as attribute bp.
 
     channels    [list or numpy vector] frequency channels in Hz
 
     eff_Q       [scalar, list or numpy vector] Efficiency of the interferometers,
-                one value for each interferometer. Default = 0.89, appropriate 
+                one value for each interferometer. Default = 0.89, appropriate
                 for the VLA. Has to be between 0 and 1. If only a scalar value
-                provided, it will be assumed to be identical for all the 
+                provided, it will be assumed to be identical for all the
                 interferometers. Otherwise, one value must be provided for each
                 of the interferometers.
 
     freq_resolution
                 [scalar] Frequency resolution (in Hz)
 
-    labels:     [list of 2-element tuples] A unique identifier (tuple of 
-                strings) for each of the interferometers. 
+    labels      [list of 2-element tuples] A unique identifier (tuple of
+                strings) for each of the interferometers.
 
     lags        [numpy vector] Time axis obtained when the frequency axis is
-                inverted using a FFT. Same size as channels. This is 
+                inverted using a FFT. Same size as channels. This is
                 computed in member function delay_transform().
 
-    lag_kernel  [numpy array] Inverse Fourier Transform of the frequency 
-                bandpass shape. In other words, it is the impulse response 
+    lag_kernel  [numpy array] Inverse Fourier Transform of the frequency
+                bandpass shape. In other words, it is the impulse response
                 corresponding to frequency bandpass. Same size as attributes
                 bp and bp_wts. It is initialized in __init__() member function
                 but effectively computed in member function delay_transform()
@@ -3778,21 +4767,33 @@ class InterferometerArray(object):
 
     n_acc       [scalar] Number of accumulations
 
-    gaininfo    [None or instance of class GainInfo] Instance of class 
+    groups      [dictionary] Contains the grouping of unique baselines and the
+                redundant baselines as numpy recarray under each unique baseline 
+                category/flavor. It contains as keys the labels (tuple of A1, A2) 
+                of unique baselines and the value under each of these keys is a 
+                list of baseline labels that are redundant under that category
+
+    bl_reversemap
+                [dictionary] Contains the baseline category for each baseline. 
+                The keys are baseline labels as tuple and the value under each 
+                key is the label of the unique baseline category that it falls 
+                under. 
+
+    gaininfo    [None or instance of class GainInfo] Instance of class
                 Gaininfo. If set to None, default gains assumed to be unity.
 
     gradient_mode
-                [string] If set to None, visibilities will be simulated as 
-                usual. If set to string, both visibilities and visibility 
-                gradients with respect to the quantity specified in the 
-                string will be simulated. Currently accepted value is 
-                'baseline'. Plan to incorporate gradients with respect to 
+                [string] If set to None, visibilities will be simulated as
+                usual. If set to string, both visibilities and visibility
+                gradients with respect to the quantity specified in the
+                string will be simulated. Currently accepted value is
+                'baseline'. Plan to incorporate gradients with respect to
                 'skypos' and 'frequency' as well in the future.
 
-    gradient    [dictionary] If gradient_mode is set to None, it is an empty 
+    gradient    [dictionary] If gradient_mode is set to None, it is an empty
                 dictionary. If gradient_mode is not None, this quantity holds
-                the gradient under the key specified by gradient_mode. 
-                Currently, supports 'baseline' key. Other gradients will be 
+                the gradient under the key specified by gradient_mode.
+                Currently, supports 'baseline' key. Other gradients will be
                 supported in future. It contains the following keys and values.
                 If gradient_mode == 'baseline':
                 'baseline'  [numpy array] Visibility gradients with respect to
@@ -3802,41 +4803,41 @@ class InterferometerArray(object):
     obs_catalog_indices
                 [list of lists] Each element in the top list corresponds to a
                 timestamp. Inside each top list is a list of indices of sources
-                from the catalog which are observed inside the region of 
-                interest. This is computed inside member function observe(). 
+                from the catalog which are observed inside the region of
+                interest. This is computed inside member function observe().
 
     pointing_center
-                [2-column numpy array] Pointing center (latitude and 
-                longitude) of the observation at a given timestamp. This is 
-                where the telescopes will be phased up to as reference. 
-                Coordinate system for the pointing_center is specified by another 
+                [2-column numpy array] Pointing center (latitude and
+                longitude) of the observation at a given timestamp. This is
+                where the telescopes will be phased up to as reference.
+                Coordinate system for the pointing_center is specified by another
                 attribute pointing_coords.
 
     phase_center
-                [2-column numpy array] Phase center (latitude and 
-                longitude) of the observation at a given timestamp. This is 
-                where the telescopes will be phased up to as reference. 
-                Coordinate system for the phase_center is specified by another 
+                [2-column numpy array] Phase center (latitude and
+                longitude) of the observation at a given timestamp. This is
+                where the telescopes will be phased up to as reference.
+                Coordinate system for the phase_center is specified by another
                 attribute phase_center_coords.
 
     pointing_coords
-                [string] Coordinate system for telescope pointing. Accepted 
-                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz' 
+                [string] Coordinate system for telescope pointing. Accepted
+                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz'
                 (Altitude-Azimuth). Default = 'hadec'.
 
     phase_center_coords
-                [string] Coordinate system for array phase center. Accepted 
-                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz' 
+                [string] Coordinate system for array phase center. Accepted
+                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz'
                 (Altitude-Azimuth). Default = 'hadec'.
 
     skycoords   [string] Coordinate system for the sky positions of sources.
-                Accepted values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 
+                Accepted values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or
                 'altaz' (Altitude-Azimuth). Default = 'radec'.
-    
-    skyvis_freq [numpy array] Complex visibility due to sky emission (in Jy or K) 
+
+    skyvis_freq [numpy array] Complex visibility due to sky emission (in Jy or K)
                 along frequency axis for each interferometer estimated from the
                 specified external catalog. Same size as vis_freq. Used in the
-                member function observe(). Read its docstring for more details. 
+                member function observe(). Read its docstring for more details.
                 Has dimensions n_baselines x nchan x n_snaps.
 
     skyvis_lag  [numpy array] Complex visibility due to sky emission (in Jy Hz or
@@ -3849,158 +4850,158 @@ class InterferometerArray(object):
                 element size and orientation. It consists of the following keys
                 and values:
                 'id'          [string] If set, will ignore the other keys and use
-                              telescope details for known telescopes. Accepted 
-                              values are 'mwa', 'vla', 'gmrt', 'hera', 'paper', 
-                              'hirax', 'chime'and other custom values. 
+                              telescope details for known telescopes. Accepted
+                              values are 'mwa', 'vla', 'gmrt', 'ugmrt', 'hera', 
+                              'paper', 'hirax', 'chime'and other custom values.
                               Default = 'mwa'
                 'shape'       [string] Shape of antenna element. Accepted values
-                              are 'dipole', 'delta', and 'dish'. Will be ignored 
+                              are 'dipole', 'delta', and 'dish'. Will be ignored
                               if key 'id' is set. 'delta' denotes a delta
                               function for the antenna element which has an
                               isotropic radiation pattern. 'dish' is the default
                               when keys 'id' and 'shape' are not set.
-                'size'        [scalar] Diameter of the telescope dish (in meters) 
-                              if the key 'shape' is set to 'dish' or length of 
-                              the dipole if key 'shape' is set to 'dipole'. Will 
-                              be ignored if key 'shape' is set to 'delta'. Will 
-                              be ignored if key 'id' is set and a preset value 
+                'size'        [scalar] Diameter of the telescope dish (in meters)
+                              if the key 'shape' is set to 'dish' or length of
+                              the dipole if key 'shape' is set to 'dipole'. Will
+                              be ignored if key 'shape' is set to 'delta'. Will
+                              be ignored if key 'id' is set and a preset value
                               used for the diameter or dipole. Default = 25.0.
-                'orientation' [list or numpy array] If key 'shape' is set to 
-                              dipole, it refers to the orientation of the dipole 
-                              element unit vector whose magnitude is specified by 
-                              length. If key 'shape' is set to 'dish', it refers 
+                'orientation' [list or numpy array] If key 'shape' is set to
+                              dipole, it refers to the orientation of the dipole
+                              element unit vector whose magnitude is specified by
+                              length. If key 'shape' is set to 'dish', it refers
                               to the position on the sky to which the dish is
                               pointed. For a dipole, this unit vector must be
-                              provided in the local ENU coordinate system aligned 
+                              provided in the local ENU coordinate system aligned
                               with the direction cosines coordinate system or in
-                              the Alt-Az coordinate system. 
-                              This could be a 2-element vector (transverse 
-                              direction cosines) where the third (line-of-sight) 
+                              the Alt-Az coordinate system.
+                              This could be a 2-element vector (transverse
+                              direction cosines) where the third (line-of-sight)
                               component is determined, or a 3-element vector
                               specifying all three direction cosines or a two-
-                              element coordinate in Alt-Az system. If not provided 
+                              element coordinate in Alt-Az system. If not provided
                               it defaults to an eastward pointing dipole. If key
-                              'shape' is set to 'dish', the orientation refers 
+                              'shape' is set to 'dish', the orientation refers
                               to the pointing center of the dish on the sky. It
                               can be provided in Alt-Az system as a two-element
                               vector or in the direction cosine coordinate
                               system as a two- or three-element vector. If not
-                              set in the case of a dish element, it defaults to 
-                              zenith. The coordinate system is specified by 
+                              set in the case of a dish element, it defaults to
+                              zenith. The coordinate system is specified by
                               the key 'ocoords'
-                'ocoords'     [scalar string] specifies the coordinate system 
+                'ocoords'     [scalar string] specifies the coordinate system
                               for key 'orientation'. Accepted values are 'altaz'
-                              and 'dircos'. 
-                'groundplane' [scalar] height of telescope element above the 
+                              and 'dircos'.
+                'groundplane' [scalar] height of telescope element above the
                               ground plane (in meteres). Default = None will
                               denote no ground plane effects.
                 'ground_modify'
                               [dictionary] contains specifications to modify
                               the analytically computed ground plane pattern. If
                               absent, the ground plane computed will not be
-                              modified. If set, it may contain the following 
+                              modified. If set, it may contain the following
                               keys:
-                              'scale' [scalar] positive value to scale the 
-                                      modifying factor with. If not set, the 
+                              'scale' [scalar] positive value to scale the
+                                      modifying factor with. If not set, the
                                       scale factor to the modification is unity.
-                              'max'   [scalar] positive value to clip the 
-                                      modified and scaled values to. If not set, 
+                              'max'   [scalar] positive value to clip the
+                                      modified and scaled values to. If not set,
                                       there is no upper limit
 
     layout      [dictionary] contains array layout information (on the full
                 array even if only a subset of antennas or baselines are used
-                in the simulation). It contains the following keys and 
+                in the simulation). It contains the following keys and
                 information:
-                'positions' [numpy array] Antenna positions (in m) as a 
+                'positions' [numpy array] Antenna positions (in m) as a
                             nant x 3 array in coordinates specified by key
                             'coords'
-                'coords'    [string] Coordinate system in which antenna 
+                'coords'    [string] Coordinate system in which antenna
                             positions are specified. Currently accepts 'ENU'
                             for local ENU system
                 'labels'    [list or numpy array of strings] Unique string
                             identifiers for antennas. Must be of same length
                             as nant.
-                'ids'       [list or numpy array of integers] Unique integer 
+                'ids'       [list or numpy array of integers] Unique integer
                             identifiers for antennas. Must be of same length
                             as nant.
 
-    timestamp   [list] List of timestamps during the observation
+    timestamp   [list] List of timestamps during the observation (Julian date)
 
     t_acc       [list] Accumulation time (sec) corresponding to each timestamp
 
     t_obs       [scalar] Total observing duration (sec)
 
-    Tsys        [scalar, list or numpy vector] System temperature in Kelvin. At 
-                end of the simulation, it will be a numpy array of size 
+    Tsys        [scalar, list or numpy vector] System temperature in Kelvin. At
+                end of the simulation, it will be a numpy array of size
                 n_baselines x nchan x n_snaps.
 
-    Tsysinfo    [list of dictionaries] Contains a list of system temperature 
-                information for each timestamp of observation. Each dictionary 
+    Tsysinfo    [list of dictionaries] Contains a list of system temperature
+                information for each timestamp of observation. Each dictionary
                 element in the list following keys and values:
-                'Trx'      [scalar] Recevier temperature (in K) that is 
+                'Trx'      [scalar] Recevier temperature (in K) that is
                            applicable to all frequencies and baselines
                 'Tant'     [dictionary] contains antenna temperature info
-                           from which the antenna temperature is estimated. 
-                           Used only if the key 'Tnet' is absent or set to 
+                           from which the antenna temperature is estimated.
+                           Used only if the key 'Tnet' is absent or set to
                            None. It has the following keys and values:
-                           'f0'      [scalar] Reference frequency (in Hz) 
-                                     from which antenna temperature will 
+                           'f0'      [scalar] Reference frequency (in Hz)
+                                     from which antenna temperature will
                                      be estimated (see formula below)
                            'T0'      [scalar] Antenna temperature (in K) at
-                                     the reference frequency specified in 
+                                     the reference frequency specified in
                                      key 'f0'. See formula below.
                            'spindex' [scalar] Antenna temperature spectral
                                      index. See formula below.
 
                            Tsys = Trx + Tant['T0'] * (f/Tant['f0'])**spindex
 
-                'Tnet'     [numpy array] Pre-computed Tsys (in K) 
+                'Tnet'     [numpy array] Pre-computed Tsys (in K)
                            information that will be used directly to set the
-                           Tsys. If specified, the information under keys 
-                           'Trx' and 'Tant' will be ignored. If a scalar 
-                           value is provided, it will be assumed to be 
-                           identical for all interferometers and all 
-                           frequencies. If a vector is provided whose length 
-                           is equal to the number of interferoemters, it 
-                           will be assumed identical for all frequencies. If 
-                           a vector is provided whose length is equal to the 
-                           number of frequency channels, it will be assumed 
-                           identical for all interferometers. If a 2D array 
-                           is provided, it should be of size 
+                           Tsys. If specified, the information under keys
+                           'Trx' and 'Tant' will be ignored. If a scalar
+                           value is provided, it will be assumed to be
+                           identical for all interferometers and all
+                           frequencies. If a vector is provided whose length
+                           is equal to the number of interferoemters, it
+                           will be assumed identical for all frequencies. If
+                           a vector is provided whose length is equal to the
+                           number of frequency channels, it will be assumed
+                           identical for all interferometers. If a 2D array
+                           is provided, it should be of size
                            n_baselines x nchan. Tsys = Tnet
 
-    vis_freq    [numpy array] The simulated complex visibility (in Jy or K) 
-                observed by each of the interferometers along frequency axis for 
+    vis_freq    [numpy array] The simulated complex visibility (in Jy or K)
+                observed by each of the interferometers along frequency axis for
                 each timestamp of observation per frequency channel. It is the
                 sum of skyvis_freq and vis_noise_freq. It can be either directly
                 initialized or simulated in observe(). Same dimensions as
                 skyvis_freq.
 
-    vis_lag     [numpy array] The simulated complex visibility (in Jy Hz or K Hz) 
+    vis_lag     [numpy array] The simulated complex visibility (in Jy Hz or K Hz)
                 along delay axis for each interferometer obtained by FFT of
                 vis_freq along frequency axis. Same size as vis_noise_lag and
-                skyis_lag. It is evaluated in member function delay_transform(). 
+                skyis_lag. It is evaluated in member function delay_transform().
 
     vis_noise_freq
-                [numpy array] Complex visibility noise (in Jy or K) generated 
-                using an rms of vis_rms_freq along frequency axis for each 
+                [numpy array] Complex visibility noise (in Jy or K) generated
+                using an rms of vis_rms_freq along frequency axis for each
                 interferometer which is then added to the generated sky
-                visibility. Same dimensions as skyvis_freq. Used in the member 
-                function observe(). Read its docstring for more details. 
+                visibility. Same dimensions as skyvis_freq. Used in the member
+                function observe(). Read its docstring for more details.
 
     vis_noise_lag
-                [numpy array] Complex visibility noise (in Jy Hz or K Hz) along 
+                [numpy array] Complex visibility noise (in Jy Hz or K Hz) along
                 delay axis for each interferometer generated using an FFT of
                 vis_noise_freq along frequency axis. Same size as vis_noise_freq.
                 Created in the member function delay_transform(). Read its
-                docstring for more details. 
+                docstring for more details.
 
     vis_rms_freq
                 [list of float] Theoretically estimated thermal noise rms (in Jy
-                or K) in visibility measurements. Same size as vis_freq. This 
-                will be estimated and used to inject simulated noise when a call 
-                to member function observe() is made. Read the  docstring of 
-                observe() for more details. The noise rms is estimated from the 
+                or K) in visibility measurements. Same size as vis_freq. This
+                will be estimated and used to inject simulated noise when a call
+                to member function observe() is made. Read the  docstring of
+                observe() for more details. The noise rms is estimated from the
                 instrument parameters as:
                 (2 k T_sys / (A_eff x sqrt(2 x channel_width x t_acc))) / Jy, or
                 T_sys / sqrt(2 x channel_width x t_acc)
@@ -4008,17 +5009,17 @@ class InterferometerArray(object):
     simparms_file
                 [string] Full path to filename containing simulation parameters
                 in YAML format
- 
+
     Member functions:
 
     __init__()          Initializes an instance of class InterferometerArray
-                        
+
     observe()           Simulates an observing run with the interferometer
                         specifications and an external sky catalog thus producing
                         visibilities. The simulation generates visibilities
                         observed by the interferometer for the specified
                         parameters.
-                        
+
     observing_run()     Simulate an extended observing run in 'track' or 'drift'
                         mode, by an instance of the InterferometerArray class, of
                         the sky when a sky catalog is provided. The simulation
@@ -4027,70 +5028,95 @@ class InterferometerArray(object):
                         observe() and builds the observation from snapshots. The
                         timestamp for each snapshot is the current time at which
                         the snapshot is generated.
-                        
-    generate_noise()    Generates thermal noise from attributes that describe 
+
+    generate_noise()    Generates thermal noise from attributes that describe
                         system parameters which can be added to sky visibilities
-                        
-    add_noise()         Adds the thermal noise generated in member function 
-                        generate_noise() to the sky visibilities after 
+
+    add_noise()         Adds the thermal noise generated in member function
+                        generate_noise() to the sky visibilities after
                         extracting and applying complex instrument gains
                         
+    apply_gradients()   Apply the perturbations in combination with the 
+                        gradients to determine perturbed visibilities
+
+    duplicate_measurements()
+                        Duplicate visibilities based on redundant baselines 
+                        specified. This saves time when compared to simulating 
+                        visibilities over redundant baselines. Thus, it is more 
+                        efficient to simulate unique baselines and duplicate 
+                        measurements for redundant baselines
+
+    getBaselineGroupKeys()
+                        Find redundant baseline group keys of groups that 
+                        contain the input baseline labels
+
+    getBaselinesInGroups()
+                        Find all redundant baseline labels in groups that 
+                        contain the given input baseline labels
+
+    getThreePointCombinations()
+                        Return all or class Inonly unique 3-point combinations of
+                        baselines
+
+    getClosurePhase()   Get closure phases of visibilities from triplets of 
+                        antennas
+
     rotate_visibilities()
-                        Centers the phase of visibilities around any given phase 
-                        center. Project baseline vectors with respect to a 
+                        Centers the phase of visibilities around any given phase
+                        center. Project baseline vectors with respect to a
                         reference point on the sky. Essentially a wrapper to
-                        member functions phase_centering() and 
+                        member functions phase_centering() and
                         project_baselines()
 
-    phase_centering()   Centers the phase of visibilities around any given phase 
+    phase_centering()   Centers the phase of visibilities around any given phase
                         center.
-                        
-    project_baselines() Project baseline vectors with respect to a reference 
-                        point on the sky. Assigns the projected baselines to the 
+
+    project_baselines() Project baseline vectors with respect to a reference
+                        point on the sky. Assigns the projected baselines to the
                         attribute projected_baselines
 
-    conjugate()         Flips the baseline vectors and conjugates the visibilies 
+    conjugate()         Flips the baseline vectors and conjugates the visibilies
                         for a specified subset of baselines.
 
-    delay_transform()  Transforms the visibilities from frequency axis onto 
-                       delay (time) axis using an IFFT. This is performed for 
-                       noiseless sky visibilities, thermal noise in visibilities, 
-                       and observed visibilities. 
+    delay_transform()  Transforms the visibilities from frequency axis onto
+                       delay (time) axis using an IFFT. This is performed for
+                       noiseless sky visibilities, thermal noise in visibilities,
+                       and observed visibilities.
 
-    concatenate()      Concatenates different visibility data sets from instances 
+    concatenate()      Concatenates different visibility data sets from instances
                        of class InterferometerArray along baseline, frequency or
                        time axis.
 
     save()             Saves the interferometer array information to disk in
                        HDF5, FITS, NPZ and UVFITS formats
 
-    write_uvfits()     Saves the interferometer array information to disk in 
-                       UVFITS format 
+    pyuvdata_write()   Saves the interferometer array information to disk in
+                       various formats through pyuvdata module
 
     ----------------------------------------------------------------------------
     """
 
     def __init__(self, labels, baselines, channels, telescope=None, eff_Q=0.89,
-                 latitude=34.0790, longitude=0.0, altitude=0.0, 
-                 skycoords='radec', A_eff=NP.pi*(25.0/2)**2, 
-                 pointing_coords='hadec', layout=None, 
+                 latitude=34.0790, longitude=0.0, altitude=0.0,
+                 skycoords='radec', A_eff=NP.pi*(25.0/2)**2,
+                 pointing_coords='hadec', layout=None, blgroupinfo=None,
                  baseline_coords='localenu', freq_scale=None, gaininfo=None,
                  init_file=None, simparms_file=None):
-        
+
         """
         ------------------------------------------------------------------------
-        Intialize the InterferometerArray class which manages information on a 
+        Intialize the InterferometerArray class which manages information on a
         multi-element interferometer.
 
         Class attributes initialized are:
-        labels, baselines, channels, telescope, latitude, longitude, altitude, 
-        skycoords, eff_Q, A_eff, pointing_coords, baseline_coords, 
-        baseline_lengths, channels, bp, bp_wts, freq_resolution, lags, lst, 
-        obs_catalog_indices, pointing_center, skyvis_freq, skyvis_lag, 
-        timestamp, t_acc, Tsys, Tsysinfo, vis_freq, vis_lag, t_obs, n_acc, 
-        vis_noise_freq, vis_noise_lag, vis_rms_freq, geometric_delays, 
-        projected_baselines, simparms_file, layout, gradient, gradient_mode, 
-        gaininfo
+        labels, baselines, channels, telescope, latitude, longitude, altitude,
+        skycoords, eff_Q, A_eff, pointing_coords, baseline_coords,
+        baseline_lengths, channels, bp, bp_wts, freq_resolution, lags, lst,
+        obs_catalog_indices, pointing_center, skyvis_freq, skyvis_lag,
+        timestamp, t_acc, Tsys, Tsysinfo, vis_freq, vis_lag, t_obs, n_acc,
+        vis_noise_freq, vis_noise_lag, vis_rms_freq, geometric_delays,
+        projected_baselines, simparms_file, layout, gradient, gradient_mode,
+        gaininfo, blgroups, bl_reversemap
 
         Read docstring of class InterferometerArray for details on these
         attributes.
@@ -4098,12 +5124,12 @@ class InterferometerArray(object):
         Keyword input(s):
 
         init_file    [string] Location of the initialization file from which an
-                     instance of class InterferometerArray will be created. 
-                     File format must be compatible with the one saved to disk 
+                     instance of class InterferometerArray will be created.
+                     File format must be compatible with the one saved to disk
                      by member function save().
 
         simparms_file
-                     [string] Location of the simulation parameters in YAML 
+                     [string] Location of the simulation parameters in YAML
                      format that went into making the simulated data product
 
         Other input parameters have their usual meanings. Read the docstring of
@@ -4128,6 +5154,8 @@ class InterferometerArray(object):
                     self.telescope['groundplane'] = None
                     self.Tsysinfo = []
                     self.layout = {}
+                    self.blgroups = None
+                    self.bl_reversemap = None
                     self.lags = None
                     self.vis_lag = None
                     self.skyvis_lag = None
@@ -4135,13 +5163,13 @@ class InterferometerArray(object):
                     self.gradient_mode = None
                     self.gradient = {}
                     self.gaininfo = None
-                    for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'layout', 'instrument', 'visibilities', 'gradients', 'gaininfo']:
+                    for key in ['header', 'telescope_parms', 'spectral_info', 'simparms', 'antenna_element', 'timing', 'skyparms', 'array', 'layout', 'instrument', 'visibilities', 'gradients', 'gaininfo', 'blgroupinfo']:
                         try:
                             grp = fileobj[key]
                         except KeyError:
                             if key in ['gradients', 'gaininfo']:
                                 pass
-                            elif key != 'simparms':
+                            elif key not in ['simparms', 'blgroupinfo']:
                                 raise KeyError('Key {0} not found in init_file'.format(key))
                         if key == 'header':
                             self.flux_unit = grp['flux_unit'].value
@@ -4186,7 +5214,7 @@ class InterferometerArray(object):
                                 raise KeyError('Key "orientation" not found in init_file')
                             if 'groundplane' in grp:
                                 self.telescope['groundplane'] = grp['groundplane'].value
-                                
+
                         if key == 'simparms':
                             if 'simfile' in grp:
                                 self.simparms_file = grp['simfile'].value
@@ -4227,12 +5255,15 @@ class InterferometerArray(object):
                                 raise KeyError('Key "t_acc" not found in init_file')
 
                         if key == 'instrument':
-                            if ('Trx' in grp) and ('Tant' in grp) and ('spindex' in grp) and ('Tnet' in grp):
-                                for ti in xrange(grp['Trx'].value.size):
+                            if ('Trx' in grp) or ('Tant' in grp) or ('spindex' in grp) or ('Tnet' in grp):
+                                for ti in range(grp['Trx'].value.size):
                                     tsysinfo = {}
                                     tsysinfo['Trx'] = grp['Trx'].value[ti]
-                                    tsysinfo['Tant'] = {'Tant0': grp['Tant0'].value[ti], 'f0': grp['f0'].value[ti], 'spindex': grp['spindex'].value[ti]}
+                                    tsysinfo['Tant'] = {'T0': grp['Tant0'].value[ti], 'f0': grp['f0'].value[ti], 'spindex': grp['spindex'].value[ti]}
                                     tsysinfo['Tnet'] = None
+                                    if 'Tnet' in grp:
+                                        if grp['Tnet'].value[ti] > 0:
+                                            tsysinfo['Tnet'] = grp['Tnet'].value[ti]
                                     self.Tsysinfo += [tsysinfo]
                             if 'Tsys' in grp:
                                 self.Tsys = grp['Tsys'].value
@@ -4246,7 +5277,7 @@ class InterferometerArray(object):
                                 self.eff_Q = grp['efficiency'].value
                             else:
                                 raise KeyError('Key "effeciency" not found in init_file')
-                            
+
                         if key == 'array':
                             if 'labels' in grp:
                                 self.labels = grp['labels'].value
@@ -4305,22 +5336,32 @@ class InterferometerArray(object):
                             if key in fileobj:
                                 self.gaininfo = GainInfo(init_file=grp['gainsfile'].value)
 
+                        if key == 'blgroupinfo':
+                            if key in fileobj:
+                                self.blgroups = {}
+                                self.bl_reversemap = {}
+                                for blkey in grp['groups']:
+                                    self.blgroups[ast.literal_eval(blkey)] = grp['groups'][blkey].value
+                                for blkey in grp['reversemap']:
+                                    self.bl_reversemap[ast.literal_eval(blkey)] = grp['reversemap'][blkey].value
+                                    
+
             except IOError: # Check if a FITS file is available
                 try:
                     hdulist = fits.open(init_file+'.fits')
                 except IOError:
                     argument_init = True
-                    print '\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...'
-    
+                    warnings.warn('\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...')
+
                 extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,len(hdulist))]
-    
+
                 self.simparms_file = None
                 if 'simparms' in hdulist[0].header:
                     if isinstance(hdulist[0].header['simparms'], str):
                         self.simparms_file = hdulist[0].header['simparms']
                     else:
                         warnings.warn('\tInvalid specification found in header for simulation parameters file. Proceeding with None as default.')
-    
+
                 try:
                     self.gradient_mode = hdulist[0].header['gradient_mode']
                 except KeyError:
@@ -4332,115 +5373,115 @@ class InterferometerArray(object):
                 except KeyError:
                     hdulist.close()
                     raise KeyError('Keyword "freq_resolution" not found in header.')
-    
+
                 try:
                     self.latitude = hdulist[0].header['latitude']
                 except KeyError:
-                    print '\tKeyword "latitude" not found in header. Assuming 34.0790 degrees for attribute latitude.'
+                    warnings.warn('\tKeyword "latitude" not found in header. Assuming 34.0790 degrees for attribute latitude.')
                     self.latitude = 34.0790
-    
+
                 try:
                     self.longitude = hdulist[0].header['longitude']
                 except KeyError:
-                    print '\tKeyword "longitude" not found in header. Assuming 0.0 degrees for attribute longitude.'
+                    warnings.warn('\tKeyword "longitude" not found in header. Assuming 0.0 degrees for attribute longitude.')
                     self.longitude = 0.0
-                    
+
                 try:
                     self.altitude = hdulist[0].header['altitude']
                 except KeyError:
-                    print '\tKeyword "altitude" not found in header. Assuming 0m for attribute altitude.'
+                    warnings.warn('\tKeyword "altitude" not found in header. Assuming 0m for attribute altitude.')
                     self.altitude = 0.0
                 self.telescope = {}
                 if 'telescope' in hdulist[0].header:
                     self.telescope['id'] = hdulist[0].header['telescope']
-    
+
                 try:
                     self.telescope['shape'] = hdulist[0].header['element_shape']
                 except KeyError:
-                    print '\tKeyword "element_shape" not found in header. Assuming "delta" for attribute antenna element shape.'
+                    warnings.warn('\tKeyword "element_shape" not found in header. Assuming "delta" for attribute antenna element shape.')
                     self.telescope['shape'] = 'delta'
-    
+
                 try:
                     self.telescope['size'] = hdulist[0].header['element_size']
                 except KeyError:
-                    print '\tKeyword "element_size" not found in header. Assuming 25.0m for attribute antenna element size.'
+                    warnings.warn('\tKeyword "element_size" not found in header. Assuming 25.0m for attribute antenna element size.')
                     self.telescope['size'] = 1.0
-    
+
                 try:
                     self.telescope['ocoords'] = hdulist[0].header['element_ocoords']
                 except KeyError:
                     raise KeyError('\tKeyword "element_ocoords" not found in header. No defaults.')
-    
+
                 try:
                     self.telescope['groundplane'] = hdulist[0].header['groundplane']
                 except KeyError:
                     self.telescope['groundplane'] = None
-    
+
                 if 'ANTENNA ELEMENT ORIENTATION' not in extnames:
                     raise KeyError('No extension found containing information on element orientation.')
                 else:
                     self.telescope['orientation'] = hdulist['ANTENNA ELEMENT ORIENTATION'].data.reshape(1,-1)
-    
+
                 try:
                     self.baseline_coords = hdulist[0].header['baseline_coords']
                 except KeyError:
-                    print '\tKeyword "baseline_coords" not found in header. Assuming "localenu" for attribute baseline_coords.'
+                    warnings.warn('\tKeyword "baseline_coords" not found in header. Assuming "localenu" for attribute baseline_coords.')
                     self.baseline_coords = 'localenu'
-    
+
                 try:
                     self.pointing_coords = hdulist[0].header['pointing_coords']
                 except KeyError:
-                    print '\tKeyword "pointing_coords" not found in header. Assuming "hadec" for attribute pointing_coords.'
+                    warnings.warn('\tKeyword "pointing_coords" not found in header. Assuming "hadec" for attribute pointing_coords.')
                     self.pointing_coords = 'hadec'
-    
+
                 try:
                     self.phase_center_coords = hdulist[0].header['phase_center_coords']
                 except KeyError:
-                    print '\tKeyword "phase_center_coords" not found in header. Assuming "hadec" for attribute phase_center_coords.'
+                    warnings.warn('\tKeyword "phase_center_coords" not found in header. Assuming "hadec" for attribute phase_center_coords.')
                     self.phase_center_coords = 'hadec'
-    
+
                 try:
                     self.skycoords = hdulist[0].header['skycoords']
                 except KeyError:
-                    print '\tKeyword "skycoords" not found in header. Assuming "radec" for attribute skycoords.'
+                    warnings.warn('\tKeyword "skycoords" not found in header. Assuming "radec" for attribute skycoords.')
                     self.skycoords = 'radec'
-    
+
                 try:
                     self.flux_unit = hdulist[0].header['flux_unit']
                 except KeyError:
-                    print '\tKeyword "flux_unit" not found in header. Assuming "jy" for attribute flux_unit.'
+                    warnings.warn('\tKeyword "flux_unit" not found in header. Assuming "jy" for attribute flux_unit.')
                     self.flux_unit = 'JY'
-    
+
                 if 'POINTING AND PHASE CENTER INFO' not in extnames:
                     raise KeyError('No extension table found containing pointing information.')
                 else:
                     self.lst = hdulist['POINTING AND PHASE CENTER INFO'].data['LST'].tolist()
                     self.pointing_center = NP.hstack((hdulist['POINTING AND PHASE CENTER INFO'].data['pointing_longitude'].reshape(-1,1), hdulist['POINTING AND PHASE CENTER INFO'].data['pointing_latitude'].reshape(-1,1)))
                     self.phase_center = NP.hstack((hdulist['POINTING AND PHASE CENTER INFO'].data['phase_center_longitude'].reshape(-1,1), hdulist['POINTING AND PHASE CENTER INFO'].data['phase_center_latitude'].reshape(-1,1)))
-    
+
                 if 'TIMESTAMPS' in extnames:
                     self.timestamp = hdulist['TIMESTAMPS'].data['timestamps'].tolist()
                 else:
                     raise KeyError('Extension named "TIMESTAMPS" not found in init_file.')
-    
+
                 self.Tsysinfo = []
                 if 'TSYSINFO' in extnames:
                     self.Tsysinfo = [{'Trx': elem['Trx'], 'Tant': {'T0': elem['Tant0'], 'f0': elem['f0'], 'spindex': elem['spindex']}, 'Tnet': None} for elem in hdulist['TSYSINFO'].data]
-    
+
                 if 'TSYS' in extnames:
                     self.Tsys = hdulist['Tsys'].data
                 else:
                     raise KeyError('Extension named "Tsys" not found in init_file.')
-    
+
                 if 'BASELINES' in extnames:
                     self.baselines = hdulist['BASELINES'].data.reshape(-1,3)
                     self.baseline_lengths = NP.sqrt(NP.sum(self.baselines**2, axis=1))
                 else:
                     raise KeyError('Extension named "BASELINES" not found in init_file.')
-    
+
                 if 'PROJ_BASELINES' in extnames:
                     self.projected_baselines = hdulist['PROJ_BASELINES'].data
-    
+
                 if 'LABELS' in extnames:
                     # self.labels = hdulist['LABELS'].data.tolist()
                     a1 = hdulist['LABELS'].data['A1']
@@ -4448,7 +5489,7 @@ class InterferometerArray(object):
                     self.labels = zip(a2,a1)
                 else:
                     self.labels = ['B{0:0d}'.format(i+1) for i in range(self.baseline_lengths.size)]
-    
+
                 self.layout = {}
                 if 'LAYOUT' in extnames:
                     for key in ['positions', 'ids', 'labels']:
@@ -4459,12 +5500,12 @@ class InterferometerArray(object):
                     self.A_eff = hdulist['EFFECTIVE AREA'].data
                 else:
                     raise KeyError('Extension named "EFFECTIVE AREA" not found in init_file.')
-    
+
                 if 'INTERFEROMETER EFFICIENCY' in extnames:
                     self.eff_Q = hdulist['INTERFEROMETER EFFICIENCY'].data
                 else:
                     raise KeyError('Extension named "INTERFEROMETER EFFICIENCY" not found in init_file.')
-    
+
                 if 'SPECTRAL INFO' not in extnames:
                     raise KeyError('No extension table found containing spectral information.')
                 else:
@@ -4473,29 +5514,29 @@ class InterferometerArray(object):
                         self.lags = hdulist['SPECTRAL INFO'].data['lag']
                     except KeyError:
                         self.lags = None
-    
+
                 if 'BANDPASS' in extnames:
                     self.bp = hdulist['BANDPASS'].data
                 else:
                     raise KeyError('Extension named "BANDPASS" not found in init_file.')
-    
+
                 if 'BANDPASS_WEIGHTS' in extnames:
                     self.bp_wts = hdulist['BANDPASS_WEIGHTS'].data
                 else:
                     self.bp_wts = NP.ones_like(self.bp)
-    
+
                 if 'T_ACC' in extnames:
                     self.t_acc = hdulist['t_acc'].data.tolist()
                     self.n_acc = len(self.t_acc)
                     self.t_obs = sum(self.t_acc)
                 else:
                     raise KeyError('Extension named "T_ACC" not found in init_file.')
-                
+
                 if 'FREQ_CHANNEL_NOISE_RMS_VISIBILITY' in extnames:
                     self.vis_rms_freq = hdulist['freq_channel_noise_rms_visibility'].data
                 else:
                     self.vis_rms_freq = None
-    
+
                 if 'REAL_FREQ_OBS_VISIBILITY' in extnames:
                     self.vis_freq = hdulist['real_freq_obs_visibility'].data
                     if 'IMAG_FREQ_OBS_VISIBILITY' in extnames:
@@ -4503,7 +5544,7 @@ class InterferometerArray(object):
                         self.vis_freq += 1j * hdulist['imag_freq_obs_visibility'].data
                 else:
                     self.vis_freq = None
-    
+
                 if 'REAL_FREQ_SKY_VISIBILITY' in extnames:
                     self.skyvis_freq = hdulist['real_freq_sky_visibility'].data
                     if 'IMAG_FREQ_SKY_VISIBILITY' in extnames:
@@ -4511,7 +5552,7 @@ class InterferometerArray(object):
                         self.skyvis_freq += 1j * hdulist['imag_freq_sky_visibility'].data
                 else:
                     raise KeyError('Extension named "REAL_FREQ_SKY_VISIBILITY" not found in init_file.')
-    
+
                 if 'REAL_FREQ_NOISE_VISIBILITY' in extnames:
                     self.vis_noise_freq = hdulist['real_freq_noise_visibility'].data
                     if 'IMAG_FREQ_NOISE_VISIBILITY' in extnames:
@@ -4519,7 +5560,7 @@ class InterferometerArray(object):
                         self.vis_noise_freq += 1j * hdulist['imag_freq_noise_visibility'].data
                 else:
                     self.vis_noise_freq = None
-    
+
                 if self.gradient_mode is not None:
                     self.gradient = {}
                     if 'real_freq_sky_visibility_gradient_wrt_{0}'.format(self.gradient_mode) in extnames:
@@ -4531,7 +5572,7 @@ class InterferometerArray(object):
                 try:
                     gainsfile = hdulist[0].header['gainsfile']
                 except KeyError:
-                    print '\tKeyword "gainsfile" not found in header. Assuming default unity gains.'
+                    warnings.warn('\tKeyword "gainsfile" not found in header. Assuming default unity gains.')
                     self.gaininfo = None
                 else:
                     self.gaininfo = GainInfo(init_file=gainsfile, axes_order=['label', 'frequency', 'time'])
@@ -4543,7 +5584,7 @@ class InterferometerArray(object):
                         self.vis_lag += 1j * hdulist['imag_lag_visibility'].data
                 else:
                     self.vis_lag = None
-    
+
                 if 'REAL_LAG_SKY_VISIBILITY' in extnames:
                     self.skyvis_lag = hdulist['real_lag_sky_visibility'].data
                     if 'IMAG_LAG_SKY_VISIBILITY' in extnames:
@@ -4551,7 +5592,7 @@ class InterferometerArray(object):
                         self.skyvis_lag += 1j * hdulist['imag_lag_sky_visibility'].data
                 else:
                     self.skyvis_lag = None
-    
+
                 if 'REAL_LAG_NOISE_VISIBILITY' in extnames:
                     self.vis_noise_lag = hdulist['real_lag_noise_visibility'].data
                     if 'IMAG_LAG_NOISE_VISIBILITY' in extnames:
@@ -4559,13 +5600,13 @@ class InterferometerArray(object):
                         self.vis_noise_lag += 1j * hdulist['imag_lag_noise_visibility'].data
                 else:
                     self.vis_noise_lag = None
-    
+
                 hdulist.close()
             init_file_success = True
             return
         else:
             argument_init = True
-            
+
         if (not argument_init) and (not init_file_success):
             raise ValueError('Initialization failed with the use of init_file.')
 
@@ -4653,6 +5694,14 @@ class InterferometerArray(object):
                 raise KeyError('Array antenna ids missing')
             if (layout['positions'].shape[0] != layout['labels'].size) or (layout['ids'].size != layout['labels'].size):
                 raise ValueError('Antenna layout positions, labels and IDs must all be for same number of antennas')
+
+        self.blgroups = None
+        self.bl_reversemap = None
+        if blgroupinfo is not None:
+            if not isinstance(blgroupinfo, dict):
+                raise TypeError('Input blgroupinfo must be a dictionary')
+            self.blgroups = blgroupinfo['groups']
+            self.bl_reversemap = blgroupinfo['reversemap']
 
         self.latitude = latitude
         self.longitude = longitude
@@ -4763,80 +5812,81 @@ class InterferometerArray(object):
 
     #############################################################################
 
-    def observe(self, timestamp, Tsysinfo, bandpass, pointing_center, skymodel,
+    def observe(self, timeobj, Tsysinfo, bandpass, pointing_center, skymodel,
                 t_acc, pb_info=None, brightness_units=None, bpcorrect=None,
                 roi_info=None, roi_radius=None, roi_center=None, lst=None,
-                gradient_mode=None, memsave=False, store_prev_skymodel_file=None):
+                gradient_mode=None, memsave=False, vmemavail=None,
+                store_prev_skymodel_file=None):
 
         """
         -------------------------------------------------------------------------
-        Simulate a snapshot observation, by an instance of the 
-        InterferometerArray class, of the sky when a sky catalog is provided. The 
-        simulation generates visibilities observed by the interferometers for the 
-        specified parameters. See member function observing_run() for simulating 
+        Simulate a snapshot observation, by an instance of the
+        InterferometerArray class, of the sky when a sky catalog is provided. The
+        simulation generates visibilities observed by the interferometers for the
+        specified parameters. See member function observing_run() for simulating
         an extended observing run in 'track' or 'drift' mode.
 
         Inputs:
-        
-        timestamp    [scalar] Timestamp associated with each integration in the
-                     observation
 
-        Tsysinfo     [dictionary] Contains system temperature information for 
-                     specified timestamp of observation. It contains the 
+        timeobj      [instance of class astropy.time.Time] Time object 
+                     associated with each integration in the observation
+
+        Tsysinfo     [dictionary] Contains system temperature information for
+                     specified timestamp of observation. It contains the
                      following keys and values:
-                     'Trx'      [scalar] Recevier temperature (in K) that is 
+                     'Trx'      [scalar] Recevier temperature (in K) that is
                                 applicable to all frequencies and baselines
                      'Tant'     [dictionary] contains antenna temperature info
-                                from which the antenna temperature is estimated. 
-                                Used only if the key 'Tnet' is absent or set to 
+                                from which the antenna temperature is estimated.
+                                Used only if the key 'Tnet' is absent or set to
                                 None. It has the following keys and values:
-                                'f0'      [scalar] Reference frequency (in Hz) 
-                                          from which antenna temperature will 
+                                'f0'      [scalar] Reference frequency (in Hz)
+                                          from which antenna temperature will
                                           be estimated (see formula below)
                                 'T0'      [scalar] Antenna temperature (in K) at
-                                          the reference frequency specified in 
+                                          the reference frequency specified in
                                           key 'f0'. See formula below.
                                 'spindex' [scalar] Antenna temperature spectral
                                           index. See formula below.
 
                                 Tsys = Trx + Tant['T0'] * (f/Tant['f0'])**spindex
 
-                     'Tnet'     [numpy array] Pre-computed Tsys (in K) 
+                     'Tnet'     [numpy array] Pre-computed Tsys (in K)
                                 information that will be used directly to set the
-                                Tsys. If specified, the information under keys 
-                                'Trx' and 'Tant' will be ignored. If a scalar 
-                                value is provided, it will be assumed to be 
-                                identical for all interferometers and all 
-                                frequencies. If a vector is provided whose length 
-                                is equal to the number of interferoemters, it 
-                                will be assumed identical for all frequencies. If 
-                                a vector is provided whose length is equal to the 
-                                number of frequency channels, it will be assumed 
-                                identical for all interferometers. If a 2D array 
-                                is provided, it should be of size 
+                                Tsys. If specified, the information under keys
+                                'Trx' and 'Tant' will be ignored. If a scalar
+                                value is provided, it will be assumed to be
+                                identical for all interferometers and all
+                                frequencies. If a vector is provided whose length
+                                is equal to the number of interferoemters, it
+                                will be assumed identical for all frequencies. If
+                                a vector is provided whose length is equal to the
+                                number of frequency channels, it will be assumed
+                                identical for all interferometers. If a 2D array
+                                is provided, it should be of size
                                 n_baselines x nchan. Tsys = Tnet
 
-        bandpass     [numpy array] Bandpass weights associated with the 
+        bandpass     [numpy array] Bandpass weights associated with the
                      interferometers for the specified timestamp of observation
 
         pointing_center
-                     [2-element numpy vector or list] Pointing center (latitude 
-                     and longitude) of the observation at a given timestamp. 
-                     This is where the telescopes will be phased up to as 
-                     reference. Coordinate system for the pointing_center is 
+                     [2-element numpy vector or list] Pointing center (latitude
+                     and longitude) of the observation at a given timestamp.
+                     This is where the telescopes will be phased up to as
+                     reference. Coordinate system for the pointing_center is
                      specified by the attribute pointing_coords initialized in
-                     __init__(). 
+                     __init__().
 
         skymodel     [instance of class SkyModel] It consists of source flux
-                     densities, their positions, and spectral indices. Read 
+                     densities, their positions, and spectral indices. Read
                      class SkyModel docstring for more information.
 
         t_acc        [scalar] Accumulation time (sec) corresponding to timestamp
 
         brightness_units
-                     [string] Units of flux density in the catalog and for the 
-                     generated visibilities. Accepted values are 'Jy' (Jansky) 
-                     and 'K' (Kelvin for temperature). If None set, it defaults 
+                     [string] Units of flux density in the catalog and for the
+                     generated visibilities. Accepted values are 'Jy' (Jansky)
+                     and 'K' (Kelvin for temperature). If None set, it defaults
                      to 'Jy'
 
         Keyword Inputs:
@@ -4845,26 +5895,30 @@ class InterferometerArray(object):
                      in the polskymodel object, polarized beams for different
                      baseline types for every time stamp that will be simulated
 
-        roi_radius   [scalar] Radius of the region of interest (degrees) inside 
-                     which sources are to be observed. Default = 90 degrees, 
+        roi_radius   [scalar] Radius of the region of interest (degrees) inside
+                     which sources are to be observed. Default = 90 degrees,
                      which is the entire horizon.
 
         roi_center   [string] Center of the region of interest around which
                      roi_radius is used. Accepted values are 'pointing_center'
-                     and 'zenith'. If set to None, it defaults to 'zenith'. 
-
-        lst          [scalar] LST (in degrees) associated with the timestamp
+                     and 'zenith'. If set to None, it defaults to 'zenith'.
 
         gradient_mode
-                     [string] If set to None, visibilities will be simulated as 
-                     usual. If set to string, both visibilities and visibility 
-                     gradients with respect to the quantity specified in the 
-                     string will be simulated. Currently accepted value is 
-                     'baseline'. Plan to incorporate gradients with respect to 
+                     [string] If set to None, visibilities will be simulated as
+                     usual. If set to string, both visibilities and visibility
+                     gradients with respect to the quantity specified in the
+                     string will be simulated. Currently accepted value is
+                     'baseline'. Plan to incorporate gradients with respect to
                      'skypos' and 'frequency' as well in the future.
 
         memsave      [boolean] If set to True, enforce computations in single
                      precision, otherwise enforce double precision (default)
+
+        vmemavail    [NoneType, int or float] Amount of virtual memory available
+                     (in bytes). If set to None (default), it will be determined 
+                     using psutil functions though that may be less reliable
+                     than setting it explicitly if the available virtual memory
+                     is known.
 
         store_prev_skymodel_file
                      [string] Filename including full path to store source
@@ -4942,7 +5996,7 @@ class InterferometerArray(object):
         if isinstance(Tsys, (int,float)):
             if Tsys < 0.0:
                 raise ValueError('Tsys found to be negative.')
-            
+
             if len(self.Tsys.shape) == 2:
                 self.Tsys = Tsys + NP.zeros((self.baselines.shape[0], self.channels.size, 1))
             else:
@@ -4997,6 +6051,7 @@ class InterferometerArray(object):
         pointing_lon = self.pointing_center[-1,0]
         pointing_lat = self.pointing_center[-1,1]
 
+        lst = timeobj.sidereal_time('apparent').deg
         if self.skycoords == 'radec':
             if self.pointing_coords == 'hadec':
                 if lst is not None:
@@ -5005,7 +6060,7 @@ class InterferometerArray(object):
                 else:
                     raise ValueError('LST must be provided. Sky coordinates are in RA-Dec format while pointing center is in HA-Dec format.')
             elif self.pointing_coords == 'altaz':
-                pointing_lonlat = GEOM.altaz2hadec(self.pointing_center[-1,:], self.latitude, units='degrees')
+                pointing_lonlat = GEOM.altaz2hadec(self.pointing_center[[-1],:], self.latitude, units='degrees').squeeze() # Should now be of shape (2,)
                 pointing_lon = lst - pointing_lonlat[0]
                 pointing_lat = pointing_lonlat[1]
         elif self.skycoords == 'hadec':
@@ -5016,7 +6071,7 @@ class InterferometerArray(object):
                 else:
                     raise ValueError('LST must be provided. Sky coordinates are in RA-Dec format while pointing center is in HA-Dec format.')
             elif self.pointing_coords == 'altaz':
-                pointing_lonlat = lst - GEOM.altaz2hadec(self.pointing_center[-1,:], self.latitude, units='degrees')
+                pointing_lonlat = lst - GEOM.altaz2hadec(self.pointing_center[[-1],:], self.latitude, units='degrees').squeeze()
                 pointing_lon = pointing_lonlat[0]
                 pointing_lat = pointing_lonlat[1]
         else:
@@ -5030,7 +6085,7 @@ class InterferometerArray(object):
             elif self.pointing_coords == 'hadec':
                 pointing_lonlat = GEOM.hadec2altaz(self.pointing_center,
                                                    self.latitude,
-                                                   units='degrees')
+                                                   units='degrees').squeeze()
                 pointing_lon = pointing_lonlat[0]
                 pointing_lat = pointing_lonlat[1]
 
@@ -5057,10 +6112,13 @@ class InterferometerArray(object):
         if not isinstance(skymodel, SM.SkyModel):
             raise TypeError('skymodel should be an instance of class SkyModel.')
 
+        skycoords = SkyCoord(ra=skymodel.location[:,0]*units.deg, dec=skymodel.location[:,1]*units.deg, frame='fk5', equinox=Time(skymodel.epoch, format='jyear_str', scale='utc')).transform_to(FK5(equinox=timeobj))
+        
         if self.skycoords == 'hadec':
             skypos_altaz = GEOM.hadec2altaz(skymodel.location, self.latitude, units='degrees')
         elif self.skycoords == 'radec':
-            skypos_altaz = GEOM.hadec2altaz(NP.hstack((NP.asarray(lst-skymodel.location[:,0]).reshape(-1,1), skymodel.location[:,1].reshape(-1,1))), self.latitude, units='degrees')
+            src_altaz = skycoords.transform_to(AltAz(obstime=timeobj, location=EarthLocation(lon=self.longitude*units.deg, lat=self.latitude*units.deg, height=self.altitude*units.m)))
+            skypos_altaz = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
 
         if memsave:
             datatype = NP.complex64
@@ -5074,31 +6132,36 @@ class InterferometerArray(object):
                 raise KeyError('Both "ind" and "pbeam" keys must be present in dictionary roi_info')
 
             if (roi_info['ind'] is not None) and (roi_info['pbeam'] is not None):
-                try:
-                    pb = roi_info['pbeam'].reshape(-1,len(self.channels))
-                except ValueError:
-                    raise ValueError('Number of columns of primary beam in key "pbeam" of dictionary roi_info must be equal to number of frequency channels.')
+                m2 = roi_info['ind']
+                if m2.size > 0:
+                    try:
+                        pb = roi_info['pbeam'].reshape(-1,len(self.channels))
+                    except ValueError:
+                        raise ValueError('Number of columns of primary beam in key "pbeam" of dictionary roi_info must be equal to number of frequency channels.')
 
-                if NP.asarray(roi_info['ind']).size == pb.shape[0]:
-                    m2 = roi_info['ind']
-                else:
-                    raise ValueError('Values in keys ind and pbeam in must carry same number of elements.')
+                    if NP.asarray(roi_info['ind']).size != pb.shape[0]:
+                        raise ValueError('Values in keys ind and pbeam in must carry same number of elements.')
         else:
             if roi_radius is None:
                 roi_radius = 90.0
-    
+
             if roi_center is None:
                 roi_center = 'zenith'
             elif (roi_center != 'zenith') and (roi_center != 'pointing_center'):
                 raise ValueError('Center of region of interest, roi_center, must be set to "zenith" or "pointing_center".')
-    
+
             if roi_center == 'pointing_center':
-                m1, m2, d12 = GEOM.spherematch(pointing_lon, pointing_lat, skymodel.location[:,0], skymodel.location[:,1], roi_radius, maxmatches=0)
+                m1, m2, d12 = GEOM.spherematch(pointing_lon, pointing_lat, skycoords.ra.deg, skycoords.dec.deg, roi_radius, maxmatches=0)
             else: # roi_center = 'zenith'
                 m2 = NP.arange(skypos_altaz.shape[0])
                 m2 = m2[NP.where(skypos_altaz[:,0] >= 90.0-roi_radius)] # select sources whose altitude (angle above horizon) is 90-roi_radius
 
-        if len(m2) != 0:
+        if memsave:
+            datatype = NP.complex64
+        else:
+            datatype = NP.complex128
+        skyvis = NP.zeros( (self.baselines.shape[0], self.channels.size), dtype=datatype)
+        if len(m2) > 0:
             skypos_altaz_roi = skypos_altaz[m2,:]
             coords_str = 'altaz'
 
@@ -5152,19 +6215,19 @@ class InterferometerArray(object):
                 # src_sigma_spatial_frequencies = 2.0 * NP.sqrt(2.0 * NP.log(2.0)) / (2 * NP.pi * src_FWHM_dircos)  # estimate 1
                 src_sigma_spatial_frequencies = 1.0 / NP.sqrt(2.0*NP.log(2.0)) / src_FWHM_dircos  # estimate 2 created by constraint that at lambda/D_proj, visibility weights are half
 
-	        # # Tried deriving below an alternate expression but previous expression for src_FWHM_dircos seems better
+                # # Tried deriving below an alternate expression but previous expression for src_FWHM_dircos seems better
                 # dtheta_radial = NP.radians(src_FWHM).reshape(-1,1)
                 # dtheta_circum = NP.radians(src_FWHM).reshape(-1,1)
                 # src_FWHM_dircos = NP.sqrt(skypos_dircos_roi[:,2].reshape(-1,1)**2 * dtheta_radial**2 + dtheta_circum**2) / NP.sqrt(2.0) # from 2D error propagation (another approximation to commented expression above for the same quantity). Add in quadrature and divide by sqrt(2) to get radius of error circle
                 # arbitrary_factor_for_src_width = NP.sqrt(2.0) # An arbitrary factor that can be adjusted based on what the longest baseline measures for a source of certain finite width
                 # src_sigma_spatial_frequencies = 2.0 * NP.sqrt(2.0 * NP.log(2.0)) / (2 * NP.pi * src_FWHM_dircos) * arbitrary_factor_for_src_width
-                
+
                 # extended_sources_flag = 1/NP.clip(projected_spatial_frequencies, 0.5, NP.amax(projected_spatial_frequencies)) < src_FWHM_dircos
 
                 vis_wts = NP.ones_like(projected_spatial_frequencies)
                 # vis_wts = NP.exp(-0.5 * (projected_spatial_frequencies/src_sigma_spatial_frequencies)**2)
                 vis_wts = NP.exp(-0.5 * (projected_spatial_frequencies/src_sigma_spatial_frequencies[:,:,NP.newaxis])**2) # nsrc x nbl x nchan
-            
+
             if memsave:
                 pbfluxes = pbfluxes.astype(NP.float32, copy=False)
                 self.geometric_delays = self.geometric_delays + [geometric_delays.astype(NP.float32)]
@@ -5174,7 +6237,11 @@ class InterferometerArray(object):
                 self.geometric_delays = self.geometric_delays + [geometric_delays]
 
             # memory_available = psutil.phymem_usage().available
-            memory_available = psutil.virtual_memory().available
+            if vmemavail is None:
+                memory_available = psutil.virtual_memory().available
+            else:
+                memory_available = vmemavail
+                # memory_available = min([vmemavail, psutil.virtual_memory().available])
 
             if gradient_mode is None:
                 if memsave:
@@ -5194,62 +6261,68 @@ class InterferometerArray(object):
                         memory_required = 3 * len(m2) * self.channels.size * self.baselines.shape[0] * 4.0 * 2 # bytes, 4 bytes per float, factor 2 is because the phase involves complex values, factor 3 because of three vector components of the gradient
                     else:
                         memory_required = 3 * len(m2) * self.channels.size * self.baselines.shape[0] * 8.0 * 2 # bytes, 8 bytes per float, factor 2 is because the phase involves complex values, factor 3 because of three vector components of the gradient
-    
-            if float(memory_available) > memory_required:
-                if memsave:
-                    phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float32) *  (self.geometric_delays[-1][:,:,NP.newaxis].astype(NP.float32) - pc_delay_offsets.astype(NP.float32).reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64)
-                    if vis_wts is not None:
-                        # phase_matrix *= vis_wts[:,:,NP.newaxis]
-                        phase_matrix *= vis_wts
-                    skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * phase_matrix, axis=0) # SUM(nsrc x nbl x nchan, axis=0) = nbl x nchan
-                    if gradient_mode is not None:
-                        if gradient_mode.lower() == 'baseline':
-                            skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float32) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * phase_matrix[:,NP.newaxis,:,:], axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
-                else:
-                    phase_matrix = 2.0 * NP.pi * (self.geometric_delays[-1][:,:,NP.newaxis].astype(NP.float64) - pc_delay_offsets.astype(NP.float64).reshape(1,-1,1)) * self.channels.astype(NP.float64).reshape(1,1,-1)
-                    if vis_wts is not None:
-                        # skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts[:,:,NP.newaxis], axis=0) # Don't apply bandpass here
-                        skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts, axis=0) # SUM(nsrc x nbl x nchan, axis=0) = nbl x nchan
+
+            memory_sufficient = float(memory_available) > memory_required
+            if memory_sufficient:
+                try:
+                    if memsave:
+                        phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float32) *  (self.geometric_delays[-1][:,:,NP.newaxis].astype(NP.float32) - pc_delay_offsets.astype(NP.float32).reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64)
+                        if vis_wts is not None:
+                            # phase_matrix *= vis_wts[:,:,NP.newaxis]
+                            phase_matrix *= vis_wts
+                        skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * phase_matrix, axis=0) # SUM(nsrc x nbl x nchan, axis=0) = nbl x nchan
                         if gradient_mode is not None:
                             if gradient_mode.lower() == 'baseline':
-                                skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * NP.exp(-1j*phase_matrix[:,NP.newaxis,:,:]) * vis_wts[:,NP.newaxis,:,:], axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
+                                skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float32) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * phase_matrix[:,NP.newaxis,:,:], axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
                     else:
-                        skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix), axis=0) # SUM(nsrc x nbl x nchan, axis=0) = nbl x nchan
-                        if gradient_mode is not None:
-                            if gradient_mode.lower() == 'baseline':
-                                skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * NP.exp(-1j*phase_matrix[:,NP.newaxis,:,:]), axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
-            else:
-                print '\t\tDetecting memory shortage. Serializing over sky direction.'
+                        phase_matrix = 2.0 * NP.pi * (self.geometric_delays[-1][:,:,NP.newaxis].astype(NP.float64) - pc_delay_offsets.astype(NP.float64).reshape(1,-1,1)) * self.channels.astype(NP.float64).reshape(1,1,-1)
+                        if vis_wts is not None:
+                            # skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts[:,:,NP.newaxis], axis=0) # Don't apply bandpass here
+                            skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix) * vis_wts, axis=0) # SUM(nsrc x nbl x nchan, axis=0) = nbl x nchan
+                            if gradient_mode is not None:
+                                if gradient_mode.lower() == 'baseline':
+                                    skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * NP.exp(-1j*phase_matrix[:,NP.newaxis,:,:]) * vis_wts[:,NP.newaxis,:,:], axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
+                        else:
+                            skyvis = NP.sum(pbfluxes[:,NP.newaxis,:] * NP.exp(-1j*phase_matrix), axis=0) # SUM(nsrc x nbl x nchan, axis=0) = nbl x nchan
+                            if gradient_mode is not None:
+                                if gradient_mode.lower() == 'baseline':
+                                    skyvis_gradient = NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * pbfluxes[:,NP.newaxis,NP.newaxis,:] * NP.exp(-1j*phase_matrix[:,NP.newaxis,:,:]), axis=0) # SUM(nsrc x 3 x nbl x nchan, axis=0) = 3 x nbl x nchan
+                except MemoryError as memxption:
+                    print(memxption)
+                    memory_sufficient = False
+                    raise
+            if not memory_sufficient:
+                warnings.warn('\t\tDetecting memory shortage. Serializing over sky direction.')
                 downsize_factor = NP.ceil(memory_required/float(memory_available))
                 n_src_stepsize = int(len(m2)/downsize_factor)
                 src_indices = range(0,len(m2),n_src_stepsize)
                 if memsave:
-                    print '\t\tEnforcing single precision computations.'
+                    warnings.warn('\t\tEnforcing single precision computations.')
                     for i in xrange(len(src_indices)):
                         phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float32) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32) - pc_delay_offsets.astype(NP.float32).reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64, copy=False)
                         if vis_wts is not None:
                             phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,:].astype(NP.float32)
                             # phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32)
-                            
+
                         phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float32)
                         skyvis += NP.sum(phase_matrix, axis=0)
                         if gradient_mode is not None:
                             if gradient_mode.lower() == 'baseline':
-                                skyvis_gradient += NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float32) * phase_matrix[:,NP.newaxis,:,:], axis=0)
+                                skyvis_gradient += NP.sum(skypos_dircos_roi[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis,NP.newaxis].astype(NP.float32) * phase_matrix[:,NP.newaxis,:,:], axis=0)
                 else:
                     for i in xrange(len(src_indices)):
                         phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float64) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float64) - pc_delay_offsets.astype(NP.float64).reshape(1,-1,1)) * self.channels.astype(NP.float64).reshape(1,1,-1)).astype(NP.complex128, copy=False)
                         if vis_wts is not None:
                             phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,:].astype(NP.float64)
-                            
+
                         phase_matrix *= pbfluxes[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),NP.newaxis,:].astype(NP.float64)
                         skyvis += NP.sum(phase_matrix, axis=0)
                         if gradient_mode is not None:
                             if gradient_mode.lower() == 'baseline':
-                                skyvis_gradient += NP.sum(skypos_dircos_roi[:,:,NP.newaxis,NP.newaxis].astype(NP.float64) * phase_matrix[:,NP.newaxis,:,:], axis=0)
+                                skyvis_gradient += NP.sum(skypos_dircos_roi[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis,NP.newaxis].astype(NP.float64) * phase_matrix[:,NP.newaxis,:,:], axis=0)
             self.obs_catalog_indices = self.obs_catalog_indices + [m2]
         else:
-            print 'No sources found in the catalog within matching radius. Simply populating the observed visibilities and/or gradients with noise.'
+            warnings.warn('No sources found in the catalog within matching radius. Simply populating the observed visibilities and/or gradients with noise.')
             if gradient_mode is not None:
                 if gradient_mode.lower() == 'baseline':
                     skyvis_gradient = NP.zeros( (3, self.baselines.shape[0], self.channels.size), dtype=datatype)
@@ -5265,7 +6338,7 @@ class InterferometerArray(object):
                 if gradient_mode.lower() == 'baseline':
                     self.gradient[gradient_mode] = NP.concatenate((self.gradient[gradient_mode], skyvis_gradient[:,:,:,NP.newaxis]), axis=3)
 
-        self.timestamp = self.timestamp + [timestamp]
+        self.timestamp = self.timestamp + [timeobj.jd]
         self.t_acc = self.t_acc + [t_acc]
         self.t_obs += t_acc
         self.n_acc += 1
@@ -5284,7 +6357,7 @@ class InterferometerArray(object):
 
     ############################################################################
 
-    def observing_run(self, pointing_init, skymodel, t_acc, duration, channels, 
+    def observing_run(self, pointing_init, skymodel, t_acc, duration, channels,
                       bpass, Tsys, lst_init, roi_radius=None, roi_center=None,
                       mode='track', pointing_coords=None, freq_scale=None,
                       brightness_units=None, verbose=True, memsave=False):
@@ -5292,35 +6365,35 @@ class InterferometerArray(object):
         """
         -------------------------------------------------------------------------
         Simulate an extended observing run in 'track' or 'drift' mode, by an
-        instance of the InterferometerArray class, of the sky when a sky catalog 
+        instance of the InterferometerArray class, of the sky when a sky catalog
         is provided. The simulation generates visibilities observed by the
         interferometer array for the specified parameters. Uses member function
         observe() and builds the observation from snapshots. The timestamp for
         each snapshot is the current time at which the snapshot is generated.
 
         Inputs:
-        
+
         pointing_init [2-element list or numpy array] The inital pointing
-                      of the telescope at the start of the observing run. 
+                      of the telescope at the start of the observing run.
                       This is where the telescopes will be initially phased up to
-                      as reference. Coordinate system for the pointing_center is 
-                      specified by the input pointing_coords 
+                      as reference. Coordinate system for the pointing_center is
+                      specified by the input pointing_coords
 
         skymodel      [instance of class SkyModel] It consists of source flux
-                      densities, their positions, and spectral indices. Read 
+                      densities, their positions, and spectral indices. Read
                       class SkyModel docstring for more information.
 
         t_acc         [scalar] Accumulation time (sec) corresponding to timestamp
 
         brightness_units
-                      [string] Units of flux density in the catalog and for the 
-                      generated visibilities. Accepted values are 'Jy' (Jansky) 
-                      and 'K' (Kelvin for temperature). If None set, it defaults 
+                      [string] Units of flux density in the catalog and for the
+                      generated visibilities. Accepted values are 'Jy' (Jansky)
+                      and 'K' (Kelvin for temperature). If None set, it defaults
                       to 'Jy'
 
         duration      [scalar] Duration of observation in seconds
 
-        channels      [list or numpy vector] frequency channels in units as 
+        channels      [list or numpy vector] frequency channels in units as
                       specified in freq_scale
 
         bpass         [list, list of lists or numpy array] Bandpass weights in
@@ -5333,47 +6406,47 @@ class InterferometerArray(object):
         Tsys          [scalar, list or numpy array] System temperature (in K). If
                       a scalar is provided, the same Tsys will be used in all the
                       snapshots for the duration of the observation. If a list or
-                      numpy array is provided, the number of elements must equal 
+                      numpy array is provided, the number of elements must equal
                       the number of snapshots which is int(duration/t_int)
 
-        lst_init      [scalar] Initial LST (in degrees) at the beginning of the 
+        lst_init      [scalar] Initial LST (in degrees) at the beginning of the
                       observing run corresponding to pointing_init
 
         Keyword Inputs:
 
-        roi_radius    [scalar] Radius of the region of interest (degrees) inside 
-                      which sources are to be observed. Default = 90 degrees, 
+        roi_radius    [scalar] Radius of the region of interest (degrees) inside
+                      which sources are to be observed. Default = 90 degrees,
                       which is the entire horizon.
-                      
+
         roi_center    [string] Center of the region of interest around which
                       roi_radius is used. Accepted values are 'pointing_center'
-                      and 'zenith'. If set to None, it defaults to 'zenith'. 
+                      and 'zenith'. If set to None, it defaults to 'zenith'.
 
-        freq_scale    [string] Units of frequencies specified in channels. 
+        freq_scale    [string] Units of frequencies specified in channels.
                       Accepted values are 'Hz', 'hz', 'khz', 'kHz', 'mhz',
                       'MHz', 'GHz' and 'ghz'. If None provided, defaults to 'Hz'
 
         mode          [string] Mode of observation. Accepted values are 'track'
                       and 'drift'. If using 'track', pointing center is fixed to
-                      a specific point on the sky coordinate frame. If using 
+                      a specific point on the sky coordinate frame. If using
                       'drift', pointing center is fixed to a specific point on
-                      the antenna's reference frame. 
+                      the antenna's reference frame.
 
         pointing_coords
-                      [string] Coordinate system for pointing_init. Accepted 
+                      [string] Coordinate system for pointing_init. Accepted
                       values are 'radec', 'hadec' and 'altaz'. If None provided,
-                      default is set based on observing mode. If mode='track', 
-                      pointing_coords defaults to 'radec', and if mode='drift', 
+                      default is set based on observing mode. If mode='track',
+                      pointing_coords defaults to 'radec', and if mode='drift',
                       it defaults to 'hadec'
 
-        verbose       [boolean] If set to True, prints progress and diagnostic 
+        verbose       [boolean] If set to True, prints progress and diagnostic
                       messages. Default = True
         ------------------------------------------------------------------------
         """
 
         if verbose:
-            print 'Preparing an observing run...\n'
-            print '\tVerifying input arguments to observing_run()...'
+            print('Preparing an observing run...\n')
+            print('\tVerifying input arguments to observing_run()...')
 
         try:
             pointing_init, skymodel, t_acc, duration, bpass, Tsys, lst_init
@@ -5403,12 +6476,12 @@ class InterferometerArray(object):
 
         if duration <= t_acc:
             if verbose:
-                print '\t\tDuration specified to be shorter than t_acc. Will set it equal to t_acc'
+                warnings.warn('\t\tDuration specified to be shorter than t_acc. Will set it equal to t_acc')
             duration = t_acc
 
         n_acc = int(duration / t_acc)
         if verbose:
-            print '\t\tObserving run will have {0} accumulations.'.format(n_acc)
+            print('\t\tObserving run will have {0} accumulations.'.format(n_acc))
 
         if isinstance(channels, list):
             channels = NP.asarray(channels)
@@ -5430,15 +6503,15 @@ class InterferometerArray(object):
             bpass = NP.asarray(bpass)
         else:
             raise TypeError('bpass must be a list, tuple or numpy array')
-        
+
         if bpass.size == self.channels.size:
             bpass = NP.expand_dims(NP.repeat(bpass.reshape(1,-1), self.baselines.shape[0], axis=0), axis=2)
             if verbose:
-                print '\t\tSame bandpass will be applied to all baselines and all accumulations in the observing run.'
+                warnings.warn('\t\tSame bandpass will be applied to all baselines and all accumulations in the observing run.')
         elif bpass.size == self.baselines.shape[0] * self.channels.size:
             bpass = NP.expand_dims(bpass.reshape(-1,self.channels.size), axis=2)
             if verbose:
-                print '\t\tSame bandpass will be applied to all accumulations in the observing run.'
+                warnings.warn('\t\tSame bandpass will be applied to all accumulations in the observing run.')
         elif bpass.size == self.baselines.shape[0] * self.channels.size * n_acc:
             bpass = bpass.reshape(-1,self.channels.size,n_acc)
         else:
@@ -5448,23 +6521,23 @@ class InterferometerArray(object):
             Tsys = NP.asarray(Tsys).reshape(-1)
         else:
             raise TypeError('Tsys must be a scalar, list, tuple or numpy array')
-        
+
         if Tsys.size == 1:
             if verbose:
-                print '\t\tTsys = {0:.1f} K will be assumed for all frequencies, baselines, and accumulations.'.format(Tsys[0])
+                warnings.warn('\t\tTsys = {0:.1f} K will be assumed for all frequencies, baselines, and accumulations.'.format(Tsys[0]))
             Tsys = Tsys + NP.zeros((self.baselines.shape[0], self.channels.size, 1))
         elif Tsys.size == self.channels.size:
             Tsys = NP.expand_dims(NP.repeat(Tsys.reshape(1,-1), self.baselines.shape[0], axis=0), axis=2)
             if verbose:
-                print '\t\tSame Tsys will be assumed for all baselines and all accumulations in the observing run.'
+                warnings.warn('\t\tSame Tsys will be assumed for all baselines and all accumulations in the observing run.')
         elif Tsys.size == self.baselines.shape[0]:
             Tsys = NP.expand_dims(NP.repeat(Tsys.reshape(-1,1), self.channels.size, axis=1), axis=2)
             if verbose:
-                print '\t\tSame Tsys will be assumed for all frequency channels and all accumulations in the observing run.'
+                warnings.warn('\t\tSame Tsys will be assumed for all frequency channels and all accumulations in the observing run.')
         elif Tsys.size == self.baselines.shape[0] * self.channels.size:
             Tsys = NP.expand_dims(Tsys.reshape(-1,self.channels.size), axis=2)
             if verbose:
-                print '\t\tSame Tsys will be assumed for all accumulations in the observing run.'
+                warnings.warn('\t\tSame Tsys will be assumed for all accumulations in the observing run.')
         elif Tsys.size == self.baselines.shape[0] * self.channels.size * n_acc:
             Tsys = Tsys.reshape(-1,self.channels.size,n_acc)
         else:
@@ -5474,12 +6547,12 @@ class InterferometerArray(object):
             raise TypeError('Starting LST should be a scalar')
 
         if verbose:
-            print '\tVerified input arguments.'
-            print '\tProceeding to schedule the observing run...'
+            print('\tVerified input arguments.')
+            print('\tProceeding to schedule the observing run...')
 
         lst = (lst_init + (t_acc/3.6e3) * NP.arange(n_acc)) * 15.0 # in degrees
         if verbose:
-            print '\tCreated LST range for observing run.'
+            print('\tCreated LST range for observing run.')
 
         if mode == 'track':
             if pointing_coords == 'hadec':
@@ -5506,14 +6579,12 @@ class InterferometerArray(object):
             self.phase_center_coords = 'hadec'
 
         if verbose:
-            print '\tPreparing to observe in {0} mode'.format(mode)
-            
+            print('\tPreparing to observe in {0} mode'.format(mode))
+
         if verbose:
             milestones = range(max(1,int(n_acc/10)), int(n_acc), max(1,int(n_acc/10)))
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
         for i in range(n_acc):
-            # if (verbose) and (i in milestones):
-            #     print '\t\tObserving run {0:.1f} % complete...'.format(100.0*i/n_acc)
             timestamp = str(DT.datetime.now())
             self.observe(timestamp, Tsys[:,:,i%Tsys.shape[2]],
                          bpass[:,:,i%bpass.shape[2]], pointing, skymodel,
@@ -5526,22 +6597,25 @@ class InterferometerArray(object):
         if verbose:
             progress.finish()
 
-        # if verbose:
-        #     print '\t\tObserving run 100 % complete.'
-
         self.t_obs = duration
         self.n_acc = n_acc
         if verbose:
-            print 'Observing run completed successfully.'
+            print('Observing run completed successfully.')
 
     #############################################################################
 
     def generate_noise(self):
-        
+
         """
         -------------------------------------------------------------------------
-        Generates thermal noise from attributes that describe system parameters 
-        which can be added to sky visibilities
+        Generates thermal noise from attributes that describe system parameters
+        which can be added to sky visibilities. Thermal RMS here corresponds to
+        a complex value comprising of both real and imaginary parts. Thus only
+        1/sqrt(2) goes into each real and imaginary parts. 
+
+        [Based on equations 9-12 through 9-15 or section 5 in chapter 9 on 
+        Sensitivity in SIRA II wherein the equations are for real and imaginary 
+        parts separately.]
         -------------------------------------------------------------------------
         """
 
@@ -5556,9 +6630,9 @@ class InterferometerArray(object):
         t_acc = t_acc[NP.newaxis,NP.newaxis,:]
 
         if (self.flux_unit == 'JY') or (self.flux_unit == 'jy') or (self.flux_unit == 'Jy'):
-            self.vis_rms_freq = 2.0 * FCNST.k / NP.sqrt(2.0*t_acc*self.freq_resolution) * (self.Tsys/A_eff/eff_Q) / CNST.Jy
+            self.vis_rms_freq = 2.0 * FCNST.k / NP.sqrt(t_acc*self.freq_resolution) * (self.Tsys/A_eff/eff_Q) / CNST.Jy
         elif (self.flux_unit == 'K') or (self.flux_unit == 'k'):
-            self.vis_rms_freq = 1 / NP.sqrt(2.0*t_acc*self.freq_resolution) * self.Tsys/eff_Q
+            self.vis_rms_freq = 1 / NP.sqrt(t_acc*self.freq_resolution) * self.Tsys/eff_Q
         else:
             raise ValueError('Flux density units can only be in Jy or K.')
 
@@ -5575,7 +6649,7 @@ class InterferometerArray(object):
         gains
         -------------------------------------------------------------------------
         """
-        
+
         gains = 1.0
         if self.gaininfo is not None:
             try:
@@ -5590,8 +6664,932 @@ class InterferometerArray(object):
                         warnings.warn('Interpolation and nearest neighbour logic failed. Proceeding with default unity gains')
         else:
             warnings.warn('Gain table absent. Proceeding with default unity gains')
-                
+
         self.vis_freq = gains * self.skyvis_freq + self.vis_noise_freq
+
+    #############################################################################
+
+    def apply_gradients(self, gradient_mode=None, perturbations=None):
+
+        """
+        -------------------------------------------------------------------------
+        Apply the perturbations in combination with the gradients to determine
+        perturbed visibilities
+
+        Inputs:
+
+        perturbations   [dictionary] Contains perturbations on one of the 
+                        following quantities (specified as keys):
+                        'baseline'  [numpy array] nseed x 3 x nbl baseline 
+                                    perturbations (in same units as attribute 
+                                    baselines). The first dimension denotes the 
+                                    number of realizations, the second denotes
+                                    the x-, y- and z-axes and the third 
+                                    denotes the number of baselines. It can also
+                                    handle arrays of shapes (n1, n2, ..., 3, nbl)
+        
+        gradient_mode   [string] Specifies the quantity on which perturbations
+                        are provided and perturbed visibilities to be computed.
+                        This string must be one of the keys in the input 
+                        dictionary perturbations and must be found in the
+                        attribute gradient_mode and gradient. Currently 
+                        accepted values are 'baseline'
+
+        Output:
+
+        Perturbed visibilities as a n1 x n2 x ... x nbl x nchan x ntimes 
+        complex array
+        -------------------------------------------------------------------------
+        """
+
+        if gradient_mode is None:
+            gradient_mode = self.gradient_mode
+
+        if perturbations is None:
+            perturbations = {gradient_mode: NP.zeros((1,1,1))}
+
+        if self.gradient_mode is None:
+            raise AttributeError('No gradient attribute found')
+        else:
+            if not self.gradient:
+                raise AttributeError('No gradient attribute found')
+
+        if not isinstance(perturbations, dict):
+            raise TypeError('Input perturbations must be a dictionary')
+
+        if not isinstance(gradient_mode, str):
+            raise TypeError('Input gradient_mode must be a string')
+
+        if gradient_mode not in ['baseline']:
+            raise KeyError('Specified gradient mode {0} not currently supported'.format(gradient_mode))
+
+        if gradient_mode not in perturbations:
+            raise KeyError('{0} key not found in input perturbations'.format(gradient_key))
+
+        if gradient_mode != self.gradient_mode:
+            raise ValueError('Specified gradient mode {0} not found in attribute'.format(gradient_mode))
+
+        if not isinstance(perturbations[gradient_mode], NP.ndarray):
+            raise TypeError('Perturbations must be specified as a numpy array')
+
+        if perturbations[gradient_mode].ndim == 2:
+            perturbations[gradient_mode] = perturbations[gradient_mode][NP.newaxis,...]
+        if perturbations[gradient_mode].ndim < 2:
+            raise ValueError('Perturbations must be two--dimensions or higher')
+
+        inpshape = perturbations[gradient_mode].shape
+        if perturbations[gradient_mode].ndim > 3:
+            perturbations[gradient_mode] = perturbations[gradient_mode].reshape(-1,inpshape[-2],inpshape[-1])
+
+        if perturbations[gradient_mode].shape[2] != self.gradient[self.gradient_mode].shape[1]:
+            raise ValueError('Number of {0} perturbations not equal to that in the gradient attribute'.format(gradient_mode))
+
+        if perturbations[gradient_mode].shape[1] == 1:
+            warnings.warn('Only {0}-dimensional coordinates specified. Proceeding with zero perturbations in other coordinate axes.'.format(perturbations[gradient_mode].shape[1]))
+            perturbations[gradient_mode] = NP.hstack((perturbations[gradient_mode], NP.zeros((perturbations[gradient_mode].shape[0],2,perturbations[gradient_mode].shape[2])))) # nseed x 3 x nbl
+        elif perturbations[gradient_mode].shape[1] == 2:
+            warnings.warn('Only {0}-dimensional coordinates specified. Proceeding with zero perturbations in other coordinate axes.'.format(perturbations[gradient_mode].shape[1])) 
+            perturbations[gradient_mode] = NP.hstack((perturbations[gradient_mode], NP.zeros((perturbations[gradient_mode].shape[0],1,perturbations[gradient_mode].shape[2])))) # nseed x 3 x nbl
+        elif perturbations[gradient_mode].shape[1] > 3:
+            warnings.warn('{0}-dimensional coordinates specified. Proceeding with only the first three dimensions of coordinate axes.'.format(3))
+            perturbations[gradient_mode] = perturbations[gradient_mode][:,:3,:] # nseed x 3 x nbl
+
+        wl = FCNST.c / self.channels
+        if gradient_mode == 'baseline':
+            delta_skyvis_freq = -1j * 2.0 * NP.pi / wl.reshape(1,1,-1,1) * NP.sum(perturbations[gradient_mode][...,NP.newaxis,NP.newaxis] * self.gradient[gradient_mode][NP.newaxis,...], axis=1) # nseed x nbl x nchan x ntimes
+            
+        outshape = list(inpshape[:-2])
+        outshape += [self.labels.size, self.channels.size, self.lst.size]
+        outshape = tuple(outshape)
+        delta_skyvis_freq = delta_skyvis_freq.reshape(outshape)
+        return delta_skyvis_freq
+
+    #############################################################################
+
+    def duplicate_measurements(self, blgroups=None):
+
+        """
+        -------------------------------------------------------------------------
+        Duplicate visibilities based on redundant baselines specified. This saves
+        time when compared to simulating visibilities over redundant baselines.
+        Thus, it is more efficient to simulate unique baselines and duplicate
+        measurements for redundant baselines
+
+        Inputs:
+
+        blgroups    [dictionary] Dictionary of baseline groups where the keys are
+                    tuples containing baseline labels. Under each key is a numpy
+                    recarray of baseline labels that are redundant and fall under 
+                    the baseline label key. Any number of sets of redundant 
+                    measurements can be duplicated in this depending on the 
+                    baseline label keys and recarrays specified here. It results
+                    in updating attributes where a new number of baselines are 
+                    formed from original baselines and new redundant baselines.
+                    If set to None (default), attribute blgroups will be used to
+                    create redundant sets
+        -------------------------------------------------------------------------
+        """
+
+        if blgroups is None:
+            blgroups = self.blgroups
+        if not isinstance(blgroups, dict):
+            raise TypeError('Input blgroups must be a dictionary')
+
+        if self.bl_reversemap is None:
+            nbl = NP.sum(NP.asarray([len(blgroups[blkey]) for blkey in blgroups]))
+        else:
+            nbl = len(self.bl_reversemap)
+
+        if self.labels.size < nbl:
+            label_keys = NP.asarray(blgroups.keys(), dtype=self.labels.dtype)
+            for label_key in label_keys:
+                if label_key not in self.labels:
+                    if NP.asarray([tuple(reversed(label_key))], dtype=self.labels.dtype)[0] not in self.labels:
+                        raise KeyError('Input label {0} not found in attribute labels'.format(label_key))
+                    else:
+                        label_key = NP.asarray([tuple(reversed(label_key))], dtype=self.labels.dtype)[0]
+                if label_key not in blgroups[tuple(label_key)]:
+                    blgroups[tuple(label_key)] += [label_key]
+    
+            uniq_inplabels = []
+            num_list = []
+            for label in self.labels:
+                if label in label_keys:
+                    num_list += [blgroups[tuple(label)].size]
+                    for lbl in blgroups[tuple(label)]:
+                        if tuple(lbl) not in uniq_inplabels:
+                            uniq_inplabels += [tuple(lbl)]
+                        else:
+                            raise ValueError('Label {0} repeated in more than one baseline group'.format(lbl))
+                else:
+                    num_list += [1]
+                    uniq_inplabels += [tuple(label)]
+            if len(num_list) != len(self.labels):
+                raise ValueError('Fatal error in counting and matching labels in input blgroups')
+            if self.skyvis_freq is not None:
+                self.skyvis_freq = NP.repeat(self.skyvis_freq, num_list, axis=0)
+            if self.gradient_mode is not None:
+                self.gradient[self.gradient_mode] = NP.repeat(self.gradient[self.gradient_mode], num_list, axis=1)
+            self.labels = NP.asarray(uniq_inplabels, dtype=self.labels.dtype)
+            self.baselines = NP.repeat(self.baselines, num_list, axis=0)
+            self.projected_baselines = NP.repeat(self.projected_baselines, num_list, axis=0)
+            self.baseline_lengths = NP.repeat(self.baseline_lengths, num_list)
+            if self.Tsys.shape[0] > 1:
+                self.Tsys = NP.repeat(self.Tsys, num_list, axis=0)
+            if self.eff_Q.shape[0] > 1:
+                self.eff_Q = NP.repeat(self.eff_Q, num_list, axis=0)
+            if self.A_eff.shape[0] > 1:
+                self.A_eff = NP.repeat(self.A_eff, num_list, axis=0)
+            if self.bp.shape[0] > 1:
+                self.bp = NP.repeat(self.bp, num_list, axis=0)
+            if self.bp_wts.shape[0] > 1:
+                self.bp_wts = NP.repeat(self.bp_wts, num_list, axis=0)
+            self.generate_noise()
+            self.add_noise()
+
+    ############################################################################
+
+    def getBaselineGroupKeys(self, inp_labels):
+    
+        """
+        ------------------------------------------------------------------------
+        Find redundant baseline group keys of groups that contain the input
+        baseline labels
+
+        Inputs:
+    
+        inp_labels
+                [list] List where each element in the list is a two-element 
+                tuple that corresponds to a baseline / antenna pair label. 
+                e.g. [('1', '2'), ('3', '0'), ('2', '2'), ...] 
+    
+        Output:
+    
+        Tuple containing two values. The first value is a list of all baseline
+        group keys corresponding to the input keys. If any input keys were not
+        found in blgroups_reversemap, those corresponding position in this list
+        will be filled with None to indicate the label was not found. The second
+        value in the tuple indicates if the ordering of the input label had to 
+        be flipped in order to find the baseline group key. Positions where an 
+        input label was found as is will contain False, but if it had to be 
+        flipped will contain True. If the input label was not found, it will be 
+        filled with None. 
+    
+        Example:
+    
+        blkeys, flipped = InterferometerArray.getBaselineGroupKeys(inp_labels) 
+        blkeys --> [('2','3'), ('11','16'), None, ('5','1'),...]
+        flipped --> [False, True, None, False],...)
+        ------------------------------------------------------------------------
+        """
+    
+        return getBaselineGroupKeys(inp_labels, self.bl_reversemap)
+    
+    #################################################################################
+    
+    def getBaselinesInGroups(self, inp_labels):
+    
+        """
+        ---------------------------------------------------------------------------
+        Find all redundant baseline labels in groups that contain the given input
+        baseline labels
+
+        Inputs:
+    
+        inp_labels
+                [list] List where each element in the list is a two-element tuple 
+                that corresponds to a baseline / antenna pair label. 
+                e.g. [('1', '2'), ('3', '0'), ('2', '2'), ...] 
+    
+        Output:
+    
+        Tuple with two elements where the first element is a list of numpy 
+        RecArrays where each RecArray corresponds to the entry in inp_label and is 
+        an array of two-element records corresponding to the baseline labels in 
+        that redundant group. If the input baseline is not found, the corresponding 
+        element in the list is None to indicate the baseline label was not found. 
+        The second value in the tuple indicates if the ordering of the input label 
+        had to be flipped in order to find the baseline group key. Positions where 
+        an input label was found as is will contain False, but if it had to be 
+        flipped will contain True. If the input label was not found, it will 
+        contain a None entry.
+    
+        Example:
+    
+        list_blgrps, flipped = InterferometerArray.getBaselineGroupKeys(inplabels)
+        list_blgrps --> [array([('2','3'), ('11','16')]), None, 
+                         array([('5','1')]), ...], 
+        flipped --> [False, True, None, ...])
+        ---------------------------------------------------------------------------
+        """
+    
+        return getBaselinesInGroups(inp_labels, self.bl_reversemap, self.blgroups)
+    
+    #################################################################################
+
+    def getThreePointCombinations(self, unique=False):
+
+        """
+        -------------------------------------------------------------------------
+        Return all or only unique 3-point combinations of baselines
+
+        Input:
+
+        unique  [boolean] If set to True, only unique 3-point combinations of 
+                baseline triads are returned. If set to False (default), all 
+                3-point combinations are returned. 
+
+        Output:
+
+        Tuple containing two lists. The first list is a list of triplet tuples of
+        antenna labels in the form [(a1,a2,a3), (a1,a4,a6), ...], the second list 
+        is a list of triplet tuples of baselines encoded as strings
+        -------------------------------------------------------------------------
+        """
+
+        if not isinstance(unique, bool):
+            raise TypeError('Input unique must be boolean')
+
+        bl = self.baselines + 0.0 # to avoid any weird negative sign before 0.0
+        blstr = NP.unique(['{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(lo) for lo in bl])
+        bltriplets = []
+        blvecttriplets = []
+        anttriplets = []
+        for aind1,albl1 in enumerate(self.layout['labels']):
+            for aind2,albl2 in enumerate(self.layout['labels']):
+                bl12 = self.layout['positions'][aind2] - self.layout['positions'][aind1]
+                bl12 += 0.0 # to avoid any weird negative sign before 0.0
+                bl12[NP.abs(bl12) < 1e-10] = 0.0
+                bl12_len = NP.sqrt(NP.sum(bl12**2))
+                if bl12_len > 0.0:
+                    bl12str = '{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(bl12)
+                    if bl12str not in blstr:
+                        bl12 *= -1
+                        bl12 += 0.0 # to avoid any weird negative sign before 0.0
+                        bl12str = '{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(bl12)
+                    if bl12str not in blstr:
+                        warnings.warn('A baseline not found in the simulated reference baselines. Proceeding with the rest')
+                        # raise IndexError('A baseline not found in reference baselines')
+                    else:
+                        for aind3,albl3 in enumerate(self.layout['labels']):
+                            bl23 = self.layout['positions'][aind3] - self.layout['positions'][aind2]
+                            bl31 = self.layout['positions'][aind1] - self.layout['positions'][aind3]
+                            bl23 += 0.0 # to avoid any weird negative sign before 0.0
+                            bl31 += 0.0 # to avoid any weird negative sign before 0.0
+                            bl23[NP.abs(bl23) < 1e-10] = 0.0
+                            bl31[NP.abs(bl31) < 1e-10] = 0.0
+                            bl23_len = NP.sqrt(NP.sum(bl23**2))
+                            bl31_len = NP.sqrt(NP.sum(bl31**2))
+                            if (bl23_len > 0.0) and (bl31_len > 0.0):
+                                bl23str = '{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(bl23)
+                                if bl23str not in blstr:
+                                    bl23 *= -1
+                                    bl23 += 0.0 # to avoid any weird negative sign before 0.0
+                                    bl23str = '{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(bl23)
+                                if bl23str not in blstr:
+                                    warnings.warn('A baseline not found in the simulated reference baselines. Proceeding with the rest')
+                                    # raise IndexError('A baseline not found in reference baselines')
+                                else:
+                                    bl31str = '{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(bl31)
+                                    if bl31str not in blstr:
+                                        bl31 *= -1
+                                        bl31 += 0.0 # to avoid any weird negative sign before 0.0
+                                        bl31str = '{0[0]:.2f}_{0[1]:.2f}_{0[2]:.2f}'.format(bl31)
+                                    if bl31str not in blstr:
+                                        warnings.warn('A baseline not found in the simulated reference baselines. Proceeding with the rest')
+                                        # raise IndexError('A baseline not found in reference baselines')
+                                    else:
+                                        list123_str = [bl12str, bl23str, bl31str]
+                                        if len(list123_str) == 3:
+                                            if len(bltriplets) == 0:
+                                                bltriplets += [list123_str]
+                                                blvecttriplets += [[bl12, bl23, bl31]]
+                                                anttriplets += [(albl1, albl2, albl3)]                                                
+                                            else:
+                                                found = False
+                                                if unique:
+                                                    ind = 0
+                                                    while (not found) and (ind < len(bltriplets)):
+                                                        bltriplet = bltriplets[ind]
+                                                        if NP.setdiff1d(list123_str, bltriplet).size == 0:
+                                                            found = True
+                                                        else:
+                                                            ind += 1
+                                                if not found:
+                                                    bltriplets += [list123_str]
+                                                    blvecttriplets += [[bl12, bl23, bl31]] 
+                                                    anttriplets += [(albl1, albl2, albl3)]
+
+        # return (anttriplets, bltriplets)             
+        return (anttriplets, blvecttriplets)             
+
+    #############################################################################
+
+    def getClosurePhase(self, antenna_triplets=None, delay_filter_info=None,
+                        specsmooth_info=None, spectral_window_info=None,
+                        unique=False):
+
+        """
+        -------------------------------------------------------------------------
+        Get closure phases of visibilities from triplets of antennas. 
+
+        Inputs:
+
+        antenna_triplets
+                    [list of tuples] List of antenna ID triplets where each 
+                    triplet is given as a tuple. If set to None (default), all
+                    the unique triplets based on the antenna layout attribute
+                    in class InterferometerArray
+
+        unique      [boolean] If set to True, only unique 3-point combinations 
+                    of baseline triads are returned. If set to False (default), 
+                    all 3-point combinations are returned. Applies only if 
+                    antenna_triplets is set to None, otherwise the 3-point
+                    combinations of the specified antenna_triplets is returned.
+
+        delay_filter_info
+                    [NoneType or dictionary] Info containing delay filter 
+                    parameters. If set to None (default), no delay filtering is
+                    performed. Otherwise, delay filter is applied on each of the
+                    visibilities in the triplet before computing the closure
+                    phases. The delay filter parameters are specified in a 
+                    dictionary as follows:
+                    'type'      [string] 'horizon' (default) or 'regular'. If
+                                set to 'horizon', the horizon delay limits are
+                                estimated from the respective baseline lengths
+                                in the triplet. If set to 'regular', the extent
+                                of the filter is determined by the 'min' and
+                                'width' keys (see below). 
+                    'min'       [scalar] Non-negative number (in seconds) that
+                                specifies the minimum delay in the filter span.
+                                If not specified, it is assumed to be 0. If 
+                                'type' is set to 'horizon', the 'min' is ignored 
+                                and set to 0. 
+                    'width'     [scalar] Non-negative number (in numbers of 
+                                inverse bandwidths). If 'type' is set to 
+                                'horizon', the width represents the delay 
+                                buffer beyond the horizon. If 'type' is set to
+                                'regular', this number has to be positive and
+                                determines the span of the filter starting from
+                                the minimum delay in key 'min'. 
+                    'mode'      [string] 'discard' (default) or 'retain'. If set
+                                to 'discard', the span defining the filter is
+                                discarded and the rest retained. If set to 
+                                'retain', the span defining the filter is 
+                                retained and the rest discarded. For example, 
+                                if 'type' is set to 'horizon' and 'mode' is set
+                                to 'discard', the horizon-to-horizon is 
+                                filtered out (discarded).
+
+        specsmooth_info         
+                    [NoneType or dictionary] Spectral smoothing window to be 
+                    applied prior to the delay transform. If set to None, no 
+                    smoothing is done. This is usually set if spectral 
+                    smoothing is to be done such as in the case of RFI. The 
+                    smoothing window parameters are specified using the
+                    following keys and values:
+                    'op_type'     [string] Smoothing operation type. 
+                                  Default='median' (currently accepts only 
+                                  'median' or 'interp'). 
+                    'window_size' [integer] Size of smoothing window (in 
+                                  pixels) along frequency axis. Applies only
+                                  if op_type is set to 'median'
+                    'maskchans'   [NoneType or numpy array] Numpy boolean array
+                                  of size nchan. False entries imply those
+                                  channels are not masked and will be used in 
+                                  in interpolation while True implies they are
+                                  masked and will not be used in determining the
+                                  interpolation function. If set to None, all
+                                  channels are assumed to be unmasked (False).
+                    'evalchans'   [NoneType or numpy array] Channel numbers at 
+                                  which visibilities are to be evaluated. Will 
+                                  be useful for filling in RFI flagged channels.
+                                  If set to None, channels masked in 'maskchans' 
+                                  will be evaluated
+                    'noiseRMS'    [NoneType or scalar or numpy array] If set to 
+                                  None (default), the rest of the parameters are 
+                                  used in determining the RMS of thermal noise. 
+                                  If specified as scalar, all other parameters 
+                                  will be ignored in estimating noiseRMS and 
+                                  this value will be used instead. If specified 
+                                  as a numpy array, it must be of shape 
+                                  broadcastable to (nbl,nchan,ntimes). So 
+                                  accpeted shapes can be (1,1,1), (1,1,ntimes), 
+                                  (1,nchan,1), (nbl,1,1), (1,nchan,ntimes), 
+                                  (nbl,nchan,1), (nbl,1,ntimes), or 
+                                  (nbl,nchan,ntimes). 
+
+        spectral_window_info    
+                    [NoneType or dictionary] Spectral window parameters to 
+                    determine the spectral weights and apply to the visibilities 
+                    in the frequency domain before filtering in the delay domain. 
+                    THESE PARAMETERS ARE APPLIED ON THE INDIVIDUAL VISIBILITIES 
+                    THAT GO INTO THE CLOSURE PHASE. THESE ARE NOT TO BE CONFUSED 
+                    WITH THE PARAMETERS THAT WILL BE USED IN THE ACTUAL DELAY 
+                    TRANSFORM OF CLOSURE PHASE SPECTRA WHICH ARE SPECIFIED
+                    SEPARATELY FURTHER BELOW. 
+                    If set to None (default), unity spectral weights are applied. 
+                    If spectral weights are to be applied, it must be a provided 
+                    as a dictionary with the following keys and values:
+                    bw_eff       [scalar] effective bandwidths (in Hz) for the 
+                                 spectral window
+                    freq_center  [scalar] frequency center (in Hz) for the 
+                                 spectral window
+                    shape        [string] frequency window shape for the 
+                                 spectral window. Accepted values are 'rect' or 
+                                 'RECT' (for rectangular), 'bnw' and 'BNW' (for 
+                                 Blackman-Nuttall), and 'bhw' or 'BHW' (for 
+                                 Blackman-Harris). Default=None sets it to 'rect' 
+                    fftpow       [scalar] power to which the FFT of the window 
+                                 will be raised. The value must be a positive 
+                                 scalar. 
+
+        Output:
+
+        Dictionary containing closure phase information under the following keys
+        and values:
+        'closure_phase_skyvis'  [numpy array] Closure phases (in radians) for
+                                the given antenna triplets from the noiseless 
+                                visibilities. It is of shape
+                                ntriplets x nchan x ntimes
+        'closure_phase_vis'     [numpy array] Closure phases (in radians) for
+                                the given antenna triplets for noisy 
+                                visibilities. It is of shape
+                                ntriplets x nchan x ntimes
+        'closure_phase_noise'   [numpy array] Closure phases (in radians) for
+                                the given antenna triplets for thermal noise in
+                                visibilities. It is of shape
+                                ntriplets x nchan x ntimes
+        'antenna_triplets'      [list of tuples] List of three-element tuples of 
+                                antenna IDs for which the closure phases are
+                                calculated.
+        'baseline_triplets'     [numpy array] List of 3x3 numpy arrays. Each 3x3
+                                unit in the list represents triplets of baseline
+                                vectors where the three rows denote the three 
+                                baselines in the triplet and the three columns 
+                                define the x-, y- and z-components of the 
+                                triplet. The number of 3x3 unit elements in the 
+                                list will equal the number of elements in the 
+                                list under key 'antenna_triplets'. 
+        'skyvis'                [numpy array] Noiseless visibilities that went 
+                                into the triplet used for estimating closure
+                                phases. It has size ntriplets x 3 nchan x ntimes
+                                where 3 is for the triplet of visibilities or
+                                baselines involved. 
+        'vis'                   [numpy array] Same as 'skyvis' but for noisy
+                                visibilities
+        'noisevis'              [numpy array] Same as 'skyvis' but for the
+                                noise in the visibilities
+        'spectral_weights'      [numpy array] Spectral weights applied in the
+                                frequency domain before filtering. This is 
+                                derived based on the parameters in the input 
+                                spectral_window_info. If spectral_window_info is
+                                set to None, the spectral weights are set to 1.0
+                                with shape (1,). If spectral_window_info is 
+                                specified as not None, the shape of the spectral
+                                weights is (nchan,).
+        -------------------------------------------------------------------------
+        """
+
+        if antenna_triplets is None:
+            antenna_triplets, bltriplets = self.getThreePointCombinations(unique=unique)
+
+        if not isinstance(antenna_triplets, list):
+            raise TypeError('Input antenna triplets must be a list of triplet tuples')
+
+        # Check if spectral smoothing is to be applied
+        if specsmooth_info is not None:
+            if not isinstance(specsmooth_info, dict):
+                raise TypeError('Input specsmooth_info must be a dictionary')
+            if 'op_type' not in specsmooth_info:
+                raise KeyError('Key "op_type" not found in input specsmooth_info')
+            if specsmooth_info['op_type'].lower() not in ['median', 'interp']:
+                raise ValueError('op_type specified in specsmooth_info currently not supported')
+            if specsmooth_info['op_type'].lower() == 'median':
+                if 'window_size' not in specsmooth_info:
+                    raise KeyError('Input "window_size" not found in specsmooth_info')
+                if specsmooth_info['window_size'] <= 0:
+                    raise ValueError('Spectral filter window size must be positive')
+            if specsmooth_info['op_type'].lower() == 'interp':
+                if 'maskchans' not in specsmooth_info:
+                    specsmooth_info['maskchans'] = NP.zeros(self.channels.size, dtype=NP.bool)
+                elif specsmooth_info['maskchans'] is None:
+                    specsmooth_info['maskchans'] = NP.zeros(self.channels.size, dtype=NP.bool)
+                elif not isinstance(specsmooth_info['maskchans'], NP.ndarray):
+                    raise TypeError('Value under key "maskchans" must be a numpy array')
+                else:
+                    if specsmooth_info['maskchans'].dtype != bool:
+                        raise TypeError('Value under key "maskchans" must be a boolean numpy array')
+                    if specsmooth_info['maskchans'].size != self.channels.size:
+                        raise ValueError('Size of numpy array under key "maskchans" is not equal to the number of frequency channels')
+                    specsmooth_info['maskchans'] = specsmooth_info['maskchans'].ravel()
+                if 'evalchans' not in specsmooth_info:
+                    specsmooth_info['evalchans'] = NP.where(specsmooth_info['maskchans'])[0]
+                elif specsmooth_info['evalchans'] is None:
+                    specsmooth_info['evalchans'] = NP.where(specsmooth_info['maskchans'])[0]
+                elif not isinstance(specsmooth_info['evalchans'], (int,list,NP.ndarray)):
+                    raise TypeError('Values under key "evalchans" must be an integer, list or numpy array')
+                else:
+                    specsmooth_info['evalchans'] = NP.asarray(specsmooth_info['evalchans']).reshape(-1)
+                unmasked_chans = NP.where(NP.logical_not(specsmooth_info['maskchans']))[0]
+
+        # Check if spectral windowing is to be applied
+        if spectral_window_info is not None:
+            freq_center = spectral_window_info['freq_center']
+            bw_eff = spectral_window_info['bw_eff']
+            shape = spectral_window_info['shape']
+            fftpow = spectral_window_info['fftpow']
+
+            if freq_center is None:
+                freq_center = self.channels[self.channels.size/2]
+            if shape is None:
+                shape = 'rect'
+            else:
+                shape = shape.lower()
+            if bw_eff is None:
+                if shape == 'rect':
+                    bw_eff = self.channels.size * self.freq_resolution
+                elif shape == 'bhw':
+                    bw_eff = 0.5 * self.channels.size * self.freq_resolution
+                else:
+                    raise ValueError('Specified window shape not currently supported')
+            if fftpow is None:
+                fftpow = 1.0
+            elif isinstance(fftpow, (int,float)):
+                if fftpow <= 0.0:
+                    raise ValueError('Value fftpow must be positive')
+            else:
+                raise ValueError('Value fftpow must be a scalar (int or float)')
+            
+            freq_wts = NP.empty(self.channels.size, dtype=NP.float_)
+            frac_width = DSP.window_N2width(n_window=None, shape=shape, fftpow=fftpow, area_normalize=False, power_normalize=True)
+            window_loss_factor = 1 / frac_width
+            n_window = NP.round(window_loss_factor * bw_eff / self.freq_resolution).astype(NP.int)
+            ind_freq_center, ind_channels, dfrequency = LKP.find_1NN(self.channels.reshape(-1,1), NP.asarray(freq_center).reshape(-1,1), distance_ULIM=0.5*self.freq_resolution, remove_oob=True)
+            sortind = NP.argsort(ind_channels)
+            ind_freq_center = ind_freq_center[sortind]
+            ind_channels = ind_channels[sortind]
+            dfrequency = dfrequency[sortind]
+            # n_window = n_window[sortind]
+
+            window = NP.sqrt(frac_width * n_window) * DSP.window_fftpow(n_window, shape=shape, fftpow=fftpow, centering=True, peak=None, area_normalize=False, power_normalize=True)
+
+            window_chans = self.channels[ind_channels[0]] + self.freq_resolution * (NP.arange(n_window) - int(n_window/2))
+            ind_window_chans, ind_chans, dfreq = LKP.find_1NN(self.channels.reshape(-1,1), window_chans.reshape(-1,1), distance_ULIM=0.5*self.freq_resolution, remove_oob=True)
+            sind = NP.argsort(ind_window_chans)
+            ind_window_chans = ind_window_chans[sind]
+            ind_chans = ind_chans[sind]
+            dfreq = dfreq[sind]
+            window = window[ind_window_chans]
+            window = NP.pad(window, ((ind_chans.min(), self.channels.size-1-ind_chans.max())), mode='constant', constant_values=((0.0,0.0)))
+            freq_wts = window
+        else:
+            freq_wts = NP.asarray(1.0).reshape(-1)
+
+        # Check if delay filter is to be performed
+        filter_unmask = NP.ones(self.channels.size)
+        if delay_filter_info is not None:
+            fft_delays = DSP.spectral_axis(self.channels.size, delx=self.freq_resolution, shift=False, use_real=False)
+            dtau = fft_delays[1] - fft_delays[0]
+            if not isinstance(delay_filter_info, dict):
+                raise TypeError('Delay filter info must be specified as a dictionary')
+
+            if 'mode' not in delay_filter_info:
+                filter_mode = 'discard'
+            else:
+                filter_mode = delay_filter_info['mode']
+            if filter_mode.lower() not in ['discard', 'retain']:
+                raise ValueError('Invalid delay filter mode specified')
+
+            if 'type' not in delay_filter_info:
+                filter_type = 'horizon'
+            else:
+                filter_type = delay_filter_info['type']
+            if filter_type.lower() not in ['horizon', 'regular']:
+                raise ValueError('Invalid delay filter type specified')
+            if filter_type.lower() == 'regular':
+                if ('min' not in delay_filter_info) or ('width' not in delay_filter_info):
+                    raise KeyError('Keys "min" and "width" must be specified in input delay_filter_info')
+                delay_min = delay_filter_info['min']
+                delay_width = delay_filter_info['width']
+                if delay_min is None:
+                    delay_min = 0.0
+                elif isinstance(delay_min, (int,float)):
+                    delay_min = max([0.0, delay_min])
+                else:
+                    raise TypeError('Minimum delay in the filter must be a scalar value (int or float)')
+
+                if isinstance(delay_width, (int,float)):
+                    if delay_width <= 0.0:
+                        raise ValueError('Delay filter width must be positive')
+                else:
+                    raise TypeError('Delay width in the filter must be a scalar value (int or float)')
+            else:
+                if 'width' not in delay_filter_info:
+                    delay_width = 0.0
+                else:
+                    delay_width = delay_filter_info['width']
+
+                if delay_width is None:
+                    delay_width = 0.0
+                elif isinstance(delay_width, (int,float)):
+                    if delay_width <= 0.0:
+                        raise ValueError('Delay filter width must be positive')
+                else:
+                    raise TypeError('Delay width in the filter must be a scalar value (int or float)')
+            delay_width = delay_width * dtau
+
+        skyvis_freq = NP.copy(self.skyvis_freq)
+        vis_freq = NP.copy(self.vis_freq)
+        vis_noise_freq = NP.copy(self.vis_noise_freq)
+        phase_skyvis123 = []
+        phase_vis123 = []
+        phase_noise123 = []
+        blvecttriplets = []
+        skyvis_triplets = []
+        vis_triplets = []
+        noise_triplets = []
+        progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Triplets '.format(len(antenna_triplets)), PGB.ETA()], maxval=len(antenna_triplets)).start()
+        for tripletind,anttriplet in enumerate(antenna_triplets):
+            blvecttriplets += [NP.zeros((3,3))]
+            a1, a2, a3 = anttriplet
+            a1 = str(a1)
+            a2 = str(a2)
+            a3 = str(a3)
+            bl12_id = (a2, a1)
+            conj12 = False
+            if bl12_id in self.bl_reversemap:
+                bl12_id_ref = self.bl_reversemap[bl12_id]
+            elif tuple(reversed(bl12_id)) in self.bl_reversemap:
+                bl12_id_ref = self.bl_reversemap[tuple(reversed(bl12_id))]
+                conj12 = True
+            else:
+                raise ValueError('Baseline ({0[0]:0d}, {0[1]:0d}) not found in simulated baselines'.format(bl12_id))
+            ind12 = NP.where(self.labels == bl12_id_ref)[0][0]
+            if not conj12:
+                skyvis12 = skyvis_freq[ind12,:,:]
+                vis12 = vis_freq[ind12,:,:]
+                noise12 = vis_noise_freq[ind12,:,:]
+                blvecttriplets[-1][0,:] = self.baselines[ind12,:]
+                bpwts12 = self.bp[ind12,:,:] * self.bp_wts[ind12,:,:]
+            else:
+                skyvis12 = skyvis_freq[ind12,:,:].conj()
+                vis12 = vis_freq[ind12,:,:].conj()
+                noise12 = vis_noise_freq[ind12,:,:].conj()
+                blvecttriplets[-1][0,:] = -self.baselines[ind12,:]
+                bpwts12 = self.bp[ind12,:,:].conj() * self.bp_wts[ind12,:,:].conj()
+
+            bl23_id = (a3, a2)
+            conj23 = False
+            if bl23_id in self.bl_reversemap:
+                bl23_id_ref = self.bl_reversemap[bl23_id]
+            elif tuple(reversed(bl23_id)) in self.bl_reversemap:
+                bl23_id_ref = self.bl_reversemap[tuple(reversed(bl23_id))]
+                conj23 = True
+            else:
+                raise ValueError('Baseline ({0[0]:0d}, {0[1]:0d}) not found in simulated baselines'.format(bl23_id))
+            ind23 = NP.where(self.labels == bl23_id_ref)[0][0]
+            if not conj23:
+                skyvis23 = skyvis_freq[ind23,:,:]
+                vis23 = vis_freq[ind23,:,:]
+                noise23 = vis_noise_freq[ind23,:,:]
+                blvecttriplets[-1][1,:] = self.baselines[ind23,:]
+                bpwts23 = self.bp[ind23,:,:] * self.bp_wts[ind23,:,:]
+            else:
+                skyvis23 = skyvis_freq[ind23,:,:].conj()
+                vis23 = vis_freq[ind23,:,:].conj()
+                noise23 = vis_noise_freq[ind23,:,:].conj()
+                blvecttriplets[-1][1,:] = -self.baselines[ind23,:]
+                bpwts23 = self.bp[ind23,:,:].conj() * self.bp_wts[ind23,:,:].conj()
+
+            bl31_id = (a1, a3)
+            conj31 = False
+            if bl31_id in self.bl_reversemap:
+                bl31_id_ref = self.bl_reversemap[bl31_id]
+            elif tuple(reversed(bl31_id)) in self.bl_reversemap:
+                bl31_id_ref = self.bl_reversemap[tuple(reversed(bl31_id))]
+                conj31 = True
+            else:
+                raise ValueError('Baseline ({0[0]:0d}, {0[1]:0d}) not found in simulated baselines'.format(bl31_id))
+            ind31 = NP.where(self.labels == bl31_id_ref)[0][0]
+            if not conj31:
+                skyvis31 = skyvis_freq[ind31,:,:]
+                vis31 = vis_freq[ind31,:,:]
+                noise31 = vis_noise_freq[ind31,:,:]
+                blvecttriplets[-1][2,:] = self.baselines[ind31,:]
+                bpwts31 = self.bp[ind31,:,:] * self.bp_wts[ind31,:,:]
+            else:
+                skyvis31 = skyvis_freq[ind31,:,:].conj()
+                vis31 = vis_freq[ind31,:,:].conj()
+                noise31 = vis_noise_freq[ind31,:,:].conj()
+                blvecttriplets[-1][2,:] = -self.baselines[ind31,:]
+                bpwts31 = self.bp[ind31,:,:].conj() * self.bp_wts[ind31,:,:].conj()
+
+            if specsmooth_info is not None:
+                # Perform interpolation for each triplet if op_type is 'interp'.
+                # If op_type is 'median' it can be performed triplet by triplet
+                # or on all triplets as once depending on if delay-filtering
+                # and spectral windowing is set or not.
+                if specsmooth_info['op_type'].lower() == 'interp':
+                    if specsmooth_info['evalchans'].size > 0:
+                        # Obtain the noise RMS on the required baselines
+                        if 'noiseRMS' not in specsmooth_info:
+                            specsmooth_info['noiseRMS'] = NP.copy(self.vis_rms_freq[NP.ix_([ind12,ind23,ind31], specsmooth_info['evalchans'], NP.arange(skyvis12.shape[1]))])
+                        else:
+                            specsmooth_info['noiseRMS'] = specsmooth_info['noiseRMS'][:,specsmooth_info['evalchans'],:]
+                        noise123 = generateNoise(noiseRMS=specsmooth_info['noiseRMS'], nbl=3, nchan=specsmooth_info['evalchans'].size, ntimes=skyvis12.shape[1])
+                        noise12[specsmooth_info['evalchans'],:] = noise123[0,:,:]
+                        noise23[specsmooth_info['evalchans'],:] = noise123[1,:,:]
+                        noise31[specsmooth_info['evalchans'],:] = noise123[2,:,:]
+    
+                        interpfunc_skyvis12_real = interpolate.interp1d(unmasked_chans, skyvis12[unmasked_chans,:].real, axis=0, kind='cubic', bounds_error=True, assume_sorted=True)
+                        interpfunc_skyvis12_imag = interpolate.interp1d(unmasked_chans, skyvis12[unmasked_chans,:].imag, axis=0, kind='cubic', bounds_error=True, assume_sorted=True)
+                        skyvis12[specsmooth_info['evalchans'],:] = interpfunc_skyvis12_real(specsmooth_info['evalchans']) + 1j * interpfunc_skyvis12_imag(specsmooth_info['evalchans'])
+                        interpfunc_skyvis23_real = interpolate.interp1d(unmasked_chans, skyvis23[unmasked_chans,:].real, axis=0, kind='cubic', bounds_error=True, assume_sorted=True)
+                        interpfunc_skyvis23_imag = interpolate.interp1d(unmasked_chans, skyvis23[unmasked_chans,:].imag, axis=0, kind='cubic', bounds_error=True, assume_sorted=True)
+                        skyvis23[specsmooth_info['evalchans'],:] = interpfunc_skyvis23_real(specsmooth_info['evalchans']) + 1j * interpfunc_skyvis23_imag(specsmooth_info['evalchans'])
+                        interpfunc_skyvis31_real = interpolate.interp1d(unmasked_chans, skyvis31[unmasked_chans,:].real, axis=0, kind='cubic', bounds_error=True, assume_sorted=True)
+                        interpfunc_skyvis31_imag = interpolate.interp1d(unmasked_chans, skyvis31[unmasked_chans,:].imag, axis=0, kind='cubic', bounds_error=True, assume_sorted=True)
+                        skyvis31[specsmooth_info['evalchans'],:] = interpfunc_skyvis31_real(specsmooth_info['evalchans']) + 1j * interpfunc_skyvis31_imag(specsmooth_info['evalchans'])
+    
+                        vis12[specsmooth_info['evalchans'],:] = skyvis12[specsmooth_info['evalchans'],:] + noise12[specsmooth_info['evalchans'],:]
+                        vis23[specsmooth_info['evalchans'],:] = skyvis23[specsmooth_info['evalchans'],:] + noise23[specsmooth_info['evalchans'],:]
+                        vis31[specsmooth_info['evalchans'],:] = skyvis31[specsmooth_info['evalchans'],:] + noise31[specsmooth_info['evalchans'],:]
+
+            # Apply the spectral ('median') smoothing first if delay filter 
+            # and / or spectral windowing is to be performed, otherwise apply 
+            # later on the full array instead of inside the antenna triplet loop
+
+            if (delay_filter_info is not None) or (spectral_window_info is not None):
+                if specsmooth_info is not None:
+                    if specsmooth_info['op_type'].lower() == 'median':
+                        skyvis12 = ndimage.median_filter(skyvis12.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(skyvis12.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        skyvis23 = ndimage.median_filter(skyvis23.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(skyvis23.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        skyvis31 = ndimage.median_filter(skyvis31.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(skyvis31.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        vis12 = ndimage.median_filter(vis12.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(vis12.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        vis23 = ndimage.median_filter(vis23.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(vis23.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        vis31 = ndimage.median_filter(vis31.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(vis31.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        noise12 = ndimage.median_filter(noise12.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(noise12.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        noise23 = ndimage.median_filter(noise23.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(noise23.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+                        noise31 = ndimage.median_filter(noise31.real, size=(specsmooth_info[specsmooth_info['window_size']],1)) + 1j * ndimage.median_filter(noise31.imag, size=(specsmooth_info[specsmooth_info['window_size']],1))
+
+            # Check if delay filter is to be performed
+            if delay_filter_info is not None:
+                if filter_type.lower() == 'regular':
+                    delay_max = delay_min + delay_width
+                    if filter_mode.lower() == 'discard':
+                        mask_ind = NP.logical_and(NP.abs(fft_delays) >= delay_min, NP.abs(fft_delays) <= delay_max)
+                    else:
+                        mask_ind = NP.logical_or(NP.abs(fft_delays) <= delay_min, NP.abs(fft_delays) >= delay_max)
+                    filter_unmask[mask_ind] = 0.0
+
+                    skyvis12 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*skyvis12,ax=0,inverse=False), ax=0, inverse=True)
+                    skyvis23 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*skyvis23,ax=0,inverse=False), ax=0, inverse=True)
+                    skyvis31 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*skyvis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    vis12 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*vis12,ax=0,inverse=False), ax=0, inverse=True)
+                    vis23 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*vis23,ax=0,inverse=False), ax=0, inverse=True)
+                    vis31 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*vis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    noise12 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*noise12,ax=0,inverse=False), ax=0, inverse=True)
+                    noise23 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*noise23,ax=0,inverse=False), ax=0, inverse=True)
+                    noise31 = DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*noise31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    # skyvis12 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(skyvis12,ax=0,inverse=False), ax=0, inverse=True)
+                    # skyvis23 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(skyvis23,ax=0,inverse=False), ax=0, inverse=True)
+                    # skyvis31 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(skyvis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    # vis12 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(vis12,ax=0,inverse=False), ax=0, inverse=True)
+                    # vis23 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(vis23,ax=0,inverse=False), ax=0, inverse=True)
+                    # vis31 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(vis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    # noise12 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(noise12,ax=0,inverse=False), ax=0, inverse=True)
+                    # noise23 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(noise23,ax=0,inverse=False), ax=0, inverse=True)
+                    # noise31 = 1.0 * fft_delays.size / NP.sum(filter_unmask) * DSP.FT1D(filter_unmask[:,NP.newaxis] * DSP.FT1D(noise31,ax=0,inverse=False), ax=0, inverse=True)
+
+                else:
+                    filter_unmask12 = 1.0 * filter_unmask
+                    filter_unmask23 = 1.0 * filter_unmask
+                    filter_unmask31 = 1.0 * filter_unmask
+                    delay_max12 = self.baseline_lengths[ind12] / FCNST.c + delay_width
+                    delay_max23 = self.baseline_lengths[ind23] / FCNST.c + delay_width
+                    delay_max31 = self.baseline_lengths[ind31] / FCNST.c + delay_width
+                    if filter_mode.lower() == 'discard':
+                        mask_ind12 = NP.abs(fft_delays) <= delay_max12
+                        mask_ind23 = NP.abs(fft_delays) <= delay_max23
+                        mask_ind31 = NP.abs(fft_delays) <= delay_max31
+                    else:
+                        mask_ind12 = NP.abs(fft_delays) >= delay_max12
+                        mask_ind23 = NP.abs(fft_delays) >= delay_max23
+                        mask_ind31 = NP.abs(fft_delays) >= delay_max31
+                    
+                    filter_unmask12[mask_ind12] = 0.0
+                    filter_unmask23[mask_ind23] = 0.0
+                    filter_unmask31[mask_ind31] = 0.0
+
+                    skyvis12 = DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*skyvis12,ax=0,inverse=False), ax=0, inverse=True)
+                    skyvis23 = DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*skyvis23,ax=0,inverse=False), ax=0, inverse=True)
+                    skyvis31 = DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*skyvis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    vis12 = DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*vis12,ax=0,inverse=False), ax=0, inverse=True)
+                    vis23 = DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*vis23,ax=0,inverse=False), ax=0, inverse=True)
+                    vis31 = DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*vis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    noise12 = DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*noise12,ax=0,inverse=False), ax=0, inverse=True)
+                    noise23 = DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*noise23,ax=0,inverse=False), ax=0, inverse=True)
+                    noise31 = DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(freq_wts.reshape(-1,1)*noise31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    # skyvis12 = 1.0 * fft_delays.size / NP.sum(filter_unmask12) * DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(skyvis12,ax=0,inverse=False), ax=0, inverse=True)
+                    # skyvis23 = 1.0 * fft_delays.size / NP.sum(filter_unmask23) * DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(skyvis23,ax=0,inverse=False), ax=0, inverse=True)
+                    # skyvis31 = 1.0 * fft_delays.size / NP.sum(filter_unmask31) * DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(skyvis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    # vis12 = 1.0 * fft_delays.size / NP.sum(filter_unmask12) * DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(vis12,ax=0,inverse=False), ax=0, inverse=True)
+                    # vis23 = 1.0 * fft_delays.size / NP.sum(filter_unmask23) * DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(vis23,ax=0,inverse=False), ax=0, inverse=True)
+                    # vis31 = 1.0 * fft_delays.size / NP.sum(filter_unmask31) * DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(vis31,ax=0,inverse=False), ax=0, inverse=True)
+
+                    # noise12 = 1.0 * fft_delays.size / NP.sum(filter_unmask12) * DSP.FT1D(filter_unmask12[:,NP.newaxis] * DSP.FT1D(noise12,ax=0,inverse=False), ax=0, inverse=True)
+                    # noise23 = 1.0 * fft_delays.size / NP.sum(filter_unmask23) * DSP.FT1D(filter_unmask23[:,NP.newaxis] * DSP.FT1D(noise23,ax=0,inverse=False), ax=0, inverse=True)
+                    # noise31 = 1.0 * fft_delays.size / NP.sum(filter_unmask31) * DSP.FT1D(filter_unmask31[:,NP.newaxis] * DSP.FT1D(noise31,ax=0,inverse=False), ax=0, inverse=True)
+            else:
+                skyvis12 = freq_wts.reshape(-1,1)*skyvis12
+                skyvis23 = freq_wts.reshape(-1,1)*skyvis23
+                skyvis31 = freq_wts.reshape(-1,1)*skyvis31
+
+                vis12 = freq_wts.reshape(-1,1)*vis12
+                vis23 = freq_wts.reshape(-1,1)*vis23
+                vis31 = freq_wts.reshape(-1,1)*vis31
+
+                noise12 = freq_wts.reshape(-1,1)*noise12
+                noise23 = freq_wts.reshape(-1,1)*noise23
+                noise31 = freq_wts.reshape(-1,1)*noise31
+                
+            skyvis_triplets += [[skyvis12*bpwts12, skyvis23*bpwts23, skyvis31*bpwts31]]
+            vis_triplets += [[vis12*bpwts12, vis23*bpwts23, vis31*bpwts31]]
+            noise_triplets += [[noise12*bpwts12, noise23*bpwts23, noise31*bpwts31]]
+
+            progress.update(tripletind+1)
+        progress.finish()
+
+        skyvis_triplets = NP.asarray(skyvis_triplets)
+        vis_triplets = NP.asarray(vis_triplets)
+        noise_triplets = NP.asarray(noise_triplets)
+
+        # Apply the spectral smoothing now on the entire triplet arrays
+        # if none of delay filter or spectral windowing is to be performed,
+        # otherwise it must have been applied prior to either one of those
+        # operations
+        
+        if (delay_filter_info is None) and (spectral_window_info is None) and (specsmooth_info is not None):
+            if specsmooth_info['op_type'].lower() == 'median':
+                skyvis_triplets = ndimage.median_filter(skyvis_triplets.real, size=(1,1,specsmooth_info['window_size'],1)) + 1j * ndimage.median_filter(skyvis_triplets.imag, size=(1,1,specsmooth_info['window_size'],1))
+                vis_triplets = ndimage.median_filter(vis_triplets.real, size=(1,1,specsmooth_info['window_size'],1)) + 1j * ndimage.median_filter(vis_triplets.imag, size=(1,1,specsmooth_info['window_size'],1))
+                noise_triplets = ndimage.median_filter(noise_triplets.real, size=(1,1,specsmooth_info['window_size'],1)) + 1j * ndimage.median_filter(noise_triplets.imag, size=(1,1,specsmooth_info['window_size'],1))
+
+        phase_skyvis123 = NP.angle(NP.prod(skyvis_triplets, axis=1))
+        phase_vis123 = NP.angle(NP.prod(vis_triplets, axis=1))
+        phase_noise123 = NP.angle(NP.prod(noise_triplets, axis=1))
+        
+        return {'closure_phase_skyvis': phase_skyvis123, 'closure_phase_vis': phase_vis123, 'closure_phase_noise': phase_noise123, 'antenna_triplets': antenna_triplets, 'baseline_triplets': blvecttriplets, 'skyvis': skyvis_triplets, 'vis': vis_triplets, 'noisevis': noise_triplets, 'spectral_weights': freq_wts}
 
     #############################################################################
 
@@ -5601,29 +7599,29 @@ class InterferometerArray(object):
         """
         -------------------------------------------------------------------------
         Centers the phase of visibilities around any given phase center.
-        Project baseline vectors with respect to a reference point on the sky. 
-        Essentially a wrapper to member functions phase_centering() and 
+        Project baseline vectors with respect to a reference point on the sky.
+        Essentially a wrapper to member functions phase_centering() and
         project_baselines()
 
         Input(s):
 
-        ref_point   [dictionary] Contains information about the reference 
-                    position to which projected baselines and rotated 
-                    visibilities are to be computed. No defaults. It must be 
+        ref_point   [dictionary] Contains information about the reference
+                    position to which projected baselines and rotated
+                    visibilities are to be computed. No defaults. It must be
                     contain the following keys with the following values:
                     'coords'    [string] Refers to the coordinate system in
-                                which value in key 'location' is specified in. 
+                                which value in key 'location' is specified in.
                                 Accepted values are 'radec', 'hadec', 'altaz'
                                 and 'dircos'
-                    'location'  [numpy array] Must be a Mx2 (if value in key 
+                    'location'  [numpy array] Must be a Mx2 (if value in key
                                 'coords' is set to 'radec', 'hadec', 'altaz' or
-                                'dircos') or Mx3 (if value in key 'coords' is 
+                                'dircos') or Mx3 (if value in key 'coords' is
                                 set to 'dircos'). M can be 1 or equal to number
                                 of timestamps. If M=1, the same reference point
-                                in the same coordinate system will be repeated 
+                                in the same coordinate system will be repeated
                                 for all tiemstamps. If value under key 'coords'
-                                is set to 'radec', 'hadec' or 'altaz', the 
-                                value under this key 'location' must be in 
+                                is set to 'radec', 'hadec' or 'altaz', the
+                                value under this key 'location' must be in
                                 units of degrees.
 
         do_delay_transform
@@ -5635,7 +7633,7 @@ class InterferometerArray(object):
                       diagnostic messages.
         -------------------------------------------------------------------------
         """
-        
+
         try:
             ref_point
         except NameError:
@@ -5659,29 +7657,29 @@ class InterferometerArray(object):
         Centers the phase of visibilities around any given phase center.
 
         Inputs:
-        
-        ref_point   [dictionary] Contains information about the reference 
-                    position to which projected baselines and rotated 
-                    visibilities are to be computed. No defaults. It must be 
+
+        ref_point   [dictionary] Contains information about the reference
+                    position to which projected baselines and rotated
+                    visibilities are to be computed. No defaults. It must be
                     contain the following keys with the following values:
                     'coords'    [string] Refers to the coordinate system in
-                                which value in key 'location' is specified in. 
+                                which value in key 'location' is specified in.
                                 Accepted values are 'radec', 'hadec', 'altaz'
                                 and 'dircos'
-                    'location'  [numpy array] Must be a Mx2 (if value in key 
+                    'location'  [numpy array] Must be a Mx2 (if value in key
                                 'coords' is set to 'radec', 'hadec', 'altaz' or
-                                'dircos') or Mx3 (if value in key 'coords' is 
+                                'dircos') or Mx3 (if value in key 'coords' is
                                 set to 'dircos'). M can be 1 or equal to number
                                 of timestamps. If M=1, the same reference point
-                                in the same coordinate system will be repeated 
+                                in the same coordinate system will be repeated
                                 for all tiemstamps. If value under key 'coords'
-                                is set to 'radec', 'hadec' or 'altaz', the 
-                                value under this key 'location' must be in 
+                                is set to 'radec', 'hadec' or 'altaz', the
+                                value under this key 'location' must be in
                                 units of degrees.
 
         do_delay_transform
-                      [boolean] If set to True, also recompute the delay 
-                      transform after the visibilities are rotated to the new 
+                      [boolean] If set to True, also recompute the delay
+                      transform after the visibilities are rotated to the new
                       phase center. If set to False (default), this is skipped
 
         verbose:      [boolean] If set to True (default), prints progress and
@@ -5811,7 +7809,7 @@ class InterferometerArray(object):
             phase_center_current_temp = GEOM.altaz2dircos(phase_center_current_temp, units='degrees')
             phase_center_coords_current_temp = 'dircos'
 
-        pos_diff_dircos = phase_center_current_temp - phase_center_new 
+        pos_diff_dircos = phase_center_current_temp - phase_center_new
         b_dot_l = NP.dot(self.baselines, pos_diff_dircos.T)
 
         self.phase_center = phase_center_temp + 0.0
@@ -5824,7 +7822,7 @@ class InterferometerArray(object):
             self.vis_noise_freq = self.vis_noise_freq * NP.exp(-1j * 2 * NP.pi * b_dot_l[:,NP.newaxis,:] * self.channels.reshape(1,-1,1) / FCNST.c)
         if do_delay_transform:
             self.delay_transform()
-            print 'Running delay_transform() with defaults inside phase_centering() after rotating visibility phases. Run delay_transform() again with appropriate inputs.'
+            print('Running delay_transform() with defaults inside phase_centering() after rotating visibility phases. Run delay_transform() again with appropriate inputs.')
 
     #############################################################################
 
@@ -5832,28 +7830,28 @@ class InterferometerArray(object):
 
         """
         ------------------------------------------------------------------------
-        Project baseline vectors with respect to a reference point on the sky. 
+        Project baseline vectors with respect to a reference point on the sky.
         Assigns the projected baselines to the attribute projected_baselines
 
         Input(s):
 
-        ref_point   [dictionary] Contains information about the reference 
-                    position to which projected baselines are to be computed. 
-                    No defaults. It must be contain the following keys with the 
+        ref_point   [dictionary] Contains information about the reference
+                    position to which projected baselines are to be computed.
+                    No defaults. It must be contain the following keys with the
                     following values:
                     'coords'    [string] Refers to the coordinate system in
-                                which value in key 'location' is specified in. 
+                                which value in key 'location' is specified in.
                                 Accepted values are 'radec', 'hadec', 'altaz'
                                 and 'dircos'
-                    'location'  [numpy array] Must be a Mx2 (if value in key 
+                    'location'  [numpy array] Must be a Mx2 (if value in key
                                 'coords' is set to 'radec', 'hadec', 'altaz' or
-                                'dircos') or Mx3 (if value in key 'coords' is 
+                                'dircos') or Mx3 (if value in key 'coords' is
                                 set to 'dircos'). M can be 1 or equal to number
                                 of timestamps. If M=1, the same reference point
-                                in the same coordinate system will be repeated 
+                                in the same coordinate system will be repeated
                                 for all tiemstamps. If value under key 'coords'
-                                is set to 'radec', 'hadec' or 'altaz', the 
-                                value under this key 'location' must be in 
+                                is set to 'radec', 'hadec' or 'altaz', the
+                                value under this key 'location' must be in
                                 units of degrees.
         ------------------------------------------------------------------------
         """
@@ -5921,16 +7919,16 @@ class InterferometerArray(object):
 
         eq_baselines = GEOM.enu2xyz(self.baselines, self.latitude, units='degrees')
         rot_matrix = NP.asarray([[NP.sin(ha),               NP.cos(ha),             NP.zeros(ha.size)],
-                                 [-NP.sin(dec)*NP.cos(ha), NP.sin(dec)*NP.sin(ha), NP.cos(dec)], 
+                                 [-NP.sin(dec)*NP.cos(ha), NP.sin(dec)*NP.sin(ha), NP.cos(dec)],
                                  [NP.cos(dec)*NP.cos(ha), -NP.cos(dec)*NP.sin(ha), NP.sin(dec)]])
         if rot_matrix.ndim == 2:
             rot_matrix = rot_matrix[:,:,NP.newaxis] # To ensure correct dot product is obtained in the next step
-        self.projected_baselines = NP.dot(eq_baselines, rot_matrix) # (n_bl x [3]).(3 x [3] x n_acc) -> n_bl x (first 3) x n_acc 
+        self.projected_baselines = NP.dot(eq_baselines, rot_matrix) # (n_bl x [3]).(3 x [3] x n_acc) -> n_bl x (first 3) x n_acc
 
         # proj_baselines = NP.empty((eq_baselines.shape[0], eq_baselines.shape[1], len(self.lst)))
         # for i in xrange(len(self.lst)):
         #     rot_matrix = NP.asarray([[NP.sin(ha[i]),               NP.cos(ha[i]),             0.0],
-        #                              [-NP.sin(dec[i])*NP.cos(ha[i]), NP.sin(dec[i])*NP.sin(ha[i]), NP.cos(dec[i])], 
+        #                              [-NP.sin(dec[i])*NP.cos(ha[i]), NP.sin(dec[i])*NP.sin(ha[i]), NP.cos(dec[i])],
         #                              [NP.cos(dec[i])*NP.cos(ha[i]), -NP.cos(dec[i])*NP.sin(ha[i]), NP.sin(dec[i])]])
 
         #     proj_baselines[:,:,i] = NP.dot(eq_baselines, rot_matrix.T)
@@ -5950,10 +7948,10 @@ class InterferometerArray(object):
 
         ind      [scalar, list or numpy array] Indices pointing to specific
                  baseline vectors which need to be flipped. Default = None means
-                 no flipping or conjugation. If all baselines are to be 
+                 no flipping or conjugation. If all baselines are to be
                  flipped, either provide all the indices in ind or set ind="all"
 
-        verbose  [boolean] If set to True (default), print diagnostic and 
+        verbose  [boolean] If set to True (default), print diagnostic and
                  progress messages. If set to False, no such messages are
                  printed.
         ------------------------------------------------------------------------
@@ -5970,7 +7968,7 @@ class InterferometerArray(object):
                 ind = ind.tolist()
             elif not isinstance(ind, list):
                 raise TypeError('ind must be string "all", scalar interger, list or numpy array')
-                
+
             ind = NP.asarray(ind)
             if NP.any(ind >= self.baselines.shape[0]):
                 raise IndexError('Out of range indices found.')
@@ -5985,10 +7983,10 @@ class InterferometerArray(object):
             if self.vis_noise_freq is not None:
                 self.vis_noise_freq[ind,:,:] = self.vis_noise_freq[ind,:,:].conj()
             if self.projected_baselines is not None:
-                self.projected_baselines[ind,:,:] = -self.projected_baselines[ind,:,:] 
+                self.projected_baselines[ind,:,:] = -self.projected_baselines[ind,:,:]
 
             if verbose:
-                print 'Certain baselines have been flipped and their visibilities conjugated. Use delay_transform() to update the delay spectra.'
+                warnings.warn('Certain baselines have been flipped and their visibilities conjugated. Use delay_transform() to update the delay spectra.')
 
     #############################################################################
 
@@ -5998,43 +7996,43 @@ class InterferometerArray(object):
         ------------------------------------------------------------------------
         Transforms the visibilities from frequency axis onto delay (time) axis
         using an IFFT. This is performed for noiseless sky visibilities, thermal
-        noise in visibilities, and observed visibilities. 
+        noise in visibilities, and observed visibilities.
 
         Inputs:
 
-        pad         [scalar] Non-negative scalar indicating padding fraction 
-                    relative to the number of frequency channels. For e.g., a 
-                    pad of 1.0 pads the frequency axis with zeros of the same 
+        pad         [scalar] Non-negative scalar indicating padding fraction
+                    relative to the number of frequency channels. For e.g., a
+                    pad of 1.0 pads the frequency axis with zeros of the same
                     width as the number of channels. After the delay transform,
                     the transformed visibilities are downsampled by a factor of
-                    1+pad. If a negative value is specified, delay transform 
+                    1+pad. If a negative value is specified, delay transform
                     will be performed with no padding
 
         freq_wts    [numpy vector or array] window shaping to be applied before
                     computing delay transform. It can either be a vector or size
                     equal to the number of channels (which will be applied to all
-                    time instances for all baselines), or a nchan x n_snapshots 
-                    numpy array which will be applied to all baselines, or a 
-                    n_baselines x nchan numpy array which will be applied to all 
-                    timestamps, or a n_baselines x nchan x n_snapshots numpy 
+                    time instances for all baselines), or a nchan x n_snapshots
+                    numpy array which will be applied to all baselines, or a
+                    n_baselines x nchan numpy array which will be applied to all
+                    timestamps, or a n_baselines x nchan x n_snapshots numpy
                     array. Default (None) will not apply windowing and only the
                     inherent bandpass will be used.
 
-        verbose     [boolean] If set to True (default), print diagnostic and 
+        verbose     [boolean] If set to True (default), print diagnostic and
                     progress messages. If set to False, no such messages are
                     printed.
         ------------------------------------------------------------------------
         """
 
         if verbose:
-            print 'Preparing to compute delay transform...\n\tChecking input parameters for compatibility...'
+            print('Preparing to compute delay transform...\n\tChecking input parameters for compatibility...')
 
         if not isinstance(pad, (int, float)):
             raise TypeError('pad fraction must be a scalar value.')
         if pad < 0.0:
             pad = 0.0
             if verbose:
-                print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                warnings.warn('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
 
         if freq_wts is not None:
             if freq_wts.size == self.channels.size:
@@ -6049,11 +8047,11 @@ class InterferometerArray(object):
                 raise ValueError('window shape dimensions incompatible with number of channels and/or number of tiemstamps.')
             self.bp_wts = freq_wts
             if verbose:
-                print '\tFrequency window weights assigned.'
+                print('\tFrequency window weights assigned.')
 
         if verbose:
-            print '\tInput parameters have been verified to be compatible.\n\tProceeding to compute delay transform.'
-            
+            print('\tInput parameters have been verified to be compatible.\n\tProceeding to compute delay transform.')
+
         self.lags = DSP.spectral_axis(self.channels.size, delx=self.freq_resolution, use_real=False, shift=True)
         if pad == 0.0:
             self.vis_lag = DSP.FT1D(self.vis_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.channels.size * self.freq_resolution
@@ -6061,7 +8059,7 @@ class InterferometerArray(object):
             self.vis_noise_lag = DSP.FT1D(self.vis_noise_freq * self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.channels.size * self.freq_resolution
             self.lag_kernel = DSP.FT1D(self.bp * self.bp_wts, ax=1, inverse=True, use_real=False, shift=True) * self.channels.size * self.freq_resolution
             if verbose:
-                print '\tDelay transform computed without padding.'
+                print('\tDelay transform computed without padding.')
         else:
             npad = int(self.channels.size * pad)
             self.vis_lag = DSP.FT1D(NP.pad(self.vis_freq * self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.channels.size) * self.freq_resolution
@@ -6070,14 +8068,14 @@ class InterferometerArray(object):
             self.lag_kernel = DSP.FT1D(NP.pad(self.bp * self.bp_wts, ((0,0),(0,npad),(0,0)), mode='constant'), ax=1, inverse=True, use_real=False, shift=True) * (npad + self.channels.size) * self.freq_resolution
 
             if verbose:
-                print '\tDelay transform computed with padding fraction {0:.1f}'.format(pad)
+                print('\tDelay transform computed with padding fraction {0:.1f}'.format(pad))
             self.vis_lag = DSP.downsampler(self.vis_lag, 1+pad, axis=1)
             self.skyvis_lag = DSP.downsampler(self.skyvis_lag, 1+pad, axis=1)
             self.vis_noise_lag = DSP.downsampler(self.vis_noise_lag, 1+pad, axis=1)
             self.lag_kernel = DSP.downsampler(self.lag_kernel, 1+pad, axis=1)
             if verbose:
-                print '\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad)
-                print 'delay_transform() completed successfully.'
+                print('\tDelay transform products downsampled by factor of {0:.1f}'.format(1+pad))
+                print('delay_transform() completed successfully.')
 
     #############################################################################
 
@@ -6091,31 +8089,31 @@ class InterferometerArray(object):
 
         Inputs:
 
-        bw_eff       [scalar, list, numpy array] Effective bandwidths of the 
+        bw_eff       [scalar, list, numpy array] Effective bandwidths of the
                      selected frequency windows. If a scalar is provided, the
                      same will be applied to all frequency windows.
 
         freq_center  [scalar, list, numpy array] Frequency centers of the
                      selected frequency windows. If a scalar is provided, the
                      same will be applied to all frequency windows. Default=None
-                     uses the center frequency from the class attribute named 
+                     uses the center frequency from the class attribute named
                      channels
 
         shape        [string] specifies frequency window shape. Accepted values
-                     are 'rect' or 'RECT' (for rectangular), 'bnw' and 'BNW' 
+                     are 'rect' or 'RECT' (for rectangular), 'bnw' and 'BNW'
                      (for Blackman-Nuttall), and 'bhw' or 'BHW' (for Blackman-
-                     Harris). Default=None sets it to 'rect' (rectangular 
+                     Harris). Default=None sets it to 'rect' (rectangular
                      window)
 
-        pad          [scalar] Non-negative scalar indicating padding fraction 
-                     relative to the number of frequency channels. For e.g., a 
-                     pad of 1.0 pads the frequency axis with zeros of the same 
+        pad          [scalar] Non-negative scalar indicating padding fraction
+                     relative to the number of frequency channels. For e.g., a
+                     pad of 1.0 pads the frequency axis with zeros of the same
                      width as the number of channels. After the delay transform,
                      the transformed visibilities are downsampled by a factor of
-                     1+pad. If a negative value is specified, delay transform 
+                     1+pad. If a negative value is specified, delay transform
                      will be performed with no padding
 
-        verbose      [boolean] If set to True (default), print diagnostic and 
+        verbose      [boolean] If set to True (default), print diagnostic and
                      progress messages. If set to False, no such messages are
                      printed.
 
@@ -6179,7 +8177,7 @@ class InterferometerArray(object):
         if pad < 0.0:
             pad = 0.0
             if verbose:
-                print '\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).'
+                warnings.warn('\tPad fraction found to be negative. Resetting to 0.0 (no padding will be applied).')
 
         freq_wts = NP.empty((bw_eff.size, self.channels.size))
         frac_width = DSP.window_N2width(n_window=None, shape=shape)
@@ -6211,7 +8209,7 @@ class InterferometerArray(object):
             vis_noise_lag = DSP.FT1D(self.vis_noise_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ax=2, inverse=True, use_real=False, shift=True) * self.channels.size * self.freq_resolution
             lag_kernel = DSP.FT1D(self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ax=2, inverse=True, use_real=False, shift=True) * self.channels.size * self.freq_resolution
             if verbose:
-                print '\tMulti-window delay transform computed without padding.'
+                print('\tMulti-window delay transform computed without padding.')
         else:
             npad = int(self.channels.size * pad)
             skyvis_lag = DSP.FT1D(NP.pad(self.skyvis_freq[:,NP.newaxis,:,:] * self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.channels.size) * self.freq_resolution
@@ -6219,14 +8217,14 @@ class InterferometerArray(object):
             lag_kernel = DSP.FT1D(NP.pad(self.bp[:,NP.newaxis,:,:] * freq_wts[NP.newaxis,:,:,NP.newaxis], ((0,0),(0,0),(0,npad),(0,0)), mode='constant'), ax=2, inverse=True, use_real=False, shift=True) * (npad + self.channels.size) * self.freq_resolution
 
             if verbose:
-                print '\tMulti-window delay transform computed with padding fraction {0:.1f}'.format(pad)
+                print('\tMulti-window delay transform computed with padding fraction {0:.1f}'.format(pad))
             skyvis_lag = DSP.downsampler(skyvis_lag, 1+pad, axis=2)
             vis_noise_lag = DSP.downsampler(vis_noise_lag, 1+pad, axis=2)
             lag_kernel = DSP.downsampler(lag_kernel, 1+pad, axis=2)
             if verbose:
-                print '\tMulti-window delay transform products downsampled by factor of {0:.1f}'.format(1+pad)
-                print 'multi_window_delay_transform() completed successfully.'
-                
+                print('\tMulti-window delay transform products downsampled by factor of {0:.1f}'.format(1+pad))
+                print('multi_window_delay_transform() completed successfully.')
+
         return {'skyvis_lag': skyvis_lag, 'vis_noise_lag': vis_noise_lag, 'lag_kernel': lag_kernel, 'lag_corr_length': self.channels.size / NP.sum(freq_wts, axis=1)}
 
     #############################################################################
@@ -6240,14 +8238,14 @@ class InterferometerArray(object):
 
         Inputs:
 
-        others       [instance of class Interferometer Array or list of such 
+        others       [instance of class Interferometer Array or list of such
                      instances] Instance or list of instances of class
-                     InterferometerArray whose visibility data have to be 
+                     InterferometerArray whose visibility data have to be
                      concatenated to the current instance.
 
         axis         [scalar] Axis along which visibility data sets are to be
                      concatenated. Accepted values are 0 (concatenate along
-                     baseline axis), 1 (concatenate frequency channels), or 2 
+                     baseline axis), 1 (concatenate frequency channels), or 2
                      (concatenate along time/snapshot axis). No default
         -------------------------------------------------------------------------
         """
@@ -6266,7 +8264,7 @@ class InterferometerArray(object):
             loo = [self, others]
         elif not isinstance(other, InterferometerArray):
             raise TypeError('The interferometer array data to be concatenated must be an instance of class InterferometerArray or a list of such instances')
-            
+
         if not isinstance(axis, int):
             raise TypeError('axis must be an integer')
 
@@ -6338,82 +8336,82 @@ class InterferometerArray(object):
 
         """
         -------------------------------------------------------------------------
-        Saves the interferometer array information to disk in HDF5, FITS, NPZ 
+        Saves the interferometer array information to disk in HDF5, FITS, NPZ
         and UVFITS formats
 
         Inputs:
 
         outfile      [string] Filename with full path to be saved to. Will be
-                     appended with '.hdf5' or '.fits' extension depending on 
-                     input keyword fmt. If input npz is set to True, the 
-                     simulated visibilities will also get stored in '.npz' 
-                     format. Depending on parameters in uvfits_parms, three 
-                     UVFITS files will also be created whose names will be 
-                     outfile+'-noiseless', outfile+'-noisy' and 
+                     appended with '.hdf5' or '.fits' extension depending on
+                     input keyword fmt. If input npz is set to True, the
+                     simulated visibilities will also get stored in '.npz'
+                     format. Depending on parameters in uvfits_parms, three
+                     UVFITS files will also be created whose names will be
+                     outfile+'-noiseless', outfile+'-noisy' and
                      'outfile+'-noise' appended with '.uvfits'
 
         Keyword Input(s):
 
-        fmt          [string] string specifying the format of the output. 
-                     Accepted values are 'HDF5' (default) and 'FITS'. 
+        fmt          [string] string specifying the format of the output.
+                     Accepted values are 'HDF5' (default) and 'FITS'.
                      The file names will be appended with '.hdf5' or '.fits'
                      respectively
 
-        tabtype      [string] indicates table type for one of the extensions in 
-                     the FITS file. Allowed values are 'BinTableHDU' and 
-                     'TableHDU' for binary and ascii tables respectively. Default 
+        tabtype      [string] indicates table type for one of the extensions in
+                     the FITS file. Allowed values are 'BinTableHDU' and
+                     'TableHDU' for binary and ascii tables respectively. Default
                      is 'BinTableHDU'. Only applies if input fmt is set to 'FITS'
 
         npz          [boolean] True (default) indicates a numpy NPZ format file
                      is created in addition to the FITS file to store essential
-                     attributes of the class InterferometerArray for easy 
+                     attributes of the class InterferometerArray for easy
                      handing over of python files
-                     
-        overwrite    [boolean] True indicates overwrite even if a file already 
-                     exists. Default = False (does not overwrite). Beware this 
-                     may not work reliably for UVFITS output when uvfits_method 
-                     is set to None or 'uvdata' and hence always better to make 
+
+        overwrite    [boolean] True indicates overwrite even if a file already
+                     exists. Default = False (does not overwrite). Beware this
+                     may not work reliably for UVFITS output when uvfits_method
+                     is set to None or 'uvdata' and hence always better to make
                      sure the output file does not exist already
-                     
-        uvfits_parms [dictionary] specifies basic parameters required for 
+
+        uvfits_parms [dictionary] specifies basic parameters required for
                      saving in UVFITS format. If set to None (default), the
-                     data will not be saved in UVFITS format. To save in UVFITS 
+                     data will not be saved in UVFITS format. To save in UVFITS
                      format, the following keys and values are required:
-                     'ref_point'    [dictionary] Contains information about the 
-                                    reference position to which projected 
-                                    baselines and rotated visibilities are to 
-                                    be computed. Default=None (no additional 
-                                    phasing will be performed). It must be 
-                                    contain the following keys with the 
+                     'ref_point'    [dictionary] Contains information about the
+                                    reference position to which projected
+                                    baselines and rotated visibilities are to
+                                    be computed. Default=None (no additional
+                                    phasing will be performed). It must be
+                                    contain the following keys with the
                                     following values:
-                                    'coords'    [string] Refers to the 
-                                                coordinate system in which value 
-                                                in key 'location' is specified 
-                                                in. Accepted values are 'radec', 
+                                    'coords'    [string] Refers to the
+                                                coordinate system in which value
+                                                in key 'location' is specified
+                                                in. Accepted values are 'radec',
                                                 'hadec', 'altaz' and 'dircos'
-                                    'location'  [numpy array] Must be a Mx2 (if 
-                                                value in key 'coords' is set to 
-                                                'radec', 'hadec', 'altaz' or 
-                                                'dircos') or Mx3 (if value in 
-                                                key 'coords' is set to 
-                                                'dircos'). M can be 1 or equal 
-                                                to number of timestamps. If M=1, 
-                                                the same reference point in the 
-                                                same coordinate system will be 
-                                                repeated for all tiemstamps. If 
-                                                value under key 'coords' is set 
-                                                to 'radec', 'hadec' or 'altaz', 
-                                                the value under this key 
-                                                'location' must be in units of 
+                                    'location'  [numpy array] Must be a Mx2 (if
+                                                value in key 'coords' is set to
+                                                'radec', 'hadec', 'altaz' or
+                                                'dircos') or Mx3 (if value in
+                                                key 'coords' is set to
+                                                'dircos'). M can be 1 or equal
+                                                to number of timestamps. If M=1,
+                                                the same reference point in the
+                                                same coordinate system will be
+                                                repeated for all tiemstamps. If
+                                                value under key 'coords' is set
+                                                to 'radec', 'hadec' or 'altaz',
+                                                the value under this key
+                                                'location' must be in units of
                                                 degrees.
-                     'method'       [string] specifies method to be used in 
-                                    saving in UVFITS format. Accepted values are 
-                                    'uvdata', 'uvfits' or None (default). If set 
-                                    to 'uvdata', the UVFITS writer in uvdata 
-                                    module is used. If set to 'uvfits', the 
-                                    in-house UVFITS writer is used. If set to 
-                                    None, first uvdata module will be attempted 
-                                    but if it fails then the in-house UVFITS 
+                     'method'       [string] specifies method to be used in
+                                    saving in UVFITS format. Accepted values are
+                                    'uvdata', 'uvfits' or None (default). If set
+                                    to 'uvdata', the UVFITS writer in uvdata
+                                    module is used. If set to 'uvfits', the
+                                    in-house UVFITS writer is used. If set to
+                                    None, first uvdata module will be attempted
+                                    but if it fails then the in-house UVFITS
                                     writer will be tried.
 
         verbose      [boolean] If True (default), prints diagnostic and progress
@@ -6434,19 +8432,19 @@ class InterferometerArray(object):
             filename = outfile + '.' + fmt.lower()
 
         if verbose:
-            print '\nSaving information about interferometer...'
+            print('\nSaving information about interferometer...')
 
         if fmt.lower() == 'fits':
             use_ascii = False
             if tabtype == 'TableHDU':
                 use_ascii = True
-    
+
             hdulist = []
-    
+
             hdulist += [fits.PrimaryHDU()]
             hdulist[0].header['latitude'] = (self.latitude, 'Latitude of interferometer')
-            hdulist[0].header['longitude'] = (self.longitude, 'Longitude of interferometer')        
-            hdulist[0].header['altitude'] = (self.altitude, 'Altitude of interferometer')        
+            hdulist[0].header['longitude'] = (self.longitude, 'Longitude of interferometer')
+            hdulist[0].header['altitude'] = (self.altitude, 'Altitude of interferometer')
             hdulist[0].header['baseline_coords'] = (self.baseline_coords, 'Baseline coordinate system')
             hdulist[0].header['freq_resolution'] = (self.freq_resolution, 'Frequency Resolution (Hz)')
             hdulist[0].header['pointing_coords'] = (self.pointing_coords, 'Pointing coordinate system')
@@ -6466,58 +8464,58 @@ class InterferometerArray(object):
             hdulist[0].header['element_size'] = (self.telescope['size'], 'Antenna element size')
             hdulist[0].header['element_ocoords'] = (self.telescope['ocoords'], 'Antenna element orientation coordinates')
             hdulist[0].header['t_obs'] = (self.t_obs, 'Observing duration (s)')
-            hdulist[0].header['n_acc'] = (self.n_acc, 'Number of accumulations')        
+            hdulist[0].header['n_acc'] = (self.n_acc, 'Number of accumulations')
             hdulist[0].header['flux_unit'] = (self.flux_unit, 'Unit of flux density')
             hdulist[0].header['EXTNAME'] = 'PRIMARY'
-    
+
             if verbose:
-                print '\tCreated a primary HDU.'
-    
+                print('\tCreated a primary HDU.')
+
             hdulist += [fits.ImageHDU(self.telescope['orientation'], name='Antenna element orientation')]
             if verbose:
-                print '\tCreated an extension for antenna element orientation.'
-    
+                print('\tCreated an extension for antenna element orientation.')
+
             cols = []
-            if self.lst: 
+            if self.lst:
                 cols += [fits.Column(name='LST', format='D', array=NP.asarray(self.lst).ravel())]
                 cols += [fits.Column(name='pointing_longitude', format='D', array=self.pointing_center[:,0])]
                 cols += [fits.Column(name='pointing_latitude', format='D', array=self.pointing_center[:,1])]
                 cols += [fits.Column(name='phase_center_longitude', format='D', array=self.phase_center[:,0])]
                 cols += [fits.Column(name='phase_center_latitude', format='D', array=self.phase_center[:,1])]
-    
+
             columns = _astropy_columns(cols, tabtype=tabtype)
-    
+
             tbhdu = fits.new_table(columns)
             tbhdu.header.set('EXTNAME', 'POINTING AND PHASE CENTER INFO')
             hdulist += [tbhdu]
             if verbose:
-                print '\tCreated pointing and phase center information table.'
-    
+                print('\tCreated pointing and phase center information table.')
+
             label_lengths = [len(label[0]) for label in self.labels]
             maxlen = max(label_lengths)
             labels = NP.asarray(self.labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
             cols = []
             cols += [fits.Column(name='A1', format='{0:0d}A'.format(maxlen), array=labels['A1'])]
-            cols += [fits.Column(name='A2', format='{0:0d}A'.format(maxlen), array=labels['A2'])]        
+            cols += [fits.Column(name='A2', format='{0:0d}A'.format(maxlen), array=labels['A2'])]
             # cols += [fits.Column(name='labels', format='5A', array=NP.asarray(self.labels))]
-    
+
             columns = _astropy_columns(cols, tabtype=tabtype)
-    
+
             tbhdu = fits.new_table(columns)
             tbhdu.header.set('EXTNAME', 'LABELS')
             hdulist += [tbhdu]
             if verbose:
-                print '\tCreated extension table containing baseline labels.'
-    
+                print('\tCreated extension table containing baseline labels.')
+
             hdulist += [fits.ImageHDU(self.baselines, name='baselines')]
             if verbose:
-                print '\tCreated an extension for baseline vectors.'
-    
+                print('\tCreated an extension for baseline vectors.')
+
             if self.projected_baselines is not None:
                 hdulist += [fits.ImageHDU(self.projected_baselines, name='proj_baselines')]
                 if verbose:
-                    print '\tCreated an extension for projected baseline vectors.'
-    
+                    print('\tCreated an extension for projected baseline vectors.')
+
             if self.layout:
                 label_lengths = [len(label) for label in self.layout['labels']]
                 maxlen = max(label_lengths)
@@ -6533,30 +8531,30 @@ class InterferometerArray(object):
 
             hdulist += [fits.ImageHDU(self.A_eff, name='Effective area')]
             if verbose:
-                print '\tCreated an extension for effective area.'
-    
+                print('\tCreated an extension for effective area.')
+
             hdulist += [fits.ImageHDU(self.eff_Q, name='Interferometer efficiency')]
             if verbose:
-                print '\tCreated an extension for interferometer efficiency.'
-    
+                print('\tCreated an extension for interferometer efficiency.')
+
             cols = []
             cols += [fits.Column(name='frequency', format='D', array=self.channels)]
             if self.lags is not None:
                 cols += [fits.Column(name='lag', format='D', array=self.lags)]
-    
+
             columns = _astropy_columns(cols, tabtype=tabtype)
-    
+
             tbhdu = fits.new_table(columns)
             tbhdu.header.set('EXTNAME', 'SPECTRAL INFO')
             hdulist += [tbhdu]
             if verbose:
-                print '\tCreated spectral information table.'
-    
+                print('\tCreated spectral information table.')
+
             if self.t_acc:
                 hdulist += [fits.ImageHDU(self.t_acc, name='t_acc')]
                 if verbose:
-                    print '\tCreated an extension for accumulation times.'
-    
+                    print('\tCreated an extension for accumulation times.')
+
             cols = []
             if isinstance(self.timestamp[0], str):
                 cols += [fits.Column(name='timestamps', format='24A', array=NP.asarray(self.timestamp))]
@@ -6564,15 +8562,15 @@ class InterferometerArray(object):
                 cols += [fits.Column(name='timestamps', format='D', array=NP.asarray(self.timestamp))]
             else:
                 raise TypeError('Invalid data type for timestamps')
-    
+
             columns = _astropy_columns(cols, tabtype=tabtype)
-    
+
             tbhdu = fits.new_table(columns)
             tbhdu.header.set('EXTNAME', 'TIMESTAMPS')
             hdulist += [tbhdu]
             if verbose:
-                print '\tCreated extension table containing timestamps.'
-    
+                print('\tCreated extension table containing timestamps.')
+
             if self.Tsysinfo:
                 cols = []
                 cols += [fits.Column(name='Trx', format='D', array=NP.asarray([elem['Trx'] for elem in self.Tsysinfo], dtype=NP.float))]
@@ -6583,76 +8581,76 @@ class InterferometerArray(object):
                 tbhdu = fits.new_table(columns)
                 tbhdu.header.set('EXTNAME', 'TSYSINFO')
                 hdulist += [tbhdu]
-    
+
             hdulist += [fits.ImageHDU(self.Tsys, name='Tsys')]
             if verbose:
-                print '\tCreated an extension for Tsys.'
-            
+                print('\tCreated an extension for Tsys.')
+
             if self.vis_rms_freq is not None:
                 hdulist += [fits.ImageHDU(self.vis_rms_freq, name='freq_channel_noise_rms_visibility')]
                 if verbose:
-                    print '\tCreated an extension for simulated visibility noise rms per channel.'
-            
+                    print('\tCreated an extension for simulated visibility noise rms per channel.')
+
             if self.vis_freq is not None:
                 hdulist += [fits.ImageHDU(self.vis_freq.real, name='real_freq_obs_visibility')]
                 hdulist += [fits.ImageHDU(self.vis_freq.imag, name='imag_freq_obs_visibility')]
                 if verbose:
-                    print '\tCreated extensions for real and imaginary parts of observed visibility frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_freq.shape)
-    
+                    print('\tCreated extensions for real and imaginary parts of observed visibility frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_freq.shape))
+
             if self.skyvis_freq is not None:
                 hdulist += [fits.ImageHDU(self.skyvis_freq.real, name='real_freq_sky_visibility')]
                 hdulist += [fits.ImageHDU(self.skyvis_freq.imag, name='imag_freq_sky_visibility')]
                 if verbose:
-                    print '\tCreated extensions for real and imaginary parts of noiseless sky visibility frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.skyvis_freq.shape)
-    
+                    print('\tCreated extensions for real and imaginary parts of noiseless sky visibility frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.skyvis_freq.shape))
+
             if self.vis_noise_freq is not None:
                 hdulist += [fits.ImageHDU(self.vis_noise_freq.real, name='real_freq_noise_visibility')]
                 hdulist += [fits.ImageHDU(self.vis_noise_freq.imag, name='imag_freq_noise_visibility')]
                 if verbose:
-                    print '\tCreated extensions for real and imaginary parts of visibility noise frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_noise_freq.shape)
-    
+                    print('\tCreated extensions for real and imaginary parts of visibility noise frequency spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_noise_freq.shape))
+
             if self.gradient_mode is not None:
                 for gradkey in self.gradient:
                     hdulist += [fits.ImageHDU(self.gradient[gradkey].real, name='real_freq_sky_visibility_gradient_wrt_{0}'.format(gradkey))]
                     hdulist += [fits.ImageHDU(self.gradient[gradkey].imag, name='imag_freq_sky_visibility_gradient_wrt_{0}'.format(gradkey))]
                     if verbose:
-                        print '\tCreated extensions for real and imaginary parts of gradient of sky visibility frequency spectrum wrt {0} of size {1[0]} x {1[1]} x {1[2]} x {1[3]}'.format(gradkey, self.gradient[gradkey].shape)
+                        print('\tCreated extensions for real and imaginary parts of gradient of sky visibility frequency spectrum wrt {0} of size {1[0]} x {1[1]} x {1[2]} x {1[3]}'.format(gradkey, self.gradient[gradkey].shape))
 
             hdulist += [fits.ImageHDU(self.bp, name='bandpass')]
             if verbose:
-                print '\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape)
-    
+                print('\tCreated an extension for bandpass functions of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp.shape))
+
             hdulist += [fits.ImageHDU(self.bp_wts, name='bandpass_weights')]
             if verbose:
-                print '\tCreated an extension for bandpass weights of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp_wts.shape)
-    
+                print('\tCreated an extension for bandpass weights of size {0[0]} x {0[1]} x {0[2]} as a function of baseline,  frequency, and snapshot instance'.format(self.bp_wts.shape))
+
             # hdulist += [fits.ImageHDU(self.lag_kernel.real, name='lag_kernel_real')]
             # hdulist += [fits.ImageHDU(self.lag_kernel.imag, name='lag_kernel_imag')]
             # if verbose:
-            #     print '\tCreated an extension for impulse response of frequency bandpass shape of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.lag_kernel.shape)
-    
+            #     print('\tCreated an extension for impulse response of frequency bandpass shape of size {0[0]} x {0[1]} x {0[2]} as a function of baseline, lags, and snapshot instance'.format(self.lag_kernel.shape))
+
             if self.vis_lag is not None:
                 hdulist += [fits.ImageHDU(self.vis_lag.real, name='real_lag_visibility')]
                 hdulist += [fits.ImageHDU(self.vis_lag.imag, name='imag_lag_visibility')]
                 if verbose:
-                    print '\tCreated extensions for real and imaginary parts of observed visibility delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_lag.shape)
-    
+                    print('\tCreated extensions for real and imaginary parts of observed visibility delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_lag.shape))
+
             if self.skyvis_lag is not None:
                 hdulist += [fits.ImageHDU(self.skyvis_lag.real, name='real_lag_sky_visibility')]
                 hdulist += [fits.ImageHDU(self.skyvis_lag.imag, name='imag_lag_sky_visibility')]
                 if verbose:
-                    print '\tCreated extensions for real and imaginary parts of noiseless sky visibility delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.skyvis_lag.shape)
-    
+                    print('\tCreated extensions for real and imaginary parts of noiseless sky visibility delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.skyvis_lag.shape))
+
             if self.vis_noise_lag is not None:
                 hdulist += [fits.ImageHDU(self.vis_noise_lag.real, name='real_lag_noise_visibility')]
                 hdulist += [fits.ImageHDU(self.vis_noise_lag.imag, name='imag_lag_noise_visibility')]
                 if verbose:
-                    print '\tCreated extensions for real and imaginary parts of visibility noise delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_noise_lag.shape)
-    
+                    print('\tCreated extensions for real and imaginary parts of visibility noise delay spectrum of size {0[0]} x {0[1]} x {0[2]}'.format(self.vis_noise_lag.shape))
+
             if verbose:
-                print '\tNow writing FITS file to disk...'
+                print('\tNow writing FITS file to disk...')
             hdu = fits.HDUList(hdulist)
-            hdu.writeto(filename, clobber=overwrite)
+            hdu.writeto(filename, overwrite=overwrite)
             if self.gaininfo is not None:
                 self.gaininfo.write_gaintable(outfile+'.gains.hdf5')
 
@@ -6719,15 +8717,20 @@ class InterferometerArray(object):
                 sky_group['pointing_center'] = self.pointing_center
                 sky_group['phase_center'] = self.phase_center
                 array_group = fileobj.create_group('array')
-                label_lengths = [len(label[0]) for label in self.labels]
-                maxlen = max(label_lengths)
-                labels = NP.asarray(self.labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
+                # label_lengths = [len(label[0]) for label in self.labels]
+                # maxlen = max(label_lengths)
+                # labels = NP.asarray(self.labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
+                if isinstance(self.labels, list):
+                    str_dtype = str(NP.asarray(self.labels).dtype)
+                elif isinstance(self.labels, NP.ndarray):
+                    str_dtype = str(NP.asarray(self.labels.tolist()).dtype)
+                labels = NP.asarray(self.labels, dtype=[('A2', str_dtype), ('A1', str_dtype)])
                 array_group['labels'] = labels
                 array_group['baselines'] = self.baselines
                 array_group['baseline_coords'] = self.baseline_coords
                 array_group['baselines'].attrs['coords'] = 'local-ENU'
                 array_group['baselines'].attrs['units'] = 'm'
-                array_group['projected_baselines'] = self.baselines
+                array_group['projected_baselines'] = self.projected_baselines
                 array_group['baselines'].attrs['coords'] = 'eq-XYZ'
                 array_group['baselines'].attrs['units'] = 'm'
                 instr_group = fileobj.create_group('instrument')
@@ -6742,6 +8745,8 @@ class InterferometerArray(object):
                     instr_group['Trx'].attrs['units'] = 'K'
                     instr_group['Tant0'].attrs['units'] = 'K'
                     instr_group['f0'].attrs['units'] = 'Hz'
+                    instr_group['Tnet'] = NP.asarray([elem['Tnet'] if elem['Tnet'] is not None else -999 for elem in self.Tsysinfo], dtype=NP.float)
+                    instr_group['Tnet'].attrs['units'] = 'K'
                 instr_group['Tsys'] = self.Tsys
                 instr_group['Tsys'].attrs['units'] = 'K'
                 vis_group = fileobj.create_group('visibilities')
@@ -6776,9 +8781,17 @@ class InterferometerArray(object):
                     gains_group = fileobj.create_group('gaininfo')
                     gains_group['gainsfile'] = outfile+'.gains.hdf5'
                     self.gaininfo.write_gaintable(gains_group['gainsfile'].value)
-                                    
+                if self.blgroups is not None:
+                    blinfo = fileobj.create_group('blgroupinfo')
+                    blgrp = blinfo.create_group('groups')
+                    for blkey in self.blgroups:
+                        blgrp[str(blkey)] = self.blgroups[blkey]
+                    revmap = blinfo.create_group('reversemap')
+                    for blkey in self.bl_reversemap:
+                        revmap[str(blkey)] = self.bl_reversemap[blkey]
+                    
         if verbose:
-            print '\tInterferometer array information written successfully to file on disk:\n\t\t{0}\n'.format(filename)
+            print('\tInterferometer array information written successfully to file on disk:\n\t\t{0}\n'.format(filename))
 
         if npz:
             if (self.vis_freq is not None) and (self.vis_noise_freq is not None):
@@ -6786,91 +8799,128 @@ class InterferometerArray(object):
             else:
                 NP.savez_compressed(outfile+'.npz', skyvis_freq=self.skyvis_freq, lst=self.lst, freq=self.channels, timestamp=self.timestamp, bl=self.baselines, bl_length=self.baseline_lengths)
             if verbose:
-                print '\tInterferometer array information written successfully to NPZ file on disk:\n\t\t{0}\n'.format(outfile+'.npz')
+                print('\tInterferometer array information written successfully to NPZ file on disk:\n\t\t{0}\n'.format(outfile+'.npz'))
 
         if uvfits_parms is not None:
             self.write_uvfits(outfile, uvfits_parms=uvfits_parms, overwrite=overwrite, verbose=verbose)
 
     #############################################################################
 
-    def write_uvfits(self, outfile, uvfits_parms=None, overwrite=False, 
-                     verbose=True):
+    def pyuvdata_write(self, outfile, formats=None, uvfits_parms=None, 
+                       datapool=None, overwrite=False, verbose=True):
 
         """
         -------------------------------------------------------------------------
-        Saves the interferometer array information to disk in UVFITS format 
+        Saves the interferometer array information to disk in various formats 
+        through pyuvdata module
 
         Inputs:
 
-        outfile      [string] Filename with full path to be saved to. Three 
-                     UVFITS files will also be created whose names will be 
-                     outfile+'-noiseless', outfile+'-noisy' and 
+        outfile      [string] Filename with full path to be saved to. Three
+                     UVFITS files will also be created whose names will be
+                     outfile+'-noiseless', outfile+'-noisy' and
                      'outfile+'-noise' appended with '.uvfits'
 
         Keyword Input(s):
 
-        uvfits_parms [dictionary] specifies basic parameters required for 
-                     saving in UVFITS format. If set to None (default), the
-                     data will not be saved in UVFITS format. To save in UVFITS 
-                     format, the following keys and values are required:
-                     'ref_point'    [dictionary] Contains information about the 
-                                    reference position to which projected 
-                                    baselines and rotated visibilities are to 
-                                    be computed. Default=None (no additional 
-                                    phasing will be performed). It must be 
-                                    contain the following keys with the 
-                                    following values:
-                                    'coords'    [string] Refers to the 
-                                                coordinate system in which value 
-                                                in key 'location' is specified 
-                                                in. Accepted values are 'radec', 
-                                                'hadec', 'altaz' and 'dircos'
-                                    'location'  [numpy array] Must be a Mx2 (if 
-                                                value in key 'coords' is set to 
-                                                'radec', 'hadec', 'altaz' or 
-                                                'dircos') or Mx3 (if value in 
-                                                key 'coords' is set to 
-                                                'dircos'). M can be 1 or equal 
-                                                to number of timestamps. If M=1, 
-                                                the same reference point in the 
-                                                same coordinate system will be 
-                                                repeated for all tiemstamps. If 
-                                                value under key 'coords' is set 
-                                                to 'radec', 'hadec' or 'altaz', 
-                                                the value under this key 
-                                                'location' must be in units of 
-                                                degrees.
-                     'method'       [string] specifies method to be used in 
-                                    saving in UVFITS format. Accepted values are 
-                                    'uvdata', 'uvfits' or None (default). If set 
-                                    to 'uvdata', the UVFITS writer in uvdata 
-                                    module is used. If set to 'uvfits', the 
-                                    in-house UVFITS writer is used. If set to 
-                                    None, first uvdata module will be attempted 
-                                    but if it fails then the in-house UVFITS 
-                                    writer will be tried.
+        formats     [list] List of formats for the data to be written in.
+                    Accepted values include 'uvfits', and 'uvh5'. If 'uvfits'
+                    is included in this list, then uvfits_parms must be 
+                    provided.
 
-        overwrite    [boolean] True indicates overwrite even if a file already 
-                     exists. Default = False (does not overwrite). Beware this 
+        uvfits_parms 
+                    [dictionary] specifies basic parameters required for
+                    saving in UVFITS format. This will be used only if the 
+                    keyword input formats includes 'uvfits'. If set to None 
+                    (default), the data will not be saved in UVFITS format. 
+                    To save in UVFITS format, the following keys and 
+                    values are required:
+                    'ref_point'    [dictionary] Contains information about the
+                                   reference position to which projected
+                                   baselines and rotated visibilities are to
+                                   be computed. Default=None (no additional
+                                   phasing will be performed). It must be
+                                   contain the following keys with the
+                                   following values:
+                                   'coords'    [string] Refers to the
+                                               coordinate system in which value
+                                               in key 'location' is specified
+                                               in. Accepted values are 'radec',
+                                               'hadec', 'altaz' and 'dircos'
+                                   'location'  [numpy array] Must be a Mx2 (if
+                                               value in key 'coords' is set to
+                                               'radec', 'hadec', 'altaz' or
+                                               'dircos') or Mx3 (if value in
+                                               key 'coords' is set to
+                                               'dircos'). M can be 1 or equal
+                                               to number of timestamps. If M=1,
+                                               the same reference point in the
+                                               same coordinate system will be
+                                               repeated for all tiemstamps. If
+                                               value under key 'coords' is set
+                                               to 'radec', 'hadec' or 'altaz',
+                                               the value under this key
+                                               'location' must be in units of
+                                               degrees.
+                    'method'       [string] specifies method to be used in
+                                   saving in UVFITS format. Accepted values are
+                                   'uvdata', 'uvfits' or None (default). If set
+                                   to 'uvdata', the UVFITS writer in uvdata
+                                   module is used. If set to 'uvfits', the
+                                   in-house UVFITS writer is used. If set to
+                                   None, first uvdata module will be attempted
+                                   but if it fails then the in-house UVFITS
+                                   writer will be tried.
+
+        'datapool'   [NoneType or list] Indicates which portion of the data 
+                     is to be written to the external file. If set to None 
+                     (default), all of skyvis_freq, vis_freq, and 
+                     vis_noise_freq attributes will be written. Otherwise, 
+                     accepted values are a list of strings that can include 
+                     'noiseless' (skyvis_freq attribute), 'noisy' (vis_freq 
+                     attribute), and 'noise' (vis_nosie_freq attribute). 
+
+        overwrite    [boolean] True indicates overwrite even if a file already
+                     exists. Default = False (does not overwrite). Beware this
                      may not work reliably if uvfits_method is set to None or
                      'uvdata' and hence always better to make sure the output
                      file does not exist already
-                     
+
         verbose      [boolean] If True (default), prints diagnostic and progress
                      messages. If False, suppress printing such messages.
         -------------------------------------------------------------------------
         """
-                
-        if uvfits_parms is not None:
-            if not isinstance(uvfits_parms, dict):
-                raise TypeError('Input uvfits_parms must be a dictionary')
-            if 'ref_point' not in uvfits_parms:
-                uvfits_parms['ref_point'] = None
-            if 'method' not in uvfits_parms:
-                uvfits_parms['method'] = None
-            dataobj = InterferometerData(self, ref_point=uvfits_parms['ref_point'])
+
+        if datapool is None:
+            datapool = ['noiseless', 'noisy', 'noise']
+        if not isinstance(datapool, list):
+            raise TypeError('Keyword input datapool must be a list')
+        else:
+            datapool_list = [dpool.lower() for dpool in datapool if (isinstance(dpool, str) and dpool.lower() in ['noiseless', 'noise', 'noisy'])]
+            if len(datapool_list) == 0:
+                raise ValueError('No valid datapool string found in input datapool')
+            datapool = datapool_list
+        
+        for format in formats:
+            if format.lower() == 'uvh5':
+                dataobj = InterferometerData(self, ref_point=None, datakeys=datapool)
+                uvfits_method = None
+            if format.lower() == 'uvfits':
+                if uvfits_parms is not None:
+                    if not isinstance(uvfits_parms, dict):
+                        raise TypeError('Input uvfits_parms must be a dictionary')
+                    if 'ref_point' not in uvfits_parms:
+                        uvfits_parms['ref_point'] = None
+                    if 'method' not in uvfits_parms:
+                        uvfits_parms['method'] = None
+                else:
+                    uvfits_parms = {'ref_point': None, 'method': None}
+                uvfits_method = uvfits_parms['method']
+                dataobj = InterferometerData(self, ref_point=uvfits_parms['ref_point'], datakeys=datapool)
+            filextn = format.lower()
             for datakey in dataobj.infodict['data_array']:
-                dataobj.write(outfile+'-{0}.uvfits'.format(datakey), datatype=datakey, fmt='UVFITS', uvfits_method=uvfits_parms['method'], overwrite=overwrite)
+                if dataobj.infodict['data_array'][datakey] is not None:
+                    dataobj.write(outfile+'-{0}.{1}'.format(datakey, filextn), datatype=datakey, fmt=format.upper(), uvfits_method=uvfits_method, overwrite=overwrite)
 
 #################################################################################
 
@@ -6878,13 +8928,13 @@ class ApertureSynthesis(object):
 
     """
     ----------------------------------------------------------------------------
-    Class to manage aperture synthesis of visibility measurements of a 
-    multi-element interferometer array. 
+    Class to manage aperture synthesis of visibility measurements of a
+    multi-element interferometer array.
 
     Attributes:
 
     ia          [instance of class InterferometerArray] Instance of class
-                InterferometerArray created at the time of instantiating an 
+                InterferometerArray created at the time of instantiating an
                 object of class ApertureSynthesis
 
     baselines:  [M x 3 Numpy array] The baseline vectors associated with the
@@ -6895,48 +8945,48 @@ class ApertureSynthesis(object):
                 M interferometers in SI units. The coordinate system of these
                 vectors is X, Y, Z in equatorial coordinates
 
-    uvw_lambda  [M x 3 x Nt numpy array] Baseline vectors phased to the phase 
-                center of each accummulation. M is the number of baselines, Nt 
-                is the number of accumulations and 3 denotes U, V and W 
+    uvw_lambda  [M x 3 x Nt numpy array] Baseline vectors phased to the phase
+                center of each accummulation. M is the number of baselines, Nt
+                is the number of accumulations and 3 denotes U, V and W
                 components. This is in units of physical distance (usually in m)
 
-    uvw         [M x 3 x Nch x Nt numpy array] Baseline vectors phased to the 
-                phase center of each accummulation at each frequency. M is the 
+    uvw         [M x 3 x Nch x Nt numpy array] Baseline vectors phased to the
+                phase center of each accummulation at each frequency. M is the
                 number of baselines, Nt is the number of accumulations, Nch is
-                the number of frequency channels, and 3 denotes U, V and W 
-                components. This is uvw_lambda / wavelength and in units of 
+                the number of frequency channels, and 3 denotes U, V and W
+                components. This is uvw_lambda / wavelength and in units of
                 number of wavelengths
 
-    blc         [numpy array] 3-element numpy array specifying bottom left 
-                corner of the grid coincident with bottom left interferometer 
+    blc         [numpy array] 3-element numpy array specifying bottom left
+                corner of the grid coincident with bottom left interferometer
                 location in UVW coordinate system (same units as uvw)
 
-    trc         [numpy array] 3-element numpy array specifying top right 
-                corner of the grid coincident with top right interferometer 
+    trc         [numpy array] 3-element numpy array specifying top right
+                corner of the grid coincident with top right interferometer
                 location in UVW coordinate system (same units as uvw)
 
-    grid_blc    [numpy array] 3-element numpy array specifying bottom left 
-                corner of the grid in UVW coordinate system including any 
+    grid_blc    [numpy array] 3-element numpy array specifying bottom left
+                corner of the grid in UVW coordinate system including any
                 padding used (same units as uvw)
 
-    grid_trc    [numpy array] 2-element numpy array specifying top right 
-                corner of the grid in UVW coordinate system including any 
+    grid_trc    [numpy array] 2-element numpy array specifying top right
+                corner of the grid in UVW coordinate system including any
                 padding used (same units as uvw)
 
     gridu       [numpy array] 3-dimensional numpy meshgrid array specifying
-                grid u-locations in units of uvw in the UVW coordinate system 
+                grid u-locations in units of uvw in the UVW coordinate system
                 whose corners are specified by attributes grid_blc and grid_trc
 
     gridv       [numpy array] 3-dimensional numpy meshgrid array specifying
-                grid v-locations in units of uvw in the UVW coordinate system 
+                grid v-locations in units of uvw in the UVW coordinate system
                 whose corners are specified by attributes grid_blc and grid_trc
 
     gridw       [numpy array] 3-dimensional numpy meshgrid array specifying
-                grid w-locations in units of uvw in the UVW coordinate system 
+                grid w-locations in units of uvw in the UVW coordinate system
                 whose corners are specified by attributes grid_blc and grid_trc
 
     grid_ready  [boolean] set to True if the gridding has been performed,
-                False if grid is not available yet. Set to False in case 
+                False if grid is not available yet. Set to False in case
                 blc, trc, grid_blc or grid_trc is updated indicating gridding
                 is to be perfomed again
 
@@ -6952,45 +9002,45 @@ class ApertureSynthesis(object):
     n_acc       [scalar] Number of accumulations
 
     pointing_center
-                [2-column numpy array] Pointing center (latitude and 
-                longitude) of the observation at a given timestamp. This is 
-                where the telescopes will be phased up to as reference. 
-                Coordinate system for the pointing_center is specified by another 
+                [2-column numpy array] Pointing center (latitude and
+                longitude) of the observation at a given timestamp. This is
+                where the telescopes will be phased up to as reference.
+                Coordinate system for the pointing_center is specified by another
                 attribute pointing_coords.
 
     phase_center
-                [2-column numpy array] Phase center (latitude and 
-                longitude) of the observation at a given timestamp. This is 
-                where the telescopes will be phased up to as reference. 
-                Coordinate system for the phase_center is specified by another 
+                [2-column numpy array] Phase center (latitude and
+                longitude) of the observation at a given timestamp. This is
+                where the telescopes will be phased up to as reference.
+                Coordinate system for the phase_center is specified by another
                 attribute phase_center_coords.
 
     pointing_coords
-                [string] Coordinate system for telescope pointing. Accepted 
-                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz' 
+                [string] Coordinate system for telescope pointing. Accepted
+                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz'
                 (Altitude-Azimuth). Default = 'hadec'.
 
     phase_center_coords
-                [string] Coordinate system for array phase center. Accepted 
-                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz' 
+                [string] Coordinate system for array phase center. Accepted
+                values are 'radec' (RA-Dec), 'hadec' (HA-Dec) or 'altaz'
                 (Altitude-Azimuth). Default = 'hadec'.
 
     timestamp   [list] List of timestamps during the observation
 
     Member functions:
 
-    __init__()      Initialize an instance of class ApertureSynthesis which 
-                    manages information on a aperture synthesis with an 
+    __init__()      Initialize an instance of class ApertureSynthesis which
+                    manages information on a aperture synthesis with an
                     interferometer array.
 
-    genUVW()        Generate U, V, W (in units of number of wavelengths) by 
-                    phasing the baseline vectors to the phase centers of each 
+    genUVW()        Generate U, V, W (in units of number of wavelengths) by
+                    phasing the baseline vectors to the phase centers of each
                     pointing at all frequencies
 
-    reorderUVW()    Reorder U, V, W (in units of number of wavelengths) of shape 
+    reorderUVW()    Reorder U, V, W (in units of number of wavelengths) of shape
                     nbl x 3 x nchan x n_acc to 3 x (nbl x nchan x n_acc)
 
-    setUVWgrid()    Set up U, V, W grid (in units of number of wavelengths) 
+    setUVWgrid()    Set up U, V, W grid (in units of number of wavelengths)
                     based on the synthesized U, V, W
     ----------------------------------------------------------------------------
     """
@@ -6999,7 +9049,7 @@ class ApertureSynthesis(object):
 
         """
         ------------------------------------------------------------------------
-        Intialize the ApertureSynthesis class which manages information on a 
+        Intialize the ApertureSynthesis class which manages information on a
         aperture synthesis with an interferometer array.
 
         Class attributes initialized are:
@@ -7013,9 +9063,9 @@ class ApertureSynthesis(object):
 
         Keyword input(s):
 
-        interferometer_array    
+        interferometer_array
                      [instance of class InterferometerArray] Instance of class
-                     InterferometerArray used to initialize an instance of 
+                     InterferometerArray used to initialize an instance of
                      class ApertureSynthesis
         ------------------------------------------------------------------------
         """
@@ -7055,8 +9105,8 @@ class ApertureSynthesis(object):
 
         """
         ------------------------------------------------------------------------
-        Generate U, V, W (in units of number of wavelengths) by phasing the 
-        baseline vectors to the phase centers of each pointing at all 
+        Generate U, V, W (in units of number of wavelengths) by phasing the
+        baseline vectors to the phase centers of each pointing at all
         frequencies
         ------------------------------------------------------------------------
         """
@@ -7080,14 +9130,14 @@ class ApertureSynthesis(object):
         self.uvw_lambda = NP.tensordot(self.blxyz, rotmat, axes=[1,1])
         wl = FCNST.c / self.f
         self.uvw = self.uvw_lambda[:,:,NP.newaxis,:] / wl.reshape(1,1,-1,1)
-        
+
     #############################################################################
 
     def reorderUVW(self):
 
         """
         ------------------------------------------------------------------------
-        Reorder U, V, W (in units of number of wavelengths) of shape 
+        Reorder U, V, W (in units of number of wavelengths) of shape
         nbl x 3 x nchan x n_acc to 3 x (nbl x nchan x n_acc)
         ------------------------------------------------------------------------
         """
@@ -7097,34 +9147,34 @@ class ApertureSynthesis(object):
         return reorderedUVW
 
     #############################################################################
-    
+
     def setUVWgrid(self, spacing=0.5, pad=None, pow2=True):
-        
+
         """
         ------------------------------------------------------------------------
-        Routine to produce a grid based on the UVW spacings of the 
-        interferometer array 
+        Routine to produce a grid based on the UVW spacings of the
+        interferometer array
 
         Inputs:
 
-        spacing     [Scalar] Positive value indicating the upper limit on grid 
-                    spacing in uvw-coordinates desirable at the lowest 
+        spacing     [Scalar] Positive value indicating the upper limit on grid
+                    spacing in uvw-coordinates desirable at the lowest
                     wavelength (max frequency). Default = 0.5
 
-        pad         [List] Padding to be applied around the locations 
-                    before forming a grid. List elements should be positive. If 
-                    it is a one-element list, the element is applicable to all 
-                    x, y and z axes. If list contains four or more elements, 
-                    only the first three elements are considered one for each 
+        pad         [List] Padding to be applied around the locations
+                    before forming a grid. List elements should be positive. If
+                    it is a one-element list, the element is applicable to all
+                    x, y and z axes. If list contains four or more elements,
+                    only the first three elements are considered one for each
                     axis. Default = None (no padding).
 
-        pow2        [Boolean] If set to True, the grid is forced to have a size 
-                    a next power of 2 relative to the actual size required. If 
-                    False, gridding is done with the appropriate size as 
+        pow2        [Boolean] If set to True, the grid is forced to have a size
+                    a next power of 2 relative to the actual size required. If
+                    False, gridding is done with the appropriate size as
                     determined by spacing. Default = True.
         ------------------------------------------------------------------------
         """
-        
+
         if self.uvw is None:
             self.genUVW()
 
@@ -7134,7 +9184,7 @@ class ApertureSynthesis(object):
 
         self.trc = NP.amax(NP.abs(NP.vstack((blc, trc))), axis=0)
         self.blc = -1 * self.trc
-        
+
         self.gridu, self.gridv, self.gridw = GRD.grid_3d([(self.blc[0], self.trc[0]), (self.blc[1], self.trc[1]), (self.blc[2], self.trc[2])], pad=pad, spacing=spacing, pow2=True)
 
         self.grid_blc = NP.asarray([self.gridu.min(), self.gridv.min(), self.gridw.min()])
@@ -7147,12 +9197,12 @@ class InterferometerData(object):
 
     """
     ----------------------------------------------------------------------------
-    Class to act as an interface between PRISim object and external data 
-    formats. 
+    Class to act as an interface between PRISim object and external data
+    formats.
 
     Attributes:
 
-    infodict    [dictionary] Dictionary consisting of many attributes loaded 
+    infodict    [dictionary] Dictionary consisting of many attributes loaded
                 from the PRISim object. This will be used to convert to info
                 required in external data formats
 
@@ -7163,12 +9213,12 @@ class InterferometerData(object):
     createUVData()
                 Create an instance of class UVData
 
-    write()     Write an instance of class InterferometerData into specified 
+    write()     Write an instance of class InterferometerData into specified
                 formats. Currently writes in UVFITS format
     ----------------------------------------------------------------------------
     """
 
-    def __init__(self, prisim_object, ref_point=None):
+    def __init__(self, prisim_object, ref_point=None, datakeys=None):
 
         """
         ------------------------------------------------------------------------
@@ -7179,30 +9229,38 @@ class InterferometerData(object):
 
         Inputs:
 
-        prisim_object   
-                    [instance of class InterferometerArray] Instance of 
-                    class InterferometerArray used to initialize an 
+        prisim_object
+                    [instance of class InterferometerArray] Instance of
+                    class InterferometerArray used to initialize an
                     instance of class InterferometerData.
 
-        ref_point   [dictionary] Contains information about the reference 
-                    position to which projected baselines and rotated 
+        ref_point   [dictionary] Contains information about the reference
+                    position to which projected baselines and rotated
                     visibilities are to be computed. Default=None (no additional
-                    phasing will be performed). It must be contain the following 
+                    phasing will be performed). It must be contain the following
                     keys with the following values:
                     'coords'    [string] Refers to the coordinate system in
-                                which value in key 'location' is specified in. 
+                                which value in key 'location' is specified in.
                                 Accepted values are 'radec', 'hadec', 'altaz'
                                 and 'dircos'
-                    'location'  [numpy array] Must be a Mx2 (if value in key 
+                    'location'  [numpy array] Must be a Mx2 (if value in key
                                 'coords' is set to 'radec', 'hadec', 'altaz' or
-                                'dircos') or Mx3 (if value in key 'coords' is 
+                                'dircos') or Mx3 (if value in key 'coords' is
                                 set to 'dircos'). M can be 1 or equal to number
                                 of timestamps. If M=1, the same reference point
-                                in the same coordinate system will be repeated 
+                                in the same coordinate system will be repeated
                                 for all tiemstamps. If value under key 'coords'
-                                is set to 'radec', 'hadec' or 'altaz', the 
-                                value under this key 'location' must be in 
+                                is set to 'radec', 'hadec' or 'altaz', the
+                                value under this key 'location' must be in
                                 units of degrees.
+
+        datakeys       [NoneType or list] Indicates which portion of the data 
+                       is to be written to the UVFITS file. If set to None 
+                       (default), all of skyvis_freq, vis_freq, and 
+                       vis_noise_freq attributes will be written. Otherwise, 
+                       accepted values are a list of strings that can include 
+                       'noiseless' (skyvis_freq attribute), 'noisy' (vis_freq 
+                       attribute), and 'noise' (vis_nosie_freq attribute).
         ------------------------------------------------------------------------
         """
 
@@ -7214,8 +9272,18 @@ class InterferometerData(object):
             prisim_object.rotate_visibilities(ref_point)
         if not isinstance(prisim_object, InterferometerArray):
             raise TypeError('Inout prisim_object must be an instance of class InterferometerArray')
-        datatypes = ['noiseless', 'noisy', 'noise']
-        visibilities = {key: None for key in datatypes}
+        if datakeys is None:
+            datakeys = ['noiseless', 'noisy', 'noise']
+        if not isinstance(datakeys, list):
+            raise TypeError('Input datakeys must be a list')
+        else:
+            datapool_list = [dpool.lower() for dpool in datakeys if (isinstance(dpool, str) and dpool.lower() in ['noiseless', 'noise', 'noisy'])]
+            if len(datapool_list) == 0:
+                raise ValueError('No valid datapool string found in input uvfits_parms')
+            datakeys = datapool_list
+
+        # datatypes = ['noiseless', 'noisy', 'noise']
+        visibilities = {key: None for key in datakeys}
         for key in visibilities:
             # Conjugate visibilities for compatibility with UVFITS and CASA imager
             if key == 'noiseless':
@@ -7247,7 +9315,7 @@ class InterferometerData(object):
         self.infodict['time_array'] = time_array.ravel()
         lst_array = NP.radians(NP.asarray(prisim_object.lst).reshape(-1,1)) + NP.zeros(self.infodict['Nbls']).reshape(1,-1)
         self.infodict['lst_array'] = lst_array.ravel()
-        
+
         labels_A1 = prisim_object.labels['A1']
         labels_A2 = prisim_object.labels['A2']
         if prisim_object.layout:
@@ -7271,7 +9339,14 @@ class InterferometerData(object):
         self.infodict['baseline_array'] = 2048 * (self.infodict['ant_2_array'] + 1) + (self.infodict['ant_1_array'] + 1) + 2**16
         self.infodict['freq_array'] = prisim_object.channels.reshape(self.infodict['Nspws'],-1)
         self.infodict['polarization_array'] = NP.asarray([-5]).reshape(self.infodict['Npols']) # stokes 1:4 (I,Q,U,V); circular -1:-4 (RR,LL,RL,LR); linear -5:-8 (XX,YY,XY,YX)
-        self.infodict['integration_time'] = prisim_object.t_acc[0]
+        if uvdata_module_found:
+            if LooseVersion(pyuvdata.__version__)>=LooseVersion('1.3.2'):
+                self.infodict['integration_time'] = prisim_object.t_acc[0] + NP.zeros(self.infodict['Nblts']) # Replicate to be of shape (Nblts,) to be Baseline-Dependent-Averaging compliant with pyuvdata >= v1.3.2
+            else:
+                self.infodict['integration_time'] = prisim_object.t_acc[0]
+        else:
+            self.infodict['integration_time'] = prisim_object.t_acc[0] + NP.zeros(self.infodict['Nblts'])
+
         self.infodict['channel_width'] = prisim_object.freq_resolution
 
         # ----- Observation information ------
@@ -7329,7 +9404,7 @@ class InterferometerData(object):
         phase_centers = SkyCoord(ra=phase_center_radec[:,0], dec=phase_center_radec[:,1], frame='icrs', unit='deg')
         pointing_center_obscenter = pointing_centers[int(prisim_object.n_acc/2)]
         phase_center_obscenter = phase_centers[int(prisim_object.n_acc/2)]
-        
+
         self.infodict['object_name'] = 'J{0}{1}'.format(pointing_center_obscenter.ra.to_string(sep='', precision=2, pad=True), pointing_center_obscenter.dec.to_string(sep='', precision=2, alwayssign=True, pad=True))
         if 'id' not in prisim_object.telescope:
             self.infodict['telescope_name'] = 'custom'
@@ -7360,7 +9435,7 @@ class InterferometerData(object):
                 self.infodict['antenna_numbers'] = NP.asarray(list(set(prisim_object.labels['A1']) | set(prisim_object.labels['A2']))).astype(NP.int)
             except ValueError:
                 raise ValueError('Count not convert antenna labels to numbers')
-        
+
         # ----- Optional information ------
         self.infodict['dateobs'] = Time(prisim_object.timestamp[0], format='jd', scale='utc').iso
         self.infodict['phase_center_ra'] = NP.radians(phase_center_obscenter.ra.value)
@@ -7374,14 +9449,17 @@ class InterferometerData(object):
                     if prisim_object.layout['positions'].shape != (self.infodict['Nants_telescope'],3):
                         warnings.warn('Number of antennas in prisim_object found to be incompatible with number of unique antennas found. Proceeding with default values.')
                     else:
-                        self.infodict['antenna_positions'] = prisim_object.layout['positions']
-            
+                        x, y, z = GEOM.lla2ecef(*self.infodict['telescope_location'], units='degrees')
+                        telscp_loc = NP.asarray([x[0], y[0], z[0]])
+                        self.infodict['antenna_positions'] = GEOM.enu2ecef(prisim_object.layout['positions'], {'lat': prisim_object.latitude, 'lon': prisim_object.longitude, 'alt': prisim_object.altitude, 'units': 'degrees'}) - telscp_loc.reshape(1,-1)
+                        # self.infodict['antenna_positions'] = UVUtils.ECEF_from_ENU(prisim_object.layout['positions'], NP.radians(prisim_object.latitude), NP.radians(prisim_object.longitude), prisim_object.altitude) - telscp_loc.reshape(1,-1)
+
         self.infodict['gst0'] = 0.0
         self.infodict['rdate'] = ''
         self.infodict['earth_omega'] = 360.985
         self.infodict['dut1'] = 0.0
         self.infodict['timesys'] = 'UTC'
-        
+
     #############################################################################
 
     def createUVData(self, datatype='noiseless'):
@@ -7392,7 +9470,7 @@ class InterferometerData(object):
 
         Inputs:
 
-        datatype    [string] Specifies which visibilities are to be used in 
+        datatype    [string] Specifies which visibilities are to be used in
                     creating the UVData object. Accepted values are 'noiseless'
                     (default) for noiseless pure-sky visibilities, 'noisy' for
                     sky visibilities to which noise has been added, or 'noise'
@@ -7413,10 +9491,18 @@ class InterferometerData(object):
         if datatype not in ['noiseless', 'noisy', 'noise']:
             raise ValueError('Invalid input datatype specified')
 
-        attributes_of_uvdata = ['Ntimes', 'Nbls', 'Nblts', 'Nfreqs', 'Npols', 'Nspws', 'data_array', 'vis_units', 'nsample_array', 'flag_array', 'spw_array', 'uvw_array', 'time_array', 'lst_array', 'ant_1_array', 'ant_2_array', 'baseline_array', 'freq_array', 'polarization_array', 'integration_time', 'channel_width', 'object_name', 'telescope_name', 'instrument', 'telescope_location', 'history', 'phase_center_epoch', 'is_phased', 'Nants_data', 'Nants_telescope', 'antenna_names', 'antenna_numbers', 'dateobs', 'phase_center_ra', 'phase_center_dec']
+        attributes_of_uvdata = ['Ntimes', 'Nbls', 'Nblts', 'Nfreqs', 'Npols', 'Nspws', 'data_array', 'vis_units', 'nsample_array', 'flag_array', 'spw_array', 'uvw_array', 'time_array', 'lst_array', 'ant_1_array', 'ant_2_array', 'baseline_array', 'freq_array', 'polarization_array', 'integration_time', 'channel_width', 'object_name', 'telescope_name', 'instrument', 'telescope_location', 'history', 'phase_center_epoch', 'is_phased', 'phase_type', 'Nants_data', 'Nants_telescope', 'antenna_names', 'antenna_numbers', 'dateobs', 'phase_center_ra', 'phase_center_dec', 'antenna_positions']
         dataobj = UVData()
         for attrkey in attributes_of_uvdata:
-            if attrkey != 'data_array':
+            if attrkey == 'telescope_location':
+                x, y, z = GEOM.lla2ecef(*self.infodict[attrkey], units='degrees')
+                setattr(dataobj, attrkey, NP.asarray([x[0],y[0],z[0]]))
+            elif attrkey == 'phase_type':
+                if self.infodict['is_phased']:
+                    setattr(dataobj, attrkey, 'phased')
+                else:
+                    setattr(dataobj, attrkey, 'drift')
+            elif attrkey != 'data_array':
                 setattr(dataobj, attrkey, self.infodict[attrkey])
             else:
                 if datatype in self.infodict[attrkey]:
@@ -7430,7 +9516,7 @@ class InterferometerData(object):
         return dataobj
 
     #############################################################################
-    
+
     def _blnum_to_antnums(self, blnum):
         if self.infodict['Nants_telescope'] > 2048:
             raise StandardError('error Nants={Nants}>2048 not supported'.format(Nants=self.infodict['Nants_telescope']))
@@ -7443,7 +9529,7 @@ class InterferometerData(object):
         return NP.int32(i), NP.int32(j)
 
     #############################################################################
-    
+
     def _antnums_to_blnum(self, i, j, attempt256=False):
         # set the attempt256 keyword to True to (try to) use the older
         # 256 standard used in many uvfits files
@@ -7466,7 +9552,7 @@ class InterferometerData(object):
         return NP.int64(2048 * (j + 1) + (i + 1) + 2**16)
 
     #############################################################################
-    
+
     def write(self, outfile, datatype='noiseless', fmt='UVFITS',
               uvfits_method=None, overwrite=False):
 
@@ -7479,26 +9565,26 @@ class InterferometerData(object):
 
         outfile     [string] Filename into which data will be written
 
-        datatype    [string] Specifies which visibilities are to be used in 
+        datatype    [string] Specifies which visibilities are to be used in
                     creating the UVData object. Accepted values are 'noiseless'
                     (default) for noiseless pure-sky visibilities, 'noisy' for
                     sky visibilities to which noise has been added, or 'noise'
                     for pure noise visibilities.
 
         fmt         [string] Output file format. Currently accepted values are
-                    'UVFITS'
+                    'UVFITS' and 'UVH5'. Default='UVFITS'
 
         uvfits_method
-                    [string] Method using which UVFITS output is produced.
-                    Accepted values are 'uvdata', 'uvfits' or None (default).
-                    If set to 'uvdata', the UVFITS writer in uvdata module is
-                    used. If set to 'uvfits', the in-house UVFITS writer is
-                    used. If set to None, first uvdata module will be attempted
-                    but if it fails then the in-house UVFITS writer will be
-                    tried.
+                    [string] Method using which UVFITS output is produced. It 
+                    is only used if fmt is set to 'UVFITS'. Accepted values 
+                    are 'uvdata', 'uvfits' or None (default). If set to 
+                    'uvdata', the UVFITS writer in uvdata module is used. If 
+                    set to 'uvfits', the in-house UVFITS writer is used. If 
+                    set to None, first uvdata module will be attempted but if 
+                    it fails then the in-house UVFITS writer will be tried.
 
-        overwrite   [boolean] True indicates overwrite even if a file already 
-                    exists. Default = False (does not overwrite). Beware this 
+        overwrite   [boolean] True indicates overwrite even if a file already
+                    exists. Default = False (does not overwrite). Beware this
                     may not work reliably if uvfits_method is set to None or
                     'uvdata' and hence always better to make sure the output
                     file does not exist already
@@ -7516,16 +9602,18 @@ class InterferometerData(object):
         if datatype not in ['noiseless', 'noisy', 'noise']:
             raise ValueError('Invalid input datatype specified')
 
-        if fmt.lower() not in ['uvfits']:
+        if fmt.lower() not in ['uvfits', 'uvh5']:
             raise ValueError('Output format not supported')
 
+        uvdataobj = self.createUVData(datatype=datatype)
+        if fmt.lower() == 'uvh5':
+            uvdataobj.write_uvh5(outfile, clobber=overwrite)
         if fmt.lower() == 'uvfits':
             write_successful = False
             if uvfits_method not in [None, 'uvfits', 'uvdata']:
                 uvfits_method = None
             if (uvfits_method is None) or (uvfits_method == 'uvdata'):
                 try:
-                    uvdataobj = self.createUVData(datatype=datatype)
                     uvdataobj.write_uvfits(outfile, spoof_nonessential=True)
                 except Exception as xption1:
                     write_successful = False
@@ -7536,25 +9624,25 @@ class InterferometerData(object):
                         warnings.warn('Output through UVData module did not work. Trying with built-in UVFITS writer')
                 else:
                     write_successful = True
-                    print 'Data successfully written using uvdata module to {0}'.format(outfile)
+                    print('Data successfully written using uvdata module to {0}'.format(outfile))
                     return
 
             # Try with in-house UVFITS writer
-            try: 
+            try:
                 weights_array = self.infodict['nsample_array'] * NP.where(self.infodict['flag_array'], -1, 1)
                 data_array = self.infodict['data_array'][datatype][:, NP.newaxis, NP.newaxis, :, :, :, NP.newaxis]
                 weights_array = weights_array[:, NP.newaxis, NP.newaxis, :, :, :, NP.newaxis]
                 # uvfits_array_data shape will be  (Nblts,1,1,[Nspws],Nfreqs,Npols,3)
                 uvfits_array_data = NP.concatenate([data_array.real, data_array.imag, weights_array], axis=6)
-        
+
                 uvw_array_sec = self.infodict['uvw_array'] / FCNST.c
                 # jd_midnight = NP.floor(self.infodict['time_array'][0] - 0.5) + 0.5
                 tzero = NP.float32(self.infodict['time_array'][0])
-            
+
                 # uvfits convention is that time_array + relevant PZERO = actual JD
                 # We are setting PZERO4 = float32(first time of observation)
                 time_array = NP.float32(self.infodict['time_array'] - NP.float64(tzero))
-        
+
                 int_time_array = (NP.zeros_like((time_array), dtype=NP.float) + self.infodict['integration_time'])
                 baselines_use = self._antnums_to_blnum(self.infodict['ant_1_array'], self.infodict['ant_2_array'], attempt256=True)
                 # Set up dictionaries for populating hdu
@@ -7595,21 +9683,21 @@ class InterferometerData(object):
                 hdu = fits.GroupData(uvfits_array_data, parnames=parnames_use,
                                      pardata=group_parameter_list, bitpix=-32)
                 hdu = fits.GroupsHDU(hdu)
-        
+
                 for i, key in enumerate(parnames_use):
                     hdu.header['PSCAL' + str(i + 1) + '  '] = pscal_dict[key]
                     hdu.header['PZERO' + str(i + 1) + '  '] = pzero_dict[key]
-        
+
                 # ISO string of first time in self.infodict['time_array']
 
                 # hdu.header['DATE-OBS'] = Time(self.infodict['time_array'][0], scale='utc', format='jd').iso
                 hdu.header['DATE-OBS'] = self.infodict['dateobs']
-        
+
                 hdu.header['CTYPE2  '] = 'COMPLEX '
                 hdu.header['CRVAL2  '] = 1.0
                 hdu.header['CRPIX2  '] = 1.0
                 hdu.header['CDELT2  '] = 1.0
-        
+
                 hdu.header['CTYPE3  '] = 'STOKES  '
                 hdu.header['CRVAL3  '] = self.infodict['polarization_array'][0]
                 hdu.header['CRPIX3  '] = 1.0
@@ -7617,27 +9705,27 @@ class InterferometerData(object):
                     hdu.header['CDELT3  '] = NP.diff(self.infodict['polarization_array'])[0]
                 except(IndexError):
                     hdu.header['CDELT3  '] = 1.0
-        
+
                 hdu.header['CTYPE4  '] = 'FREQ    '
                 hdu.header['CRVAL4  '] = self.infodict['freq_array'][0, 0]
                 hdu.header['CRPIX4  '] = 1.0
                 hdu.header['CDELT4  '] = NP.diff(self.infodict['freq_array'][0])[0]
-        
+
                 hdu.header['CTYPE5  '] = 'IF      '
                 hdu.header['CRVAL5  '] = 1.0
                 hdu.header['CRPIX5  '] = 1.0
                 hdu.header['CDELT5  '] = 1.0
-        
+
                 hdu.header['CTYPE6  '] = 'RA'
                 hdu.header['CRVAL6  '] = NP.degrees(self.infodict['phase_center_ra'])
-        
+
                 hdu.header['CTYPE7  '] = 'DEC'
                 hdu.header['CRVAL7  '] = NP.degrees(self.infodict['phase_center_dec'])
-        
+
                 hdu.header['BUNIT   '] = self.infodict['vis_units']
                 hdu.header['BSCALE  '] = 1.0
                 hdu.header['BZERO   '] = 0.0
-        
+
                 hdu.header['OBJECT  '] = self.infodict['object_name']
                 hdu.header['TELESCOP'] = self.infodict['telescope_name']
                 hdu.header['LAT     '] = self.infodict['telescope_location'][0]
@@ -7645,22 +9733,22 @@ class InterferometerData(object):
                 hdu.header['ALT     '] = self.infodict['telescope_location'][2]
                 hdu.header['INSTRUME'] = self.infodict['instrument']
                 hdu.header['EPOCH   '] = float(self.infodict['phase_center_epoch'])
-        
+
                 for line in self.infodict['history'].splitlines():
                     hdu.header.add_history(line)
-            
+
                 # ADD the ANTENNA table
                 staxof = NP.zeros(self.infodict['Nants_telescope'])
-        
+
                 # 0 specifies alt-az, 6 would specify a phased array
                 mntsta = NP.zeros(self.infodict['Nants_telescope'])
-        
+
                 # beware, X can mean just about anything
                 poltya = NP.full((self.infodict['Nants_telescope']), 'X', dtype=NP.object_)
                 polaa = [90.0] + NP.zeros(self.infodict['Nants_telescope'])
                 poltyb = NP.full((self.infodict['Nants_telescope']), 'Y', dtype=NP.object_)
                 polab = [0.0] + NP.zeros(self.infodict['Nants_telescope'])
-        
+
                 col1 = fits.Column(name='ANNAME', format='8A',
                                    array=self.infodict['antenna_names'])
                 col2 = fits.Column(name='STABXYZ', format='3D',
@@ -7677,7 +9765,7 @@ class InterferometerData(object):
                 col10 = fits.Column(name='POLAB', format='1E', array=polab)
                 # col11 = fits.Column(name='POLCALB', format='3E', array=polcalb)
                 # note ORBPARM is technically required, but we didn't put it in
-        
+
                 cols = fits.ColDefs([col1, col2, col3, col4, col5, col6, col7, col9, col10])
                 ant_hdu = fits.BinTableHDU.from_columns(cols)
                 ant_hdu.header['EXTNAME'] = 'AIPS AN'
@@ -7693,7 +9781,7 @@ class InterferometerData(object):
                 ant_hdu.header['FREQ'] = self.infodict['freq_array'][0, 0]
                 ant_hdu.header['RDATE'] = self.infodict['rdate']
                 ant_hdu.header['UT1UTC'] = self.infodict['dut1']
-        
+
                 ant_hdu.header['TIMSYS'] = self.infodict['timesys']
                 if self.infodict['timesys'] == 'IAT':
                     warnings.warn('This file has an "IAT" time system. Files of '
@@ -7702,42 +9790,41 @@ class InterferometerData(object):
                 ant_hdu.header['NO_IF'] = self.infodict['Nspws']
                 ant_hdu.header['DEGPDY'] = self.infodict['earth_omega']
                 # ant_hdu.header['IATUTC'] = 35.
-        
+
                 # set mandatory parameters which are not supported by this object
                 # (or that we just don't understand)
                 ant_hdu.header['NUMORB'] = 0
-        
+
                 # note: Bart had this set to 3. We've set it 0 after aips 117. -jph
                 ant_hdu.header['NOPCAL'] = 0
-        
+
                 ant_hdu.header['POLTYPE'] = 'X-Y LIN'
-        
+
                 # note: we do not support the concept of "frequency setups"
                 # -- lists of spws given in a SU table.
                 ant_hdu.header['FREQID'] = -1
-        
+
                 # if there are offsets in images, this could be the culprit
                 ant_hdu.header['POLARX'] = 0.0
                 ant_hdu.header['POLARY'] = 0.0
-        
+
                 ant_hdu.header['DATUTC'] = 0  # ONLY UTC SUPPORTED
-        
+
                 # we always output right handed coordinates
                 ant_hdu.header['XYZHAND'] = 'RIGHT'
-        
+
                 # ADD the FQ table
                 # skipping for now and limiting to a single spw
-        
+
                 # write the file
                 hdulist = fits.HDUList(hdus=[hdu, ant_hdu])
-                hdulist.writeto(outfile, clobber=overwrite)
+                hdulist.writeto(outfile, overwrite=overwrite)
             except Exception as xption2:
-                print xption2
+                print(xption2)
                 raise IOError('Could not write to UVFITS file')
             else:
                 write_successful = True
-                print 'Data successfully written using in-house uvfits writer to {0}'.format(outfile)
+                print('Data successfully written using in-house uvfits writer to {0}'.format(outfile))
                 return
 
 #################################################################################
-    

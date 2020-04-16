@@ -49,9 +49,10 @@ telescope:
     label_prefix    : ''
 
     id              : 'custom'
-                                # Accepts 'mwa', 'vla', 'gmrt',
-                                # 'hera', 'mwa_dipole', 'custom',
-                                # 'paper', 'mwa_tools', 'hirax'
+                                # Accepts 'mwa', 'vla', 'gmrt', 
+                                # 'ugmrt', 'hera', 'mwa_dipole', 
+                                # 'custom', 'paper', 'mwa_tools',
+                                # 'hirax'
 
     latitude        : -30.7224
                                 # Latitude in degrees
@@ -79,9 +80,16 @@ telescope:
                                 # Default = 0. 545m for CHIME
 
     A_eff           : 154
-                                # Effective area of antenna element
-                                # in m^2. 154 for HERA dish, 5 for
-                                # CHIME dipole (20m x 0.25m)
+                                # Geometric area of antenna element
+                                # in m^2. The effective area will
+                                # be A_eff * eff_aprtr
+
+    eff_aprtr       : 0.65
+                                # Aperture efficiency. The effective 
+                                # area will be A_eff * eff_aprtr
+
+    eff_Q           : 0.96
+                                # Quantization efficiency
 
     Trx             : 50.0
                                 # Receiver temperature (in K)
@@ -133,7 +141,7 @@ array   :                       # Parameters 'file' and 'layout'
     file            : null
                                 # File containing antenna locations
                                 # parsed according to info in
-                                # parse_info
+                                # parser
 
     filepathtype    : 'default'
                                 # If set to 'default', only filename
@@ -258,12 +266,13 @@ antenna  :
     shape           : 'dish'      
                                 # Shape of antenna element
                                 # Accepted values are 'dish', 'dipole',
-                                # and 'delta' or null (defaults to
-                                # 'delta')
+                                # 'gaussian', and 'delta' or null 
+                                # (defaults to 'delta')
 
     size            : 14.0
                                 # Size of antenna element (in m)
-                                # diameter for dish, linear size for
+                                # diameter for dish, FWHM for
+                                # gaussian, linear size for
                                 # dipole
                     
     orientation     : [90.0, 270.0]
@@ -333,7 +342,7 @@ beam    :
                                 # analytically from antenna aperture
                                 # specifications
 
-    file            : 'HERA_HFSS_X4Y2H_4900.hmap'
+    file            : 'NF_HERA_antenna_power_pattern_99-201_MHz_nside_128.uvbeam'
 
                                 # FITS file containing the external
                                 # antenna beam. Used only if
@@ -352,15 +361,16 @@ beam    :
                                 # If set to 'custom' then the full path
                                 # to the file must be specified
 
-    filefmt         : 'FITS'
+    filefmt         : 'UVBeam'
                                 # File format for external beam file.
-                                # Accepted values are 'HDF5' and 'FITS'
+                                # Accepted values are 'HDF5', 'FITS',
+                                # and 'UVBeam' (pyuvdata UVBeam object)
 
-    identifier      : 'HERA-CST'
+    identifier      : 'NF-128'
                                 # string to identify source of beam
                                 # Any string. e.g. RB=Rich Bradley,
-                                # AN=Abraham Neben
-                                # DD=Dave DeBoer, or 'HERA-CST'
+                                # AN=Abraham Neben, DD=Dave DeBoer,
+                                # 'HERA-CST', NF=Nic Fagnoni, etc.
 
     pol             : 'X'
                                 # Beam polarization. Accepted values
@@ -417,7 +427,8 @@ bandpass :
                                 # 'custom' then the full path is
                                 # specified in pfb_file
 
-    pfb_file        :           # File containing PFB coefficients.
+    pfb_file        : 'MWA_pfb_512x8.fits'
+                                # File containing PFB coefficients.
                                 # Applicable only is pfb_method is
                                 # set to non-null value. If 
                                 # pfb_filepath is set to 'default' 
@@ -427,8 +438,6 @@ bandpass :
                                 # namely, data/bandpass but if 
                                 # pfb_filepath is set to 'custom'
                                 # then the full path must be specified
-
-                      'MWA_pfb_512x8.fits'
                                 # Just filename assuming default 
                                 # relative path or full path to
                                 # filename like '/path/to/PFBfile'
@@ -459,12 +468,6 @@ obsparm  :
                                 # each snapshot. Only two of t_obs,
                                 # n_acc, and t_acc must be set
 
-    timeformat      : 'JD'
-                                # Output format for timestamp. Can
-                                # be 'DT' (default) for DateTime format
-                                # yyyy-mm-dd hh:mm:ss.s or 'JD' for
-                                # julian date format
-                                
 ######### Instrument gains #########
 
 gains   :
@@ -504,35 +507,44 @@ pointing :                      # If pointing file is specified to be
                                 # Formats for other telescopes under
                                 # development
 
-    drift_init :
+    jd_init         : null
+                                # initialize start of observation with
+                                # JD. If not set to null, obs_date and 
+                                # lst_init are ignored in scheduling the
+                                # observation. They will be determined
+                                # automatically
+
+    lst_init        : 0.0
+                                # LST at start of observation (hours).
+                                # The epoch is assumed to be the date 
+                                # of observation. If set to null, jd_init
+                                # must be provided. Otherwise, both
+                                # lst_init and obs_date must be set
+
+    drift_init      :
                                 # Applies in case of initializing 
                                 # pointing information for drift scan
                                 # mode
 
-        alt         : null
+        alt             : null
                                 # Altitude of telescope pointing
                                 # (degrees)
 
-        az          : null
+        az              : null
                                 # Azimuth of telescope pointing
                                 # (degrees)
 
-        ha          : 0.0
+        ha              : 0.0
                                 # Hour angle of telescope pointing
                                 # (degrees). Only one of the Alt-Az or
                                 # HA-Dec pairs must be specified and 
                                 # the other pair must be set to null
 
-        dec         : -30.7224
+        dec             : -30.7224
                                 # Declination of telescope pointing
                                 # (degrees). Only one of the Alt-Az or
                                 # HA-Dec pairs must be specified and 
                                 # the other pair must be set to null
-
-        lst         : 0.0
-                                # LST at start of observation (hours).
-                                # The epoch is assumed to be the date 
-                                # of observation
 
     track_init :
 
@@ -600,7 +612,7 @@ snapshot :                      # Parameters below are mutually
 
 ######### Sky model ##########
 
-fgparm   :
+skyparm   :
 
     model           : 'csm'
                                 # Foreground model. Accepted values
@@ -612,12 +624,15 @@ fgparm   :
                                 # catalog), 'mss' (Molonglo Sky 
                                 # Survey), 'gleam' (GLEAM catalog), 
                                 # 'custom' (user-defined catalog), 
-                                # 'usm' (uniform sky model), 'mwacs' 
-                                # (MWACS catalog), 'HI_monopole' (global 
-                                # EoR), HI_cube (HI cube from external 
-                                # simulations), 'HI_fluctuations' 
-                                # (HI fluctuations with the global mean
-                                # signal removed), 'fullspectrum'        
+                                # 'usm' (uniform sky model), 'noise'
+                                # (noise-like sky model), 'mwacs' 
+                                # (MWACS catalog), 'skymod_file' (a
+                                # skymodel_file must be specified 
+                                # below), 'HI_monopole' (global EoR), 
+                                # HI_cube, (HI cube from external 
+                                # simulations), and 'HI_fluctuations' 
+                                # (HI fluctuations with the global 
+                                # mean signal removed)
 
     fsky            : null
                                 # fraction of sky covered by the sky
@@ -640,7 +655,7 @@ fgparm   :
     nside           : null
                                 # Healpix nside parameter for 
                                 # foreground model input map. Accepted 
-                                # values are valid nside values
+                                # values must be HEALPIX compatible
 
     n_mdl_freqs     : 8
                                 # Number of model frequencies covering
@@ -668,7 +683,13 @@ fgparm   :
                                 # temperature in K or 'Jy' for flux
                                 # density in Jy
 
-    flux_min  : 10.0
+    custom_reffreq  : 0.150
+                                # Catalog reference frequency (in GHz).
+                                # Applies only to custom catalog when
+                                # sky model is set to 'custom', or
+                                # GLEAM to pick the nearest frequency
+
+    flux_min        : 10.0
                                 # Flux density lower limit (Jy) to be 
                                 # applied to 'csm', 'mwacs', 'gleam',
                                 # and 'custom' catalogs. If set to
@@ -679,7 +700,7 @@ fgparm   :
                                 # reference frequency is specified in
                                 # fluxcut_reffreq
 
-    flux_max  : null
+    flux_max        : null
                                 # Flux density upper limit (Jy) to be 
                                 # applied to 'csm', 'mwacs', 'gleam',
                                 # and 'custom' catalogs. If set to
@@ -707,6 +728,13 @@ fgparm   :
     spindex_seed    : null
                                 # Random seed for generation of random
                                 # spectral indices
+
+    roi_radius      : null
+                                # Radius around the pointing center
+                                # (in degrees) which determines the  
+                                # sky model. If set to null (default),
+                                # roi_radius will be assumed to be
+                                # 90 degrees
 
     lidz            : true
                                 # Use simulations of Adam Lidz. Only
@@ -762,15 +790,20 @@ catalog  :
                       # '/path/to/MWACScatalogFile.csv'
                                 # MWACS catalog file
 
-    GLEAM_file      : 'GLEAMIDR3.fits'
+    GLEAM_file      : 'GLEAM_EGC_v2.fits'
                       # '/path/to/GLEAMcatalogFile.fits'
                                 # GLEAM catalog file
 
-    custom_file         : 'custom_catalog.txt'
+    custom_file     : 'custom_catalog.txt'
                       # '/path/to/custom_catalog.txt'
                                 # User defined catalog. See
                                 # prisim/data/catalogs/custom_catalog.txt
                                 # for file format
+
+    skymod_file     : '/path/to/skymodel.hdf5'
+                                # User defined skymodel file in HDF5
+                                # format that can be read in as an
+                                # instance of class SkyModel. 
 
 ########## Processing setup ##########
 
@@ -795,6 +828,15 @@ processing:
                                 # start of the simulation, it will be
                                 # dynamically set to 90% of
                                 # available memory in the system
+
+    memavail        : null
+                                # Memory available (in GB). If set to
+                                # null, it will be read on the compute
+                                # node during runtime. If the job is
+                                # distributed over multiple nodes such
+                                # as in PBS scripts, it is best to
+                                # provide this explicitly (not set to
+                                # null)
 
     n_bins_blo      : 4
                                 # Number of bins in baseline
@@ -837,7 +879,7 @@ processing:
                                 # applies the passband, true gives
                                 # a flat passband
 
-    noise_bp_correct : false
+    noise_bp_correct: false
                                 # Bandpass correction for Tsys if
                                 # set to true, no correction if set
                                 # to false
@@ -931,20 +973,31 @@ flags    :
                                 # coarse channels. Do not repeat if
                                 # set to false
 
-########## Save format ##########
+########## Save details ##########
 
-save_formats :
+save_redundant  : true
+                                # If set to true, in case of redundant
+                                # array, expand and save all 
+                                # visibilities including redundant
+                                # values, otherwise only unique values
+                                # are saved
+
+save_formats    :
 
     fmt             : 'HDF5'
                                 # File format for the final saved data
                                 # Accepted values are 'HDF5' (default) 
-                                # and 'FITS'
+                                # and 'FITS' (not supported or
+                                # developed any more)
 
     npz             : true
                                 # If true, save to numpy NPZ format
 
     uvfits          : true
                                 # If true, save to UVFITS format
+
+    uvh5            : true
+                                # If true, save to UVH5 format
 
     uvfits_method   : null
                                 # specifies method to save to UVFITS
@@ -973,12 +1026,20 @@ save_formats :
 
 ########## Create plots ##########
 
-plots    : false
+plots       : false
                                 # If true, create relevant plots
 
 ########## Diagnosis parameters ###########
 
 diagnosis   :
+
+    resource_monitor: false
+                                # If set to true, open a new xterm
+                                # to display CPU and RAM usage of
+                                # parallel processed. If set to
+                                # false, this display is suppressed.
+                                # Set to false, if running in PRISim
+                                # in batch mode.
 
     refresh_interval: null
                                 # Refresh interval (in seconds)
@@ -986,7 +1047,7 @@ diagnosis   :
                                 # If set to null (default), this
                                 # will be set to 2 seconds
 
-    wait_after_run  : true
+    wait_after_run  : false
                                 # If true, keep python shell open
                                 # after completing the run using
                                 # set_trace() of python debugger.

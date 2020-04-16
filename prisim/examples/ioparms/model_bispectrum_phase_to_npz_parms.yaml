@@ -1,0 +1,112 @@
+########## Directory Structure information #########
+
+dirStruct   :
+                                # Directory information
+
+    indir       : '/path/to/indir/'
+                                # Input folder in which the PRISim
+                                # output resides
+
+    infile_prfx : 'simvis'
+                                # Input file prefix. It will be
+                                # appended with the appropriate
+                                # extension such as '.npz' or
+                                # '.hdf5' as specified in infmt
+
+    infmt       : 'npz'
+                                # Input file format. Accepted values
+                                # are 'npz' (default) and 'hdf5'. If
+                                # specified as 'hdf5' then this is
+                                # the PRISim file and inputs in
+                                # prisim_dir and simfile_prfx will be
+                                # ignored. 
+
+    prisim_dir  : '/path/to/PRISim-simulated/simdata/'
+                                # Input folder in which the PRISim
+                                # output resides. Only used if infmt
+                                # is not set to 'hdf5'
+    
+    simfile_prfx: 'simvis'
+                                # PRISim simulation (HDF5) file
+                                # without the .hdf5 suffix. Only 
+                                # used if infmt is not set to 'hdf5'
+
+    outdir      : '/path/to/outdir/'
+                                # Output folder in which the NPZ
+                                # output resides that contains the
+                                # bispectrum phase
+
+    outfile_prfx: 'outfile_prefix'
+                                # Output file prefix. It will be
+                                # suffixed by certain descriptive
+                                # strings and the filename extension
+                                # '.npz'
+
+######### Processing parameters ##########
+
+proc        :
+                                # Processing information input
+                                # parameters
+
+    datakey     : ['noisy']
+                                # List specifying which portion(s)
+                                # of visibilities to process.
+                                # Accepted values are 'noiseless',
+                                # 'noisy' (default), and 'noise'
+
+    triads      : # [
+                  #  [11, 12, 5],
+                  #  [12, 13, 6],
+                  #  [4, 5, 15],
+                  #  [5, 6, 16],
+                  #  [6, 7, 17],
+                  #  [14, 15, 0],
+                  #  [15, 16, 1],
+                  #  [16, 17, 2],
+                  #  [17, 18, 3],
+                  #  [0, 1, 8],
+                  #  [1, 2, 9],
+                  #  [2, 3, 10],
+                  # ]
+                                # 14.6 m equilateral triads in HERA-19
+                                
+                  [
+                   [11, 13, 16],
+                   [4, 6, 1],
+                   [5, 7, 2],
+                   [14, 16, 8],
+                   [15, 17, 9],
+                   [16, 18, 10]
+                  ]
+                                # 29.2 m equilateral triads in HERA-19
+                  
+                                # List of triads to process. If
+                                # not specified (null), then all
+                                # triads will be determined based
+                                # on bltriplet.
+
+    bltriplet   : # [
+                  #  [14.6, 0.0, 0.0],
+                  #  [-7.3, -12.643971, 0.0],
+                  #  [-7.3, 12.643971, 0.0],
+                  # ]
+
+                  [
+                   [29.2, 0.0, 0.0],
+                   [-14.6, -25.287942, 0.0],
+                   [-14.6, 25.287942, 0.0],
+                  ]
+                
+                                # Baseline triplet as a vector
+                                # of 3x3 array which will be
+                                # used to select all the triads
+                                # that satisfy this baseline
+                                # triplet. Will apply only if
+                                # triads is set to null. Otherwise,
+                                # explicit triads will be used.
+                                # Using triads is more reliable
+
+    blltol      : 2.0
+                                # Baseline lookup tolerance (in m).
+                                # Used only if bltriplet is to be
+                                # used. 
