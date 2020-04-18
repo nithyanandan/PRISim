@@ -942,53 +942,6 @@ if not isinstance(n_sky_sectors, int):
 elif (n_sky_sectors < 1):
     n_sky_sectors = 1
 
-# Create organized directory structure
-
-timestamps_JD = NP.asarray(timestamps_JD)
-init_timestamps_JD = timestamps_JD.min()
-init_time = Time(init_timestamps_JD, format='jd', scale='utc')
-obsdatetime_dir = '{0}{1}{2}_{3}{4}{5}/'.format(init_time.datetime.year, init_time.datetime.month, init_time.datetime.day, init_time.datetime.hour, init_time.datetime.minute, init_time.datetime.second)
-
-sim_dir = 'simdata/'
-meta_dir = 'metainfo/'
-roi_dir = 'roi/'
-skymod_dir = 'skymodel/'
-
-try:
-    os.makedirs(rootdir+project_dir+simid+sim_dir, 0755)
-except OSError as exception:
-    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+sim_dir):
-        pass
-    else:
-        raise
-
-try:
-    os.makedirs(rootdir+project_dir+simid+meta_dir, 0755)
-except OSError as exception:
-    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+meta_dir):
-        pass
-    else:
-        raise
-
-try:
-    os.makedirs(rootdir+project_dir+simid+roi_dir, 0755)
-except OSError as exception:
-    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+roi_dir):
-        pass
-    else:
-        raise
-    
-if cleanup < 3:
-    try:
-        os.makedirs(rootdir+project_dir+simid+skymod_dir, 0755)
-    except OSError as exception:
-        if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+skymod_dir):
-            pass
-        else:
-            raise
-    
-# Start organizing different sky models
-
 if use_HI_cube:
     if not isinstance(use_lidz, bool):
         raise TypeError('Parameter specifying use of Lidz simulations must be Boolean')
@@ -1254,6 +1207,9 @@ elif use_spectrum:
     skymod = SM.SkyModel(init_parms=None, init_file=spectrum_file, load_spectrum=False)
 
 elif use_pygsm:
+    if not SM.pygsm_found:
+        print('PyGSM module not found to be installed.')
+        PDB.set_trace()
     if rank == 0:
         skymod_parallel = parms['fgparm']['parallel']
         if not isinstance(skymod_parallel, bool):

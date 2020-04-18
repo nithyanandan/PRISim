@@ -1,5 +1,21 @@
-5378176 (master), 3f7d3bc (parabolic-cylinder):
-==============================================
+From 1a2b107 (parabolic-cylinder):
+=================================
+
+In scripts/run_prisim.py,
+
+(*) Remove some leftover code from the merge with the branch
+parabolic-cylinder that used old timestamps_JD
+(*) Check for presence of PyGSM module and start a set_trace() if
+absent
+
+In prisim/interferometry.py,
+
+(*) In member function observe() of class InterferometerArray, if
+the previous skymodel has to be updated, delete the contents of
+the previous iteration and then store the current contents
+
+From 5378176 (master), 3f7d3bc (parabolic-cylinder):
+===================================================
 
 (*) Merge master branch onto parabolic-cylinder
 

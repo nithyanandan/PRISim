@@ -6182,12 +6182,14 @@ class InterferometerArray(object):
                                 fluxes[NP.where(~ind_of_m2_in_prev.mask)[0],:] = stored_spectrum[ind_of_m2_in_prev[~ind_of_m2_in_prev.mask],:]
                             if NP.sum(ind_of_m2_in_prev.mask) > 0:
                                 fluxes[NP.where(ind_of_m2_in_prev.mask)[0],:] = skymodel.generate_spectrum(ind=m2[NP.where(ind_of_m2_in_prev.mask)[0]], frequency=self.channels)
-                            stored_ind_dset[...] = m2
-                            stored_spectrum_dset[...] = fluxes
+                            del fileobj['ind']
+                            del fileobj['spectrum']
+                        #     stored_ind_dset[...] = m2
+                        #     stored_spectrum_dset[...] = fluxes
                         else:
                             fluxes = skymodel.generate_spectrum(ind=m2, frequency=self.channels)
-                            ind_dset = fileobj.create_dataset('ind', data=m2)
-                            spec_dset = fileobj.create_dataset('spectrum', data=fluxes, compression='gzip', compression_opts=9)
+                        ind_dset = fileobj.create_dataset('ind', data=m2)
+                        spec_dset = fileobj.create_dataset('spectrum', data=fluxes, compression='gzip', compression_opts=9)
                         prev_skymodel_success = True
                 except:
                     prev_skymodel_success = False
