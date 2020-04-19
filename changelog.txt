@@ -1,3 +1,15 @@
+From c3f2978 (parabolic-cylinder):
+=================================
+
+In prisim/interferometry.py,
+
+(*) Call function rectangle_generator() in function
+getBaselineInfo() when array_layout is set to 'CHIME' which was
+missed in the merge of master with the parabolic-cylinder branch.
+(*) Add comments in observe() member function of class
+InterferometerArray
+(*) Add comments in function baseline_generator()
+
 From 1a2b107 (parabolic-cylinder):
 =================================
 

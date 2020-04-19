@@ -1311,7 +1311,7 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
     else:
         ant_id = range(num_ants)
 
-    if inp_type == 'loo':
+    if inp_type == 'loo': # List of objects
         if auto:
             baseline_locations = [antenna_locations[j]-antenna_locations[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
             # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
@@ -1327,7 +1327,7 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
             # antpair_labels += [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
             antpair_labels += [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
             antpair_ids += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-    elif inp_type == 'lot':
+    elif inp_type == 'lot': # List of tuples
         if auto:
             baseline_locations = [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
             # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
@@ -1343,7 +1343,7 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
             # antpair_labels += [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
             antpair_labels += [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
             antpair_ids += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-    elif inp_type == 'npa':
+    elif inp_type == 'npa': # Numpy array
         if auto:
             baseline_locations = [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
             # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
@@ -1813,6 +1813,8 @@ def getBaselineInfo(inpdict):
             ant_locs, ant_label = rectangle_generator([15.0, 4.0], [16, 7])
         elif array_layout == 'HIRAX-1024':
             ant_locs, ant_label = rectangle_generator(7.0, n_side=32)
+        elif array_layout == 'CHIME':
+            ant_locs, ant_label = rectangle_generator([20.0, 0.3], [5, 256])
         elif array_layout == 'CIRC':
             ant_locs, ant_label = circular_antenna_array(element_size, minR, maxR=maxR)
         ant_label = NP.asarray(ant_label)
@@ -6178,9 +6180,9 @@ class InterferometerArray(object):
                             stored_spectrum = stored_spectrum_dset.value
                             ind_of_m2_in_prev = NMO.find_list_in_list(stored_ind, m2)
                             fluxes = NP.zeros((m2.size, self.channels.size))
-                            if NP.sum(~ind_of_m2_in_prev.mask) > 0:
+                            if NP.sum(~ind_of_m2_in_prev.mask) > 0: # Previously stored
                                 fluxes[NP.where(~ind_of_m2_in_prev.mask)[0],:] = stored_spectrum[ind_of_m2_in_prev[~ind_of_m2_in_prev.mask],:]
-                            if NP.sum(ind_of_m2_in_prev.mask) > 0:
+                            if NP.sum(ind_of_m2_in_prev.mask) > 0: # Previously unavailable and have to be generated fresh
                                 fluxes[NP.where(ind_of_m2_in_prev.mask)[0],:] = skymodel.generate_spectrum(ind=m2[NP.where(ind_of_m2_in_prev.mask)[0]], frequency=self.channels)
                             del fileobj['ind']
                             del fileobj['spectrum']
