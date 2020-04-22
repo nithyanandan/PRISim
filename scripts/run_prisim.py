@@ -739,6 +739,49 @@ elif (pointing_drift_init is not None) or (pointing_track_init is not None):
     
     duration_str = '_{0:0d}x{1:.1f}s'.format(n_acc, t_acc[0])
 
+# Create organized directory structure
+
+init_time = tobj_init
+obsdatetime_dir = '{0}{1}{2}_{3}{4}{5}/'.format(init_time.datetime.year, init_time.datetime.month, init_time.datetime.day, init_time.datetime.hour, init_time.datetime.minute, init_time.datetime.second)
+
+sim_dir = 'simdata/'
+meta_dir = 'metainfo/'
+roi_dir = 'roi/'
+skymod_dir = 'skymodel/'
+
+try:
+    os.makedirs(rootdir+project_dir+simid+sim_dir, 0755)
+except OSError as exception:
+    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+sim_dir):
+        pass
+    else:
+        raise
+
+try:
+    os.makedirs(rootdir+project_dir+simid+meta_dir, 0755)
+except OSError as exception:
+    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+meta_dir):
+        pass
+    else:
+        raise
+
+try:
+    os.makedirs(rootdir+project_dir+simid+roi_dir, 0755)
+except OSError as exception:
+    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+roi_dir):
+        pass
+    else:
+        raise
+    
+if cleanup < 3:
+    try:
+        os.makedirs(rootdir+project_dir+simid+skymod_dir, 0755)
+    except OSError as exception:
+        if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+skymod_dir):
+            pass
+        else:
+            raise
+
 pointings_radec = NP.fmod(pointings_radec, 360.0)
 pointings_hadec = NP.fmod(pointings_hadec, 360.0)
 pointings_altaz = NP.fmod(pointings_altaz, 360.0)
@@ -761,7 +804,7 @@ use_HI_cube = False
 use_HI_fluctuations = False
 use_MSS=False
 
-if sky_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'noise', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations', 'skymod_file']:
+if sky_str not in ['asm', 'dsm', 'csm', 'nvss', 'sumss', 'gleam', 'mwacs', 'custom', 'usm', 'noise', 'mss', 'HI_cube', 'HI_monopole', 'HI_fluctuations', 'skymod_file', 'gsm2008', 'gsm2016']:
     raise ValueError('Invalid foreground model string specified.')
 
 if sky_str == 'asm':
@@ -974,248 +1017,248 @@ if spindex_seed is not None:
         raise TypeError('Spectral index random seed must be a scalar')
     spindex_seed_str = '{0:0d}_'.format(spindex_seed)
 
-if use_HI_fluctuations or use_HI_cube:
-    hdulist = fits.open(eor_simfile)
-    nexten = hdulist['PRIMARY'].header['NEXTEN']
-    fitstype = hdulist['PRIMARY'].header['FITSTYPE']
-    temperatures = None
-    extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,nexten+1)]
-    if fitstype == 'IMAGE':
-        eor_simfreq = hdulist['FREQUENCY'].data['Frequency [MHz]']
-    else:
-        eor_simfreq = [float(extname.split(' ')[0]) for extname in extnames]
-        eor_simfreq = NP.asarray(eor_simfreq)
-
-    eor_freq_resolution = eor_simfreq[1] - eor_simfreq[0]
-    ind_chans, ind_eor_simfreq, dfrequency = LKP.find_1NN(eor_simfreq.reshape(-1,1), 1e3*chans.reshape(-1,1), distance_ULIM=0.5*eor_freq_resolution, remove_oob=True)
-
-    eor_simfreq = eor_simfreq[ind_eor_simfreq]
-    if fitstype == 'IMAGE':
-        temperatures = hdulist['TEMPERATURE'].data[:,ind_eor_simfreq]
-    else:
-        for i in xrange(eor_simfreq.size):
-            if i == 0:
-                temperatures = hdulist[ind_eor_simfreq[i]+1].data['Temperature'].reshape(-1,1)
-            else:
-                temperatures = NP.hstack((temperatures, hdulist[ind_eor_simfreq[i]+1].data['Temperature'].reshape(-1,1)))
-
-    if use_HI_fluctuations:
-        temperatures = temperatures - NP.mean(temperatures, axis=0, keepdims=True)
-
-    pixres = hdulist['PRIMARY'].header['PIXAREA']
-    coords_table = hdulist['COORDINATE'].data
-    ra_deg_EoR = coords_table['RA']
-    dec_deg_EoR = coords_table['DEC']
-    fluxes_EoR = temperatures * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
-    freq_EoR = freq/1e9
-    hdulist.close()
-
-    flux_unit = 'Jy'
-    catlabel = 'HI-cube'
-    spec_type = 'spectrum'
-    spec_parms = {}
-    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'spectrum': fluxes_EoR}
-
-    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
-elif use_HI_monopole:
-
-    theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
-    gc = Galactic(l=NP.degrees(phi), b=90.0-NP.degrees(theta), unit=(U.degree, U.degree))
-    radec = gc.fk5
-    ra_deg_EoR = radec.ra.degree
-    dec_deg_EoR = radec.dec.degree
-    pixres = HP.nside2pixarea(nside)   # pixel solid angle (steradians)
-
-    catlabel = 'HI-monopole'
-    spec_type = 'func'
-    spec_parms = {}
-    spec_parms['name'] = NP.repeat('tanh', ra_deg_EoR.size)
-
-    spec_parms['freq-ref'] = freq_half + NP.zeros(ra_deg_EoR.size)
-    spec_parms['flux-scale'] = T_xi0 * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
-    spec_parms['flux-offset'] = 0.5*spec_parms['flux-scale'] + NP.zeros(ra_deg_EoR.size)
-    spec_parms['z-width'] = dz_half + NP.zeros(ra_deg_EoR.size)
-    flux_unit = 'Jy'
-
-    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms}
-
-    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
-    spectrum = skymod.generate_spectrum()
-
-elif use_GSM:
-    dsm_file = DSM_file_prefix+'_150.0_MHz_nside_{0:0d}.fits'.format(nside)
-    # dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
-    hdulist = fits.open(dsm_file)
-    pixres = hdulist[0].header['PIXAREA']
-    dsm_table = hdulist[1].data
-    ra_deg_DSM = dsm_table['RA']
-    dec_deg_DSM = dsm_table['DEC']
-    temperatures = dsm_table['T_{0:.0f}'.format(150.0)]
-    # temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
-    fluxes_DSM = temperatures * 2.0 * FCNST.k * (150e6/FCNST.c)**2 * pixres / CNST.Jy
-    # fluxes_DSM = temperatures * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
-    spindex = dsm_table['spindex'] + 2.0
-    freq_DSM = 0.150 # in GHz
-    # freq_DSM = freq/1e9 # in GHz
-    freq_catalog = freq_DSM * 1e9 + NP.zeros(fluxes_DSM.size)
-    catlabel = NP.repeat('DSM', fluxes_DSM.size)
-    ra_deg = ra_deg_DSM + 0.0
-    dec_deg = dec_deg_DSM + 0.0
-    majax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_DSM.size)
-    minax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_DSM.size)
-    fluxes = fluxes_DSM + 0.0
-
-    freq_SUMSS = 0.843 # in GHz
-    catalog = NP.loadtxt(SUMSS_file, usecols=(0,1,2,3,4,5,10,12,13,14,15,16))
-    ra_deg_SUMSS = 15.0 * (catalog[:,0] + catalog[:,1]/60.0 + catalog[:,2]/3.6e3)
-    dec_dd = NP.loadtxt(SUMSS_file, usecols=(3,), dtype="|S3")
-    sgn_dec_str = NP.asarray([dec_dd[i][0] for i in range(dec_dd.size)])
-    sgn_dec = 1.0*NP.ones(dec_dd.size)
-    sgn_dec[sgn_dec_str == '-'] = -1.0
-    dec_deg_SUMSS = sgn_dec * (NP.abs(catalog[:,3]) + catalog[:,4]/60.0 + catalog[:,5]/3.6e3)
-    fmajax = catalog[:,7]
-    fminax = catalog[:,8]
-    fpa = catalog[:,9]
-    dmajax = catalog[:,10]
-    dminax = catalog[:,11]
-    PS_ind = NP.logical_and(dmajax == 0.0, dminax == 0.0)
-    ra_deg_SUMSS = ra_deg_SUMSS[PS_ind]
-    dec_deg_SUMSS = dec_deg_SUMSS[PS_ind]
-    fint = catalog[PS_ind,6] * 1e-3
-    if spindex_seed is None:
-        spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
-    else:
-        NP.random.seed(spindex_seed)
-        spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
-
-    fmajax = fmajax[PS_ind]
-    fminax = fminax[PS_ind]
-    fpa = fpa[PS_ind]
-    dmajax = dmajax[PS_ind]
-    dminax = dminax[PS_ind]
-    bright_source_ind = fint >= 10.0 * (freq_SUMSS*1e9/freq)**spindex_SUMSS
-    ra_deg_SUMSS = ra_deg_SUMSS[bright_source_ind]
-    dec_deg_SUMSS = dec_deg_SUMSS[bright_source_ind]
-    fint = fint[bright_source_ind]
-    fmajax = fmajax[bright_source_ind]
-    fminax = fminax[bright_source_ind]
-    fpa = fpa[bright_source_ind]
-    dmajax = dmajax[bright_source_ind]
-    dminax = dminax[bright_source_ind]
-    spindex_SUMSS = spindex_SUMSS[bright_source_ind]
-    valid_ind = NP.logical_and(fmajax > 0.0, fminax > 0.0)
-    ra_deg_SUMSS = ra_deg_SUMSS[valid_ind]
-    dec_deg_SUMSS = dec_deg_SUMSS[valid_ind]
-    fint = fint[valid_ind]
-    fmajax = fmajax[valid_ind]
-    fminax = fminax[valid_ind]
-    fpa = fpa[valid_ind]
-    spindex_SUMSS = spindex_SUMSS[valid_ind]
-    freq_catalog = NP.concatenate((freq_catalog, freq_SUMSS*1e9 + NP.zeros(fint.size)))
-    catlabel = NP.concatenate((catlabel, NP.repeat('SUMSS', fint.size)))
-    ra_deg = NP.concatenate((ra_deg, ra_deg_SUMSS))
-    dec_deg = NP.concatenate((dec_deg, dec_deg_SUMSS))
-    spindex = NP.concatenate((spindex, spindex_SUMSS))
-    majax = NP.concatenate((majax, fmajax/3.6e3))
-    minax = NP.concatenate((minax, fminax/3.6e3))
-    fluxes = NP.concatenate((fluxes, fint))
-
-    freq_NVSS = 1.4 # in GHz
-    hdulist = fits.open(NVSS_file)
-    ra_deg_NVSS = hdulist[1].data['RA(2000)']
-    dec_deg_NVSS = hdulist[1].data['DEC(2000)']
-    nvss_fpeak = hdulist[1].data['PEAK INT']
-    nvss_majax = hdulist[1].data['MAJOR AX']
-    nvss_minax = hdulist[1].data['MINOR AX']
-    hdulist.close()
-
-    if spindex_seed is None:
-        spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
-    else:
-        NP.random.seed(2*spindex_seed)
-        spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
-
-    not_in_SUMSS_ind = NP.logical_and(dec_deg_NVSS > -30.0, dec_deg_NVSS <= min(90.0, latitude+90.0))
-    bright_source_ind = nvss_fpeak >= 10.0 * (freq_NVSS*1e9/freq)**(spindex_NVSS)
-    PS_ind = NP.sqrt(nvss_majax**2-(0.75/60.0)**2) < 14.0/3.6e3
-    count_valid = NP.sum(NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind))
-    nvss_fpeak = nvss_fpeak[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]
-    freq_catalog = NP.concatenate((freq_catalog, freq_NVSS*1e9 + NP.zeros(count_valid)))
-    catlabel = NP.concatenate((catlabel, NP.repeat('NVSS',count_valid)))
-    ra_deg = NP.concatenate((ra_deg, ra_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
-    dec_deg = NP.concatenate((dec_deg, dec_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
-    spindex = NP.concatenate((spindex, spindex_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
-    majax = NP.concatenate((majax, nvss_majax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
-    minax = NP.concatenate((minax, nvss_minax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
-    fluxes = NP.concatenate((fluxes, nvss_fpeak))
-
-    spec_type = 'func'
-    spec_parms = {}
-    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
-    spec_parms['power-law-index'] = spindex
-    spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
-    spec_parms['flux-scale'] = fluxes
-    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
-    spec_parms['freq-width'] = NP.zeros(ra_deg.size)
-    flux_unit = 'Jy'
-
-    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
-
-    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
-
-elif use_DSM:
-    dsm_file = DSM_file_prefix+'_150.0_MHz_nside_{0:0d}.fits'.format(nside)
-    # dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
-    hdulist = fits.open(dsm_file)
-    pixres = hdulist[0].header['PIXAREA']
-    dsm_table = hdulist[1].data
-    ra_deg_DSM = dsm_table['RA']
-    dec_deg_DSM = dsm_table['DEC']
-    temperatures = dsm_table['T_{0:.0f}'.format(150.0)]
-    # temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
-    fluxes_DSM = temperatures * 2.0 * FCNST.k * (150e6/FCNST.c)**2 * pixres / CNST.Jy
-    # fluxes_DSM = temperatures * (2.0 * FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
-    flux_unit = 'Jy'
-    spindex = dsm_table['spindex'] + 2.0
-    freq_DSM = 0.150 # in GHz
-    # freq_DSM = freq/1e9 # in GHz
-    freq_catalog = freq_DSM * 1e9 + NP.zeros(fluxes_DSM.size)
-    catlabel = NP.repeat('DSM', fluxes_DSM.size)
-    ra_deg = ra_deg_DSM
-    dec_deg = dec_deg_DSM
-    majax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_DSM.size)
-    minax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_DSM.size)
-    # majax = NP.degrees(NP.sqrt(HP.nside2pixarea(64)*4/NP.pi) * NP.ones(fluxes_DSM.size))
-    # minax = NP.degrees(NP.sqrt(HP.nside2pixarea(64)*4/NP.pi) * NP.ones(fluxes_DSM.size))
-    fluxes = fluxes_DSM
-    hdulist.close()
-
-    spec_type = 'func'
-    spec_parms = {}
-    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
-    spec_parms['power-law-index'] = spindex
-    spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
-    spec_parms['flux-scale'] = fluxes
-    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
-    spec_parms['freq-width'] = NP.zeros(ra_deg.size)
-
-    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
-
-    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
-
-elif use_spectrum:
-    skymod = SM.SkyModel(init_parms=None, init_file=spectrum_file, load_spectrum=False)
-
-elif use_pygsm:
-    if not SM.pygsm_found:
-        print('PyGSM module not found to be installed.')
-        PDB.set_trace()
-    if rank == 0:
-        skymod_parallel = parms['fgparm']['parallel']
+if rank == 0:
+    if use_HI_fluctuations or use_HI_cube:
+        hdulist = fits.open(eor_simfile)
+        nexten = hdulist['PRIMARY'].header['NEXTEN']
+        fitstype = hdulist['PRIMARY'].header['FITSTYPE']
+        temperatures = None
+        extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,nexten+1)]
+        if fitstype == 'IMAGE':
+            eor_simfreq = hdulist['FREQUENCY'].data['Frequency [MHz]']
+        else:
+            eor_simfreq = [float(extname.split(' ')[0]) for extname in extnames]
+            eor_simfreq = NP.asarray(eor_simfreq)
+    
+        eor_freq_resolution = eor_simfreq[1] - eor_simfreq[0]
+        ind_chans, ind_eor_simfreq, dfrequency = LKP.find_1NN(eor_simfreq.reshape(-1,1), 1e3*chans.reshape(-1,1), distance_ULIM=0.5*eor_freq_resolution, remove_oob=True)
+    
+        eor_simfreq = eor_simfreq[ind_eor_simfreq]
+        if fitstype == 'IMAGE':
+            temperatures = hdulist['TEMPERATURE'].data[:,ind_eor_simfreq]
+        else:
+            for i in xrange(eor_simfreq.size):
+                if i == 0:
+                    temperatures = hdulist[ind_eor_simfreq[i]+1].data['Temperature'].reshape(-1,1)
+                else:
+                    temperatures = NP.hstack((temperatures, hdulist[ind_eor_simfreq[i]+1].data['Temperature'].reshape(-1,1)))
+    
+        if use_HI_fluctuations:
+            temperatures = temperatures - NP.mean(temperatures, axis=0, keepdims=True)
+    
+        pixres = hdulist['PRIMARY'].header['PIXAREA']
+        coords_table = hdulist['COORDINATE'].data
+        ra_deg_EoR = coords_table['RA']
+        dec_deg_EoR = coords_table['DEC']
+        fluxes_EoR = temperatures * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
+        freq_EoR = freq/1e9
+        hdulist.close()
+    
+        flux_unit = 'Jy'
+        catlabel = 'HI-cube'
+        spec_type = 'spectrum'
+        spec_parms = {}
+        skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'spectrum': fluxes_EoR}
+    
+        skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+    elif use_HI_monopole:
+    
+        theta, phi = HP.pix2ang(nside, NP.arange(HP.nside2npix(nside)))
+        gc = Galactic(l=NP.degrees(phi), b=90.0-NP.degrees(theta), unit=(U.degree, U.degree))
+        radec = gc.fk5
+        ra_deg_EoR = radec.ra.degree
+        dec_deg_EoR = radec.dec.degree
+        pixres = HP.nside2pixarea(nside)   # pixel solid angle (steradians)
+    
+        catlabel = 'HI-monopole'
+        spec_type = 'func'
+        spec_parms = {}
+        spec_parms['name'] = NP.repeat('tanh', ra_deg_EoR.size)
+    
+        spec_parms['freq-ref'] = freq_half + NP.zeros(ra_deg_EoR.size)
+        spec_parms['flux-scale'] = T_xi0 * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
+        spec_parms['flux-offset'] = 0.5*spec_parms['flux-scale'] + NP.zeros(ra_deg_EoR.size)
+        spec_parms['z-width'] = dz_half + NP.zeros(ra_deg_EoR.size)
+        flux_unit = 'Jy'
+    
+        skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg_EoR.reshape(-1,1), dec_deg_EoR.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms}
+    
+        skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+        spectrum = skymod.generate_spectrum()
+    
+    elif use_GSM:
+        dsm_file = DSM_file_prefix+'_150.0_MHz_nside_{0:0d}.fits'.format(nside)
+        # dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
+        hdulist = fits.open(dsm_file)
+        pixres = hdulist[0].header['PIXAREA']
+        dsm_table = hdulist[1].data
+        ra_deg_DSM = dsm_table['RA']
+        dec_deg_DSM = dsm_table['DEC']
+        temperatures = dsm_table['T_{0:.0f}'.format(150.0)]
+        # temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
+        fluxes_DSM = temperatures * 2.0 * FCNST.k * (150e6/FCNST.c)**2 * pixres / CNST.Jy
+        # fluxes_DSM = temperatures * (2.0* FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
+        spindex = dsm_table['spindex'] + 2.0
+        freq_DSM = 0.150 # in GHz
+        # freq_DSM = freq/1e9 # in GHz
+        freq_catalog = freq_DSM * 1e9 + NP.zeros(fluxes_DSM.size)
+        catlabel = NP.repeat('DSM', fluxes_DSM.size)
+        ra_deg = ra_deg_DSM + 0.0
+        dec_deg = dec_deg_DSM + 0.0
+        majax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_DSM.size)
+        minax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_DSM.size)
+        fluxes = fluxes_DSM + 0.0
+    
+        freq_SUMSS = 0.843 # in GHz
+        catalog = NP.loadtxt(SUMSS_file, usecols=(0,1,2,3,4,5,10,12,13,14,15,16))
+        ra_deg_SUMSS = 15.0 * (catalog[:,0] + catalog[:,1]/60.0 + catalog[:,2]/3.6e3)
+        dec_dd = NP.loadtxt(SUMSS_file, usecols=(3,), dtype="|S3")
+        sgn_dec_str = NP.asarray([dec_dd[i][0] for i in range(dec_dd.size)])
+        sgn_dec = 1.0*NP.ones(dec_dd.size)
+        sgn_dec[sgn_dec_str == '-'] = -1.0
+        dec_deg_SUMSS = sgn_dec * (NP.abs(catalog[:,3]) + catalog[:,4]/60.0 + catalog[:,5]/3.6e3)
+        fmajax = catalog[:,7]
+        fminax = catalog[:,8]
+        fpa = catalog[:,9]
+        dmajax = catalog[:,10]
+        dminax = catalog[:,11]
+        PS_ind = NP.logical_and(dmajax == 0.0, dminax == 0.0)
+        ra_deg_SUMSS = ra_deg_SUMSS[PS_ind]
+        dec_deg_SUMSS = dec_deg_SUMSS[PS_ind]
+        fint = catalog[PS_ind,6] * 1e-3
+        if spindex_seed is None:
+            spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
+        else:
+            NP.random.seed(spindex_seed)
+            spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
+    
+        fmajax = fmajax[PS_ind]
+        fminax = fminax[PS_ind]
+        fpa = fpa[PS_ind]
+        dmajax = dmajax[PS_ind]
+        dminax = dminax[PS_ind]
+        bright_source_ind = fint >= 10.0 * (freq_SUMSS*1e9/freq)**spindex_SUMSS
+        ra_deg_SUMSS = ra_deg_SUMSS[bright_source_ind]
+        dec_deg_SUMSS = dec_deg_SUMSS[bright_source_ind]
+        fint = fint[bright_source_ind]
+        fmajax = fmajax[bright_source_ind]
+        fminax = fminax[bright_source_ind]
+        fpa = fpa[bright_source_ind]
+        dmajax = dmajax[bright_source_ind]
+        dminax = dminax[bright_source_ind]
+        spindex_SUMSS = spindex_SUMSS[bright_source_ind]
+        valid_ind = NP.logical_and(fmajax > 0.0, fminax > 0.0)
+        ra_deg_SUMSS = ra_deg_SUMSS[valid_ind]
+        dec_deg_SUMSS = dec_deg_SUMSS[valid_ind]
+        fint = fint[valid_ind]
+        fmajax = fmajax[valid_ind]
+        fminax = fminax[valid_ind]
+        fpa = fpa[valid_ind]
+        spindex_SUMSS = spindex_SUMSS[valid_ind]
+        freq_catalog = NP.concatenate((freq_catalog, freq_SUMSS*1e9 + NP.zeros(fint.size)))
+        catlabel = NP.concatenate((catlabel, NP.repeat('SUMSS', fint.size)))
+        ra_deg = NP.concatenate((ra_deg, ra_deg_SUMSS))
+        dec_deg = NP.concatenate((dec_deg, dec_deg_SUMSS))
+        spindex = NP.concatenate((spindex, spindex_SUMSS))
+        majax = NP.concatenate((majax, fmajax/3.6e3))
+        minax = NP.concatenate((minax, fminax/3.6e3))
+        fluxes = NP.concatenate((fluxes, fint))
+    
+        freq_NVSS = 1.4 # in GHz
+        hdulist = fits.open(NVSS_file)
+        ra_deg_NVSS = hdulist[1].data['RA(2000)']
+        dec_deg_NVSS = hdulist[1].data['DEC(2000)']
+        nvss_fpeak = hdulist[1].data['PEAK INT']
+        nvss_majax = hdulist[1].data['MAJOR AX']
+        nvss_minax = hdulist[1].data['MINOR AX']
+        hdulist.close()
+    
+        if spindex_seed is None:
+            spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
+        else:
+            NP.random.seed(2*spindex_seed)
+            spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
+    
+        not_in_SUMSS_ind = NP.logical_and(dec_deg_NVSS > -30.0, dec_deg_NVSS <= min(90.0, latitude+90.0))
+        bright_source_ind = nvss_fpeak >= 10.0 * (freq_NVSS*1e9/freq)**(spindex_NVSS)
+        PS_ind = NP.sqrt(nvss_majax**2-(0.75/60.0)**2) < 14.0/3.6e3
+        count_valid = NP.sum(NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind))
+        nvss_fpeak = nvss_fpeak[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]
+        freq_catalog = NP.concatenate((freq_catalog, freq_NVSS*1e9 + NP.zeros(count_valid)))
+        catlabel = NP.concatenate((catlabel, NP.repeat('NVSS',count_valid)))
+        ra_deg = NP.concatenate((ra_deg, ra_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
+        dec_deg = NP.concatenate((dec_deg, dec_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
+        spindex = NP.concatenate((spindex, spindex_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
+        majax = NP.concatenate((majax, nvss_majax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
+        minax = NP.concatenate((minax, nvss_minax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, bright_source_ind), PS_ind)]))
+        fluxes = NP.concatenate((fluxes, nvss_fpeak))
+    
+        spec_type = 'func'
+        spec_parms = {}
+        spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+        spec_parms['power-law-index'] = spindex
+        spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
+        spec_parms['flux-scale'] = fluxes
+        spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+        spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+        flux_unit = 'Jy'
+    
+        skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+    
+        skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+    
+    elif use_DSM:
+        dsm_file = DSM_file_prefix+'_150.0_MHz_nside_{0:0d}.fits'.format(nside)
+        # dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
+        hdulist = fits.open(dsm_file)
+        pixres = hdulist[0].header['PIXAREA']
+        dsm_table = hdulist[1].data
+        ra_deg_DSM = dsm_table['RA']
+        dec_deg_DSM = dsm_table['DEC']
+        temperatures = dsm_table['T_{0:.0f}'.format(150.0)]
+        # temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
+        fluxes_DSM = temperatures * 2.0 * FCNST.k * (150e6/FCNST.c)**2 * pixres / CNST.Jy
+        # fluxes_DSM = temperatures * (2.0 * FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy
+        flux_unit = 'Jy'
+        spindex = dsm_table['spindex'] + 2.0
+        freq_DSM = 0.150 # in GHz
+        # freq_DSM = freq/1e9 # in GHz
+        freq_catalog = freq_DSM * 1e9 + NP.zeros(fluxes_DSM.size)
+        catlabel = NP.repeat('DSM', fluxes_DSM.size)
+        ra_deg = ra_deg_DSM
+        dec_deg = dec_deg_DSM
+        majax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_DSM.size)
+        minax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_DSM.size)
+        # majax = NP.degrees(NP.sqrt(HP.nside2pixarea(64)*4/NP.pi) * NP.ones(fluxes_DSM.size))
+        # minax = NP.degrees(NP.sqrt(HP.nside2pixarea(64)*4/NP.pi) * NP.ones(fluxes_DSM.size))
+        fluxes = fluxes_DSM
+        hdulist.close()
+    
+        spec_type = 'func'
+        spec_parms = {}
+        spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+        spec_parms['power-law-index'] = spindex
+        spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
+        spec_parms['flux-scale'] = fluxes
+        spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+        spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+    
+        skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+    
+        skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+    
+    elif use_spectrum:
+        skymod = SM.SkyModel(init_parms=None, init_file=spectrum_file, load_spectrum=False)
+    
+    elif use_pygsm:
+        if not SM.pygsm_found:
+            print('PyGSM module not found to be installed.')
+            PDB.set_trace()
+        skymod_parallel = parms['skyparm']['parallel']
         if not isinstance(skymod_parallel, bool):
             warnings.warn('Input parallel for determining sky model must be boolean. Setting it to False.')
             skymod_parallel = False
-        n_mdl_freqs = parms['fgparm']['n_mdl_freqs']
+        n_mdl_freqs = parms['skyparm']['n_mdl_freqs']
         if n_mdl_freqs is None:
             mdl_freqs = 1e9 * chans
         elif not isinstance(n_mdl_freqs, int):
@@ -1225,6 +1268,7 @@ elif use_pygsm:
                 n_mdl_freqs = 8
             mdl_freqs = 1e9 * NP.linspace(0.99 * chans.min(), 1.01 * chans.max(), n_mdl_freqs)
         if nside is None:
+            bl_length = NP.sqrt(NP.sum(arrayinfo['bl']**2, axis=1))
             u_max = bl_length.max() * 1e9 * chans.max() / FCNST.c
             angres = 1 / u_max # radians
             nside = 1
@@ -1232,118 +1276,227 @@ elif use_pygsm:
             while hpxres > 0.5 * angres:
                 nside *= 2
                 hpxres = HP.nside2resol(nside)
-        try:
-            os.makedirs(rootdir+project_dir+simid+skymod_dir, 0755)
-        except OSError as exception:
-            if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+skymod_dir):
-                pass
+        skymod = SM.diffuse_radio_sky_model(mdl_freqs, gsmversion=sky_str, nside=nside, ind=None, outfile=None, parallel=skymod_parallel)
+    elif use_USM:
+        dsm_file = DSM_file_prefix+'_150.0_MHz_nside_{0:0d}.fits'.format(nside)
+        # dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
+        hdulist = fits.open(dsm_file)
+        pixres = hdulist[0].header['PIXAREA']
+        dsm_table = hdulist[1].data
+        ra_deg = dsm_table['RA']
+        dec_deg = dsm_table['DEC']
+        temperatures = dsm_table['T_{0:.0f}'.format(150.0)]
+        # temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
+        avg_temperature = NP.mean(temperatures)
+        fluxes_DSM = temperatures * 2.0 * FCNST.k * (150e6/FCNST.c)**2 * pixres / CNST.Jy
+        # fluxes_USM = avg_temperature * (2.0 * FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy * NP.ones(temperatures.size)
+        spindex = NP.zeros(fluxes_USM.size)
+        freq_USM = 0.150 # in GHz
+        # freq_USM = 0.185 # in GHz
+        freq_catalog = freq_USM * 1e9 + NP.zeros(fluxes_USM.size)
+        catlabel = NP.repeat('USM', fluxes_USM.size)
+        majax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_USM.size)
+        minax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_USM.size)
+        hdulist.close()  
+    
+        flux_unit = 'Jy'
+        spec_type = 'func'
+        spec_parms = {}
+        spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+        spec_parms['power-law-index'] = spindex
+        spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
+        spec_parms['flux-scale'] = fluxes_USM
+        spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+        spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+    
+        skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+    
+        skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+      
+    elif use_noise:
+        pixres = HP.nside2pixarea(nside)
+        npix = HP.nside2npix(nside)
+        theta, phi = HP.pix2ang(nside, NP.arange(npix))
+        dec = NP.pi/2 - theta
+        flux_unit = 'Jy'
+        spec_type = 'spectrum'
+        majax = NP.degrees(HP.nside2resol(nside)) * NP.ones(npix)
+        minax = NP.degrees(HP.nside2resol(nside)) * NP.ones(npix)
+        skyspec = NP.random.randn(npix,chans.size) * (2.0 * FCNST.k * (1e9*chans.reshape(1,-1) / FCNST.c)**2) * pixres / CNST.Jy
+        spec_parms = {}
+        catlabel = 'noise-sky'
+        skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((NP.degrees(phi).reshape(-1,1), NP.degrees(dec).reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'spectrum': skyspec, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(npix).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+        skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+    
+    elif use_CSM:
+        freq_SUMSS = 0.843 # in GHz
+        catalog = NP.loadtxt(SUMSS_file, usecols=(0,1,2,3,4,5,10,12,13,14,15,16))
+        ra_deg_SUMSS = 15.0 * (catalog[:,0] + catalog[:,1]/60.0 + catalog[:,2]/3.6e3)
+        dec_dd = NP.loadtxt(SUMSS_file, usecols=(3,), dtype="|S3")
+        sgn_dec_str = NP.asarray([dec_dd[i][0] for i in range(dec_dd.size)])
+        sgn_dec = 1.0*NP.ones(dec_dd.size)
+        sgn_dec[sgn_dec_str == '-'] = -1.0
+        dec_deg_SUMSS = sgn_dec * (NP.abs(catalog[:,3]) + catalog[:,4]/60.0 + catalog[:,5]/3.6e3)
+        fmajax = catalog[:,7]
+        fminax = catalog[:,8]
+        fpa = catalog[:,9]
+        dmajax = catalog[:,10]
+        dminax = catalog[:,11]
+        PS_ind = NP.logical_and(dmajax == 0.0, dminax == 0.0)
+        ra_deg_SUMSS = ra_deg_SUMSS[PS_ind]
+        dec_deg_SUMSS = dec_deg_SUMSS[PS_ind]
+        fint = catalog[PS_ind,6] * 1e-3
+        if spindex_seed is None:
+            spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
+        else:
+            NP.random.seed(spindex_seed)
+            spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
+    
+        fmajax = fmajax[PS_ind]
+        fminax = fminax[PS_ind]
+        fpa = fpa[PS_ind]
+        dmajax = dmajax[PS_ind]
+        dminax = dminax[PS_ind]
+        if fluxcut_max is None:
+            select_SUMSS_source_ind = fint >= fluxcut_min * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS
+        else:
+            select_SUMSS_source_ind = NP.logical_and(fint >= fluxcut_min * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS, fint <= fluxcut_max * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS)
+        if NP.sum(select_SUMSS_source_ind) > 0:
+            ra_deg_SUMSS = ra_deg_SUMSS[select_SUMSS_source_ind]
+            dec_deg_SUMSS = dec_deg_SUMSS[select_SUMSS_source_ind]
+            fint = fint[select_SUMSS_source_ind]
+            fmajax = fmajax[select_SUMSS_source_ind]
+            fminax = fminax[select_SUMSS_source_ind]
+            fpa = fpa[select_SUMSS_source_ind]
+            dmajax = dmajax[select_SUMSS_source_ind]
+            dminax = dminax[select_SUMSS_source_ind]
+            spindex_SUMSS = spindex_SUMSS[select_SUMSS_source_ind]
+            valid_ind = NP.logical_and(fmajax > 0.0, fminax > 0.0)
+            ra_deg_SUMSS = ra_deg_SUMSS[valid_ind]
+            dec_deg_SUMSS = dec_deg_SUMSS[valid_ind]
+            fint = fint[valid_ind]
+            fmajax = fmajax[valid_ind]
+            fminax = fminax[valid_ind]
+            fpa = fpa[valid_ind]
+            spindex_SUMSS = spindex_SUMSS[valid_ind]
+            freq_catalog = freq_SUMSS*1e9 + NP.zeros(fint.size)
+            catlabel = NP.repeat('SUMSS', fint.size)
+            ra_deg = ra_deg_SUMSS + 0.0
+            dec_deg = dec_deg_SUMSS
+            spindex = spindex_SUMSS
+            majax = fmajax/3.6e3
+            minax = fminax/3.6e3
+            fluxes = fint + 0.0
+        freq_NVSS = 1.4 # in GHz
+        hdulist = fits.open(NVSS_file)
+        ra_deg_NVSS = hdulist[1].data['RA(2000)']
+        dec_deg_NVSS = hdulist[1].data['DEC(2000)']
+        nvss_fpeak = hdulist[1].data['PEAK INT']
+        nvss_majax = hdulist[1].data['MAJOR AX']
+        nvss_minax = hdulist[1].data['MINOR AX']
+        hdulist.close()
+    
+        if spindex_seed is None:
+            spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
+        else:
+            NP.random.seed(2*spindex_seed)
+            spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
+    
+        not_in_SUMSS_ind = dec_deg_NVSS > -30.0
+        # not_in_SUMSS_ind = NP.logical_and(dec_deg_NVSS > -30.0, dec_deg_NVSS <= min(90.0, latitude+90.0))
+        
+        if fluxcut_max is None:
+            select_source_ind = nvss_fpeak >= fluxcut_min * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS
+        else:
+            select_source_ind = NP.logical_and(nvss_fpeak >= fluxcut_min * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS, nvss_fpeak <= fluxcut_max * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS)
+        if NP.sum(select_source_ind) == 0:
+            raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
+        # select_source_ind = nvss_fpeak >= 10.0 * (freq_NVSS*1e9/freq)**(spindex_NVSS)
+        PS_ind = NP.sqrt(nvss_majax**2-(0.75/60.0)**2) < 14.0/3.6e3
+        count_valid = NP.sum(NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind))
+        if count_valid > 0:
+            nvss_fpeak = nvss_fpeak[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
+            if NP.sum(select_SUMSS_source_ind) > 0: 
+                freq_catalog = NP.concatenate((freq_catalog, freq_NVSS*1e9 + NP.zeros(count_valid)))
+                catlabel = NP.concatenate((catlabel, NP.repeat('NVSS',count_valid)))
+                ra_deg = NP.concatenate((ra_deg, ra_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]))
+                dec_deg = NP.concatenate((dec_deg, dec_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]))
+                spindex = NP.concatenate((spindex, spindex_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]))
+                majax = NP.concatenate((majax, nvss_majax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]))
+                minax = NP.concatenate((minax, nvss_minax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]))
+                fluxes = NP.concatenate((fluxes, nvss_fpeak))
             else:
-                raise
-        skymod_extfile = rootdir+project_dir+simid+skymod_dir+'skymodel'
-        skymod = SM.diffuse_radio_sky_model(mdl_freqs, gsmversion=fg_str, nside=nside, ind=None, outfile=skymod_extfile, parallel=skymod_parallel)
-    else:
-        skymod_extfile = None
-    skymod_extfile = comm.bcast(skymod_extfile, root=0)
-    if rank != 0:
-        skymod = SM.SkyModel(init_parms=None, init_file=skymod_extfile+'.hdf5')
-
-elif use_USM:
-    dsm_file = DSM_file_prefix+'_150.0_MHz_nside_{0:0d}.fits'.format(nside)
-    # dsm_file = DSM_file_prefix+'_{0:.1f}_MHz_nside_{1:0d}.fits'.format(freq*1e-6, nside)
-    hdulist = fits.open(dsm_file)
-    pixres = hdulist[0].header['PIXAREA']
-    dsm_table = hdulist[1].data
-    ra_deg = dsm_table['RA']
-    dec_deg = dsm_table['DEC']
-    temperatures = dsm_table['T_{0:.0f}'.format(150.0)]
-    # temperatures = dsm_table['T_{0:.0f}'.format(freq/1e6)]
-    avg_temperature = NP.mean(temperatures)
-    fluxes_DSM = temperatures * 2.0 * FCNST.k * (150e6/FCNST.c)**2 * pixres / CNST.Jy
-    # fluxes_USM = avg_temperature * (2.0 * FCNST.k * freq**2 / FCNST.c**2) * pixres / CNST.Jy * NP.ones(temperatures.size)
-    spindex = NP.zeros(fluxes_USM.size)
-    freq_USM = 0.150 # in GHz
-    # freq_USM = 0.185 # in GHz
-    freq_catalog = freq_USM * 1e9 + NP.zeros(fluxes_USM.size)
-    catlabel = NP.repeat('USM', fluxes_USM.size)
-    majax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_USM.size)
-    minax = NP.degrees(HP.nside2resol(nside)) * NP.ones(fluxes_USM.size)
-    hdulist.close()  
-
-    flux_unit = 'Jy'
-    spec_type = 'func'
-    spec_parms = {}
-    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
-    spec_parms['power-law-index'] = spindex
-    spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
-    spec_parms['flux-scale'] = fluxes_USM
-    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
-    spec_parms['freq-width'] = NP.zeros(ra_deg.size)
-
-    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
-
-    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
-  
-elif use_noise:
-    pixres = HP.nside2pixarea(nside)
-    npix = HP.nside2npix(nside)
-    theta, phi = HP.pix2ang(nside, NP.arange(npix))
-    dec = NP.pi/2 - theta
-    flux_unit = 'Jy'
-    spec_type = 'spectrum'
-    majax = NP.degrees(HP.nside2resol(nside)) * NP.ones(npix)
-    minax = NP.degrees(HP.nside2resol(nside)) * NP.ones(npix)
-    skyspec = NP.random.randn(npix,chans.size) * (2.0 * FCNST.k * (1e9*chans.reshape(1,-1) / FCNST.c)**2) * pixres / CNST.Jy
-    spec_parms = {}
-    catlabel = 'noise-sky'
-    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((NP.degrees(phi).reshape(-1,1), NP.degrees(dec).reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'spectrum': skyspec, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(npix).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
-    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
-
-elif use_CSM:
-    freq_SUMSS = 0.843 # in GHz
-    catalog = NP.loadtxt(SUMSS_file, usecols=(0,1,2,3,4,5,10,12,13,14,15,16))
-    ra_deg_SUMSS = 15.0 * (catalog[:,0] + catalog[:,1]/60.0 + catalog[:,2]/3.6e3)
-    dec_dd = NP.loadtxt(SUMSS_file, usecols=(3,), dtype="|S3")
-    sgn_dec_str = NP.asarray([dec_dd[i][0] for i in range(dec_dd.size)])
-    sgn_dec = 1.0*NP.ones(dec_dd.size)
-    sgn_dec[sgn_dec_str == '-'] = -1.0
-    dec_deg_SUMSS = sgn_dec * (NP.abs(catalog[:,3]) + catalog[:,4]/60.0 + catalog[:,5]/3.6e3)
-    fmajax = catalog[:,7]
-    fminax = catalog[:,8]
-    fpa = catalog[:,9]
-    dmajax = catalog[:,10]
-    dminax = catalog[:,11]
-    PS_ind = NP.logical_and(dmajax == 0.0, dminax == 0.0)
-    ra_deg_SUMSS = ra_deg_SUMSS[PS_ind]
-    dec_deg_SUMSS = dec_deg_SUMSS[PS_ind]
-    fint = catalog[PS_ind,6] * 1e-3
-    if spindex_seed is None:
-        spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
-    else:
-        NP.random.seed(spindex_seed)
-        spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
-
-    fmajax = fmajax[PS_ind]
-    fminax = fminax[PS_ind]
-    fpa = fpa[PS_ind]
-    dmajax = dmajax[PS_ind]
-    dminax = dminax[PS_ind]
-    if fluxcut_max is None:
-        select_SUMSS_source_ind = fint >= fluxcut_min * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS
-    else:
-        select_SUMSS_source_ind = NP.logical_and(fint >= fluxcut_min * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS, fint <= fluxcut_max * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS)
-    if NP.sum(select_SUMSS_source_ind) > 0:
-        ra_deg_SUMSS = ra_deg_SUMSS[select_SUMSS_source_ind]
-        dec_deg_SUMSS = dec_deg_SUMSS[select_SUMSS_source_ind]
-        fint = fint[select_SUMSS_source_ind]
-        fmajax = fmajax[select_SUMSS_source_ind]
-        fminax = fminax[select_SUMSS_source_ind]
-        fpa = fpa[select_SUMSS_source_ind]
-        dmajax = dmajax[select_SUMSS_source_ind]
-        dminax = dminax[select_SUMSS_source_ind]
-        spindex_SUMSS = spindex_SUMSS[select_SUMSS_source_ind]
+                freq_catalog = freq_NVSS*1e9 + NP.zeros(count_valid)
+                catlabel = NP.repeat('NVSS',count_valid)
+                ra_deg = ra_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
+                dec_deg = dec_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
+                spindex = spindex_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
+                majax = nvss_majax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
+                minax = nvss_minax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
+                fluxes = nvss_fpeak
+        elif NP.sum(select_SUMSS_source_ind) == 0:
+            raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
+    
+        spec_type = 'func'
+        spec_parms = {}
+        spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+        spec_parms['power-law-index'] = spindex
+        spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
+        spec_parms['flux-scale'] = fluxes
+        spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+        spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+        flux_unit = 'Jy'
+    
+        skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+    
+        skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+    
+    elif use_SUMSS:
+        freq_SUMSS = 0.843 # in GHz
+        catalog = NP.loadtxt(SUMSS_file, usecols=(0,1,2,3,4,5,10,12,13,14,15,16))
+        ra_deg = 15.0 * (catalog[:,0] + catalog[:,1]/60.0 + catalog[:,2]/3.6e3)
+        dec_dd = NP.loadtxt(SUMSS_file, usecols=(3,), dtype="|S3")
+        sgn_dec_str = NP.asarray([dec_dd[i][0] for i in range(dec_dd.size)])
+        sgn_dec = 1.0*NP.ones(dec_dd.size)
+        sgn_dec[sgn_dec_str == '-'] = -1.0
+        dec_deg = sgn_dec * (NP.abs(catalog[:,3]) + catalog[:,4]/60.0 + catalog[:,5]/3.6e3)
+        fmajax = catalog[:,7]
+        fminax = catalog[:,8]
+        fpa = catalog[:,9]
+        dmajax = catalog[:,10]
+        dminax = catalog[:,11]
+        PS_ind = NP.logical_and(dmajax == 0.0, dminax == 0.0)
+        ra_deg = ra_deg[PS_ind]
+        dec_deg = dec_deg[PS_ind]
+        fint = catalog[PS_ind,6] * 1e-3
+        if spindex_seed is None:
+            spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
+        else:
+            NP.random.seed(spindex_seed)
+            spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
+        fmajax = fmajax[PS_ind]
+        fminax = fminax[PS_ind]
+        fpa = fpa[PS_ind]
+        dmajax = dmajax[PS_ind]
+        dminax = dminax[PS_ind]
+        if fluxcut_max is None:
+            select_source_ind = fint >= fluxcut_min * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS
+        else:
+            select_source_ind = NP.logical_and(fint >= fluxcut_min * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS, fint <= fluxcut_max * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS)
+        if NP.sum(select_source_ind) == 0:
+            raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
+        ra_deg = ra_deg[select_source_ind]
+        dec_deg = dec_deg[select_source_ind]
+        fint = fint[select_source_ind]
+        fmajax = fmajax[select_source_ind]
+        fminax = fminax[select_source_ind]
+        fpa = fpa[select_source_ind]
+        dmajax = dmajax[select_source_ind]
+        dminax = dminax[select_source_ind]
+        spindex_SUMSS = spindex_SUMSS[select_source_ind]
         valid_ind = NP.logical_and(fmajax > 0.0, fminax > 0.0)
-        ra_deg_SUMSS = ra_deg_SUMSS[valid_ind]
-        dec_deg_SUMSS = dec_deg_SUMSS[valid_ind]
+        ra_deg = ra_deg[valid_ind]
+        dec_deg = dec_deg[valid_ind]
         fint = fint[valid_ind]
         fmajax = fmajax[valid_ind]
         fminax = fminax[valid_ind]
@@ -1351,315 +1504,211 @@ elif use_CSM:
         spindex_SUMSS = spindex_SUMSS[valid_ind]
         freq_catalog = freq_SUMSS*1e9 + NP.zeros(fint.size)
         catlabel = NP.repeat('SUMSS', fint.size)
-        ra_deg = ra_deg_SUMSS + 0.0
-        dec_deg = dec_deg_SUMSS
         spindex = spindex_SUMSS
         majax = fmajax/3.6e3
         minax = fminax/3.6e3
         fluxes = fint + 0.0
-    freq_NVSS = 1.4 # in GHz
-    hdulist = fits.open(NVSS_file)
-    ra_deg_NVSS = hdulist[1].data['RA(2000)']
-    dec_deg_NVSS = hdulist[1].data['DEC(2000)']
-    nvss_fpeak = hdulist[1].data['PEAK INT']
-    nvss_majax = hdulist[1].data['MAJOR AX']
-    nvss_minax = hdulist[1].data['MINOR AX']
-    hdulist.close()
-
-    if spindex_seed is None:
-        spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
-    else:
-        NP.random.seed(2*spindex_seed)
-        spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
-
-    not_in_SUMSS_ind = dec_deg_NVSS > -30.0
-    # not_in_SUMSS_ind = NP.logical_and(dec_deg_NVSS > -30.0, dec_deg_NVSS <= min(90.0, latitude+90.0))
+        
+        spec_type = 'func'
+        spec_parms = {}
+        spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+        spec_parms['power-law-index'] = spindex
+        spec_parms['freq-ref'] = freq_catalog
+        spec_parms['flux-scale'] = fint
+        spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+        spec_parms['freq-width'] = 1.0e-3 + NP.zeros(ra_deg.size)
+        flux_unit = 'Jy'
     
-    if fluxcut_max is None:
-        select_source_ind = nvss_fpeak >= fluxcut_min * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS
-    else:
-        select_source_ind = NP.logical_and(nvss_fpeak >= fluxcut_min * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS, nvss_fpeak <= fluxcut_max * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS)
-    if NP.sum(select_source_ind) == 0:
-        raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
-    # select_source_ind = nvss_fpeak >= 10.0 * (freq_NVSS*1e9/freq)**(spindex_NVSS)
-    PS_ind = NP.sqrt(nvss_majax**2-(0.75/60.0)**2) < 14.0/3.6e3
-    count_valid = NP.sum(NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind))
-    if count_valid > 0:
-        nvss_fpeak = nvss_fpeak[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
-        if NP.sum(select_SUMSS_source_ind) > 0: 
-            freq_catalog = NP.concatenate((freq_catalog, freq_NVSS*1e9 + NP.zeros(count_valid)))
-            catlabel = NP.concatenate((catlabel, NP.repeat('NVSS',count_valid)))
-            ra_deg = NP.concatenate((ra_deg, ra_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]))
-            dec_deg = NP.concatenate((dec_deg, dec_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]))
-            spindex = NP.concatenate((spindex, spindex_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]))
-            majax = NP.concatenate((majax, nvss_majax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]))
-            minax = NP.concatenate((minax, nvss_minax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]))
-            fluxes = NP.concatenate((fluxes, nvss_fpeak))
+        skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+    
+        skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+    
+    elif use_NVSS:
+        freq_NVSS = 1.4 # in GHz
+        hdulist = fits.open(NVSS_file)
+        ra_deg_NVSS = hdulist[1].data['RA(2000)']
+        dec_deg_NVSS = hdulist[1].data['DEC(2000)']
+        nvss_fpeak = hdulist[1].data['PEAK INT']
+        nvss_majax = hdulist[1].data['MAJOR AX']
+        nvss_minax = hdulist[1].data['MINOR AX']
+        hdulist.close()
+    
+        if spindex_seed is None:
+            spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
         else:
+            NP.random.seed(2*spindex_seed)
+            spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
+    
+        if fluxcut_max is None:
+            select_source_ind = nvss_fpeak >= fluxcut_min * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS
+        else:
+            select_source_ind = NP.logical_and(nvss_fpeak >= fluxcut_min * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS, nvss_fpeak <= fluxcut_max * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS)
+        if NP.sum(select_source_ind) == 0:
+            raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
+        # select_source_ind = nvss_fpeak >= 10.0 * (freq_NVSS*1e9/freq)**(spindex_NVSS)
+        PS_ind = NP.sqrt(nvss_majax**2-(0.75/60.0)**2) < 14.0/3.6e3
+        count_valid = NP.sum(NP.logical_and(select_source_ind, PS_ind))
+        if count_valid > 0:
+            nvss_fpeak = nvss_fpeak[NP.logical_and(select_source_ind, PS_ind)]
             freq_catalog = freq_NVSS*1e9 + NP.zeros(count_valid)
             catlabel = NP.repeat('NVSS',count_valid)
-            ra_deg = ra_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
-            dec_deg = dec_deg_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
-            spindex = spindex_NVSS[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
-            majax = nvss_majax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
-            minax = nvss_minax[NP.logical_and(NP.logical_and(not_in_SUMSS_ind, select_source_ind), PS_ind)]
+            ra_deg = ra_deg_NVSS[NP.logical_and(select_source_ind, PS_ind)]
+            dec_deg = dec_deg_NVSS[NP.logical_and(select_source_ind, PS_ind)]
+            spindex = spindex_NVSS[NP.logical_and(select_source_ind, PS_ind)]
+            majax = nvss_majax[NP.logical_and(select_source_ind, PS_ind)]
+            minax = nvss_minax[NP.logical_and(select_source_ind, PS_ind)]
             fluxes = nvss_fpeak
-    elif NP.sum(select_SUMSS_source_ind) == 0:
-        raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
-
-    spec_type = 'func'
-    spec_parms = {}
-    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
-    spec_parms['power-law-index'] = spindex
-    spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
-    spec_parms['flux-scale'] = fluxes
-    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
-    spec_parms['freq-width'] = NP.zeros(ra_deg.size)
-    flux_unit = 'Jy'
-
-    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
-
-    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
-
-elif use_SUMSS:
-    freq_SUMSS = 0.843 # in GHz
-    catalog = NP.loadtxt(SUMSS_file, usecols=(0,1,2,3,4,5,10,12,13,14,15,16))
-    ra_deg = 15.0 * (catalog[:,0] + catalog[:,1]/60.0 + catalog[:,2]/3.6e3)
-    dec_dd = NP.loadtxt(SUMSS_file, usecols=(3,), dtype="|S3")
-    sgn_dec_str = NP.asarray([dec_dd[i][0] for i in range(dec_dd.size)])
-    sgn_dec = 1.0*NP.ones(dec_dd.size)
-    sgn_dec[sgn_dec_str == '-'] = -1.0
-    dec_deg = sgn_dec * (NP.abs(catalog[:,3]) + catalog[:,4]/60.0 + catalog[:,5]/3.6e3)
-    fmajax = catalog[:,7]
-    fminax = catalog[:,8]
-    fpa = catalog[:,9]
-    dmajax = catalog[:,10]
-    dminax = catalog[:,11]
-    PS_ind = NP.logical_and(dmajax == 0.0, dminax == 0.0)
-    ra_deg = ra_deg[PS_ind]
-    dec_deg = dec_deg[PS_ind]
-    fint = catalog[PS_ind,6] * 1e-3
-    if spindex_seed is None:
-        spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
-    else:
-        NP.random.seed(spindex_seed)
-        spindex_SUMSS = -0.83 + spindex_rms * NP.random.randn(fint.size)
-    fmajax = fmajax[PS_ind]
-    fminax = fminax[PS_ind]
-    fpa = fpa[PS_ind]
-    dmajax = dmajax[PS_ind]
-    dminax = dminax[PS_ind]
-    if fluxcut_max is None:
-        select_source_ind = fint >= fluxcut_min * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS
-    else:
-        select_source_ind = NP.logical_and(fint >= fluxcut_min * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS, fint <= fluxcut_max * (freq_SUMSS*1e9/fluxcut_freq)**spindex_SUMSS)
-    if NP.sum(select_source_ind) == 0:
-        raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
-    ra_deg = ra_deg[select_source_ind]
-    dec_deg = dec_deg[select_source_ind]
-    fint = fint[select_source_ind]
-    fmajax = fmajax[select_source_ind]
-    fminax = fminax[select_source_ind]
-    fpa = fpa[select_source_ind]
-    dmajax = dmajax[select_source_ind]
-    dminax = dminax[select_source_ind]
-    spindex_SUMSS = spindex_SUMSS[select_source_ind]
-    valid_ind = NP.logical_and(fmajax > 0.0, fminax > 0.0)
-    ra_deg = ra_deg[valid_ind]
-    dec_deg = dec_deg[valid_ind]
-    fint = fint[valid_ind]
-    fmajax = fmajax[valid_ind]
-    fminax = fminax[valid_ind]
-    fpa = fpa[valid_ind]
-    spindex_SUMSS = spindex_SUMSS[valid_ind]
-    freq_catalog = 0.843 # in GHz
-    catlabel = NP.repeat('SUMSS', fint.size)
-    spindex = spindex_SUMSS
-    majax = fmajax/3.6e3
-    minax = fminax/3.6e3
-    fluxes = fint + 0.0
+        else:
+            raise IndexError('No sources in the catalog found satisfying flux threshold and point source criteria')
     
-    spec_type = 'func'
-    spec_parms = {}
-    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
-    spec_parms['power-law-index'] = spindex
-    spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
-    spec_parms['flux-scale'] = fint
-    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
-    spec_parms['freq-width'] = 1.0e-3 + NP.zeros(ra_deg.size)
-    flux_unit = 'Jy'
-
-    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
-
-    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
-
-elif use_NVSS:
-    freq_NVSS = 1.4 # in GHz
-    hdulist = fits.open(NVSS_file)
-    ra_deg_NVSS = hdulist[1].data['RA(2000)']
-    dec_deg_NVSS = hdulist[1].data['DEC(2000)']
-    nvss_fpeak = hdulist[1].data['PEAK INT']
-    nvss_majax = hdulist[1].data['MAJOR AX']
-    nvss_minax = hdulist[1].data['MINOR AX']
-    hdulist.close()
-
-    if spindex_seed is None:
-        spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
-    else:
-        NP.random.seed(2*spindex_seed)
-        spindex_NVSS = -0.83 + spindex_rms * NP.random.randn(nvss_fpeak.size)
-
-    if fluxcut_max is None:
-        select_source_ind = nvss_fpeak >= fluxcut_min * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS
-    else:
-        select_source_ind = NP.logical_and(nvss_fpeak >= fluxcut_min * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS, nvss_fpeak <= fluxcut_max * (freq_NVSS*1e9/fluxcut_freq)**spindex_NVSS)
-    if NP.sum(select_source_ind) == 0:
-        raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
-    # select_source_ind = nvss_fpeak >= 10.0 * (freq_NVSS*1e9/freq)**(spindex_NVSS)
-    PS_ind = NP.sqrt(nvss_majax**2-(0.75/60.0)**2) < 14.0/3.6e3
-    count_valid = NP.sum(NP.logical_and(select_source_ind, PS_ind))
-    if count_valid > 0:
-        nvss_fpeak = nvss_fpeak[NP.logical_and(select_source_ind, PS_ind)]
-        freq_catalog = freq_NVSS*1e9 + NP.zeros(count_valid)
-        catlabel = NP.repeat('NVSS',count_valid)
-        ra_deg = ra_deg_NVSS[NP.logical_and(select_source_ind, PS_ind)]
-        dec_deg = dec_deg_NVSS[NP.logical_and(select_source_ind, PS_ind)]
-        spindex = spindex_NVSS[NP.logical_and(select_source_ind, PS_ind)]
-        majax = nvss_majax[NP.logical_and(select_source_ind, PS_ind)]
-        minax = nvss_minax[NP.logical_and(select_source_ind, PS_ind)]
-        fluxes = nvss_fpeak
-    else:
-        raise IndexError('No sources in the catalog found satisfying flux threshold and point source criteria')
-
-    spec_type = 'func'
-    spec_parms = {}
-    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
-    spec_parms['power-law-index'] = spindex
-    spec_parms['freq-ref'] = freq_catalog 
-    spec_parms['flux-scale'] = fluxes
-    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
-    spec_parms['freq-width'] = NP.zeros(ra_deg.size)
-    flux_unit = 'Jy'
-
-    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
-
-    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
-
-elif use_MSS:
-    pass
-elif use_GLEAM:
-    reffreq = parms['skyparm']['custom_reffreq']
-    hdulist = fits.open(GLEAM_file)
-    colnames = [col.name for col in hdulist[1].columns if ('int_flux_' in col.name and 'err' not in col.name and 'fit' not in col.name and 'wide' not in col.name)]
-    colfreqs = NP.char.lstrip(colnames, 'int_flux_').astype(NP.float)
-    nearest_freq_ind = NP.argmin(NP.abs(colfreqs - reffreq*1e3))
-    freq_GLEAM = colfreqs[nearest_freq_ind] / 1e3 # in GHz
-    ra_deg_GLEAM = hdulist[1].data['RAJ2000']
-    dec_deg_GLEAM = hdulist[1].data['DEJ2000']
-    gleam_fint = hdulist[1].data[colnames[nearest_freq_ind]]
-    gleam_majax = 2 * hdulist[1].data['a_wide'] # Factor 2 to convert from semi-major axis to FWHM
-    gleam_minax = 2 * hdulist[1].data['b_wide'] # Factor 2 to convert from semi-minor axis to FWHM
-    gleam_pa = hdulist[1].data['pa_wide']
-    gleam_psf_majax = 2 * hdulist[1].data['psf_a_wide'] # Factor 2 to convert from semi-major axis to FWHM
-    gleam_psf_minax = 2 * hdulist[1].data['psf_b_wide'] # Factor 2 to convert from semi-minor axis to FWHM
-    spindex_GLEAM = hdulist[1].data['alpha']
-    hdulist.close()
-    nanind = NP.where(NP.isnan(spindex_GLEAM))[0]
-    if nanind.size > 0:
-        if spindex_seed is not None:
-            NP.random.seed(2*spindex_seed)
-        spindex_GLEAM = spindex + spindex_rms * NP.random.randn(gleam_fint.size)
+        spec_type = 'func'
+        spec_parms = {}
+        spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+        spec_parms['power-law-index'] = spindex
+        spec_parms['freq-ref'] = freq_catalog 
+        spec_parms['flux-scale'] = fluxes
+        spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+        spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+        flux_unit = 'Jy'
+    
+        skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+    
+        skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+    
+    elif use_MSS:
+        pass
+    elif use_GLEAM:
+        reffreq = parms['skyparm']['custom_reffreq']
+        hdulist = fits.open(GLEAM_file)
+        colnames = [col.name for col in hdulist[1].columns if ('int_flux_' in col.name and 'err' not in col.name and 'fit' not in col.name and 'wide' not in col.name)]
+        colfreqs = NP.char.lstrip(colnames, 'int_flux_').astype(NP.float)
+        nearest_freq_ind = NP.argmin(NP.abs(colfreqs - reffreq*1e3))
+        freq_GLEAM = colfreqs[nearest_freq_ind] / 1e3 # in GHz
+        ra_deg_GLEAM = hdulist[1].data['RAJ2000']
+        dec_deg_GLEAM = hdulist[1].data['DEJ2000']
+        gleam_fint = hdulist[1].data[colnames[nearest_freq_ind]]
+        gleam_majax = 2 * hdulist[1].data['a_wide'] # Factor 2 to convert from semi-major axis to FWHM
+        gleam_minax = 2 * hdulist[1].data['b_wide'] # Factor 2 to convert from semi-minor axis to FWHM
+        gleam_pa = hdulist[1].data['pa_wide']
+        gleam_psf_majax = 2 * hdulist[1].data['psf_a_wide'] # Factor 2 to convert from semi-major axis to FWHM
+        gleam_psf_minax = 2 * hdulist[1].data['psf_b_wide'] # Factor 2 to convert from semi-minor axis to FWHM
+        spindex_GLEAM = hdulist[1].data['alpha']
+        hdulist.close()
+        nanind = NP.where(NP.isnan(spindex_GLEAM))[0]
+        if nanind.size > 0:
+            if spindex_seed is not None:
+                NP.random.seed(2*spindex_seed)
+            spindex_GLEAM = spindex + spindex_rms * NP.random.randn(gleam_fint.size)
+            
+        if fluxcut_max is None:
+            select_source_ind = gleam_fint >= fluxcut_min * (freq_GLEAM*1e9/fluxcut_freq)**spindex_GLEAM
+        else:
+            select_source_ind = NP.logical_and(gleam_fint >= fluxcut_min * (freq_GLEAM*1e9/fluxcut_freq)**spindex_GLEAM, gleam_fint <= fluxcut_max * (freq_GLEAM*1e9/fluxcut_freq)**spindex_GLEAM)
+        if NP.sum(select_source_ind) == 0:
+            raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
+        # bright_source_ind = gleam_fint >= 10.0 * (freq_GLEAM*1e9/freq)**spindex_GLEAM
+        PS_ind = NP.ones(gleam_fint.size, dtype=NP.bool)
+        # PS_ind = gleam_majax * gleam_minax <= 1.1 * gleam_psf_majax * gleam_psf_minax
+        valid_ind = NP.logical_and(select_source_ind, PS_ind)
+        ra_deg_GLEAM = ra_deg_GLEAM[valid_ind]
+        dec_deg_GLEAM = dec_deg_GLEAM[valid_ind]
+        gleam_fint = gleam_fint[valid_ind]
+        spindex_GLEAM = spindex_GLEAM[valid_ind]
+        gleam_majax = gleam_majax[valid_ind]
+        gleam_minax = gleam_minax[valid_ind]
+        gleam_pa = gleam_pa[valid_ind]
+        fluxes = gleam_fint + 0.0
+        catlabel = NP.repeat('GLEAM', gleam_fint.size)
+        ra_deg = ra_deg_GLEAM + 0.0
+        dec_deg = dec_deg_GLEAM + 0.0
+        freq_catalog = freq_GLEAM*1e9 + NP.zeros(gleam_fint.size)
+        majax = gleam_majax / 3.6e3
+        minax = gleam_minax / 3.6e3
+        spindex = spindex_GLEAM + 0.0
+    
+        spec_type = 'func'
+        spec_parms = {}
+        spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+        spec_parms['power-law-index'] = spindex
+        spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
+        spec_parms['flux-scale'] = fluxes
+        spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+        spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+        flux_unit = 'Jy'
+    
+        skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+    
+        skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+    
+    elif use_skymod:
+        skymod = SM.SkyModel(init_parms=None, init_file=skymod_file)
+    
+    elif use_custom:
+        catdata = ascii.read(custom_catalog_file, comment='#', header_start=0, data_start=1)
+        ra_deg = catdata['RA'].data
+        dec_deg = catdata['DEC'].data
+        fint = catdata['F_INT'].data
+        spindex = catdata['SPINDEX'].data
+        majax = catdata['MAJAX'].data
+        minax = catdata['MINAX'].data
+        pa = catdata['PA'].data
+        freq_custom = parms['skyparm']['custom_reffreq']
+        freq_catalog = freq_custom * 1e9 + NP.zeros(fint.size)
+        catlabel = NP.repeat('custom', fint.size)
+        if fluxcut_max is None:
+            select_source_ind = fint >= fluxcut_min * (freq_custom*1e9/fluxcut_freq)**spindex
+        else:
+            select_source_ind = NP.logical_and(fint >= fluxcut_min * (freq_custom*1e9/fluxcut_freq)**spindex, fint <= fluxcut_max * (freq_custom*1e9/fluxcut_freq)**spindex)
+        if NP.sum(select_source_ind) == 0:
+            raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
+        ra_deg = ra_deg[select_source_ind]
+        dec_deg = dec_deg[select_source_ind]
+        fint = fint[select_source_ind]
+        spindex = spindex[select_source_ind]
+        majax = majax[select_source_ind]
+        minax = minax[select_source_ind]
+        pa = pa[select_source_ind]
+        freq_catalog = freq_catalog[select_source_ind]
+        catlabel = catlabel[select_source_ind]
         
-    if fluxcut_max is None:
-        select_source_ind = gleam_fint >= fluxcut_min * (freq_GLEAM*1e9/fluxcut_freq)**spindex_GLEAM
-    else:
-        select_source_ind = NP.logical_and(gleam_fint >= fluxcut_min * (freq_GLEAM*1e9/fluxcut_freq)**spindex_GLEAM, gleam_fint <= fluxcut_max * (freq_GLEAM*1e9/fluxcut_freq)**spindex_GLEAM)
-    if NP.sum(select_source_ind) == 0:
-        raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
-    # bright_source_ind = gleam_fint >= 10.0 * (freq_GLEAM*1e9/freq)**spindex_GLEAM
-    PS_ind = NP.ones(gleam_fint.size, dtype=NP.bool)
-    # PS_ind = gleam_majax * gleam_minax <= 1.1 * gleam_psf_majax * gleam_psf_minax
-    valid_ind = NP.logical_and(select_source_ind, PS_ind)
-    ra_deg_GLEAM = ra_deg_GLEAM[valid_ind]
-    dec_deg_GLEAM = dec_deg_GLEAM[valid_ind]
-    gleam_fint = gleam_fint[valid_ind]
-    spindex_GLEAM = spindex_GLEAM[valid_ind]
-    gleam_majax = gleam_majax[valid_ind]
-    gleam_minax = gleam_minax[valid_ind]
-    gleam_pa = gleam_pa[valid_ind]
-    fluxes = gleam_fint + 0.0
-    catlabel = NP.repeat('GLEAM', gleam_fint.size)
-    ra_deg = ra_deg_GLEAM + 0.0
-    dec_deg = dec_deg_GLEAM + 0.0
-    freq_catalog = freq_GLEAM*1e9 + NP.zeros(gleam_fint.size)
-    majax = gleam_majax / 3.6e3
-    minax = gleam_minax / 3.6e3
-    spindex = spindex_GLEAM + 0.0
-
-    spec_type = 'func'
-    spec_parms = {}
-    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
-    spec_parms['power-law-index'] = spindex
-    spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
-    spec_parms['flux-scale'] = fluxes
-    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
-    spec_parms['freq-width'] = NP.zeros(ra_deg.size)
-    flux_unit = 'Jy'
-
-    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fluxes.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
-
-    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
-
-elif use_skymod:
-    skymod = SM.SkyModel(init_parms=None, init_file=skymod_file)
-
-elif use_custom:
-    catdata = ascii.read(custom_catalog_file, comment='#', header_start=0, data_start=1)
-    ra_deg = catdata['RA'].data
-    dec_deg = catdata['DEC'].data
-    fint = catdata['F_INT'].data
-    spindex = catdata['SPINDEX'].data
-    majax = catdata['MAJAX'].data
-    minax = catdata['MINAX'].data
-    pa = catdata['PA'].data
-    freq_custom = parms['skyparm']['custom_reffreq']
-    freq_catalog = freq_custom * 1e9 + NP.zeros(fint.size)
-    catlabel = NP.repeat('custom', fint.size)
-    if fluxcut_max is None:
-        select_source_ind = fint >= fluxcut_min * (freq_custom*1e9/fluxcut_freq)**spindex
-    else:
-        select_source_ind = NP.logical_and(fint >= fluxcut_min * (freq_custom*1e9/fluxcut_freq)**spindex, fint <= fluxcut_max * (freq_custom*1e9/fluxcut_freq)**spindex)
-    if NP.sum(select_source_ind) == 0:
-        raise IndexError('No sources in the catalog found satisfying flux threshold criteria')
-    ra_deg = ra_deg[select_source_ind]
-    dec_deg = dec_deg[select_source_ind]
-    fint = fint[select_source_ind]
-    spindex = spindex[select_source_ind]
-    majax = majax[select_source_ind]
-    minax = minax[select_source_ind]
-    pa = pa[select_source_ind]
-    freq_catalog = freq_catalog[select_source_ind]
-    catlabel = catlabel[select_source_ind]
+        spec_type = 'func'
+        spec_parms = {}
+        spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
+        spec_parms['power-law-index'] = spindex
+        spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
+        spec_parms['flux-scale'] = fint
+        spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
+        spec_parms['freq-width'] = NP.zeros(ra_deg.size)
+        flux_unit = 'Jy'
     
-    spec_type = 'func'
-    spec_parms = {}
-    spec_parms['name'] = NP.repeat('power-law', ra_deg.size)
-    spec_parms['power-law-index'] = spindex
-    spec_parms['freq-ref'] = freq_catalog + NP.zeros(ra_deg.size)
-    spec_parms['flux-scale'] = fint
-    spec_parms['flux-offset'] = NP.zeros(ra_deg.size)
-    spec_parms['freq-width'] = NP.zeros(ra_deg.size)
-    flux_unit = 'Jy'
+        skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+    
+        skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
 
-    skymod_init_parms = {'name': catlabel, 'frequency': chans*1e9, 'location': NP.hstack((ra_deg.reshape(-1,1), dec_deg.reshape(-1,1))), 'spec_type': spec_type, 'spec_parms': spec_parms, 'src_shape': NP.hstack((majax.reshape(-1,1),minax.reshape(-1,1),NP.zeros(fint.size).reshape(-1,1))), 'src_shape_units': ['degree','degree','degree']}
+    # Precess Sky model to observing epoch
+    
+    skycoords = SkyCoord(ra=skymod.location[:,0]*U.deg, dec=skymod.location[:,1]*U.deg, frame='fk5', equinox=Time(skymod.epoch, format='jyear_str', scale='utc')).transform_to(FK5(equinox=tobjs[0]))
+    skymod.location = NP.hstack((skycoords.ra.deg.reshape(-1,1), skycoords.dec.deg.reshape(-1,1)))
+    skymod.epoch = 'J{0:.12f}'.format(skycoords.equinox.jyear)
 
-    skymod = SM.SkyModel(init_parms=skymod_init_parms, init_file=None)
+    try:
+        os.makedirs(rootdir+project_dir+simid+skymod_dir, 0755)
+    except OSError as exception:
+        if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+skymod_dir):
+            pass
+        else:
+            raise
+    skymod_extfile = rootdir+project_dir+simid+skymod_dir+'skymodel'
+    skymod.save(skymod_extfile, fileformat='hdf5', extspec_action='unload')
+else:
+    skymod_extfile = None
+    skycoords = None
 
-# Precess Sky model to observing epoch
+skymod_extfile = comm.bcast(skymod_extfile, root=0)
+skycoords = comm.bcast(skycoords, root=0)
 
-skycoords = SkyCoord(ra=skymod.location[:,0]*U.deg, dec=skymod.location[:,1]*U.deg, frame='fk5', equinox=Time(skymod.epoch, format='jyear_str', scale='utc')).transform_to(FK5(equinox=tobjs[0]))
-skymod.location = NP.hstack((skycoords.ra.deg.reshape(-1,1), skycoords.dec.deg.reshape(-1,1)))
-skymod.epoch = 'J{0:.12f}'.format(skycoords.equinox.jyear)
+if rank != 0:
+    skymod = SM.SkyModel(init_parms=None, init_file=skymod_extfile+'.hdf5', load_spectrum=False)
 
 # Set up chunking for parallelization
 
@@ -1740,49 +1789,6 @@ else:
         n_bl_chunk_per_rank[:len(bl_chunk)%nproc] += 1
     n_bl_chunk_per_rank = n_bl_chunk_per_rank[::-1] # Reverse for more equal distribution of chunk sizes over processes
     cumm_bl_chunks = NP.concatenate(([0], NP.cumsum(n_bl_chunk_per_rank)))
-
-# Create organized directory structure
-
-init_time = tobj_init
-obsdatetime_dir = '{0}{1}{2}_{3}{4}{5}/'.format(init_time.datetime.year, init_time.datetime.month, init_time.datetime.day, init_time.datetime.hour, init_time.datetime.minute, init_time.datetime.second)
-
-sim_dir = 'simdata/'
-meta_dir = 'metainfo/'
-roi_dir = 'roi/'
-skymod_dir = 'skymodel/'
-
-try:
-    os.makedirs(rootdir+project_dir+simid+sim_dir, 0755)
-except OSError as exception:
-    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+sim_dir):
-        pass
-    else:
-        raise
-
-try:
-    os.makedirs(rootdir+project_dir+simid+meta_dir, 0755)
-except OSError as exception:
-    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+meta_dir):
-        pass
-    else:
-        raise
-
-try:
-    os.makedirs(rootdir+project_dir+simid+roi_dir, 0755)
-except OSError as exception:
-    if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+roi_dir):
-        pass
-    else:
-        raise
-    
-if cleanup < 3:
-    try:
-        os.makedirs(rootdir+project_dir+simid+skymod_dir, 0755)
-    except OSError as exception:
-        if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+skymod_dir):
-            pass
-        else:
-            raise
     
 if rank == 0:
     if mpi_on_freq:
@@ -1806,6 +1812,11 @@ if mpi_on_src: # MPI based on source multiplexing
         print('Working on baseline chunk # {0:0d} ...'.format(bl_chunk[i]))
 
         ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, eff_Q=eff_Q, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo, blgroupinfo={'groups': blgroups, 'reversemap': bl_reversemap})
+        if store_prev_sky:
+            store_prev_skymodel_file=rootdir+project_dir+simid+roi_dir+'_{0:0d}.hdf5'.format(i)
+        else:
+            store_prev_skymodel_file = None
+
 
         progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
         for j in range(n_acc):
@@ -1827,7 +1838,7 @@ if mpi_on_src: # MPI based on source multiplexing
             ts = time.time()
             if j == 0:
                 ts0 = ts
-            ia.observe(tobjs[i], Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(m2_lol[j][roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]]].tolist()), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail)
+            ia.observe(tobjs[i], Tsysinfo, bpass, pointings_hadec[j,:], skymod.subset(m2_lol[j][roi_ind[cumm_src_count[rank]:cumm_src_count[rank+1]]].tolist(), axis='position'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail, store_prev_skymodel_file=store_prev_skymodel_file)
             te = time.time()
             progress.update(j+1)
         progress.finish()
@@ -1958,7 +1969,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 if j == 0:
                     ts0 = ts
               
-                ia.observe(tobjs[j], Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk_indices, axis='spectrum'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info=roi_snap_info, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail, store_prev_skymodel_file=store_prev_skymodel_file)
+                ia.observe(tobjs[j], Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk*1e9, axis='spectrum', interp_method='pchip'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info=roi_snap_info, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail, store_prev_skymodel_file=store_prev_skymodel_file)
                 te = time.time()
                 del roi_ind_snap
                 del roi_pbeam_snap
@@ -2314,10 +2325,6 @@ if rank == 0:
     if cleanup >= 3:
         dir_to_be_removed = rootdir+project_dir+simid+skymod_dir
         shutil.rmtree(dir_to_be_removed, ignore_errors=True)
-    if cleanup < 3:
-        skymod_file = rootdir+project_dir+simid+skymod_dir+'skymodel'
-        if sky_str not in ['HI_cube', 'HI_fluctuations', 'HI_monopole', 'usm']:
-            skymod.save(skymod_file, fileformat='hdf5', extspec_action=None)
     if cleanup >= 2:
         dir_to_be_removed = rootdir+project_dir+simid+roi_dir
         shutil.rmtree(dir_to_be_removed, ignore_errors=True)

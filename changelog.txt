@@ -1,3 +1,30 @@
+From 11698dd (parabolic-cylinder):
+=================================
+
+In prisim/interferometry.py,
+
+(*) In function antenna_power(), generate sky model spectrum using
+explicit call to 'pchip' interpolation method
+(*) In member function observe() of class SkyModel, generate sky
+model spectrum using explicit call to 'pchip' interpolation method
+
+In scripts/run_prisim.py,
+
+(*) Replace the use of 'fgparm' key with new key 'skyparm' which was
+missed in the merge of master into parabolic-cylinder branch
+(*) Move the creation of organized directory structure to an earlier
+location in the script
+(*) Include 'gsm2008' and 'gsm2016' in checks for accepted sky model
+(*) Compute sky model and the sky locations only for the rank=0
+process and broadcast it to other processes
+(*) Always store sky model computed under rank=0
+(*) Make 'pyGSM' for the sky model work
+(*) Make creation of sky model subsets explicit in calls to
+observe() member function of class InterferometerArray
+(*) Replace chans_chunk_indices with chans_chunk and explicitly use
+'pchip' interpolation method in calls to observe() member function
+of class InterferometerArray
+
 From c3f2978 (parabolic-cylinder):
 =================================
 

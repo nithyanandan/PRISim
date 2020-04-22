@@ -2367,7 +2367,7 @@ def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
         upper_hemisphere_ind = sky_altaz[i][:,0] >= 0.0
         upper_skymodel = skymodel.subset(indices=NP.where(upper_hemisphere_ind)[0])
         pb = PB.primary_beam_generator(sky_altaz[i][upper_hemisphere_ind,:], skymodel.frequency, telescope_info, freq_scale=freq_scale, skyunits='altaz', pointing_info=pinfo)
-        spectrum = upper_skymodel.generate_spectrum()
+        spectrum = upper_skymodel.generate_spectrum(interp_method='pchip')
 
         retval += [NP.sum(pb*spectrum, axis=0) / NP.sum(pb, axis=0)]
 
@@ -6183,20 +6183,20 @@ class InterferometerArray(object):
                             if NP.sum(~ind_of_m2_in_prev.mask) > 0: # Previously stored
                                 fluxes[NP.where(~ind_of_m2_in_prev.mask)[0],:] = stored_spectrum[ind_of_m2_in_prev[~ind_of_m2_in_prev.mask],:]
                             if NP.sum(ind_of_m2_in_prev.mask) > 0: # Previously unavailable and have to be generated fresh
-                                fluxes[NP.where(ind_of_m2_in_prev.mask)[0],:] = skymodel.generate_spectrum(ind=m2[NP.where(ind_of_m2_in_prev.mask)[0]], frequency=self.channels)
+                                fluxes[NP.where(ind_of_m2_in_prev.mask)[0],:] = skymodel.generate_spectrum(ind=m2[NP.where(ind_of_m2_in_prev.mask)[0]], frequency=self.channels, interp_method='pchip')
                             del fileobj['ind']
                             del fileobj['spectrum']
                         #     stored_ind_dset[...] = m2
                         #     stored_spectrum_dset[...] = fluxes
                         else:
-                            fluxes = skymodel.generate_spectrum(ind=m2, frequency=self.channels)
+                            fluxes = skymodel.generate_spectrum(ind=m2, frequency=self.channels, interp_method='pchip')
                         ind_dset = fileobj.create_dataset('ind', data=m2)
                         spec_dset = fileobj.create_dataset('spectrum', data=fluxes, compression='gzip', compression_opts=9)
                         prev_skymodel_success = True
                 except:
                     prev_skymodel_success = False
             if not prev_skymodel_success:
-                fluxes = skymodel.generate_spectrum(ind=m2, frequency=self.channels)
+                fluxes = skymodel.generate_spectrum(ind=m2, frequency=self.channels, interp_method='pchip')
 
             if pb is None:
                 pb = PB.primary_beam_generator(skypos_altaz_roi, self.channels/1.0e9, skyunits='altaz', telescope=self.telescope, pointing_info=pb_info, pointing_center=pc_altaz, freq_scale='GHz')
