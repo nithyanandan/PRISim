@@ -1817,7 +1817,6 @@ if mpi_on_src: # MPI based on source multiplexing
         else:
             store_prev_skymodel_file = None
 
-
         progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
         for j in range(n_acc):
             src_altaz = skycoords[m2_lol[j]].transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
@@ -1969,7 +1968,7 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 if j == 0:
                     ts0 = ts
               
-                ia.observe(tobjs[j], Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod.subset(chans_chunk*1e9, axis='spectrum', interp_method='pchip'), t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info=roi_snap_info, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail, store_prev_skymodel_file=store_prev_skymodel_file)
+                ia.observe(tobjs[j], Tsysinfo, bpass[chans_chunk_indices], pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr[chans_chunk_indices], roi_info=roi_snap_info, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail, store_prev_skymodel_file=store_prev_skymodel_file)
                 te = time.time()
                 del roi_ind_snap
                 del roi_pbeam_snap
@@ -2172,6 +2171,10 @@ else: # MPI based on baseline multiplexing
                 outfile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
                 ia = RI.InterferometerArray(labels[bls_chunk_indices], bls_chunk, chans, telescope=telescope, eff_Q=eff_Q, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo, blgroupinfo={'groups': blgroups, 'reversemap': bl_reversemap})
                 # ia = RI.InterferometerArray(labels[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines)], bl[baseline_bin_indices[bl_chunk[i]]:min(baseline_bin_indices[bl_chunk[i]]+baseline_chunk_size,total_baselines),:], chans, telescope=telescope, eff_Q=eff_Q, latitude=latitude, longitude=longitude, altitude=altitude, A_eff=A_eff, layout=layout_info, freq_scale='GHz', pointing_coords='hadec', gaininfo=gaininfo, blgroupinfo={'groups': blgroups, 'reversemap': bl_reversemap})
+                if store_prev_sky:
+                    store_prev_skymodel_file=rootdir+project_dir+simid+roi_dir+'_{0:0d}.hdf5'.format(i)
+                else:
+                    store_prev_skymodel_file = None
                                                                
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Snapshots '.format(n_acc), PGB.ETA()], maxval=n_acc).start()
                 for j in range(n_acc):
@@ -2187,7 +2190,7 @@ else: # MPI based on baseline multiplexing
                     if j == 0:
                         ts0 = ts
                   
-                    ia.observe(tobjs[j], Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail)
+                    ia.observe(tobjs[j], Tsysinfo, bpass, pointings_hadec[j,:], skymod, t_acc[j], pb_info=pbinfo, brightness_units=flux_unit, bpcorrect=noise_bpcorr, roi_info={'ind': roi_ind_snap, 'pbeam': roi_pbeam_snap}, roi_radius=roi_radius, roi_center=None, gradient_mode=gradient_mode, memsave=memsave, vmemavail=pvmemavail, store_prev_skymodel_file=store_prev_skymodel_file)
                     te = time.time()
                     del roi_ind_snap
                     del roi_pbeam_snap
@@ -2202,6 +2205,8 @@ else: # MPI based on baseline multiplexing
                 # ia.delay_transform(oversampling_factor-1.0, freq_wts=window*NP.abs(ant_bpass)**2)
                 ia.project_baselines(ref_point={'location': ia.pointing_center, 'coords': ia.pointing_coords})
                 ia.save(outfile, fmt=savefmt, verbose=True, tabtype='BinTableHDU', npz=False, overwrite=True, uvfits_parms=None)
+                if os.path.exists(store_prev_skymodel_file):
+                    os.remove(store_prev_skymodel_file) # Remove the temporary skymodel file
         pte_str = str(DT.datetime.now())                
  
 if rank == 0:

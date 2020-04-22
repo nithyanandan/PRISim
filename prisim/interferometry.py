@@ -6186,8 +6186,6 @@ class InterferometerArray(object):
                                 fluxes[NP.where(ind_of_m2_in_prev.mask)[0],:] = skymodel.generate_spectrum(ind=m2[NP.where(ind_of_m2_in_prev.mask)[0]], frequency=self.channels, interp_method='pchip')
                             del fileobj['ind']
                             del fileobj['spectrum']
-                        #     stored_ind_dset[...] = m2
-                        #     stored_spectrum_dset[...] = fluxes
                         else:
                             fluxes = skymodel.generate_spectrum(ind=m2, frequency=self.channels, interp_method='pchip')
                         ind_dset = fileobj.create_dataset('ind', data=m2)

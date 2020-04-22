@@ -1,3 +1,17 @@
+From 01ca9c4 (parabolic-cylinder):
+=================================
+
+In prisim/interferometry.py,
+
+(*) Remove some commented lines in member function observe() of class
+InterferometerArray
+
+In scripts/run_prisim.py,
+
+(*) Pass whole skymodel instead of only a subset in call to observe()
+member function of class InterferometerArray when the MPI chunking is
+based on frequency
+
 From 11698dd (parabolic-cylinder):
 =================================
 
