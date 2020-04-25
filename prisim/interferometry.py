@@ -6816,12 +6816,11 @@ class InterferometerArray(object):
                         label_key = NP.asarray([tuple(reversed(label_key))], dtype=self.labels.dtype)[0]
                 if label_key.dtype != blgroups[tuple(label_key)].dtype:
                     warnings.warn('Datatype of attribute labels does not match that of the keys in attribute blgroups. Need to fix. Processing with forced matching of the two datatypes')
-                    if tuple(label_key) not in map(tuple, blgroups[tuple(label_key)]):
-                        blgroups[tuple(label_key)] = NP.hstack((label_key.astype(blgroups[tuple(label_key)].dtype), blgroups[tuple(label_key)])) 
-                else:
-                    if label_key not in blgroups[tuple(label_key)]:
-                        # blgroups[tuple(label_key)] += [label_key]
-                        blgroups[tuple(label_key)] = NP.hstack((label_key.astype(blgroups[tuple(label_key)].dtype), blgroups[tuple(label_key)])) 
+                if tuple(label_key) not in map(tuple, blgroups[tuple(label_key)]):
+                # if NP.isin(label_key, blgroups[tuple(label_key)], invert=True):
+                # if label_key not in blgroups[tuple(label_key)]:
+                    # blgroups[tuple(label_key)] += [label_key]
+                    blgroups[tuple(label_key)] = NP.hstack((label_key.astype(blgroups[tuple(label_key)].dtype), blgroups[tuple(label_key)])) 
     
             uniq_inplabels = []
             num_list = []

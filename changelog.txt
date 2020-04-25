@@ -1,3 +1,10 @@
+From cf6f5df (parabolic-cylinder):
+=================================
+
+(*) In member function duplicate_measurements() of class
+InterferometerArray, simplify the process to add a missing baseline
+label key
+
 From eba5016 (parabolic-cylinder):
 =================================
 
