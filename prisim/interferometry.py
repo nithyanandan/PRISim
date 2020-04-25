@@ -5632,7 +5632,7 @@ class InterferometerArray(object):
         self.baseline_orientations = NP.angle(self.baselines[:,0] + 1j * self.baselines[:,1])
         self.projected_baselines = None
 
-        if not isinstance(labels, (list, tuple)):
+        if not isinstance(labels, (list, tuple, NP.ndarray)):
             raise TypeError('Interferometer array labels must be a list or tuple of unique identifiers')
         elif len(labels) != self.baselines.shape[0]:
             raise ValueError('Number of labels do not match the number of baselines specified.')
@@ -5696,6 +5696,10 @@ class InterferometerArray(object):
                 raise KeyError('Array antenna ids missing')
             if (layout['positions'].shape[0] != layout['labels'].size) or (layout['ids'].size != layout['labels'].size):
                 raise ValueError('Antenna layout positions, labels and IDs must all be for same number of antennas')
+
+        if self.layout:
+            antlabel_dtype = self.layout['labels'].dtype
+            self.labels = NP.asarray(self.labels, dtype=[('A2', antlabel_dtype), ('A1', antlabel_dtype)])
 
         self.blgroups = None
         self.bl_reversemap = None
@@ -6810,8 +6814,14 @@ class InterferometerArray(object):
                         raise KeyError('Input label {0} not found in attribute labels'.format(label_key))
                     else:
                         label_key = NP.asarray([tuple(reversed(label_key))], dtype=self.labels.dtype)[0]
-                if label_key not in blgroups[tuple(label_key)]:
-                    blgroups[tuple(label_key)] += [label_key]
+                if label_key.dtype != blgroups[tuple(label_key)].dtype:
+                    warnings.warn('Datatype of attribute labels does not match that of the keys in attribute blgroups. Need to fix. Processing with forced matching of the two datatypes')
+                    if tuple(label_key) not in map(tuple, blgroups[tuple(label_key)]):
+                        blgroups[tuple(label_key)] = NP.hstack((label_key.astype(blgroups[tuple(label_key)].dtype), blgroups[tuple(label_key)])) 
+                else:
+                    if label_key not in blgroups[tuple(label_key)]:
+                        # blgroups[tuple(label_key)] += [label_key]
+                        blgroups[tuple(label_key)] = NP.hstack((label_key.astype(blgroups[tuple(label_key)].dtype), blgroups[tuple(label_key)])) 
     
             uniq_inplabels = []
             num_list = []
@@ -8493,8 +8503,9 @@ class InterferometerArray(object):
             if verbose:
                 print('\tCreated pointing and phase center information table.')
 
-            label_lengths = [len(label[0]) for label in self.labels]
-            maxlen = max(label_lengths)
+            # label_lengths = [len(label[0]) for label in self.labels]
+            # maxlen = max(label_lengths)
+            maxlen = int(self.layout['labels'].dtype.str.split('|')[1][1:])
             labels = NP.asarray(self.labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
             cols = []
             cols += [fits.Column(name='A1', format='{0:0d}A'.format(maxlen), array=labels['A1'])]
@@ -8722,10 +8733,11 @@ class InterferometerArray(object):
                 # label_lengths = [len(label[0]) for label in self.labels]
                 # maxlen = max(label_lengths)
                 # labels = NP.asarray(self.labels, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
-                if isinstance(self.labels, list):
-                    str_dtype = str(NP.asarray(self.labels).dtype)
-                elif isinstance(self.labels, NP.ndarray):
-                    str_dtype = str(NP.asarray(self.labels.tolist()).dtype)
+                # if isinstance(self.labels, list):
+                #     str_dtype = str(NP.asarray(self.labels).dtype)
+                # elif isinstance(self.labels, NP.ndarray):
+                #     str_dtype = str(NP.asarray(self.labels.tolist()).dtype)
+                str_dtype = self.layout['labels'].dtype.str
                 labels = NP.asarray(self.labels, dtype=[('A2', str_dtype), ('A1', str_dtype)])
                 array_group['labels'] = labels
                 array_group['baselines'] = self.baselines

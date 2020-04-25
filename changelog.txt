@@ -1,3 +1,20 @@
+From eba5016 (parabolic-cylinder):
+=================================
+
+In prisim/interferometry.py,
+
+(*) In __init__() member function of class InterferometerArray, accept
+input labels as a numpy array, and convert if it is a list to a numpy
+recArray using datatype of antenna labels in attribute layout
+(*) In member function duplicate_measurements() of class
+InterferometerArray, do more rigorous type checking of baseline labels
+to avoid bugs due to slight mismatch in datatypes, avoid type
+promotion errors, and append without errors
+(*) In member function save() of class InterferometerArray, determine
+baseline label datatypes from antenna label datatypes instead of
+finding max string length because the latter may be a smaller string
+if some baselines have been skipped
+
 From 01ca9c4 (parabolic-cylinder):
 =================================
 
