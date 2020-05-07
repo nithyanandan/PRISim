@@ -1,3 +1,11 @@
+From b3cbcec (closure-adv):
+==========================
+
+In prisim/examples/codes/BispectrumPhase/,
+
+(*) Update *.ipynb codes corresponding to the bispectrum phase math
+paper
+
 From cf6f5df (parabolic-cylinder):
 =================================
 
