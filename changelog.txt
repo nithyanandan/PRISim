@@ -1,3 +1,10 @@
+From 9eb2a00 (master):
+=====================
+
+In prisim/__init__.py,
+
+(*) Update PRISim version
+
 From fa5a832 (master):
 =====================
 

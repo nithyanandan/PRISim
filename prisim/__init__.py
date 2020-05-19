@@ -1,6 +1,6 @@
 import os as _os
 
-__version__='0.1.0'
+__version__='2.1.1'
 __description__='Precision Radio Interferometry Simulator'
 __author__='Nithyanandan Thyagarajan'
 __authoremail__='nithyanandan.t@gmail.com'
