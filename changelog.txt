@@ -1,3 +1,15 @@
+From 40c4d19 (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) Import astroutils
+(*) In member function save() of class InterferometerArray, save the
+githash of the AstroUtils and PRISim versions in the HDF5 output file
+(*) In member function __init__() of class InterferometerArray, read
+or assign the prisim_githash and astroutils_githash attributes. Update
+class and member function docstring accordingly
+
 From 04f7905 (master):
 =====================
 

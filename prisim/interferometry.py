@@ -15,6 +15,7 @@ import warnings
 import h5py
 from distutils.version import LooseVersion
 import psutil
+import astroutils
 from astroutils import geometry as GEOM
 from astroutils import gridding_modules as GRD
 from astroutils import constants as CNST
@@ -4701,6 +4702,14 @@ class InterferometerArray(object):
 
     Attributes:
 
+    astroutils_githash
+                [string] Git# of the AstroUtils version used to create/save 
+                the instance of class InterferometerArray
+
+    prisim_githash
+                [string] Git# of the PRISim version used to create/save 
+                the instance of class InterferometerArray
+
     A_eff       [scalar, list or numpy vector] Effective area of the
                 interferometers (in m^2). If a scalar is provided, it is assumed
                 to be identical for all interferometers. Otherwise, one value
@@ -5111,14 +5120,15 @@ class InterferometerArray(object):
         multi-element interferometer.
 
         Class attributes initialized are:
-        labels, baselines, channels, telescope, latitude, longitude, altitude,
-        skycoords, eff_Q, A_eff, pointing_coords, baseline_coords,
-        baseline_lengths, channels, bp, bp_wts, freq_resolution, lags, lst,
-        obs_catalog_indices, pointing_center, skyvis_freq, skyvis_lag,
-        timestamp, t_acc, Tsys, Tsysinfo, vis_freq, vis_lag, t_obs, n_acc,
-        vis_noise_freq, vis_noise_lag, vis_rms_freq, geometric_delays,
-        projected_baselines, simparms_file, layout, gradient, gradient_mode,
-        gaininfo, blgroups, bl_reversemap
+        astroutils_githash, prisim_githash, labels, baselines, channels, 
+        telescope, latitude, longitude, altitude, skycoords, eff_Q, A_eff, 
+        pointing_coords, baseline_coords, baseline_lengths, channels, bp, 
+        bp_wts, freq_resolution, lags, lst, obs_catalog_indices, 
+        pointing_center, skyvis_freq, skyvis_lag, timestamp, t_acc, Tsys, 
+        Tsysinfo, vis_freq, vis_lag, t_obs, n_acc, vis_noise_freq, 
+        vis_noise_lag, vis_rms_freq, geometric_delays, projected_baselines, 
+        simparms_file, layout, gradient, gradient_mode, gaininfo, blgroups, 
+        bl_reversemap
 
         Read docstring of class InterferometerArray for details on these
         attributes.
@@ -5144,6 +5154,8 @@ class InterferometerArray(object):
         if init_file is not None:
             try:
                 with h5py.File(init_file+'.hdf5', 'r') as fileobj:
+                    self.astroutils_githash = None
+                    self.prisim_githash = None
                     self.simparms_file = None
                     self.latitude = 0.0
                     self.longitude = 0.0
@@ -5175,6 +5187,14 @@ class InterferometerArray(object):
                                 raise KeyError('Key {0} not found in init_file'.format(key))
                         if key == 'header':
                             self.flux_unit = grp['flux_unit'].value
+                            if 'AstroUtils#' in grp:
+                                self.astroutils_githash = grp['AstroUtils#'].value
+                            else:
+                                self.astroutils_githash = astroutils.__githash__
+                            if 'PRISim#' in grp:
+                                self.prisim_githash = grp['PRISim#'].value
+                            else:
+                                self.prisim_githash = prisim.__githash__
                         if key == 'telescope_parms':
                             if 'latitude' in grp:
                                 self.latitude = grp['latitude'].value
@@ -5612,6 +5632,9 @@ class InterferometerArray(object):
         if (not argument_init) and (not init_file_success):
             raise ValueError('Initialization failed with the use of init_file.')
 
+        self.astroutils_githash = astroutils.__githash__
+        self.prisim_githash = prisim.__githash__
+            
         self.baselines = NP.asarray(baselines)
         if len(self.baselines.shape) == 1:
             if self.baselines.size == 2:
@@ -8668,6 +8691,8 @@ class InterferometerArray(object):
                 write_str = 'w-'
             with h5py.File(filename, write_str) as fileobj:
                 hdr_group = fileobj.create_group('header')
+                hdr_group['AstroUtils#'] = astroutils.__githash__
+                hdr_group['PRISim#'] = prisim.__githash__
                 hdr_group['flux_unit'] = self.flux_unit
                 tlscp_group = fileobj.create_group('telescope_parms')
                 tlscp_group['latitude'] = self.latitude
