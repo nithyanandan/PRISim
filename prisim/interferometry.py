@@ -6162,11 +6162,6 @@ class InterferometerArray(object):
                 m2 = NP.arange(skypos_altaz.shape[0])
                 m2 = m2[NP.where(skypos_altaz[:,0] >= 90.0-roi_radius)] # select sources whose altitude (angle above horizon) is 90-roi_radius
 
-        if memsave:
-            datatype = NP.complex64
-        else:
-            datatype = NP.complex128
-        skyvis = NP.zeros( (self.baselines.shape[0], self.channels.size), dtype=datatype)
         if len(m2) > 0:
             skypos_altaz_roi = skypos_altaz[m2,:]
             coords_str = 'altaz'

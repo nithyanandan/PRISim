@@ -1047,7 +1047,7 @@ diagnosis   :
                                 # If set to null (default), this
                                 # will be set to 2 seconds
 
-    wait_after_run  : false
+    wait_after_run  : true
                                 # If true, keep python shell open
                                 # after completing the run using
                                 # set_trace() of python debugger.

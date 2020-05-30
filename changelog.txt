@@ -1,3 +1,15 @@
+From 04f7905 (master):
+=====================
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Change default value of 'wait_after_run' from false to true
+
+In prisim/interferometry.py,
+
+(*) In member function observe() of class InterferometerArray, remove
+a redundant set of statements
+
 From 9eb2a00 (master):
 =====================
 
