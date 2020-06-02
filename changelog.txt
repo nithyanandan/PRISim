@@ -1,3 +1,11 @@
+From 1e4267d (closure-adv):
+==========================
+
+In prisim/examples/codes/BispectrumPhase/,
+
+(*) Update *.ipynb codes corresponding to the bispectrum phase math
+paper
+
 From 40c4d19 (master):
 =====================
 
