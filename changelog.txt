@@ -1,3 +1,17 @@
+From 38132bc (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) In function getBaselineInfo(), add support for updated MWA
+layouts using default antenna locations. Update member function
+docstring accordingly
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add support for updated MWA layouts using default antenna
+locations. Update information about latitude and longitude of MWA
+
 From 1e4267d (closure-adv):
 ==========================
 

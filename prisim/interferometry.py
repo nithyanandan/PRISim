@@ -1485,12 +1485,20 @@ def getBaselineInfo(inpdict):
                         'layout'    [string] Preset array layouts mutually 
                                     exclusive to antenna file. Only one of 
                                     these must be specified. Accepted 
-                                    values are 'MWA-128T', 'HERA-7', 'HERA-19', 
+                                    values are 'MWA-I-128T'
+                                    (MWA Phase I 128-tile),
+                                    'MWA-II-Hex-LB' (MWA Phase II Hex
+                                    and Long Baselines),
+                                    'MWA-II-compact' (MWA Phase II
+                                    compact=core + 2Hex baselines),
+                                    'MWA-II-LB' (MWA Phase II Long
+                                    Baselines), 'HERA-7', 'HERA-19', 
                                     'HERA-37', 'HERA-61', 'HERA-91', 
                                     'HERA-127', 'HERA-169', 'HERA-217', 
                                     'HERA-271', 'HERA-331', 'PAPER-64', 
-                                    'PAPER-112', 'HIRAX-1024', 'CHIME', 'CIRC', 
-                                    or None (if layout file is specified). 
+                                    'PAPER-112', 'HIRAX-1024', 'CHIME', 'GMRT', 
+                                    'CIRC', or None (if layout file is 
+                                    specified). 
                         'file'      [string] File containing antenna locations
                                     parsed according to info in parser (see 
                                     below). If preset layout is specified, this
@@ -1781,13 +1789,26 @@ def getBaselineInfo(inpdict):
     
         ant_locs = NP.hstack((east.reshape(-1,1), north.reshape(-1,1), elev.reshape(-1,1)))
     else:
-        if array_layout not in ['MWA-128T', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331', 'PAPER-64', 'PAPER-112', 'HIRAX-1024', 'CHIME', 'CIRC']:
+        if array_layout not in ['MWA-128T', 'MWA-I-128T', 'MWA-II-Hex-LB', 'MWA-II-compact', 'MWA-II-LB', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331', 'PAPER-64', 'PAPER-112', 'HIRAX-1024', 'CHIME', 'GMRT', 'CIRC']:
             raise ValueError('Invalid array layout specified')
     
         if array_layout == 'MWA-128T':
             ant_info = NP.loadtxt(prisim_path+'data/array_layouts/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', skiprows=6, comments='#', usecols=(0,1,2,3))
             ant_label = ant_info[:,0].astype(int).astype(str)
             ant_locs = ant_info[:,1:]
+        elif array_layout in ['MWA-I-128T', 'MWA-II-Hex-LB', 'MWA-II-compact', 'MWA-II-LB']:
+            comment = '#'
+            delimiter = ' '
+            header_start = 0
+            data_start = 2
+            data_end = None
+            antfile = array_layout + '_tile_coordinates.txt'
+            ant_info = ascii.read(prisim_path+'data/array_layouts/'+antfile, comment=comment, delimiter=delimiter, header_start=header_start, data_start=data_start, data_end=data_end, guess=False)
+            ant_label = ant_info['Tile'].data.astype('str')
+            east = ant_info['East'].data
+            north = ant_info['North'].data
+            elev = ant_info['Height'].data
+            ant_locs = NP.hstack((east.reshape(-1,1), north.reshape(-1,1), elev.reshape(-1,1)))
         elif array_layout == 'HERA-7':
             ant_locs, ant_label = hexagon_generator(14.6, n_total=7)
         elif array_layout == 'HERA-19':
@@ -1816,6 +1837,19 @@ def getBaselineInfo(inpdict):
             ant_locs, ant_label = rectangle_generator(7.0, n_side=32)
         elif array_layout == 'CHIME':
             ant_locs, ant_label = rectangle_generator([20.0, 0.3], [5, 256])
+        elif array_layout == 'GMRT':
+            comment = '#'
+            delimiter = ' '
+            header_start = 0
+            data_start = 2
+            data_end = None
+            antfile = 'GMRT_antenna_coordinates.txt'
+            ant_info = ascii.read(prisim_path+'data/array_layouts/'+antfile, comment=comment, delimiter=delimiter, header_start=header_start, data_start=data_start, data_end=data_end, guess=False)
+            ant_label = ant_info['Station'].data.astype('str')
+            east = ant_info['east'].data
+            north = ant_info['north'].data
+            elev = ant_info['up'].data
+            ant_locs = NP.hstack((east.reshape(-1,1), north.reshape(-1,1), elev.reshape(-1,1)))            
         elif array_layout == 'CIRC':
             ant_locs, ant_label = circular_antenna_array(element_size, minR, maxR=maxR)
         ant_label = NP.asarray(ant_label)

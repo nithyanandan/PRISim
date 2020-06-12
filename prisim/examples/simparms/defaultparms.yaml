@@ -56,7 +56,7 @@ telescope:
 
     latitude        : -30.7224
                                 # Latitude in degrees
-                                # -26.701 for MWA,
+                                # -26.70331944 for MWA,
                                 # -30.7224 for HERA, PAPER
                                 # 34.079 for VLA,
                                 # 19.0965 for GMRT
@@ -68,7 +68,7 @@ telescope:
                                 # Longitude of observatory (in degrees)
                                 # Default (null) implies 0.0 degrees
                                 # corresponding to GMT.
-                                # -107.6184 for VLA, +116.670815 for 
+                                # -107.6184 for VLA, +116.67081389 for 
                                 # MWA, +21.4278 for PAPER and HERA,
                                 # +74.0497 for GMRT,
                                 # +116.7644482 for SKA-Low
@@ -130,13 +130,19 @@ array   :                       # Parameters 'file' and 'layout'
                                 # baselines
 
     layout          : 'HERA-19'
-                                # Accepted values are 'MWA-128T',
-                                # 'HERA-7', 'HERA-19', 'HERA-37',
-                                # 'HERA-61', 'HERA-91', 'HERA-127',
-                                # 'HERA-169', 'HERA-217', 'HERA-271',
-                                # 'HERA-331', 'PAPER-64', 'PAPER-112',
-                                # 'HIRAX-1024', 'CHIME', 'CIRC', or
-                                # null
+                                # Accepted values are 'MWA-I-128T'
+                                # (MWA Phase I 128-tile),
+                                # 'MWA-II-Hex-LB' (MWA Phase II Hex
+                                # and Long Baselines),
+                                # 'MWA-II-compact' (MWA Phase II
+                                # compact=core + 2Hex baselines),
+                                # 'MWA-II-LB' (MWA Phase II Long
+                                # Baselines), 'HERA-7', 'HERA-19', 
+                                # 'HERA-37', 'HERA-61', 'HERA-91', 
+                                # 'HERA-127', 'HERA-169', 'HERA-217', 
+                                # 'HERA-271', 'HERA-331', 'PAPER-64', 
+                                # 'PAPER-112', 'HIRAX-1024', 'CHIME', 
+                                # 'GMRT', 'CIRC', or null
 
     file            : null
                                 # File containing antenna locations
