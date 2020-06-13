@@ -1,3 +1,8 @@
+From ceaf7a2 (mwa), 7eb5233 (master):
+====================================
+
+(*) Merge 'mwa' branch into 'master'
+
 From 76a01b6 (master):
 =====================
 
@@ -12,6 +17,39 @@ From 38132bc (master):
 In prisim/__init__.py,
 
 (*) Update PRISim version to 2.2
+
+From d3a9bed (mwa):
+==================
+
+In prisim/examples/ioparms/data_setup_parms.yaml,
+
+(*) Update Google Drive link for PRISim data
+
+In README.rst,
+
+(*) Update Google Drive link for gzipped PRISim data
+
+From dacf5b7 (mwa):
+==================
+
+In prisim/interferometry.py,
+
+(*) In function getBaselineInfo(), deprecate support for 'MWA-128T'
+layout which is now replaced with 'MWA-I-128T'
+
+From 38132bc (master):
+=====================
+
+In prisim/interferometry.py,
+
+(*) In function getBaselineInfo(), add support for updated MWA
+layouts using default antenna locations. Update member function
+docstring accordingly
+
+In prisim/examples/simparms/defaultparms.yaml,
+
+(*) Add support for updated MWA layouts using default antenna
+locations. Update information about latitude and longitude of MWA
 
 From 1e4267d (closure-adv):
 ==========================
