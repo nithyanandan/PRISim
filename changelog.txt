@@ -1,3 +1,11 @@
+From 7a06295 (master):
+=====================
+
+In README.rst,
+
+(*) Update PRISim description
+(*) Update links for obtaining PRISim data
+
 From ceaf7a2 (mwa), 7eb5233 (master):
 ====================================
 

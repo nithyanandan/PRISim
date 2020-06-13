@@ -1,7 +1,7 @@
 PRISim (Precision Radio Interferometer Simulator)
 =================================================
 
-A modular 21cm signal simulator, including foregrounds and instrumental effects.
+A modular radio interferometer array simulator, including the radio sky and instrumental effects.
 
 
 Installation
@@ -52,13 +52,15 @@ Find the ``data/`` directory under PRISim installation folder which is usually i
 
 ``/path/to/Anaconda/envs/YOURENV/lib/python-2.7/site-packages/prisim/``
 
-Download the contents of  
-`PRISim Data <https://drive.google.com/open?id=0Bxl4zmCNSW4tUWxrRFhRQ2l4SDQ>`_
+Download the contents of PRISim Data from either
+`Google Drive <https://drive.google.com/open?id=0Bxl4zmCNSW4tUWxrRFhRQ2l4SDQ>`_
 
-or extract the contents of  
-`gzipped PRISim Data <https://drive.google.com/open?id=1KNBk6VhlY_rKSfgn8HmAncLkYQ1KGAOi>`_
+or the zipped version from
+`Zenodo (.zip or tar.gz) <https://doi.org/10.5281/zenodo.3892047>`_
+or 
+`Google Drive (.tar.gz) <https://drive.google.com/open?id=1KNBk6VhlY_rKSfgn8HmAncLkYQ1KGAOi>`_
 
-and place it under 
+Extract the contents of the zipped file and place it under 
 
 ``/path/to/Anaconda/envs/YOURENV/lib/python-2.7/site-packages/prisim/data/``
 
