@@ -104,3 +104,7 @@ Data Size
 
 Data size is proportional to ``n_bl x nchan x n_acc``
 
+Citing and acknowledging use of PRISim:
+=========================================
+
+If you use PRISim for your research, please acknowledge and cite it using the bibtex entry from https://doi.org/10.5281/zenodo.2548116

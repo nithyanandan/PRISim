@@ -1,3 +1,10 @@
+From 7e1a8a2 (master):
+=====================
+
+In README.rst,
+
+(*) Update with citation and acknowledgement information
+
 From daa77da (master):
 =====================
 
