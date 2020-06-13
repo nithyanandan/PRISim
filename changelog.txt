@@ -1,3 +1,11 @@
+From 76a01b6 (master):
+=====================
+
+In scripts/setup_prisim_data.py,
+
+(*) Update outdated and inaccurate comment about the purpose of the
+script
+
 From 38132bc (master):
 =====================
 

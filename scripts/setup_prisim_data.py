@@ -56,7 +56,7 @@ def cleanup(infile=None, verbose=True):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Program to write PRISim output visibilities in UVFITS format')
+    parser = argparse.ArgumentParser(description='Program to download, extract, and install PRISim data')
 
     input_group = parser.add_argument_group('Input parameters', 'Input specifications')
     input_group.add_argument('-p', '--parmsfile', dest='parmsfile', type=file, required=False, default=prisim_path+'examples/ioparms/data_setup_parms.yaml', help='File specifying PRISim data setup parameters')
