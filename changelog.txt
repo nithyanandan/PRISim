@@ -1,3 +1,11 @@
+From dacf5b7 (mwa):
+==================
+
+In prisim/interferometry.py,
+
+(*) In function getBaselineInfo(), deprecate support for 'MWA-128T'
+layout which is now replaced with 'MWA-I-128T'
+
 From 38132bc (master):
 =====================
 

@@ -1789,14 +1789,10 @@ def getBaselineInfo(inpdict):
     
         ant_locs = NP.hstack((east.reshape(-1,1), north.reshape(-1,1), elev.reshape(-1,1)))
     else:
-        if array_layout not in ['MWA-128T', 'MWA-I-128T', 'MWA-II-Hex-LB', 'MWA-II-compact', 'MWA-II-LB', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331', 'PAPER-64', 'PAPER-112', 'HIRAX-1024', 'CHIME', 'GMRT', 'CIRC']:
+        if array_layout not in ['MWA-I-128T', 'MWA-II-Hex-LB', 'MWA-II-compact', 'MWA-II-LB', 'HERA-7', 'HERA-19', 'HERA-37', 'HERA-61', 'HERA-91', 'HERA-127', 'HERA-169', 'HERA-217', 'HERA-271', 'HERA-331', 'PAPER-64', 'PAPER-112', 'HIRAX-1024', 'CHIME', 'GMRT', 'CIRC']:
             raise ValueError('Invalid array layout specified')
     
-        if array_layout == 'MWA-128T':
-            ant_info = NP.loadtxt(prisim_path+'data/array_layouts/MWA_128T_antenna_locations_MNRAS_2012_Beardsley_et_al.txt', skiprows=6, comments='#', usecols=(0,1,2,3))
-            ant_label = ant_info[:,0].astype(int).astype(str)
-            ant_locs = ant_info[:,1:]
-        elif array_layout in ['MWA-I-128T', 'MWA-II-Hex-LB', 'MWA-II-compact', 'MWA-II-LB']:
+        if array_layout in ['MWA-I-128T', 'MWA-II-Hex-LB', 'MWA-II-compact', 'MWA-II-LB']:
             comment = '#'
             delimiter = ' '
             header_start = 0
