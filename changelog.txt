@@ -1,3 +1,8 @@
+From 7876e58 (py3):
+==================
+
+(*) Add .bak files from stage 1 futurize to repo
+
 From 7783a26 (master):
 =====================
 
