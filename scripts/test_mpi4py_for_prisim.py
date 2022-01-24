@@ -1,5 +1,6 @@
 #!python
 
+from __future__ import print_function
 from mpi4py import MPI
 
 ## Set MPI parameters

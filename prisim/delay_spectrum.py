@@ -1,4 +1,5 @@
 from __future__ import division
+from __future__ import print_function
 import numpy as NP
 import multiprocessing as MP
 import itertools as IT

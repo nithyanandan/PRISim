@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as NP 
 import scipy.constants as FCNST
 import scipy.special as SPS
@@ -2024,7 +2025,7 @@ def generic_aperture_field_pattern(elementpos, skypos, skycoords='altaz',
                     eps = 1.0e-10
                     if NP.any(NP.abs(NP.sum(skypos**2, axis=1) - 1.0) > eps) or NP.any(skypos[:,2] < 0.0):
                         if verbose:
-                            print '\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.'
+                            print('\tWarning: skypos in direction cosine coordinates along line of sight found to be negative or some direction cosines are not unit vectors. Resetting to correct values.')
                         skypos[:,2] = NP.sqrt(1.0 - NP.sum(skypos[:2]**2, axis=1))
     else:
         raise ValueError('skycoords has not been set.')

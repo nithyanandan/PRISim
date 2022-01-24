@@ -1,4 +1,6 @@
 from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
 import numpy as NP
 import scipy.constants as FCNST
 from scipy import interpolate, ndimage
@@ -24,8 +26,8 @@ from astroutils import catalog as SM
 from astroutils import lookup_operations as LKP
 from astroutils import nonmathops as NMO
 import prisim
-import baseline_delay_horizon as DLY
-import primary_beams as PB
+from . import baseline_delay_horizon as DLY
+from . import primary_beams as PB
 try:
     import pyuvdata
     from pyuvdata import UVData
@@ -9582,7 +9584,7 @@ class InterferometerData(object):
 
     def _blnum_to_antnums(self, blnum):
         if self.infodict['Nants_telescope'] > 2048:
-            raise StandardError('error Nants={Nants}>2048 not supported'.format(Nants=self.infodict['Nants_telescope']))
+            raise Exception('error Nants={Nants}>2048 not supported'.format(Nants=self.infodict['Nants_telescope']))
         if NP.min(blnum) > 2**16:
             i = (blnum - 2**16) % 2048 - 1
             j = (blnum - 2**16 - (i + 1)) / 2048 - 1
@@ -9599,7 +9601,7 @@ class InterferometerData(object):
         # (will use 2048 standard if there are more than 256 antennas)
         i, j = NP.int64((i, j))
         if self.infodict['Nants_telescope'] > 2048:
-            raise StandardError('cannot convert i,j to a baseline index '
+            raise Exception('cannot convert i,j to a baseline index '
                                 'with Nants={Nants}>2048.'
                                 .format(Nants=self.infodict['Nants_telescope']))
         if attempt256:

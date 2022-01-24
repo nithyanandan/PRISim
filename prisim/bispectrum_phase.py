@@ -1,4 +1,5 @@
 from __future__ import division
+from __future__ import print_function
 import glob
 import numpy as NP
 from functools import reduce

@@ -1,5 +1,6 @@
 #!python
 
+from __future__ import print_function
 import os, shutil, subprocess, pwd, errno, warnings
 from mpi4py import MPI
 import yaml
@@ -323,7 +324,7 @@ if display_resource_monitor:
 
 project_dir = project + '/'
 try:
-    os.makedirs(rootdir+project_dir, 0755)
+    os.makedirs(rootdir+project_dir, mode=0o755)
 except OSError as exception:
     if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir):
         pass
@@ -342,7 +343,7 @@ simid = comm.bcast(simid, root=0) # Broadcast simulation ID
 
 simid = simid + '/'
 try:
-    os.makedirs(rootdir+project_dir+simid, 0755)
+    os.makedirs(rootdir+project_dir+simid, mode=0o755)
 except OSError as exception:
     if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid):
         pass
@@ -750,7 +751,7 @@ roi_dir = 'roi/'
 skymod_dir = 'skymodel/'
 
 try:
-    os.makedirs(rootdir+project_dir+simid+sim_dir, 0755)
+    os.makedirs(rootdir+project_dir+simid+sim_dir, mode=0o755)
 except OSError as exception:
     if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+sim_dir):
         pass
@@ -758,7 +759,7 @@ except OSError as exception:
         raise
 
 try:
-    os.makedirs(rootdir+project_dir+simid+meta_dir, 0755)
+    os.makedirs(rootdir+project_dir+simid+meta_dir, mode=0o755)
 except OSError as exception:
     if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+meta_dir):
         pass
@@ -766,7 +767,7 @@ except OSError as exception:
         raise
 
 try:
-    os.makedirs(rootdir+project_dir+simid+roi_dir, 0755)
+    os.makedirs(rootdir+project_dir+simid+roi_dir, mode=0o755)
 except OSError as exception:
     if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+roi_dir):
         pass
@@ -775,7 +776,7 @@ except OSError as exception:
     
 if cleanup < 3:
     try:
-        os.makedirs(rootdir+project_dir+simid+skymod_dir, 0755)
+        os.makedirs(rootdir+project_dir+simid+skymod_dir, mode=0o755)
     except OSError as exception:
         if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+skymod_dir):
             pass
@@ -1692,7 +1693,7 @@ if rank == 0:
     skymod.epoch = 'J{0:.12f}'.format(skycoords.equinox.jyear)
 
     try:
-        os.makedirs(rootdir+project_dir+simid+skymod_dir, 0755)
+        os.makedirs(rootdir+project_dir+simid+skymod_dir, mode=0o755)
     except OSError as exception:
         if exception.errno == errno.EEXIST and os.path.isdir(rootdir+project_dir+simid+skymod_dir):
             pass
