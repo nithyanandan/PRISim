@@ -99,7 +99,7 @@ def grepPRISim(parms, verbose=True):
     
     parms_list = []
     for simind, parm in enumerate(simparms_list):
-        simrunkey = parm.keys()[0]
+        simrunkey = list(parm.keys())[0]
         parm[simrunkey].update(metadata_list[simind][simrunkey])
         parms_list += [parm[simrunkey]]
             
@@ -107,10 +107,10 @@ def grepPRISim(parms, verbose=True):
     select_ind = NP.asarray([True] * len(parms_list), dtype=NP.bool)
     if verbose:
         print('\nThe following parameters are searched for:')
-    for ikey, ival in reduced_parms.iteritems():
+    for ikey, ival in reduced_parms.items():
         if verbose:
             print('\t'+ikey)
-        for subkey in ival.iterkeys():
+        for subkey in ival.keys():
             vals = [parm[ikey][subkey] for parm in parms_list]
             refval = reduced_parms[ikey][subkey]
             select_ind = NP.logical_and(select_ind, grepValue(vals, refval))
@@ -118,7 +118,7 @@ def grepPRISim(parms, verbose=True):
                 print('\t\t'+subkey)
 
     select_ind, = NP.where(select_ind)
-    outkeys = [metadata_list[ind].keys()[0] for ind in select_ind]
+    outkeys = [list(metadata_list[ind].keys())[0] for ind in select_ind]
     return outkeys
 
 if __name__ == '__main__':

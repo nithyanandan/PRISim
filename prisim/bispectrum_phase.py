@@ -1,5 +1,5 @@
-from __future__ import division
-from __future__ import print_function
+from __future__ import print_function, division
+from builtins import map, zip, str
 import glob
 import numpy as NP
 from functools import reduce
@@ -796,7 +796,7 @@ def read_CPhase_cross_power_spectrum(infile):
                                     xcpdps[smplng][dpool][stat] = dpoolgrp[stat].value * U.Unit(valunits)
                                 elif isinstance(dpoolgrp[stat], h5py.Group):
                                     xcpdps[smplng][dpool][stat] = []
-                                    for diagcomb_ind in range(len(dpoolgrp[stat].keys())):
+                                    for diagcomb_ind in range(len(list(dpoolgrp[stat].keys()))):
                                         if 'diagcomb_{0}'.format(diagcomb_ind) in dpoolgrp[stat]:
                                             valunits = dpoolgrp[stat]['diagcomb_{0}'.format(diagcomb_ind)].attrs['units']
                                             xcpdps[smplng][dpool][stat] += [dpoolgrp[stat]['diagcomb_{0}'.format(diagcomb_ind)].value * U.Unit(valunits)]
@@ -1789,7 +1789,7 @@ class ClosurePhase(object):
                     eicp_dmedian = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]), dtype=NP.complex128)
                     cp_drms = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]))
                     cp_dmad = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]))
-                    for binnum in xrange(counts.size):
+                    for binnum in range(counts.size):
                         ind_daybin = ri[ri[binnum]:ri[binnum+1]]
                         wts_daybins[:,binnum,:,:] = NP.sum(self.cpinfo['processed']['native']['wts'][:,ind_daybin,:,:].data, axis=1)
                         eicp_dmean[:,binnum,:,:] = NP.exp(1j*NP.angle(MA.mean(self.cpinfo['processed']['native']['eicp'][:,ind_daybin,:,:], axis=1)))
@@ -1912,7 +1912,7 @@ class ClosurePhase(object):
                 cp_trms = NP.zeros(outshape)
                 cp_tmad = NP.zeros(outshape)
                     
-                for binnum in xrange(counts.size):
+                for binnum in range(counts.size):
                     if no_change_in_lstbins:
                         ind_lstbin = [binnum]
                     else:
@@ -2079,7 +2079,7 @@ class ClosurePhase(object):
                     eicp_dmedian = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]), dtype=NP.complex128)
                     cp_drms = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]))
                     cp_dmad = NP.zeros((self.cpinfo['processed']['native']['eicp'].shape[0], counts.size, self.cpinfo['processed']['native']['eicp'].shape[2], self.cpinfo['processed']['native']['eicp'].shape[3]))
-                    for binnum in xrange(counts.size):
+                    for binnum in range(counts.size):
                         ind_daybin = ri[ri[binnum]:ri[binnum+1]]
                         wts_daybins[:,binnum,:,:] = NP.sum(self.cpinfo['processed']['native']['wts'][:,ind_daybin,:,:].data, axis=1)
                         eicp_dmean[:,binnum,:,:] = NP.exp(1j*NP.angle(MA.mean(self.cpinfo['processed']['native']['eicp'][:,ind_daybin,:,:], axis=1)))
@@ -2180,7 +2180,7 @@ class ClosurePhase(object):
                 eicp_tmedian = NP.zeros(outshape, dtype=NP.complex128)
                 cp_trms = NP.zeros(outshape)
                 cp_tmad = NP.zeros(outshape)
-                for binnum in xrange(counts.size):
+                for binnum in range(counts.size):
                     if no_change_in_lstbins:
                         ind_lstbin = [binnum]
                     else:
@@ -2827,7 +2827,7 @@ class ClosurePhaseDelaySpectrum(object):
             if not isinstance(selection, dict):
                 raise TypeError('Input selection must be a dictionary')
 
-        triads = map(tuple, self.cPhase.cpinfo['raw']['triads'])
+        triads = list(map(tuple, self.cPhase.cpinfo['raw']['triads']))
 
         if 'triads' not in selection:
             selection['triads'] = triads

@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import print_function, division
 import pprint, yaml
 import numpy as NP
 from pyuvdata import UVData

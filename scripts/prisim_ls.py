@@ -1,6 +1,7 @@
 #!python
 
 from __future__ import print_function
+from builtins import str
 import glob
 import itertools
 import yaml
@@ -30,14 +31,14 @@ def lsPRISim(args):
 
     parmsDB = {}
     for parmind, parm in enumerate(simparms_list):
-        for ikey, ival in parm.values()[0].iteritems():
+        for ikey, ival in list(parm.values())[0].iteritems():
             if isinstance(ival, dict):
-                for subkey in ival.iterkeys():
+                for subkey in ival.keys():
                     key = (ikey, subkey)
                     if key in parmsDB:
-                        parmsDB[key] += [parm.values()[0][ikey][subkey]]
+                        parmsDB[key] += [list(parm.values())[0][ikey][subkey]]
                     else:
-                        parmsDB[key] = [parm.values()[0][ikey][subkey]]
+                        parmsDB[key] = [list(parm.values())[0][ikey][subkey]]
                     
     parmsDBselect = {}
     nuniqDBselect = {}
@@ -61,9 +62,9 @@ def lsPRISim(args):
                 linestr += delimiter+key[0]+':'+key[1]
             linestr += '\n'
             for parmind, parm in enumerate(simparms_list):
-                linestr += '\n'+parm.keys()[0]
+                linestr += '\n'+list(parm.keys())[0]
                 for key in parmsDBselect:
-                    linestr += delimiter+str(parm.values()[0][key[0]][key[1]])
+                    linestr += delimiter+str(list(parm.values())[0][key[0]][key[1]])
             linestr += '\n\nNumber of unique values'
             for key in parmsDBselect:
                 linestr += delimiter+'{0:0d}/{1:0d}'.format(nuniqDBselect[key], len(simparms_list))
@@ -75,9 +76,9 @@ def lsPRISim(args):
                 linesstr += delimiter+key[0]+':'+key[1]
             linestr += '\n'
             for parmind, parm in enumerate(simparms_list):
-                linestr += '\n'+parm.keys()[0]
+                linestr += '\n'+list(parm.keys())[0]
                 for key in parmsDB:
-                    linestr += delimiter+str(parm.values()[0][key[0]][key[1]])
+                    linestr += delimiter+str(list(parm.values())[0][key[0]][key[1]])
     return linestr+'\n'
             
 if __name__ == '__main__':

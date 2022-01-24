@@ -1,6 +1,7 @@
 #!python
 
-from __future__ import print_function
+from __future__ import print_function, division
+from builtins import str, map, range
 import os, shutil, subprocess, pwd, errno, warnings
 from mpi4py import MPI
 import yaml
@@ -841,7 +842,7 @@ elif sky_str == 'HI_cube':
 
 if global_HI_parms is not None:
     try:
-        global_HI_parms = NP.asarray(map(float, global_HI_parms))
+        global_HI_parms = NP.asarray(list(map(float, global_HI_parms)))
     except ValueError:
         raise ValueError('Values in global_EoR_parms must be convertible to float')
     T_xi0 = NP.float(global_HI_parms[0])
@@ -861,12 +862,12 @@ try:
     labels = bl_label.tolist()
 except NameError:
     labels = []
-    labels += [label_prefix+'{0:0d}'.format(i+1) for i in xrange(bl.shape[0])]
+    labels += [label_prefix+'{0:0d}'.format(i+1) for i in range(bl.shape[0])]
 
 try:
     ids = bl_id.tolist()
 except NameError:
-    ids = range(bl.shape[0])
+    ids = list(range(bl.shape[0]))
     
 if not isinstance(mpi_key, str):
     raise TypeError('MPI key must be a string')
@@ -936,7 +937,7 @@ if pfb_method is not None:
             # pfb_edge_channels = pfb_filtered.argsort()[:int(1.0*nchan/coarse_channel_width)]
 
             pfb_edge_channels = NP.hstack((pfb_edge_channels.ravel(), NP.asarray([pfb_edge_channels.min()-coarse_channel_width, pfb_edge_channels.max()+coarse_channel_width])))
-            flagged_edge_channels += [range(max(0,pfb_edge-n_edge_flag[0]),min(nchan,pfb_edge+n_edge_flag[1])) for pfb_edge in pfb_edge_channels]
+            flagged_edge_channels += [list(range(max(0,pfb_edge-n_edge_flag[0]),min(nchan,pfb_edge+n_edge_flag[1]))) for pfb_edge in pfb_edge_channels]
 else:
     pfb_str = 'no_pfb_'
     pfb_str2 = '_no_pfb'
@@ -964,15 +965,15 @@ if noise_bandpass_correct:
     noise_bpcorr = NP.copy(bpcorr)
 
 if not flag_repeat_edge_channels:
-    flagged_edge_channels += [range(0,n_edge_flag[0])]
-    flagged_edge_channels += [range(nchan-n_edge_flag[1],nchan)]
+    flagged_edge_channels += [list(range(0,n_edge_flag[0]))]
+    flagged_edge_channels += [list(range(nchan-n_edge_flag[1],nchan))]
 
 flagged_channels = flagged_edge_channels
 if flag_chan[0] >= 0:
     flag_chan = flag_chan[flag_chan < nchan]
     if bp_flag_repeat:
         flag_chan = NP.mod(flag_chan, coarse_channel_width)
-        flagged_channels += [[i*coarse_channel_width+flagchan for i in range(nchan/coarse_channel_width) for flagchan in flag_chan]]
+        flagged_channels += [[i*coarse_channel_width+flagchan for i in range(old_div(nchan,coarse_channel_width)) for flagchan in flag_chan]]
     else:
         flagged_channels += [flag_chan.tolist()]
 flagged_channels = [x for y in flagged_channels for x in y]
@@ -1024,7 +1025,7 @@ if rank == 0:
         nexten = hdulist['PRIMARY'].header['NEXTEN']
         fitstype = hdulist['PRIMARY'].header['FITSTYPE']
         temperatures = None
-        extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,nexten+1)]
+        extnames = [hdulist[i].header['EXTNAME'] for i in range(1,nexten+1)]
         if fitstype == 'IMAGE':
             eor_simfreq = hdulist['FREQUENCY'].data['Frequency [MHz]']
         else:
@@ -1038,7 +1039,7 @@ if rank == 0:
         if fitstype == 'IMAGE':
             temperatures = hdulist['TEMPERATURE'].data[:,ind_eor_simfreq]
         else:
-            for i in xrange(eor_simfreq.size):
+            for i in range(eor_simfreq.size):
                 if i == 0:
                     temperatures = hdulist[ind_eor_simfreq[i]+1].data['Temperature'].reshape(-1,1)
                 else:
@@ -1743,49 +1744,49 @@ else: # 128 bits per complex sample (double precision)
 
 memory_DFT_matrix = size_DFT_matrix * nbytes_per_complex_sample
 memory_DFT_matrix_per_process = memory_DFT_matrix / nproc
-memory_use_per_process = float(memuse) / nproc
+memory_use_per_process = 1.0 * memuse / nproc
 n_chunks_per_process = NP.ceil(memory_DFT_matrix/memuse)
 n_chunks = NP.ceil(nproc * n_chunks_per_process)
 
 if mpi_on_src:
-    src_chunk_size = int(NP.floor(1.0 * nchan / n_chunks))
+    src_chunk_size = nsrc//n_chunks
     if src_chunk_size == 0:
         raise MemoryError('Too many chunks to fit in usable memory. Try changing number of parallel processes and amount of usable memory. Usually reducing the former or increasing the latter should help avoid this problem.')
-    src_bin_indices = range(0, nsrc, src_chunk_size)
-    src_chunk = range(len(src_bin_indices))
+    src_bin_indices = list(range(0, nsrc, src_chunk_size))
+    src_chunk = list(range(len(src_bin_indices)))
     n_src_chunks = len(src_bin_indices)
 elif mpi_on_freq:
-    frequency_chunk_size = int(NP.floor(1.0 * nchan / n_chunks))
+    frequency_chunk_size = nchan//n_chunks
     if frequency_chunk_size <= 1:
         raise MemoryError('Too many chunks to fit in usable memory. Try changing number of parallel processes and amount of usable memory. Usually reducing the former or increasing the latter should help avoid this problem.')
-    frequency_bin_indices = range(0, nchan, frequency_chunk_size)
+    frequency_bin_indices = list(range(0, nchan, frequency_chunk_size))
     if frequency_bin_indices[-1] == nchan-1:
         if frequency_chunk_size > 2:
             frequency_bin_indices[-1] -= 1
         else:
             warnings.warn('Chunking has run into a weird indexing problem. Rechunking is necessaray. Try changing number of parallel processes and amount of usable memory. Usually reducing either one of these should help avoid this problem.')
             PDB.set_trace()
-    freq_chunk = range(len(frequency_bin_indices))
+    freq_chunk = list(range(len(frequency_bin_indices)))
     n_freq_chunks = len(frequency_bin_indices)
-    n_freq_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(freq_chunk)/nproc
+    n_freq_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(freq_chunk)//nproc
     if len(freq_chunk) % nproc > 0:
         n_freq_chunk_per_rank[:len(freq_chunk)%nproc] += 1
     n_freq_chunk_per_rank = n_freq_chunk_per_rank[::-1] # Reverse for more equal distribution of chunk sizes over processes
     cumm_freq_chunks = NP.concatenate(([0], NP.cumsum(n_freq_chunk_per_rank)))
 else:
-    baseline_chunk_size = int(NP.floor(1.0 * nbl / n_chunks))
+    baseline_chunk_size = nbl//n_chunks
     if baseline_chunk_size == 0:
         raise MemoryError('Too many chunks to fit in usable given memory. Try changing number of parallel processes and amount of usable memory. Usually reducing the former or increasing the latter should help avoid this problem.')
-    baseline_bin_indices = range(0, nbl, baseline_chunk_size)
+    baseline_bin_indices = list(range(0, nbl, baseline_chunk_size))
     if baseline_bin_indices[-1] == nchan-1:
         if baseline_chunk_size > 2:
             baseline_bin_indices[-1] -= 1
         else:
             warnings.warn('Chunking has run into a weird indexing problem. Rechunking is necessaray. Try changing number of parallel processes and amount of usable memory. Usually reducing either one of these should help avoind this problem.')
             PDB.set_trace()
-    bl_chunk = range(len(baseline_bin_indices))
+    bl_chunk = list(range(len(baseline_bin_indices)))
     n_bl_chunks = len(baseline_bin_indices)
-    n_bl_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(bl_chunk)/nproc
+    n_bl_chunk_per_rank = NP.zeros(nproc, dtype=int) + len(bl_chunk)//nproc
     if len(bl_chunk) % nproc > 0:
         n_bl_chunk_per_rank[:len(bl_chunk)%nproc] += 1
     n_bl_chunk_per_rank = n_bl_chunk_per_rank[::-1] # Reverse for more equal distribution of chunk sizes over processes
@@ -1823,7 +1824,7 @@ if mpi_on_src: # MPI based on source multiplexing
             src_altaz = skycoords[m2_lol[j]].transform_to(AltAz(obstime=tobjs[j], location=EarthLocation(lon=telescope['longitude']*U.deg, lat=telescope['latitude']*U.deg, height=telescope['altitude']*U.m)))
             src_altaz_current = NP.hstack((src_altaz.alt.deg.reshape(-1,1), src_altaz.az.deg.reshape(-1,1)))
             roi_ind = NP.where(src_altaz_current[:,0] >= 0.0)[0]
-            n_src_per_rank = NP.zeros(nproc, dtype=int) + roi_ind.size/nproc
+            n_src_per_rank = NP.zeros(nproc, dtype=int) + roi_ind.size//nproc
             if roi_ind.size % nproc > 0:
                 n_src_per_rank[:roi_ind.size % nproc] += 1
             cumm_src_count = NP.concatenate(([0], NP.cumsum(n_src_per_rank)))
@@ -1979,11 +1980,11 @@ elif mpi_on_freq: # MPI based on frequency multiplexing
                 variables = []
                 var = None
                 obj = None
-                for var,obj in locals().iteritems():
+                for var,obj in locals().items():
                     if isinstance(obj, NP.ndarray):
                         variables += [var]
                         numbytes += [obj.nbytes]
-                nGB = NP.asarray(numbytes) / 2.0**30
+                nGB = NP.asarray(numbytes)/(2.0**30)
                 totalmemGB = NP.sum(nGB)
 
             progress.finish()
@@ -2132,7 +2133,7 @@ else: # MPI based on baseline multiplexing
 
             if rank == 0:
                 if plots:
-                    for j in xrange(n_acc):
+                    for j in range(n_acc):
                         src_ra = roi.skymodel.location[roi.info['ind'][j],0]
                         src_dec = roi.skymodel.location[roi.info['ind'][j],1]
                         src_ra[src_ra > 180.0] = src_ra[src_ra > 180.0] - 360.0
@@ -2259,7 +2260,7 @@ if rank == 0:
                 chans_chunk = NP.asarray(chans[chans_chunk_indices]).reshape(-1)
                 nchan_chunk = chans_chunk.size
                 f0_chunk = NP.mean(chans_chunk)
-                bw_chunk_str = '{0:0d}x{1:.1f}_kHz'.format(nchan_chunk, freq_resolution/1e3)
+                bw_chunk_str = '{0:0d}x{1:.1f}_kHz'.format(nchan_chunk, old_div(freq_resolution,1e3))
                 freqchunk_infile = rootdir+project_dir+simid+sim_dir+'_part_{0:0d}'.format(i)
                 if i == 0:
                     simvis = RI.InterferometerArray(None, None, None, init_file=freqchunk_infile)    

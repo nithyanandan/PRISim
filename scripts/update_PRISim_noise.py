@@ -1,5 +1,6 @@
 #!python
 
+from __future__ import division
 import yaml, argparse
 import numpy as NP
 import prisim

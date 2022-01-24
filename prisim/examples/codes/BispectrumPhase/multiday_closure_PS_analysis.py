@@ -1,4 +1,5 @@
-from __future__ import print_function
+from __future__ import print_function, division
+from builtins import map, range
 import copy, glob
 import progressbar as PGB
 import numpy as NP
@@ -157,7 +158,7 @@ if __name__ == '__main__':
 
     PLT.ion()
     if ('1' in plots) or ('1a' in plots) or ('1b' in plots) or ('1c' in plots) or ('1d' in plots):
-        triads = map(tuple, cpDSobj.cPhase.cpinfo['raw']['triads'])
+        triads = list(map(tuple, cpDSobj.cPhase.cpinfo['raw']['triads']))
         ntriads = len(triads)
         lst = cpDSobj.cPhase.cpinfo['raw']['lst']
         ntimes = lst.size
@@ -305,7 +306,7 @@ if __name__ == '__main__':
             for key in timetriad_selection:
                 if timetriad_selection[key] is not None:
                     if key == 'triads':
-                        triads = map(tuple, timetriad_selection[key])
+                        triads = list(map(tuple, timetriad_selection[key]))
                     elif key == 'lstrange':
                         lstrange = timetriad_selection[key]
                         if datastage.lower() == 'native':
@@ -319,7 +320,7 @@ if __name__ == '__main__':
                             lstinds = NP.where(NP.logical_and(lstbins >= lstrange.min(), lstbins <= lstrange.max()))[0]
                 else:
                     if key == 'triads':
-                        triads = map(tuple, cpDSobj.cPhase.cpinfo['raw']['triads'])
+                        triads = list(map(tuple, cpDSobj.cPhase.cpinfo['raw']['triads']))
                     elif key == 'lstrange':
                         if datastage.lower() == 'native':
                             lstbins = cpObj.cpinfo['raw']['lst'][:,dayind]
@@ -340,13 +341,13 @@ if __name__ == '__main__':
                 flags_str = 'noflags'
 
             ncol = 3
-            nrow = min(4, int(NP.ceil(1.0*lstinds.size/ncol)))
-            npages = int(NP.ceil(1.0 * lstinds.size / (nrow*ncol)))
+            nrow = min(4, int(NP.ceil(old_div(1.0*lstinds.size,ncol))))
+            npages = int(NP.ceil(old_div(1.0 * lstinds.size, (nrow*ncol))))
             nlst_remain = lstinds.size
             for pagei in range(npages):
                 if pagei > 0:
                     nlst_remain = lstinds.size - pagei * nrow * ncol
-                    nrow = min(4, int(NP.ceil(1.0*nlst_remain/ncol)))
+                    nrow = min(4, int(NP.ceil(old_div(1.0*nlst_remain,ncol))))
                 fig, axs = PLT.subplots(nrows=nrow, ncols=ncol, sharex=True, sharey=True, figsize=(8,6.4))
                 for i in range(nrow):
                     for j in range(ncol):
@@ -452,7 +453,7 @@ if __name__ == '__main__':
         for key in timetriad_selection:
             if timetriad_selection[key] is not None:
                 if key == 'triads':
-                    triads = map(tuple, timetriad_selection[key])
+                    triads = list(map(tuple, timetriad_selection[key]))
                 elif key == 'lstrange':
                     lstrange = timetriad_selection[key]
                     lstbins = cpObj.cpinfo['processed']['prelim']['lstbins']
@@ -465,7 +466,7 @@ if __name__ == '__main__':
                             raise ValueError('No data found in the specified LST range.')
             else:
                 if key == 'triads':
-                    triads = map(tuple, cpDSobj.cPhase.cpinfo['raw']['triads'])
+                    triads = list(map(tuple, cpDSobj.cPhase.cpinfo['raw']['triads']))
                 elif key == 'lstrange':
                     lstbins = cpObj.cpinfo['processed']['prelim']['lstbins']
                     lstinds = NP.arange(lstbins.size)
@@ -1751,7 +1752,7 @@ if __name__ == '__main__':
         z_theory_HI_PS_files = NP.asarray([fname.split('/')[-1].split('_')[3].split('z')[1] for fname in theory_HI_PS_files], dtype=NP.float)
         h_Planck15 = DS.cosmoPlanck15.h
 
-        z_freq_window_centers = CNST.rest_freq_HI / freq_window_centers - 1
+        z_freq_window_centers = CNST.rest_freq_HI / freq_window_centers - 1.0
         psfile_inds = [NP.argmin(NP.abs(z_theory_HI_PS_files - z_freq_window_center)) for z_freq_window_center in z_freq_window_centers]
 
         simvis_objs = [RI.InterferometerArray(None, None, None, init_file=simvisdir+visfile_prefix) for simvisdir in simvisdirs]
@@ -1888,7 +1889,7 @@ if __name__ == '__main__':
                 indNN_list, blind_ngbrof, blind_ngbrin = LKP.find_NN(simvis_objs[0].baselines, blvctgrp, distance_ULIM=bltol, flatten=True)
                 blvctinds += [blind_ngbrin]
                 blvctrefinds += [blind_ngbrof]
-                blhist, blind_type, bl_binnum, ri = OPS.binned_statistic(blind_ngbrin, values=None, statistic='count', bins=range(blind_ngbrin.max()+2), range=None)
+                blhist, blind_type, bl_binnum, ri = OPS.binned_statistic(blind_ngbrin, values=None, statistic='count', bins=list(range(blind_ngbrin.max()+2)), range=None)
                 blhists += [blhist]
                 blwts_coherent += [NP.sum(blhist**2)]
                 blwts_incoherent += [NP.sum(blhist)]
@@ -1918,7 +1919,7 @@ if __name__ == '__main__':
             rms_noise_K_crosssprod_bin_imag = NP.sqrt(rms_noise_K_dspec_bin_real**2 * rms_noise_K_dspec_bin_imag**2 + rms_noise_K_dspec_bin_real**2 * rms_noise_K_dspec_bin_imag**2) / NP.sqrt(npol * n_pairs_of_batches * n_int_per_field) # in K^2 Hz^2, per baseline
 
             rest_freq_HI = CNST.rest_freq_HI * U.Hz
-            center_redshifts = rest_freq_HI / (freq_window_centers * U.Hz) - 1
+            center_redshifts = rest_freq_HI / (freq_window_centers * U.Hz) - 1.0
             redshifts_ulim = rest_freq_HI / ((freq_window_centers - 0.5 * freq_window_bw) * U.Hz) - 1
             redshifts_llim = rest_freq_HI / ((freq_window_centers + 0.5 * freq_window_bw) * U.Hz) - 1
 

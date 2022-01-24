@@ -1,6 +1,5 @@
 #!python
 
-from __future__ import division
 import ast
 import numpy as NP
 import healpy as HP
@@ -186,7 +185,7 @@ def write_HEALPIX(beaminfo, outfile, outfmt='HDF5'):
     if outfmt.lower() == 'hdf5':
         with h5py.File(outfilename, 'w') as fileobj:
             hdr_grp = fileobj.create_group('header')
-            hdr_grp['npol'] = len(list(beaminfo['gains'].keys()))
+            hdr_grp['npol'] = len(beaminfo['gains'].keys())
             hdr_grp['source'] = beaminfo['source']
             hdr_grp['nchan'] = beaminfo['freqs'].size
             hdr_grp['nside'] = beaminfo['nside']

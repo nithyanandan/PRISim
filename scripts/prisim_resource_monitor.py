@@ -1,6 +1,7 @@
 #!python
 
-from __future__ import print_function
+from __future__ import print_function, division
+from builtins import map
 import numpy as NP
 import os
 import subprocess
@@ -14,7 +15,7 @@ def monitor_memory(pids, tint=2.0):
     if not isinstance(pids , list):
         raise TypeError('Input PIDs must be specified as a list')
     try:
-        pids = map(int, pids)
+        pids = list(map(int, pids))
     except ValueError:
         raise ValueError('Input PIDs could not be specified as integers. Check inputs again.')
         

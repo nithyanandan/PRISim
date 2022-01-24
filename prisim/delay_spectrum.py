@@ -1,5 +1,5 @@
-from __future__ import division
-from __future__ import print_function
+from __future__ import print_function, division
+from builtins import range
 import numpy as NP
 import multiprocessing as MP
 import itertools as IT
@@ -941,7 +941,7 @@ class DelaySpectrum(object):
                 argument_init = True
                 print('\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...')
 
-            extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,len(hdulist))]
+            extnames = [hdulist[i].header['EXTNAME'] for i in range(1,len(hdulist))]
             try:
                 self.df = hdulist[0].header['freq_resolution']
             except KeyError:
@@ -1756,8 +1756,8 @@ class DelaySpectrum(object):
             list_of_vis_lag = []
             list_of_dkern = []
             list_of_cboxes = []
-            for bli in xrange(self.ia.baselines.shape[0]):
-                for ti in xrange(self.n_acc):
+            for bli in range(self.ia.baselines.shape[0]):
+                for ti in range(self.n_acc):
                     list_of_skyvis_lag += [skyvis_lag[bli,:,ti]]
                     list_of_vis_lag += [vis_lag[bli,:,ti]]
                     list_of_dkern += [lag_kernel[bli,:,ti]]
@@ -1769,7 +1769,7 @@ class DelaySpectrum(object):
             list_of_thresholds = [threshold] * self.ia.baselines.shape[0]*self.n_acc
             list_of_threshold_types = [threshold_type] * self.ia.baselines.shape[0]*self.n_acc
             list_of_verbosity = [verbose] * self.ia.baselines.shape[0]*self.n_acc
-            list_of_pid = range(self.ia.baselines.shape[0]*self.n_acc)
+            list_of_pid = list(range(self.ia.baselines.shape[0]*self.n_acc))
             # list_of_pid = [None] * self.ia.baselines.shape[0]*self.n_acc
             list_of_progressbars = [True] * self.ia.baselines.shape[0]*self.n_acc
             list_of_progressbar_ylocs = NP.arange(self.ia.baselines.shape[0]*self.n_acc) % min(nproc, WM.term.height)
@@ -1779,8 +1779,8 @@ class DelaySpectrum(object):
             list_of_noiseless_cleanstates = pool.map(complex1dClean_arg_splitter, IT.izip(list_of_skyvis_lag, list_of_dkern, list_of_cboxes, list_of_gains, list_of_maxiter, list_of_thresholds, list_of_threshold_types, list_of_verbosity, list_of_progressbars, list_of_pid, list_of_progressbar_ylocs))
             list_of_noisy_cleanstates = pool.map(complex1dClean_arg_splitter, IT.izip(list_of_vis_lag, list_of_dkern, list_of_cboxes, list_of_gains, list_of_maxiter, list_of_thresholds, list_of_threshold_types, list_of_verbosity, list_of_progressbars, list_of_pid, list_of_progressbar_ylocs))
                 
-            for bli in xrange(self.ia.baselines.shape[0]):
-                for ti in xrange(self.n_acc):
+            for bli in range(self.ia.baselines.shape[0]):
+                for ti in range(self.n_acc):
                     ind = bli * self.n_acc + ti
                     noiseless_cleanstate = list_of_noiseless_cleanstates[ind]
                     ccomponents_noiseless[bli,:,ti] = noiseless_cleanstate['cc']
@@ -1790,9 +1790,9 @@ class DelaySpectrum(object):
                     ccomponents_noisy[bli,:,ti] = noisy_cleanstate['cc']
                     ccres_noisy[bli,:,ti] = noisy_cleanstate['res']
         else:
-            for snap_iter in xrange(self.n_acc):
+            for snap_iter in range(self.n_acc):
                 progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(marker='-', left=' |', right='| '), PGB.Counter(), '/{0:0d} Baselines '.format(self.ia.baselines.shape[0]), PGB.ETA()], maxval=self.ia.baselines.shape[0]).start()
-                for bl_iter in xrange(self.ia.baselines.shape[0]):
+                for bl_iter in range(self.ia.baselines.shape[0]):
                     clean_area[NP.logical_and(lags <= self.horizon_delay_limits[snap_iter,bl_iter,1]+clean_window_buffer/bw, lags >= self.horizon_delay_limits[snap_iter,bl_iter,0]-clean_window_buffer/bw)] = 1
         
                     cleanstate = complex1dClean(skyvis_lag[bl_iter,:,snap_iter], lag_kernel[bl_iter,:,snap_iter], cbox=clean_area, gain=gain, maxiter=maxiter, threshold=threshold, threshold_type=threshold_type, verbose=verbose)

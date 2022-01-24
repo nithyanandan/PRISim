@@ -1,6 +1,5 @@
-from __future__ import division
-from __future__ import print_function
-from __future__ import absolute_import
+from __future__ import print_function, division, absolute_import
+from builtins import map, zip, str, range
 import numpy as NP
 import scipy.constants as FCNST
 from scipy import interpolate, ndimage
@@ -972,7 +971,7 @@ def hexagon_generator(spacing, n_total=None, n_side=None, orientation=None,
     if len(xloc) != len(yloc):
         raise ValueError('Sizes of x- and y-locations do not agree')
 
-    xy = zip(xloc, yloc)
+    xy = list(zip(xloc, yloc))
     if len(xy) != n_total:
         raise ValueError('Sizes of x- and y-locations do not agree with n_total')
 
@@ -988,7 +987,7 @@ def hexagon_generator(spacing, n_total=None, n_side=None, orientation=None,
     if center is not None:   # Shift the center
         xy += center
 
-    return (NP.asarray(xy), map(str, range(n_total)))
+    return (NP.asarray(xy), list(map(str, list(range(n_total)))))
 
 ################################################################################
 
@@ -1102,7 +1101,7 @@ def rectangle_generator(spacing, n_side, orientation=None, center=None):
     if center is not None:   # Shift the center
         xy += center
 
-    return (NP.asarray(xy), map(str, range(n_total)))
+    return (NP.asarray(xy), list(map(str, list(range(n_total)))))
 
 ################################################################################
 
@@ -1179,7 +1178,7 @@ def circular_antenna_array(antsize, minR, maxR=None):
 
     xy = NP.hstack((x.reshape(-1,1), y.reshape(-1,1)))
 
-    return (xy, map(str, range(NP.sum(nants))))
+    return (xy, list(map(str, list(range(NP.sum(nants))))))
 
 ################################################################################
 
@@ -1301,7 +1300,7 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
                 raise ValueError('Dimensions of ant_label and antenna_locations do not match.')
             ant_label = ant_label.tolist()
     else:
-        ant_label = ['{0:0d}'.format(i) for i in xrange(num_ants)]
+        ant_label = ['{0:0d}'.format(i) for i in range(num_ants)]
 
     if ant_id is not None:
         if isinstance(ant_id, list):
@@ -1312,56 +1311,56 @@ def baseline_generator(antenna_locations, ant_label=None, ant_id=None,
                 raise ValueError('Dimensions of ant_id and antenna_locations do not match.')
             ant_id = ant_id.tolist()
     else:
-        ant_id = range(num_ants)
+        ant_id = list(range(num_ants))
 
     if inp_type == 'loo': # List of objects
         if auto:
-            baseline_locations = [antenna_locations[j]-antenna_locations[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            baseline_locations = [antenna_locations[j]-antenna_locations[i] for i in range(0,num_ants) for j in range(0,num_ants) if j >= i]
             # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j >= i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j >= i]
         else:
             baseline_locations = [antenna_locations[j]-antenna_locations[i] for i in range(0,num_ants) for j in range(0,num_ants) if j > i]
             # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
-            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
-            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j > i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j > i]
         if conjugate:
-            baseline_locations += [antenna_locations[j]-antenna_locations[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            baseline_locations += [antenna_locations[j]-antenna_locations[i] for i in range(0,num_ants) for j in range(0,num_ants) if j < i]
             # antpair_labels += [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            antpair_labels += [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            antpair_ids += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antpair_labels += [(ant_label[j], ant_label[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j < i]
+            antpair_ids += [(ant_id[j], ant_id[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j < i]
     elif inp_type == 'lot': # List of tuples
         if auto:
-            baseline_locations = [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            baseline_locations = [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in range(0,num_ants) for j in range(0,num_ants) if j >= i]
             # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j >= i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j >= i]
         else:
-            baseline_locations = [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            baseline_locations = [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in range(0,num_ants) for j in range(0,num_ants) if j > i]
             # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
-            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
-            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j > i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j > i]
         if conjugate:
-            baseline_locations += [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            baseline_locations += [tuple((antenna_locations[j][0]-antenna_locations[i][0], antenna_locations[j][1]-antenna_locations[i][1], antenna_locations[j][2]-antenna_locations[i][2])) for i in range(0,num_ants) for j in range(0,num_ants) if j < i]
             # antpair_labels += [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            antpair_labels += [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            antpair_ids += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antpair_labels += [(ant_label[j], ant_label[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j < i]
+            antpair_ids += [(ant_id[j], ant_id[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j < i]
     elif inp_type == 'npa': # Numpy array
         if auto:
-            baseline_locations = [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            baseline_locations = [antenna_locations[j,:]-antenna_locations[i,:] for i in range(0,num_ants) for j in range(0,num_ants) if j >= i]
             # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
-            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j >= i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j >= i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j >= i]
         else:
-            baseline_locations = [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            baseline_locations = [antenna_locations[j,:]-antenna_locations[i,:] for i in range(0,num_ants) for j in range(0,num_ants) if j > i]
             # antpair_labels = [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
-            antpair_labels = [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
-            antpair_ids = [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j > i]
+            antpair_labels = [(ant_label[j], ant_label[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j > i]
+            antpair_ids = [(ant_id[j], ant_id[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j > i]
         if conjugate:
-            baseline_locations += [antenna_locations[j,:]-antenna_locations[i,:] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            baseline_locations += [antenna_locations[j,:]-antenna_locations[i,:] for i in range(0,num_ants) for j in range(0,num_ants) if j < i]
             # antpair_labels += [ant_label[j]+'-'+ant_label[i] for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            antpair_labels += [(ant_label[j], ant_label[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
-            antpair_ids += [(ant_id[j], ant_id[i]) for i in xrange(0,num_ants) for j in xrange(0,num_ants) if j < i]
+            antpair_labels += [(ant_label[j], ant_label[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j < i]
+            antpair_ids += [(ant_id[j], ant_id[i]) for i in range(0,num_ants) for j in range(0,num_ants) if j < i]
 
         baseline_locations = NP.asarray(baseline_locations)
         maxlen = max(len(albl) for albl in ant_label)
@@ -1455,7 +1454,7 @@ def uniq_baselines(baseline_locations, redundant=None):
         else:
             ## if numpy.__version__ < 1.9.0
             redn_ind_counts = [(i,tup[1]) for i,tup in enumerate(count_blstr) if tup[1] > 1]
-            redn_ind, counts = zip(*redn_ind_counts)
+            redn_ind, counts = list(zip(*redn_ind_counts))
             retind = ind[NP.asarray(redn_ind)]
             counts = NP.asarray(counts)
             
@@ -1872,9 +1871,9 @@ def getBaselineInfo(inpdict):
     bl_orig[neg_blo_ind,:] = -1.0 * bl_orig[neg_blo_ind,:]
     blo = NP.angle(bl_orig[:,0] + 1j * bl_orig[:,1], deg=True)
     maxlen = max(max(len(albl[0]), len(albl[1])) for albl in bl_label_orig)
-    bl_label_orig = [tuple(reversed(bl_label_orig[i])) if neg_blo_ind[i] else bl_label_orig[i] for i in xrange(bl_label_orig.size)]
+    bl_label_orig = [tuple(reversed(bl_label_orig[i])) if neg_blo_ind[i] else bl_label_orig[i] for i in range(bl_label_orig.size)]
     bl_label_orig = NP.asarray(bl_label_orig, dtype=[('A2', '|S{0:0d}'.format(maxlen)), ('A1', '|S{0:0d}'.format(maxlen))])
-    bl_id_orig = [tuple(reversed(bl_id_orig[i])) if neg_blo_ind[i] else bl_id_orig[i] for i in xrange(bl_id_orig.size)]
+    bl_id_orig = [tuple(reversed(bl_id_orig[i])) if neg_blo_ind[i] else bl_id_orig[i] for i in range(bl_id_orig.size)]
     bl_id_orig = NP.asarray(bl_id_orig, dtype=[('A2', int), ('A1', int)])
     bl_length_orig = NP.sqrt(NP.sum(bl_orig**2, axis=1))
     sortind_orig = NP.argsort(bl_length_orig, kind='mergesort')
@@ -1971,7 +1970,7 @@ def getBaselineInfo(inpdict):
     allinds = [allinds[i] for i in range(subselect_bl_ind.size) if subselect_bl_ind[i]]
     
     if use_HI_monopole:
-        bllstr = map(str, bl_length)
+        bllstr = list(map(str, bl_length))
         uniq_bllstr, ind_uniq_bll = NP.unique(bllstr, return_index=True)
         count_uniq_bll = [bllstr.count(ubll) for ubll in uniq_bllstr]
         count_uniq_bll = NP.asarray(count_uniq_bll)
@@ -2075,7 +2074,7 @@ def getBaselineGroupKeys(inp_labels, blgroups_reversemap):
     blgrpkeys = []
     flip_order = []
     for lbl in inp_labels:
-        if lbl in blgroups_reversemap.keys():
+        if lbl in list(blgroups_reversemap.keys()):
             if isinstance(blgroups_reversemap[lbl], NP.ndarray):
                 blgrpkeys += [tuple(blgroups_reversemap[lbl][0])]
             elif isinstance(blgroups_reversemap[lbl], tuple):
@@ -2083,7 +2082,7 @@ def getBaselineGroupKeys(inp_labels, blgroups_reversemap):
             else:
                 raise TypeError('Invalid type found in blgroups_reversemap')
             flip_order += [False]
-        elif lbl[::-1] in blgroups_reversemap.keys():
+        elif lbl[::-1] in list(blgroups_reversemap.keys()):
             if isinstance(blgroups_reversemap[lbl[::-1]], NP.ndarray):
                 blgrpkeys += [tuple(blgroups_reversemap[lbl[::-1]][0])]
             elif isinstance(blgroups_reversemap[lbl[::-1]], tuple):
@@ -2386,11 +2385,11 @@ def antenna_power(skymodel, telescope_info, pointing_info, freq_scale=None):
     else:
         sky_altaz = NP.copy(skymodel.location)
 
-    sky_altaz = NP.split(sky_altaz, range(0,sky_altaz.shape[0],n_src)[1:], axis=0)  # Split sky_altaz into a list of arrays
+    sky_altaz = NP.split(sky_altaz, list(range(0,sky_altaz.shape[0],n_src))[1:], axis=0)  # Split sky_altaz into a list of arrays
     retval = []
 
     progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=len(sky_altaz)).start()
-    for i in xrange(len(sky_altaz)):
+    for i in range(len(sky_altaz)):
         pinfo = {}
         pinfo['pointing_center'] = pointings_altaz[i,:]
         pinfo['pointing_coords'] = 'altaz'
@@ -3094,7 +3093,7 @@ class GainInfo(object):
                                         dims += [temp_axes_order[ax]]
                                 dims = NP.asarray(dims)
                                 interpf = []
-                                for labelind in xrange(gains.shape[0]):
+                                for labelind in range(gains.shape[0]):
                                     if dims.size == 1:
                                         interpf_real = interpolate.interp1d(self.gaintable[gainkey][dims[0]], gains[labelind,:,:].real.ravel(), kind=kind, bounds_error=True)
                                         interpf_imag = interpolate.interp1d(self.gaintable[gainkey][dims[0]], gains[labelind,:,:].imag.ravel(), kind=kind, bounds_error=True)
@@ -3152,7 +3151,7 @@ class GainInfo(object):
                                         dims += [temp_axes_order[ax]]
                                 dims = NP.asarray(dims)
                                 interpf = []
-                                for labelind in xrange(gains.shape[0]):
+                                for labelind in range(gains.shape[0]):
                                     if dims.size == 1:
                                         if smoothness is None:
                                             smoothness = self.gaintable[gainkey][dims[0]].size
@@ -3311,7 +3310,7 @@ class GainInfo(object):
                                 raise IndexError('Some antenna gains could not be found')
                             g1_conj = None
                             g2 = None
-                            for i in xrange(ind1.size):
+                            for i in range(ind1.size):
                                 if self.interpfuncs[key]['dims'].size == 1:
                                     if g1_conj is None:
                                         g1_conj = (self.interpfuncs[key]['interp']['real'][ind1[i]](inp) - 1j * self.interpfuncs[key]['interp']['imag'][ind1[i]](inp)).reshape(1,nchan,ntimes)
@@ -3528,7 +3527,7 @@ class GainInfo(object):
                                 raise IndexError('Some antenna gains could not be found')
                             g1_conj = None
                             g2 = None
-                            for i in xrange(ind1.size):
+                            for i in range(ind1.size):
                                 if self.splinefuncs[key]['dims'].size == 1:
                                     if g1_conj is None:
                                         g1_conj = (self.splinefuncs[key]['interp']['real'][ind1[i]](inp) - 1j * self.splinefuncs[key]['interp']['imag'][ind1[i]](inp)).reshape(1,nchan,ntimes)
@@ -4087,7 +4086,7 @@ class ROI_parameters(object):
                 warnings.warn('\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...')
             if not argument_init:
                 n_obs = hdulist[0].header['n_obs']
-                extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,len(hdulist))]
+                extnames = [hdulist[i].header['EXTNAME'] for i in range(1,len(hdulist))]
 
                 self.info = {}
                 self.info['radius'] = []
@@ -5407,7 +5406,7 @@ class InterferometerArray(object):
                     argument_init = True
                     warnings.warn('\tinit_file provided but could not open the initialization file. Attempting to initialize with input parameters...')
 
-                extnames = [hdulist[i].header['EXTNAME'] for i in xrange(1,len(hdulist))]
+                extnames = [hdulist[i].header['EXTNAME'] for i in range(1,len(hdulist))]
 
                 self.simparms_file = None
                 if 'simparms' in hdulist[0].header:
@@ -5540,7 +5539,7 @@ class InterferometerArray(object):
                     # self.labels = hdulist['LABELS'].data.tolist()
                     a1 = hdulist['LABELS'].data['A1']
                     a2 = hdulist['LABELS'].data['A2']
-                    self.labels = zip(a2,a1)
+                    self.labels = list(zip(a2,a1))
                 else:
                     self.labels = ['B{0:0d}'.format(i+1) for i in range(self.baseline_lengths.size)]
 
@@ -6351,10 +6350,10 @@ class InterferometerArray(object):
                 warnings.warn('\t\tDetecting memory shortage. Serializing over sky direction.')
                 downsize_factor = NP.ceil(memory_required/float(memory_available))
                 n_src_stepsize = int(len(m2)/downsize_factor)
-                src_indices = range(0,len(m2),n_src_stepsize)
+                src_indices = list(range(0,len(m2),n_src_stepsize))
                 if memsave:
                     warnings.warn('\t\tEnforcing single precision computations.')
-                    for i in xrange(len(src_indices)):
+                    for i in range(len(src_indices)):
                         phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float32) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float32) - pc_delay_offsets.astype(NP.float32).reshape(1,-1,1)) * self.channels.astype(NP.float32).reshape(1,1,-1)).astype(NP.complex64, copy=False)
                         if vis_wts is not None:
                             phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,:].astype(NP.float32)
@@ -6366,7 +6365,7 @@ class InterferometerArray(object):
                             if gradient_mode.lower() == 'baseline':
                                 skyvis_gradient += NP.sum(skypos_dircos_roi[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis,NP.newaxis].astype(NP.float32) * phase_matrix[:,NP.newaxis,:,:], axis=0)
                 else:
-                    for i in xrange(len(src_indices)):
+                    for i in range(len(src_indices)):
                         phase_matrix = NP.exp(-1j * NP.asarray(2.0 * NP.pi).astype(NP.float64) * (self.geometric_delays[-1][src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,NP.newaxis].astype(NP.float64) - pc_delay_offsets.astype(NP.float64).reshape(1,-1,1)) * self.channels.astype(NP.float64).reshape(1,1,-1)).astype(NP.complex128, copy=False)
                         if vis_wts is not None:
                             phase_matrix *= vis_wts[src_indices[i]:min(src_indices[i]+n_src_stepsize,len(m2)),:,:].astype(NP.float64)
@@ -6404,7 +6403,7 @@ class InterferometerArray(object):
         variables = []
         var = None
         obj = None
-        for var,obj in locals().iteritems():
+        for var,obj in locals().items():
             if isinstance(obj, NP.ndarray):
                 variables += [var]
                 numbytes += [obj.nbytes]
@@ -6638,7 +6637,7 @@ class InterferometerArray(object):
             print('\tPreparing to observe in {0} mode'.format(mode))
 
         if verbose:
-            milestones = range(max(1,int(n_acc/10)), int(n_acc), max(1,int(n_acc/10)))
+            milestones = list(range(max(1,n_acc//10), int(n_acc), max(1,n_acc//10)))
             progress = PGB.ProgressBar(widgets=[PGB.Percentage(), PGB.Bar(), PGB.ETA()], maxval=n_acc).start()
         for i in range(n_acc):
             timestamp = str(DT.datetime.now())
@@ -6857,7 +6856,7 @@ class InterferometerArray(object):
             nbl = len(self.bl_reversemap)
 
         if self.labels.size < nbl:
-            label_keys = NP.asarray(blgroups.keys(), dtype=self.labels.dtype)
+            label_keys = NP.asarray(list(blgroups.keys()), dtype=self.labels.dtype)
             for label_key in label_keys:
                 if label_key not in self.labels:
                     if NP.asarray([tuple(reversed(label_key))], dtype=self.labels.dtype)[0] not in self.labels:
@@ -6866,7 +6865,7 @@ class InterferometerArray(object):
                         label_key = NP.asarray([tuple(reversed(label_key))], dtype=self.labels.dtype)[0]
                 if label_key.dtype != blgroups[tuple(label_key)].dtype:
                     warnings.warn('Datatype of attribute labels does not match that of the keys in attribute blgroups. Need to fix. Processing with forced matching of the two datatypes')
-                if tuple(label_key) not in map(tuple, blgroups[tuple(label_key)]):
+                if tuple(label_key) not in list(map(tuple, blgroups[tuple(label_key)])):
                 # if NP.isin(label_key, blgroups[tuple(label_key)], invert=True):
                 # if label_key not in blgroups[tuple(label_key)]:
                     # blgroups[tuple(label_key)] += [label_key]
@@ -8034,7 +8033,7 @@ class InterferometerArray(object):
             if NP.any(ind >= self.baselines.shape[0]):
                 raise IndexError('Out of range indices found.')
 
-            self.labels = [tuple(reversed(self.labels[i])) if i in ind else self.labels[i] for i in xrange(len(self.labels))]
+            self.labels = [tuple(reversed(self.labels[i])) if i in ind else self.labels[i] for i in range(len(self.labels))]
             self.baselines[ind,:] = -self.baselines[ind,:]
             self.baseline_orientations = NP.angle(self.baselines[:,0] + 1j * self.baselines[:,1])
             if self.vis_freq is not None:

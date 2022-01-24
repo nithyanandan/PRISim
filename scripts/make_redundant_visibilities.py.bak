@@ -1,7 +1,5 @@
 #!python
 
-from __future__ import division
-from builtins import zip
 import yaml
 import argparse
 import numpy as NP

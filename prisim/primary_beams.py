@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import print_function, division
 import numpy as NP 
 import scipy.constants as FCNST
 import scipy.special as SPS
