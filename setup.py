@@ -1,9 +1,6 @@
-from __future__ import print_function
-import glob
-import os
-import re
+from __future__ import print_function, unicode_literals
+import glob, os, re
 from subprocess import Popen, PIPE
-
 from setuptools import setup, find_packages
 
 githash = 'unknown'
@@ -16,13 +13,76 @@ if os.path.isdir(os.path.dirname(os.path.abspath(__file__)) + '/.git'):
             githash = 'unknown'
     except EnvironmentError:
         print("unable to run git, assuming githash to be unknown")
-githash = githash.replace('\n', '')
+githash = githash.decode('utf-8').replace('\n', '')
 
 with open(os.path.dirname(os.path.abspath(__file__)) + '/prisim/githash.txt', 'w+') as githash_file:
     githash_file.write(githash)
 
-metafile = open(os.path.dirname(os.path.abspath(__file__)) + '/prisim/__init__.py').read()
-metadata = dict(re.findall("__([a-z]+)__\s*=\s*'([^']+)'", metafile))
+with open(os.path.dirname(os.path.abspath(__file__)) + '/prisim/__init__.py') as metafile:
+    metafile_contents = metafile.read()
+    metadata = dict(re.findall("__([a-z]+)__\s*=\s*'([^']+)'", metafile_contents))
+
+if sys.version_info.major == 2:
+    pkg_data={b'prisim': ['*.txt', 'examples/simparms/*.yaml',
+                          'examples/schedulers/*.txt',
+                          'examples/dbparms/*.yaml',
+                          'examples/ioparms/*.yaml',
+                          'examples/codes/BispectrumPhase/*.yaml',
+                          'examples/codes/BispectrumPhase/*.py',
+                          'examples/codes/BispectrumPhase/*.ipynb',
+                          'data/catalogs/*.txt', 'data/catalogs/*.csv',
+                          'data/catalogs/*.fits', 'data/beams/*.hmap',
+                          'data/beams/*.txt', 'data/beams/*.hdf5',
+                          'data/beams/*.FITS', 'data/array_layouts/*.txt',
+                          'data/phasedarray_layouts/*.txt',
+                          'data/bandpass/*.fits', 'data/bandpass/*.txt']}
+else:
+    pkg_data={'prisim': ['*.txt', 'examples/simparms/*.yaml',
+                         'examples/schedulers/*.txt',
+                         'examples/dbparms/*.yaml',
+                         'examples/ioparms/*.yaml',
+                         'examples/codes/BispectrumPhase/*.yaml',
+                         'examples/codes/BispectrumPhase/*.py',
+                         'examples/codes/BispectrumPhase/*.ipynb',
+                         'data/catalogs/*.txt', 'data/catalogs/*.csv',
+                         'data/catalogs/*.fits', 'data/beams/*.hmap',
+                         'data/beams/*.txt', 'data/beams/*.hdf5',
+                         'data/beams/*.FITS', 'data/array_layouts/*.txt',
+                         'data/phasedarray_layouts/*.txt',
+                         'data/bandpass/*.fits', 'data/bandpass/*.txt']}
+    
+if sys.version_info.major == 2:
+    install_req_list=['astropy>=1.0, <3.0',
+                      'astroutils @ git+git://github.com/nithyanandan/AstroUtils',
+                      'healpy>=1.5.3',
+                      'ipdb>=0.6.1',
+                      'matplotlib>=1.4.3, <3.0',
+                      'mpi4py>=1.2.2',
+                      'numpy>=1.8.1',
+                      'progressbar>=2.3',
+                      'psutil>=2.2.1',
+                      'pyephem>=3.7.5.3',
+                      'pyyaml>=3.11',
+                      'scipy>=0.15.1',
+                      'h5py>=2.6.0',
+                      'pyuvdata>=1.1',
+                      'gdown']
+else:
+    install_req_list=['astropy',
+                      'astroutils @ git+git://github.com/nithyanandan/AstroUtils',
+                      'healpy',
+                      'ipdb',
+                      'matplotlib',
+                      'mpi4py',
+                      'numpy',
+                      'progressbar',
+                      'psutil',
+                      'pyyaml',
+                      'scipy',
+                      'h5py',
+                      'pyuvdata',
+                      'gdown']
+    
 
 setup(name='PRISim',
       version=metadata['version'],
@@ -40,38 +100,9 @@ setup(name='PRISim',
                    'Topic :: Scientific/Engineering :: Astronomy',
                    'Topic :: Utilities'],
       packages=find_packages(),
-      package_data={'prisim': ['*.txt', 'examples/simparms/*.yaml',
-                               'examples/schedulers/*.txt',
-                               'examples/dbparms/*.yaml',
-                               'examples/ioparms/*.yaml',
-                               'examples/codes/BispectrumPhase/*.yaml',
-                               'examples/codes/BispectrumPhase/*.py',
-                               'examples/codes/BispectrumPhase/*.ipynb',
-                               'data/catalogs/*.txt', 'data/catalogs/*.csv',
-                               'data/catalogs/*.fits', 'data/beams/*.hmap',
-                               'data/beams/*.txt', 'data/beams/*.hdf5',
-                               'data/beams/*.FITS', 'data/array_layouts/*.txt',
-                               'data/phasedarray_layouts/*.txt',
-                               'data/bandpass/*.fits', 'data/bandpass/*.txt']},
+      package_data=pkg_data,
       include_package_data=True,
       scripts=glob.glob('scripts/*.py'),
-      install_requires=[
-          'astropy>=1.0, <3.0',
-          'astroutils @ git+git://github.com/nithyanandan/AstroUtils',
-          'healpy>=1.5.3',
-          'ipdb>=0.6.1',
-          'matplotlib>=1.4.3, <3.0',
-          'mpi4py>=1.2.2',
-          'numpy>=1.8.1',
-          'progressbar>=2.3',
-          'psutil>=2.2.1',
-          'pyephem>=3.7.5.3',
-          'pyyaml>=3.11',
-          'scipy>=0.15.1',
-          'h5py>=2.6.0',
-          'pyuvdata>=1.1',
-          'gdown',
-          'aipy',
-      ],
+      install_requires=install_req_list,
       tests_require=['pytest'],
       zip_safe=False)

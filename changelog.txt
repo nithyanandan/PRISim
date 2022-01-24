@@ -1,3 +1,13 @@
+From 02c5667 (py3):
+==================
+
+In setup.py,
+
+(*) Read metadata file using "with" statement
+(*) Modify handling of unicode_literals for package_data
+(*) Remove pyephem requirements in install for Python 3
+(*) Provide appropriate install list depending on Python version
+
 From 1e90968 (py3):
 ==================
 
